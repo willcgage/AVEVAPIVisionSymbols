@@ -1,0 +1,229 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Profile</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxrad-title">Title</label>
+            <input id="pvxrad-title" type="text" ng-model="config.Title" placeholder="Profile" />
+        </div>
+        <div class="pvx-cfg-hint">A fingerprint answers <em>"does this asset still look like it used to"</em>. It is built for recognising a changed outline, and it is a poor instrument for comparing magnitudes &mdash; the axes carry different units and each is normalised separately, so a longer spoke does not mean a bigger number. Use a ranked bar chart when the question is "which is largest".</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-stat">Statistic</label>
+            <select id="pvxrad-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Everything except <em>Current value</em> is calculated by PI Vision over the display's time range.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-maxaxes">Maximum axes</label>
+            <input id="pvxrad-maxaxes" type="number" ng-model="config.MaxAxes" min="3" max="24" />
+        </div>
+        <div class="pvx-cfg-hint">Beyond about a dozen spokes the labels collide and the outline stops being memorable. Extra sources are dropped from the end and counted in the footer. Three axes is the minimum &mdash; fewer is a line, not a shape.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axis scaling</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-scalemode">Scale</label>
+            <select id="pvxrad-scalemode" ng-model="config.ScaleMode">
+                <option value="perAxisData">Per axis, from the data</option>
+                <option value="perAxisFixed">Per axis, fixed limits</option>
+                <option value="shared">One shared scale</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Per axis, fixed limits</strong> is the only mode where the shape means the same thing tomorrow as it does today, because the limits do not move when the data does. Use it for any display you intend to save.<br />
+            <strong>Per axis, from the data</strong> runs each axis from zero to its own largest value on screen, so the same outline can describe different readings on different days &mdash; and the larger of the two profiles always touches the same radius, which means you are reading the <em>gap</em> between them, not the outline. It also needs two values on an axis to have an extent at all, so with <em>Current only</em> selected there is nothing to measure and every axis falls back to the shared scale (the footer says so).<br />
+            <strong>One shared scale</strong> puts every axis on the same numbers. Honest only when the units genuinely match &mdash; otherwise the °F axis buries the mils axis at the centre.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxrad-limits">Axis limits</label>
+            <textarea id="pvxrad-limits" ng-model="config.AxisLimits" rows="2"
+                      placeholder="0:200, 40:90, 0:100"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">One <code>min:max</code> entry per axis, comma separated, in the same order as the data sources. Leave an entry blank (or between two commas) to let that axis use the data extent. Malformed entries do the same and are reported in the footer, so a typo in one axis never blanks the others.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Profiles</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-seriesmode">Series</label>
+            <select id="pvxrad-seriesmode" ng-model="config.SeriesMode">
+                <option value="single">Current only</option>
+                <option value="reference">Current over a reference</option>
+                <option value="compare">Compare two halves</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Current over a reference</strong> and <strong>Compare two halves</strong> both split your data sources down the middle: the <em>last</em> half becomes the second profile and is paired positionally with the first half, so source 1 shares an axis with source (N/2)+1. Add the "known good" attributes in the same order as the live ones. An odd source count leaves one unpaired; it is dropped and named in the footer. The reference is drawn behind and dashed; in compare mode both are filled equally.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-curlabel">Current label</label>
+            <input id="pvxrad-curlabel" type="text" ng-model="config.CurrentLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-reflabel">Reference label</label>
+            <input id="pvxrad-reflabel" type="text" ng-model="config.ReferenceLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Shape</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-fill">Fill opacity</label>
+            <input id="pvxrad-fill" type="number" ng-model="config.FillOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-hint">0 leaves the outline only, which is easier to read when two profiles overlap heavily.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-linew">Line width</label>
+            <input id="pvxrad-linew" type="number" ng-model="config.LineWidth" min="0.5" max="8" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-points">Show points</label>
+            <input id="pvxrad-points" type="checkbox" ng-model="config.ShowPoints" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-pointr">Point radius</label>
+            <input id="pvxrad-pointr" type="number" ng-model="config.PointRadius" min="1" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-start">Start angle (&deg;)</label>
+            <input id="pvxrad-start" type="number" ng-model="config.StartAngle" min="-360" max="360" />
+        </div>
+        <div class="pvx-cfg-hint">0&deg; puts the first axis at 12 o'clock; positive turns clockwise.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Web</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-rings">Show rings</label>
+            <input id="pvxrad-rings" type="checkbox" ng-model="config.ShowRings" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-ringstyle">Ring style</label>
+            <select id="pvxrad-ringstyle" ng-model="config.RingStyle">
+                <option value="polygon">Polygon</option>
+                <option value="circle">Circle</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-ringcount">Ring count</label>
+            <input id="pvxrad-ringcount" type="number" ng-model="config.RingCount" min="1" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-spokes">Show axis lines</label>
+            <input id="pvxrad-spokes" type="checkbox" ng-model="config.ShowAxisLines" />
+        </div>
+        <div class="pvx-cfg-hint">Below roughly 220&times;180 px the web and the labels are dropped automatically and only the outline is drawn; below 140&times;100 px the legend goes too. A small tile still has to show a shape.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-axislabels">Show axis labels</label>
+            <input id="pvxrad-axislabels" type="checkbox" ng-model="config.ShowAxisLabels" />
+        </div>
+        <div class="pvx-cfg-hint">Labels sit outside the outer ring and are truncated to the real space left at their side of the frame. The full name is always in the tooltip.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-valuelabels">Show values at points</label>
+            <input id="pvxrad-valuelabels" type="checkbox" ng-model="config.ShowValueLabels" />
+        </div>
+        <div class="pvx-cfg-hint">Current profile only. Numbers on a radar collide easily; the tooltip on each point is usually the better place to read one.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-scalelabels">Show ring values</label>
+            <input id="pvxrad-scalelabels" type="checkbox" ng-model="config.ShowScaleLabels" />
+        </div>
+        <div class="pvx-cfg-hint">Drawn along the first axis. With a per-axis scale they describe <em>that axis only</em> &mdash; they are meaningful for every axis just in <em>One shared scale</em>.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-legend">Show legend</label>
+            <input id="pvxrad-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-decimals">Decimals</label>
+            <select id="pvxrad-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-compact">Compact numbers (1.2k)</label>
+            <input id="pvxrad-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-showlabel">Show header</label>
+            <input id="pvxrad-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-curcolor">Current colour</label>
+            <input id="pvxrad-curcolor" type="color" ng-model="config.CurrentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-refcolor">Reference colour</label>
+            <input id="pvxrad-refcolor" type="color" ng-model="config.ReferenceColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-bythreshold">Colour points by threshold</label>
+            <input id="pvxrad-bythreshold" type="checkbox" ng-model="config.ColorByThreshold" />
+        </div>
+        <div class="pvx-cfg-hint">Turns "the shape changed" into "<em>this</em> axis is abnormal" &mdash; each point takes the colour of the band its raw value falls in, while the outline keeps the profile colour. Needs <em>Enable thresholds</em> below; the bands are compared against the raw value, not the normalised radius.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-theme">Theme</label>
+            <select id="pvxrad-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-transparent">Transparent background</label>
+            <input id="pvxrad-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-radius">Corner radius</label>
+            <input id="pvxrad-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrad-enthresh">Enable thresholds</label>
+            <input id="pvxrad-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxrad-thresh">Threshold bands</label>
+            <textarea id="pvxrad-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Named bands also appear in the legend when point colouring is on.</div>
+    </div>
+
+</div>

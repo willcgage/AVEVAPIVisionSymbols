@@ -1,0 +1,102 @@
+/* pvxBoxPlot — "PVX Variability"
+ * Only the chrome (header, footer, SVG host) is styled here. Box, whisker,
+ * median and outlier colours all come from the runtime theme tokens, never from
+ * CSS, so the same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-box {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-box .pvx-box-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-box .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-box .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-box .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the chart never
+   resizes downwards. */
+.pvx-box .pvx-box-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-box .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-box .pvx-box-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-box .pvx-box-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+/* Whiskers, caps, medians and the summary line are axis-aligned hairlines;
+   crisp edges keep them from being antialiased into invisibility. */
+.pvx-box .pvx-box-whisker,
+.pvx-box .pvx-box-median,
+.pvx-box .pvx-box-tick,
+.pvx-box .pvx-box-summary {
+    shape-rendering: crispEdges;
+}
+
+.pvx-box .pvx-box-summary,
+.pvx-box .pvx-box-mean {
+    pointer-events: none;
+}
+
+/* Outliers are round; hinting them onto the pixel grid turns a 2px marker into
+   a square. */
+.pvx-box .pvx-box-outliers circle {
+    shape-rendering: geometricPrecision;
+    stroke: none;
+}
+
+/* Hover outlines the box rather than changing its fill, so neither the encoded
+   spread nor the bad-quality hatching is altered by the interaction. */
+.pvx-box .pvx-box-item:hover .pvx-box-rect {
+    stroke: var(--pvx-accent);
+    stroke-width: 2;
+    paint-order: stroke;
+}
+
+.pvx-box .pvx-box-name,
+.pvx-box .pvx-box-value {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-box .pvx-box-emptymsg {
+    opacity: 0.75;
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- PVX Exception Banner: three stacked exception rows, each led by a
+         severity chip. Flat, transparent, no strokes — reads cleanly at the
+         24px the PI Vision symbol tray renders it at. -->
+
+    <!-- row 1 — critical -->
+    <rect x="72"  y="120" width="44"  height="72" rx="10" fill="#c8452f"/>
+    <rect x="136" y="145" width="200" height="22" rx="11" fill="#d6dbe1"/>
+    <rect x="364" y="145" width="76"  height="22" rx="11" fill="#d6dbe1"/>
+
+    <!-- row 2 — high -->
+    <rect x="72"  y="220" width="44"  height="72" rx="10" fill="#d99024"/>
+    <rect x="136" y="245" width="164" height="22" rx="11" fill="#d6dbe1"/>
+    <rect x="364" y="245" width="76"  height="22" rx="11" fill="#d6dbe1"/>
+
+    <!-- row 3 — high -->
+    <rect x="72"  y="320" width="44"  height="72" rx="10" fill="#d99024"/>
+    <rect x="136" y="345" width="188" height="22" rx="11" fill="#d6dbe1"/>
+    <rect x="364" y="345" width="76"  height="22" rx="11" fill="#d6dbe1"/>
+</svg>

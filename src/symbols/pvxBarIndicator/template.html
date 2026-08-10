@@ -1,0 +1,19 @@
+<div class="pvx pvx-bar"
+     ng-style="{'background': config.Transparent ? 'transparent' : (config.BackgroundColor || ''),
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.label">
+            <div class="pvx-title pvx-truncate" title="{{pvx.label}}">{{pvx.label}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-bar-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="config.ShowTime && pvx.time">
+            <span class="pvx-truncate">{{pvx.time}}</span>
+        </div>
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

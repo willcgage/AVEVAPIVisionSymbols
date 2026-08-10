@@ -1,0 +1,106 @@
+/* pvxDonut — part-to-whole contribution ring
+ * Only the chrome (header, footer, SVG host) is styled here. Slice, legend and
+ * label colours all come from the runtime theme tokens, never from CSS, so the
+ * same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-donut {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-donut .pvx-donut-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-donut .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-donut .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-donut .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the ring never
+   resizes downwards. */
+.pvx-donut .pvx-donut-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-donut .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-donut .pvx-donut-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-donut .pvx-donut-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- ring ----------------------------------------------------------------- */
+
+/* Hover outlines rather than changing the fill, so neither the encoded value
+   (arc length) nor the quality hatching is altered by the interaction. */
+.pvx-donut .pvx-donut-slice:hover path {
+    stroke: var(--pvx-accent);
+    stroke-width: 1.5;
+    paint-order: stroke;
+}
+
+.pvx-donut .pvx-donut-slicelabel,
+.pvx-donut .pvx-donut-total,
+.pvx-donut .pvx-donut-caption,
+.pvx-donut .pvx-donut-legend-value,
+.pvx-donut .pvx-donut-legend-pct,
+.pvx-donut .pvx-donut-legend-more {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-donut .pvx-donut-leader {
+    pointer-events: none;
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-donut .pvx-donut-caption {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+/* --- legend --------------------------------------------------------------- */
+
+.pvx-donut .pvx-donut-swatch {
+    shape-rendering: crispEdges;
+}
+
+.pvx-donut .pvx-donut-legend-name {
+    pointer-events: all;
+}
+
+.pvx-donut .pvx-donut-emptymsg {
+    opacity: 0.75;
+}

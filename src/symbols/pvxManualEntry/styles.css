@@ -1,0 +1,304 @@
+/* pvxManualEntry — one value, written back to PI by a human.
+ *
+ * This symbol is real DOM rather than SVG, so the styling here is doing more
+ * work than in the chart symbols: focus rings, disabled states and hit targets
+ * are all part of whether the form is safe to use, not decoration.
+ */
+
+.pvx-mentry {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme. */
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-ok: #2f9e5f;
+    --pvx-warn: #d99024;
+    --pvx-alarm: #c8452f;
+    color: var(--pvx-text);
+}
+
+.pvx-mentry .pvx-mentry-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-mentry .pvx-mentry-header {
+    color: var(--pvx-muted);
+    padding-bottom: 3px;
+}
+
+.pvx-mentry .pvx-mentry-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+/* The host must be able to shrink inside the flex body, or clientHeight
+   reports the content height and the size decisions read the wrong number. */
+.pvx-mentry .pvx-mentry-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* --- the form ------------------------------------------------------------- */
+
+.pvx-mentry .pvx-mentry-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Capped: a single entry field stretched across a 900px symbol reads as a
+       search bar, not as a value going into the historian. */
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 2px 10px 8px 10px;
+    /* Scrolls rather than spilling: a form that overflows its symbol hides the
+       button, and a hidden button is a write that silently cannot happen. */
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.pvx-mentry .pvx-mentry-current {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--pvx-muted);
+}
+
+.pvx-mentry .pvx-mentry-current-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 9.5px;
+    flex: 0 0 auto;
+}
+
+.pvx-mentry .pvx-mentry-current-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pvx-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Bad quality, or a read that failed, is said in colour as well as in words —
+   an operator glancing at the tile must not mistake it for a live number. */
+.pvx-mentry .pvx-mentry-current[data-quality="bad"] .pvx-mentry-current-value {
+    color: var(--pvx-alarm);
+}
+
+.pvx-mentry .pvx-mentry-current-time {
+    font-size: 10px;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.pvx-mentry .pvx-mentry-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pvx-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    display: block;
+}
+
+.pvx-mentry .pvx-mentry-inputwrap { display: block; min-width: 0; }
+
+.pvx-mentry .pvx-mentry-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13px;
+    /* 26px is the smallest control that is still comfortably clickable with a
+       mouse on a wall display; below that people miss and re-click. */
+    min-height: 26px;
+    padding: 3px 6px;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+}
+
+.pvx-mentry .pvx-mentry-input:focus {
+    outline: 2px solid #7fb0e0;
+    outline-offset: 1px;
+}
+
+.pvx-mentry .pvx-mentry-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.pvx-mentry .pvx-mentry-ts {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pvx-mentry .pvx-mentry-ts-label {
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+    flex: 0 0 auto;
+}
+
+.pvx-mentry .pvx-mentry-ts-input {
+    flex: 1 1 auto;
+    font-size: 11.5px;
+    min-height: 22px;
+}
+
+/* --- actions -------------------------------------------------------------- */
+
+.pvx-mentry .pvx-mentry-actions { display: flex; }
+
+.pvx-mentry .pvx-mentry-btn {
+    flex: 1 1 auto;
+    min-height: 28px;
+    border: none;
+}
+
+.pvx-mentry .pvx-mentry-btn:disabled,
+.pvx-mentry .pvx-mentry-yes:disabled,
+.pvx-mentry .pvx-mentry-no:disabled {
+    /* Deliberately obvious. This is the state the button is in while a write is
+       in flight, and the operator has to be able to see that their click landed
+       rather than assume it did not and click again. */
+    opacity: 0.5;
+    cursor: progress;
+    filter: none;
+}
+
+.pvx-mentry .pvx-mentry-btn:disabled:hover { filter: none; }
+
+/* --- the confirmation step ------------------------------------------------ *
+ * Replaces the button rather than sitting next to it, so there is no way to
+ * start a second write while a confirmation is open. */
+
+.pvx-mentry .pvx-mentry-confirm {
+    border: 1px solid var(--pvx-warn);
+    border-radius: 4px;
+    padding: 5px 7px;
+    background: var(--pvx-surface-alt);
+}
+
+.pvx-mentry .pvx-mentry-confirm-text {
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: var(--pvx-text);
+}
+
+.pvx-mentry .pvx-mentry-confirm-btns { display: flex; gap: 6px; }
+
+.pvx-mentry .pvx-mentry-yes { flex: 1 1 auto; border: none; min-height: 26px; }
+
+.pvx-mentry .pvx-mentry-no {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--pvx-muted);
+    border: 1px solid var(--pvx-border);
+    min-height: 26px;
+}
+
+/* --- messages -------------------------------------------------------------- */
+
+.pvx-mentry .pvx-mentry-msg {
+    font-size: 11px;
+    line-height: 1.3;
+    border-left: 3px solid var(--pvx-muted);
+    padding: 2px 0 2px 6px;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.pvx-mentry .pvx-mentry-msg[data-tone="ok"] { border-left-color: var(--pvx-ok); }
+.pvx-mentry .pvx-mentry-msg[data-tone="warn"] { border-left-color: var(--pvx-warn); }
+.pvx-mentry .pvx-mentry-msg[data-tone="error"] { border-left-color: var(--pvx-alarm); }
+
+.pvx-mentry .pvx-mentry-msg-text { font-weight: 600; }
+.pvx-mentry .pvx-mentry-msg-detail { color: var(--pvx-muted); font-size: 10.5px; }
+
+/* --- this session's writes -------------------------------------------------- */
+
+.pvx-mentry .pvx-mentry-history {
+    margin-top: auto;
+    border-top: 1px solid var(--pvx-border);
+    padding-top: 3px;
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+}
+
+.pvx-mentry .pvx-mentry-history-head {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 9px;
+    opacity: 0.8;
+}
+
+.pvx-mentry .pvx-mentry-history-row {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.pvx-mentry .pvx-mentry-history-value {
+    font-weight: 600;
+    color: var(--pvx-text);
+    flex: 1 1 auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pvx-mentry .pvx-mentry-history-row[data-ok="no"] .pvx-mentry-history-note { color: var(--pvx-alarm); }
+.pvx-mentry .pvx-mentry-history-row[data-ok="yes"] .pvx-mentry-history-note { color: var(--pvx-ok); }
+
+/* --- non-form states -------------------------------------------------------- */
+
+.pvx-mentry .pvx-mentry-state {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 10px;
+    gap: 3px;
+    overflow: hidden;
+}
+
+.pvx-mentry .pvx-mentry-state-head {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pvx-muted);
+}
+
+.pvx-mentry .pvx-mentry-state[data-tone="warn"] .pvx-mentry-state-head { color: var(--pvx-warn); }
+.pvx-mentry .pvx-mentry-state[data-tone="error"] .pvx-mentry-state-head { color: var(--pvx-alarm); }
+
+.pvx-mentry .pvx-mentry-state-body {
+    font-size: 10.5px;
+    line-height: 1.32;
+    color: var(--pvx-muted);
+    max-height: 100%;
+    overflow: hidden;
+    word-break: break-word;
+}

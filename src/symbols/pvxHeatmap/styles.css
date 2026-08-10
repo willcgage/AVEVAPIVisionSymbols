@@ -1,0 +1,96 @@
+/* pvxHeatmap
+ * Only the chrome (header, footer, host box) is styled here — the grid itself
+ * is SVG whose colours must come from the runtime theme, never from CSS.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-heat {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-heat .pvx-heat-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-heat .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-heat .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-heat .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be able to shrink below its content, otherwise the
+   flex parent reports a stale clientWidth/Height and the grid never resizes
+   downwards. */
+.pvx-heat .pvx-heat-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-heat .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-heat .pvx-heat-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-heat .pvx-heat-range {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- grid ---------------------------------------------------------------- */
+
+.pvx-heat .pvx-heat-cell {
+    shape-rendering: geometricPrecision;
+}
+
+/* Hover outline instead of a fill change, so the value the cell encodes is
+   never distorted by the interaction. */
+.pvx-heat .pvx-heat-cell:hover {
+    stroke: var(--pvx-accent);
+    stroke-width: 1.5;
+    paint-order: stroke;
+}
+
+.pvx-heat .pvx-heat-cell-empty {
+    opacity: 0.6;
+}
+
+.pvx-heat .pvx-heat-cellvalue {
+    pointer-events: none;
+    letter-spacing: -0.01em;
+}
+
+.pvx-heat .pvx-heat-rowlabel,
+.pvx-heat .pvx-heat-collabel {
+    letter-spacing: 0.01em;
+}
+
+.pvx-heat .pvx-heat-legend text {
+    dominant-baseline: middle;
+}
+
+.pvx-heat .pvx-heat-emptymsg {
+    opacity: 0.75;
+}

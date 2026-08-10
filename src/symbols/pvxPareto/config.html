@@ -1,0 +1,215 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Ranking</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxpar-title">Title</label>
+            <input id="pvxpar-title" type="text" ng-model="config.Title" placeholder="Ranked comparison" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-stat">Statistic</label>
+            <select id="pvxpar-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Everything except <em>Current value</em> is calculated by PI Vision over the display's time range.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-sort">Sort</label>
+            <select id="pvxpar-sort" ng-model="config.SortMode">
+                <option value="valueDesc">Largest first</option>
+                <option value="valueAsc">Smallest first</option>
+                <option value="name">By name</option>
+                <option value="none">As added</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">A Pareto reads correctly only when sorted largest first; other orders still chart, and the cumulative line then follows the display order.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-topn">Top N (0 = all)</label>
+            <input id="pvxpar-topn" type="number" ng-model="config.TopN" min="0" max="200" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-other">Combine the rest as "Other"</label>
+            <input id="pvxpar-other" type="checkbox" ng-model="config.GroupRemainderAsOther" />
+        </div>
+        <div class="pvx-cfg-hint">Off: the remaining sources are dropped and counted in the footer instead.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-maxbars">Maximum bars</label>
+            <input id="pvxpar-maxbars" type="number" ng-model="config.MaxBars" min="1" max="400" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-orient">Orientation</label>
+            <select id="pvxpar-orient" ng-model="config.Orientation">
+                <option value="horizontal">Horizontal bars</option>
+                <option value="vertical">Vertical bars</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Horizontal keeps long tag names upright and readable.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-namew">Name column width (%)</label>
+            <input id="pvxpar-namew" type="number" ng-model="config.NameWidthPct" min="5" max="55" />
+        </div>
+        <div class="pvx-cfg-hint">Horizontal orientation only.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-gap">Bar gap (0&ndash;0.9)</label>
+            <input id="pvxpar-gap" type="number" ng-model="config.BarGap" min="0" max="0.9" step="0.05" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Cumulative (Pareto) line</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-showcum">Show cumulative %</label>
+            <input id="pvxpar-showcum" type="checkbox" ng-model="config.ShowCumulative" />
+        </div>
+        <div class="pvx-cfg-hint">Drawn on its own 0&ndash;100% axis opposite the value axis. Hidden automatically when any value is negative, because a running share of a mixed-sign total cannot be read.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-cumcolor">Line colour</label>
+            <input id="pvxpar-cumcolor" type="color" ng-model="config.CumulativeColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-show80">Show reference line</label>
+            <input id="pvxpar-show80" type="checkbox" ng-model="config.ShowEightyLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-80">Reference line at (%)</label>
+            <input id="pvxpar-80" type="number" ng-model="config.EightyLineValue" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-hint">The classic 80% "vital few" cut-off. Needs the cumulative line to be on.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bars</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-colormode">Colour by</label>
+            <select id="pvxpar-colormode" ng-model="config.ColorMode">
+                <option value="single">One colour</option>
+                <option value="palette">Palette per bar</option>
+                <option value="threshold">Threshold band</option>
+                <option value="rank">Rank (accent ramp)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint"><em>Rank</em> shades from the accent colour (biggest contributor) to a muted version of it.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-barcolor">Bar colour</label>
+            <input id="pvxpar-barcolor" type="color" ng-model="config.BarColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-accent">Accent colour</label>
+            <input id="pvxpar-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Bars whose source reports bad quality are always drawn hatched, whatever the colour mode.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-showvalues">Show values</label>
+            <input id="pvxpar-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-valuepos">Value position</label>
+            <select id="pvxpar-valuepos" ng-model="config.ValuePosition">
+                <option value="end">After the bar</option>
+                <option value="inside">Inside the bar</option>
+                <option value="none">Hidden</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-pct">Add % of total</label>
+            <input id="pvxpar-pct" type="checkbox" ng-model="config.ShowPercentOfTotal" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-decimals">Decimals</label>
+            <select id="pvxpar-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-compact">Compact numbers (1.2k)</label>
+            <input id="pvxpar-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-showlabel">Show header</label>
+            <input id="pvxpar-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-units">Show units in header</label>
+            <input id="pvxpar-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-showaxis">Show axis labels</label>
+            <input id="pvxpar-showaxis" type="checkbox" ng-model="config.ShowAxis" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-showgrid">Show grid lines</label>
+            <input id="pvxpar-showgrid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-ticks">Tick count</label>
+            <input id="pvxpar-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">The value axis always includes zero, so negative values sit on the correct side of the baseline.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-theme">Theme</label>
+            <select id="pvxpar-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-transparent">Transparent background</label>
+            <input id="pvxpar-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-radius">Corner radius</label>
+            <input id="pvxpar-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-enthresh">Enable thresholds</label>
+            <input id="pvxpar-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxpar-thresh">Threshold bands</label>
+            <textarea id="pvxpar-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used when <em>Colour by</em> is set to <em>Threshold band</em>.</div>
+    </div>
+
+</div>

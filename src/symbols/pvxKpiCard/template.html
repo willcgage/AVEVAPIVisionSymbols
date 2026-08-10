@@ -1,0 +1,37 @@
+<div class="pvx pvx-kpi" ng-class="{'pvx-kpi-center': pvx.align === 'center'}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-kpi-surface">
+
+        <div class="pvx-kpi-top">
+            <div class="pvx-kpi-title pvx-truncate" ng-if="config.ShowLabel && pvx.title" title="{{pvx.title}}">{{pvx.title}}</div>
+
+            <div class="pvx-kpi-valuerow">
+                <span class="pvx-kpi-value pvx-num" ng-style="{'color': pvx.valueColor}">{{pvx.value}}</span>
+                <span class="pvx-kpi-units" ng-if="pvx.units">{{pvx.units}}</span>
+            </div>
+
+            <div class="pvx-kpi-delta" ng-if="pvx.showDelta" ng-style="{'color': pvx.deltaColor}">
+                <span class="pvx-kpi-arrow">{{pvx.deltaArrow}}</span>
+                <span class="pvx-num">{{pvx.deltaText}}</span>
+            </div>
+        </div>
+
+        <div class="pvx-kpi-spark"
+             ng-if="config.ShowSparkline"
+             ng-style="{'height': (config.SparkHeightPct || 38) + '%'}"></div>
+
+        <div class="pvx-kpi-footer" ng-if="pvx.secLeft || pvx.secRight || pvx.time">
+            <span class="pvx-kpi-stat pvx-truncate" ng-if="pvx.secLeft">
+                <span class="pvx-kpi-stat-label">{{pvx.secLeft.label}}</span>
+                <span class="pvx-num">{{pvx.secLeft.value}}</span>
+            </span>
+            <span class="pvx-kpi-stat pvx-kpi-time pvx-truncate" ng-if="pvx.time">{{pvx.time}}</span>
+            <span class="pvx-kpi-stat pvx-truncate" ng-if="pvx.secRight">
+                <span class="pvx-kpi-stat-label">{{pvx.secRight.label}}</span>
+                <span class="pvx-num">{{pvx.secRight.value}}</span>
+            </span>
+        </div>
+
+    </div>
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

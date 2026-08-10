@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+    <!-- Four swimlanes of event bars against a shared time axis: overlap,
+         clustering, and one open event drawn with a pointed end because it has
+         not finished. That last detail is the whole symbol in miniature. -->
+    <g opacity="0.16">
+        <rect x="48" y="96" width="416" height="60" rx="6" fill="#6f7378"/>
+        <rect x="48" y="228" width="416" height="60" rx="6" fill="#6f7378"/>
+    </g>
+
+    <!-- lane 1: two separated downtime events -->
+    <rect x="72" y="108" width="120" height="36" rx="6" fill="#c8452f"/>
+    <rect x="256" y="108" width="72" height="36" rx="6" fill="#c8452f"/>
+
+    <!-- lane 2: overlapping events stacked into sub-rows -->
+    <rect x="120" y="170" width="180" height="16" rx="5" fill="#3b82c4"/>
+    <rect x="232" y="192" width="150" height="16" rx="5" fill="#3b82c4"/>
+
+    <!-- lane 3: a long excursion plus a sub-pixel trip held at the minimum width -->
+    <rect x="88" y="240" width="248" height="36" rx="6" fill="#d99024"/>
+    <rect x="392" y="240" width="10" height="36" rx="3" fill="#d99024"/>
+
+    <!-- lane 4: an event that is still running — pointed end, not a flat cap -->
+    <path d="M160 302 H408 L440 320 L408 338 H166 A6 6 0 0 1 160 332 V308 A6 6 0 0 1 166 302 Z" fill="#3f9e6a"/>
+
+    <!-- time axis -->
+    <path d="M48 372 H464" stroke="#8a8f96" stroke-width="8" stroke-linecap="round"/>
+    <g fill="#8a8f96">
+        <rect x="100" y="384" width="8" height="20" rx="4"/>
+        <rect x="204" y="384" width="8" height="20" rx="4"/>
+        <rect x="308" y="384" width="8" height="20" rx="4"/>
+        <rect x="412" y="384" width="8" height="20" rx="4"/>
+    </g>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Annunciator">
+    <title>PVX Annunciator</title>
+    <!-- Flat, transparent, no strokes: PI Vision draws symbol icons small and
+         surrounds them with near-monochrome chrome, so the shape and the status
+         colours have to carry the meaning alone. A 2x2 annunciator window: one
+         alarm, one acknowledged, one unlit, one normal. -->
+    <g>
+        <rect x="46"  y="46"  width="184" height="184" rx="26" fill="#c8452f"/>
+        <rect x="282" y="46"  width="184" height="184" rx="26" fill="#d99024"/>
+        <rect x="46"  y="282" width="184" height="184" rx="26" fill="#d6dbe1"/>
+        <rect x="282" y="282" width="184" height="184" rx="26" fill="#2f9e5f"/>
+    </g>
+</svg>

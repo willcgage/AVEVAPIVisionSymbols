@@ -1,0 +1,105 @@
+/* pvxStateDuration — time-in-state bars for digital tags */
+
+.pvx-state {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-state .pvx-state-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-state .pvx-state-header {
+    color: var(--pvx-muted);
+    padding-bottom: 4px;
+}
+
+.pvx-state .pvx-state-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.pvx-state .pvx-state-footer {
+    color: var(--pvx-muted);
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and rows never fit. */
+.pvx-state .pvx-state-body {
+    flex: 1 1 auto;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-state .pvx-state-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Names keep pointer events so their <title> (full AF path) is reachable;
+   SVG text only reacts over its own glyphs. */
+.pvx-state .pvx-state-name {
+    font-weight: 500;
+    letter-spacing: 0.005em;
+}
+
+.pvx-state .pvx-state-uptime {
+    font-weight: 600;
+}
+
+.pvx-state .pvx-state-trans {
+    font-weight: 500;
+}
+
+/* Segments own the hover tooltip, so nothing painted on top of them may
+   swallow the pointer. */
+.pvx-state .pvx-state-seglabel,
+.pvx-state .pvx-state-track,
+.pvx-state .pvx-state-bad,
+.pvx-state .pvx-state-tick,
+.pvx-state .pvx-state-swatch,
+.pvx-state .pvx-state-legend-text,
+.pvx-state .pvx-state-legend-more,
+.pvx-state .pvx-state-empty {
+    pointer-events: none;
+}
+
+/* The join hairline is set per segment in symbol.js — narrow segments must not
+   get one, or a 1px trip would be drawn entirely in the background colour.
+   Deliberately NOT shape-rendering:crispEdges: snapping each segment to whole
+   pixels independently opens hairline gaps between neighbours, and on a dense
+   timeline those gaps read as a striped bar that is not in the data. */
+.pvx-state .pvx-state-seg {
+    shape-rendering: auto;
+}
+
+.pvx-state .pvx-state-seg:hover {
+    filter: brightness(1.12);
+}
+
+.pvx-state .pvx-state-more {
+    font-style: italic;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+}
+
+.pvx-state .pvx-state-summary {
+    letter-spacing: 0.01em;
+}
+
+.pvx-state .pvx-state-row:hover .pvx-state-name {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}

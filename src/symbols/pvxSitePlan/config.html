@@ -1,0 +1,320 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Background image</div>
+
+        <div class="pvx-cfg-hint">
+            This is the offline-friendly alternative to a geographic map. Most plant
+            networks cannot reach a map tile provider, so a map symbol renders as an
+            empty grey grid &mdash; and for a single site a scaled plant drawing,
+            P&amp;ID, single-line diagram or equipment photo is more useful than a
+            satellite view anyway: operators navigate by &ldquo;the north cooling
+            tower&rdquo;, not by latitude.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-imgurl">Image URL</label>
+            <input id="pvxsp-imgurl" type="text" ng-model="config.ImageUrl"
+                   placeholder="e.g. Scripts/app/editor/symbols/ext/site.png" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Absolute or relative &mdash; the file must be reachable from the
+            <em>browser</em>, not from the PI Vision server. The reliable option is to
+            drop the image in PI Vision's <code>ext</code> folder alongside this symbol
+            and reference it by a relative path, so it is served by the same site and
+            needs no extra firewall rule. External hosts (SharePoint, a CDN, another
+            intranet server) are often blocked on a plant network or fail on mixed
+            content. If the image does not load, the symbol falls back to the labelled
+            placeholder grid and says so in the footer.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-fit">Fit</label>
+            <select id="pvxsp-fit" ng-model="config.ImageFit">
+                <option value="contain">Contain (whole image, letterboxed)</option>
+                <option value="cover">Cover (fill, crop edges)</option>
+                <option value="stretch">Stretch (distort to fit)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Hotspots are positioned relative to the <em>image</em>, so they stay on the
+            same features whichever fit is used. With <em>Cover</em> the edges of the
+            image are cropped, and any hotspot in the cropped strip is counted in the
+            footer rather than silently disappearing.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-imgop">Image opacity</label>
+            <input id="pvxsp-imgop" type="number" ng-model="config.ImageOpacity"
+                   min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-gray">Greyscale image</label>
+            <input id="pvxsp-gray" type="checkbox" ng-model="config.ImageGrayscale" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Draining the colour out of a busy drawing makes the coloured markers pop.
+            Worth turning on for scanned P&amp;IDs and photographs.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Hotspots</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-spots">Hotspot positions</label>
+            <textarea id="pvxsp-spots" ng-model="config.Hotspots" rows="3"
+                      placeholder="12,44 | 61,20:Pump A | 80,72"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One entry per data source, in the same order as the data sources are
+            listed. Each entry is <code>x,y</code> or <code>x,y:Label</code>, and
+            entries are separated by <code>|</code> &mdash; the coordinate pair already
+            uses a comma, so a comma cannot also separate the entries.
+            <br />
+            <strong>x and y are percentages of the image</strong> (0,0 is top-left,
+            100,100 is bottom-right), never pixels: pixel coordinates would break the
+            moment somebody resized the display or swapped in a higher-resolution scan.
+            Values outside 0&ndash;100 are clamped to the edge and counted in the
+            footer.
+            <br />
+            Leave an entry empty to skip a source &mdash;
+            <code>12,44 |  | 80,72</code> pins the first and third. A label typed here
+            is always shown; <em>Show names</em> only controls whether the data source
+            name is used when no label was typed.
+            <br />
+            Sources with no entry are auto-placed on a grid in an unused part of the
+            drawing, drawn slightly faded, and named in the footer, so nothing is ever
+            silently invisible. To position them, read the coordinates off the
+            placeholder grid's percentage ruler (visible until an image is set).
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Markers</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-shape">Shape</label>
+            <select id="pvxsp-shape" ng-model="config.MarkerShape">
+                <option value="circle">Circle</option>
+                <option value="square">Square</option>
+                <option value="pin">Pin</option>
+                <option value="diamond">Diamond</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">A pin points at its coordinate; the other shapes are centred on it.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-size">Marker size (px)</label>
+            <input id="pvxsp-size" type="number" ng-model="config.MarkerSize" min="5" max="72" step="1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-border">Marker outline (px)</label>
+            <input id="pvxsp-border" type="number" ng-model="config.MarkerBorder" min="0" max="8" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Sizes are screen pixels and do not scale with the image: a marker stays the
+            same physical size whether the symbol is a small tile or a wall display.
+            Below roughly 200&times;140 markers shrink and labels are dropped; below
+            140&times;100 only the markers remain.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-colormode">Colour from</label>
+            <select id="pvxsp-colormode" ng-model="config.ColorMode">
+                <option value="threshold">Threshold bands</option>
+                <option value="state">Digital state map</option>
+                <option value="single">One colour</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Bad quality always wins: the marker keeps its colour but is drawn hollow,
+            because a stale tag's last value is often still inside a &ldquo;normal&rdquo;
+            band.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-usethresh">Enable thresholds</label>
+            <input id="pvxsp-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-thresh">Threshold bands</label>
+            <textarea id="pvxsp-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-statemap">Digital state map</label>
+            <textarea id="pvxsp-statemap" ng-model="config.StateMap" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>State:colour</code> or <code>State:colour:label</code>, comma separated.
+            Matching is exact and case-insensitive, e.g.
+            <code>Running:#2f9e5f, Fault:#c8452f</code>. A numeric tag mixed into a
+            digital plan falls back to the threshold bands.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-single">Single colour</label>
+            <input id="pvxsp-single" type="color" ng-model="config.SingleColor" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-legend">Show legend</label>
+            <input id="pvxsp-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-stat">Statistic</label>
+            <select id="pvxsp-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Everything except <em>Current value</em> is calculated by PI Vision over the
+            display's time range.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-showvalues">Show values</label>
+            <input id="pvxsp-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-shownames">Show names</label>
+            <input id="pvxsp-shownames" type="checkbox" ng-model="config.ShowNames" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-units">Show units</label>
+            <input id="pvxsp-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-labelpos">Label position</label>
+            <select id="pvxsp-labelpos" ng-model="config.LabelPosition">
+                <option value="below">Below the marker</option>
+                <option value="above">Above the marker</option>
+                <option value="right">Right of the marker</option>
+                <option value="inside">Inside the marker</option>
+                <option value="none">No labels</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Overlapping labels are moved to the next free side, worst band first, so the
+            marker that matters keeps the position you asked for. A label with nowhere
+            to go is dropped &mdash; its value is still in the marker's tooltip.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-labelbg">Label background chip</label>
+            <input id="pvxsp-labelbg" type="checkbox" ng-model="config.LabelBackground" />
+        </div>
+        <div class="pvx-cfg-hint">Essential over a busy drawing; bare text on a scan is unreadable.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-leader">Leader lines</label>
+            <input id="pvxsp-leader" type="checkbox" ng-model="config.ShowLeaderLine" />
+        </div>
+        <div class="pvx-cfg-hint">Draws a line to any label that had to move, so it is still obvious which marker it belongs to.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-decimals">Decimals</label>
+            <select id="pvxsp-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-compact">Compact numbers (1.2k)</label>
+            <input id="pvxsp-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Alarm emphasis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-pulse">Pulse on alarm</label>
+            <input id="pvxsp-pulse" type="checkbox" ng-model="config.PulseOnAlarm" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Markers in the highest threshold band get a pulsing halo. The motion is
+            suppressed for viewers who have asked their operating system to reduce
+            motion; the halo stays.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Interaction</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-click">On marker click</label>
+            <select id="pvxsp-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-navtarget">Target display</label>
+            <input id="pvxsp-navtarget" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or a full URL" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Open the target display and copy the number after <code>/Displays/</code> in
+            its address bar &mdash; in <code>.../#/Displays/142/Pump-Detail</code> the id
+            is <code>142</code>. The clicked marker's asset path is passed through as the
+            <code>asset=</code> parameter, so an asset-relative display switches to that
+            tag's element. Leave blank to re-target the current display. Markers are
+            keyboard reachable and activate with Enter or Space.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-title">Header title</label>
+            <input id="pvxsp-title" type="text" ng-model="config.Title" placeholder="Site plan" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-showlabel">Show header</label>
+            <input id="pvxsp-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-theme">Theme</label>
+            <select id="pvxsp-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-transparent">Transparent background</label>
+            <input id="pvxsp-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-accent">Accent colour</label>
+            <input id="pvxsp-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-radius">Corner radius</label>
+            <input id="pvxsp-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

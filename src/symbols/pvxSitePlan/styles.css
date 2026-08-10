@@ -1,0 +1,143 @@
+/* pvxSitePlan — background drawing with data-bound hotspots
+ * Only the chrome and a handful of non-data visual affordances live here.
+ * Every colour that carries meaning (marker fill, chip border, ruler) comes
+ * from the runtime theme tokens in symbol.js, so one stylesheet serves both the
+ * light and the dark display themes.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-sp {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-sp .pvx-sp-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-sp .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-sp .pvx-title { color: var(--pvx-text); }
+
+.pvx-sp .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the plan never
+   resizes downwards. */
+.pvx-sp .pvx-sp-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-sp .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-sp .pvx-sp-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-sp .pvx-sp-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- plan ----------------------------------------------------------------- */
+
+/* Ruler numerals and the placeholder caption are guidance, not data: they must
+   never swallow a click aimed at a marker underneath. */
+.pvx-sp .pvx-sp-ruler,
+.pvx-sp .pvx-sp-caption,
+.pvx-sp .pvx-sp-labeltext {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-sp .pvx-sp-ruler {
+    opacity: 0.8;
+    font-variant-numeric: tabular-nums;
+}
+
+.pvx-sp .pvx-sp-leaders line {
+    pointer-events: none;
+    shape-rendering: geometricPrecision;
+}
+
+/* Labels sit above the drawing but must not intercept the marker's pointer
+   events — the chip is frequently larger than the marker it belongs to. */
+.pvx-sp .pvx-sp-labels {
+    pointer-events: none;
+}
+
+/* Auto-placed markers (no hotspot configured) are drawn slightly translucent so
+   "I have not positioned this yet" is visible on the plan itself, not only in
+   the footer. */
+.pvx-sp .pvx-sp-auto {
+    opacity: 0.82;
+}
+
+.pvx-sp .pvx-sp-legend text {
+    pointer-events: none;
+}
+
+/* --- alarm pulse ---------------------------------------------------------- */
+/* Only opacity is animated. CSS animation of SVG geometry (r) is not available
+   on every browser PI Vision supports, and a halo that never appears would be
+   worse than no halo at all. */
+
+@keyframes pvx-sp-pulse {
+    0%   { opacity: 0.75; }
+    50%  { opacity: 0.10; }
+    100% { opacity: 0.75; }
+}
+
+.pvx-sp .pvx-sp-pulse {
+    animation: pvx-sp-pulse 1.4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* A pulsing marker in a control room is a vestibular / photosensitivity hazard.
+   Keep the emphasis — the halo stays — but stop the motion. */
+@media (prefers-reduced-motion: reduce) {
+    .pvx-sp .pvx-sp-pulse {
+        animation: none;
+        opacity: 0.55;
+    }
+}
+
+/* --- interaction ---------------------------------------------------------- */
+
+.pvx-sp .pvx-sp-click {
+    cursor: pointer;
+}
+
+.pvx-sp .pvx-sp-marker:hover > :first-child {
+    filter: brightness(1.12);
+}
+
+.pvx-sp .pvx-sp-click:focus {
+    outline: none;
+}
+
+.pvx-sp .pvx-sp-click:focus-visible {
+    outline: 2px solid var(--pvx-accent);
+    outline-offset: 2px;
+}

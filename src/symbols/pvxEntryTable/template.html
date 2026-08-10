@@ -1,0 +1,28 @@
+<!--
+    pvxEntryTable — deliberately thin.
+
+    Every row below .pvx-etable-body is built imperatively by symbol.js as real
+    DOM: <label>, <input> and <button>. That is not a stylistic choice. An
+    operator has to be able to Tab from row to row and press Enter to submit,
+    and an ng-repeat over twenty live inputs would both add twenty watchers to
+    the digest and rebuild the controls — throwing away a half-filled rounds
+    sheet — every time a current value changed.
+
+    Only the header is Angular-bound, from scope.pvx.
+-->
+<div class="pvx pvx-etable"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-etable-surface">
+
+        <div class="pvx-header pvx-etable-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-etable-body"></div>
+        </div>
+
+    </div>
+</div>

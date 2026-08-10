@@ -1,0 +1,220 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-colorsrc">Colour from</label>
+            <select id="pvxgrid-colorsrc" ng-model="config.ColorSource">
+                <option value="thresholds">Threshold bands</option>
+                <option value="stateMap">Digital state map</option>
+                <option value="quality">Data quality only</option>
+                <option value="none">Accent colour only</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Bad quality always wins when &ldquo;Show bad quality&rdquo; is on. A state map that
+            does not match falls back to the threshold bands.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-enthresh">Enable thresholds</label>
+            <input id="pvxgrid-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxgrid-thresh">Threshold bands</label>
+            <textarea id="pvxgrid-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxgrid-statemap">Digital state map</label>
+            <textarea id="pvxgrid-statemap" ng-model="config.StateMap" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>State:colour</code> or <code>State:colour:label</code>, comma separated.
+            Matching is exact and case-insensitive, e.g.
+            <code>Running:#2f9e5f, Fault:#c8452f</code>.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-accent">Accent colour</label>
+            <input id="pvxgrid-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Used for tiles no band or state matches.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-badq">Show bad quality</label>
+            <input id="pvxgrid-badq" type="checkbox" ng-model="config.ShowBadQuality" />
+        </div>
+        <div class="pvx-cfg-hint">Bad or stale tags get diagonal stripes and a muted value.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Tiles</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-style">Tile style</label>
+            <select id="pvxgrid-style" ng-model="config.TileStyle">
+                <option value="filled">Filled</option>
+                <option value="outline">Outline</option>
+                <option value="accentBar">Accent bar</option>
+                <option value="dot">Status dot</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-cols">Columns</label>
+            <input id="pvxgrid-cols" type="number" ng-model="config.GridColumns" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-hint">0 fits as many columns as the minimum tile width allows.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-minw">Min tile width (px)</label>
+            <input id="pvxgrid-minw" type="number" ng-model="config.MinTileWidth" min="40" max="600" step="5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-tileh">Tile height (px)</label>
+            <input id="pvxgrid-tileh" type="number" ng-model="config.TileHeight" min="0" max="400" step="2" />
+        </div>
+        <div class="pvx-cfg-hint">0 divides the available height between the rows.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-gap">Gap (px)</label>
+            <input id="pvxgrid-gap" type="number" ng-model="config.TileGap" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-tileradius">Tile corner radius</label>
+            <input id="pvxgrid-tileradius" type="number" ng-model="config.TileRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-sort">Sort by</label>
+            <select id="pvxgrid-sort" ng-model="config.SortBy">
+                <option value="none">Data source order</option>
+                <option value="name">Name</option>
+                <option value="valueAsc">Value, low to high</option>
+                <option value="valueDesc">Value, high to low</option>
+                <option value="severity">Severity, worst first</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Severity ranks by threshold band, worst band first.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Content</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-showname">Show name</label>
+            <input id="pvxgrid-showname" type="checkbox" ng-model="config.ShowName" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-namepos">Name position</label>
+            <select id="pvxgrid-namepos" ng-model="config.NamePosition">
+                <option value="above">Above the value</option>
+                <option value="below">Below the value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-showvalue">Show value</label>
+            <input id="pvxgrid-showvalue" type="checkbox" ng-model="config.ShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-units">Show units</label>
+            <input id="pvxgrid-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-statelabel">Show state label</label>
+            <input id="pvxgrid-statelabel" type="checkbox" ng-model="config.ShowStateLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-time">Show timestamp</label>
+            <input id="pvxgrid-time" type="checkbox" ng-model="config.ShowTime" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-decimals">Decimals</label>
+            <select id="pvxgrid-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-compact">Compact numbers (1.2k)</label>
+            <input id="pvxgrid-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Alarm emphasis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-blink">Blink on alarm</label>
+            <input id="pvxgrid-blink" type="checkbox" ng-model="config.BlinkOnAlarm" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-alarmband">Alarm band label</label>
+            <input id="pvxgrid-alarmband" type="text" ng-model="config.AlarmBandLabel" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Tiles blink when their band or state label matches this text exactly
+            (case-insensitive). Blinking is suppressed for viewers who have asked
+            their operating system to reduce motion.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Interaction</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-click">On tile click</label>
+            <select id="pvxgrid-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxgrid-navtarget">Target display</label>
+            <input id="pvxgrid-navtarget" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or a full URL" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Open the target display and copy the number after <code>/Displays/</code> in its
+            address bar &mdash; in <code>.../#/Displays/142/Pump-Detail</code> the id is
+            <code>142</code>. The clicked tile's asset path is passed through as the
+            <code>asset=</code> parameter, so an asset-relative display switches to that tag's
+            element. Leave blank to re-target the current display. Tiles are keyboard
+            reachable and activate with Enter or Space.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxgrid-title">Header title</label>
+            <input id="pvxgrid-title" type="text" ng-model="config.Title" placeholder="Leave blank for no header" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-showlabel">Show header</label>
+            <input id="pvxgrid-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-theme">Theme</label>
+            <select id="pvxgrid-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-transparent">Transparent background</label>
+            <input id="pvxgrid-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgrid-radius">Corner radius</label>
+            <input id="pvxgrid-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

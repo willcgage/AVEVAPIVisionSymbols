@@ -1,0 +1,244 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bridge</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxwf-title">Title</label>
+            <input id="pvxwf-title" type="text" ng-model="config.Title" placeholder="Waterfall" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-stat">Statistic</label>
+            <select id="pvxwf-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Everything except <em>Current value</em> is calculated by PI Vision over the display's time range.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-mode">Each source is</label>
+            <select id="pvxwf-mode" ng-model="config.StepMode">
+                <option value="delta">A step (change)</option>
+                <option value="absolute">A level (absolute)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint"><em>Step</em>: the values are the changes, and the running total accumulates them &mdash; losses, gains, adjustments. <em>Level</em>: the values are positions and the steps are the differences between consecutive sources, which is how stage-by-stage temperatures and pressures come out of PI. Level mode needs at least two sources, or a start value.</div>
+
+        <div class="pvx-cfg-hint">The order the attributes were added is the order of the bridge; drag them in the data pane to re-order the steps.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-maxsteps">Maximum steps</label>
+            <input id="pvxwf-maxsteps" type="number" ng-model="config.MaxSteps" min="1" max="200" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Start and total</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showstart">Show start bar</label>
+            <input id="pvxwf-showstart" type="checkbox" ng-model="config.ShowStart" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-startlabel">Start label</label>
+            <input id="pvxwf-startlabel" type="text" ng-model="config.StartLabel" placeholder="Start" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-startvalue">Start value</label>
+            <input id="pvxwf-startvalue" type="text" ng-model="config.StartValue" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">Blank starts at zero in step mode, or at the first source in level mode. Fill it in to bridge from a plan, a budget or a nameplate figure.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showtotal">Show total bar</label>
+            <input id="pvxwf-showtotal" type="checkbox" ng-model="config.ShowTotal" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-totallabel">Total label</label>
+            <input id="pvxwf-totallabel" type="text" ng-model="config.TotalLabel" placeholder="Total" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-subs">Subtotal after step(s)</label>
+            <input id="pvxwf-subs" type="text" ng-model="config.SubtotalAfter" placeholder="e.g. 3, 6" />
+        </div>
+        <div class="pvx-cfg-hint">Comma-separated step numbers, counting from 1. Each one adds a bar grounded on the baseline showing the running total at that point. A subtotal after the last step is skipped when the total bar is on, because it would be the same bar twice.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-orient">Orientation</label>
+            <select id="pvxwf-orient" ng-model="config.Orientation">
+                <option value="vertical">Vertical (bars rise and fall)</option>
+                <option value="horizontal">Horizontal</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Horizontal keeps long step names upright and readable; vertical reads more like a path from start to total.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-gap">Bar gap (0&ndash;0.9)</label>
+            <input id="pvxwf-gap" type="number" ng-model="config.BarGap" min="0" max="0.9" step="0.05" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-angle">Step name angle</label>
+            <!-- ng-value, not ng-options over an inline array: an array literal
+                 in the template is rebuilt on every digest, so its watcher
+                 never settles. These also keep the model numeric. -->
+            <select id="pvxwf-angle" ng-model="config.LabelAngle">
+                <option ng-value="0">Upright</option>
+                <option ng-value="-45">45&deg; angled</option>
+                <option ng-value="-90">Vertical</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Vertical orientation only. Upright names rotate to 45&deg; automatically when the bars get too narrow to hold them.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-inc">Increase</label>
+            <input id="pvxwf-inc" type="color" ng-model="config.IncreaseColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-dec">Decrease</label>
+            <input id="pvxwf-dec" type="color" ng-model="config.DecreaseColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-invert">Swap increase / decrease</label>
+            <input id="pvxwf-invert" type="checkbox" ng-model="config.InvertColors" />
+        </div>
+        <div class="pvx-cfg-hint">For loss accounting, where a decrease is the good outcome. Steps of exactly zero always take the subtotal colour &mdash; no change is neither good nor bad.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-totalcol">Start / total bar</label>
+            <input id="pvxwf-totalcol" type="color" ng-model="config.TotalColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-subcol">Subtotal bar</label>
+            <input id="pvxwf-subcol" type="color" ng-model="config.SubtotalColor" />
+        </div>
+        <div class="pvx-cfg-hint">Sources reporting bad quality are always drawn hatched, whatever the colours. In a bridge a bad step moves every bar after it, so its hatching is a warning about the whole tail.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Connectors</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showconn">Show connectors</label>
+            <input id="pvxwf-showconn" type="checkbox" ng-model="config.ShowConnectors" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-conncol">Connector colour</label>
+            <input id="pvxwf-conncol" type="color" ng-model="config.ConnectorColor" />
+        </div>
+        <div class="pvx-cfg-hint">Thin lines carrying the running total from one bar to the next, drawn behind the bars. Leave the colour unset to follow the theme's line colour.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showvalues">Show values</label>
+            <input id="pvxwf-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-valuepos">Value position</label>
+            <select id="pvxwf-valuepos" ng-model="config.ValuePosition">
+                <option value="outside">Outside the bar</option>
+                <option value="inside">Inside the bar</option>
+                <option value="none">Hidden</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Steps are labelled with their signed change (<code>+12.4</code>, <code>-3.1</code>); start, subtotal and total bars with the level they stand at. Outside labels move inside near the frame edge so nothing is cut off.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-pct">Add % of start</label>
+            <input id="pvxwf-pct" type="checkbox" ng-model="config.ShowPercentOfStart" />
+        </div>
+        <div class="pvx-cfg-hint">Hidden automatically when the start is zero, because every step would be an infinite share of it.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-decimals">Decimals</label>
+            <select id="pvxwf-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-compact">Compact numbers (1.2k)</label>
+            <input id="pvxwf-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showlabel">Show header</label>
+            <input id="pvxwf-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-units">Show units in header</label>
+            <input id="pvxwf-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-hint">Header, footer and value labels drop out automatically on a small tile so the bars keep the space.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showaxis">Show axis labels</label>
+            <input id="pvxwf-showaxis" type="checkbox" ng-model="config.ShowAxis" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-showgrid">Show grid lines</label>
+            <input id="pvxwf-showgrid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-ticks">Tick count</label>
+            <input id="pvxwf-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-basezero">Baseline at zero</label>
+            <input id="pvxwf-basezero" type="checkbox" ng-model="config.BaselineAtZero" />
+        </div>
+        <div class="pvx-cfg-hint">Turn this off and the axis starts at the data range instead. That exaggerates small steps &mdash; a 1% change can fill the frame &mdash; and the start, subtotal and total bars no longer stand on a real zero, so their heights stop being comparable to their values. Use it only when the steps would otherwise be invisible, and expect to explain the axis.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-theme">Theme</label>
+            <select id="pvxwf-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-transparent">Transparent background</label>
+            <input id="pvxwf-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-radius">Corner radius</label>
+            <input id="pvxwf-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwf-accent">Accent colour</label>
+            <input id="pvxwf-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">The accent is used for the hover outline on a bar.</div>
+    </div>
+
+</div>

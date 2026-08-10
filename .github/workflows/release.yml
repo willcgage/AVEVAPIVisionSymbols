@@ -1,0 +1,206 @@
+name: Release
+
+# Triggered by a version tag: git tag v1.5.0 && git push origin v1.5.0
+#
+# Produces, and attaches to a GitHub Release:
+#   PvxSymbols-<version>.msi        the installer  (built with official WiX)
+#   pvx-symbols-<version>.zip       the manual-copy package + PowerShell script
+#   PvxSymbols.wxs                  the installer source that produced the MSI
+#   components.json                 the component GUID map, for auditing
+#   SHA256SUMS.txt                  checksums for everything above
+#
+# The zip stays in the artifact set deliberately. An MSI needs an elevated
+# session on the box; sites that deploy by dropping files on a share, or that
+# have to get an installer through change control first, still need the folder.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (must match package.json)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # --------------------------------------------------------------------------
+  # The gate. A tag does not get a release unless the same checks CI runs on
+  # every pull request pass on the tagged commit.
+  # --------------------------------------------------------------------------
+  gate:
+    name: Verify the tagged commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Tag v$TAG does not match package.json version $PKG"
+            exit 1
+          fi
+          echo "Tag and package.json agree on $PKG"
+
+      - run: node tools/build.js --clean
+      - run: node tools/verify.js
+      - run: node tools/test-api.js
+
+  # --------------------------------------------------------------------------
+  # Build the shipping MSI with the official WiX toolset, then assert against
+  # the MSI's own tables — including the Permanent + NeverOverwrite bits that
+  # protect a site's pvx-config.js, which the Linux CI job cannot check because
+  # wixl ignores those attributes.
+  # --------------------------------------------------------------------------
+  installer:
+    name: Build MSI
+    needs: gate
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build payload and installer source
+        run: |
+          node tools/build.js --clean --package
+          node tools/wix.js
+
+      - name: Install WiX Toolset v3
+        run: |
+          nuget install WiX -Version 3.14.1 -OutputDirectory ${{ runner.temp }}\wix
+          $candle = Get-ChildItem -Path ${{ runner.temp }}\wix -Recurse -Filter candle.exe |
+                    Select-Object -First 1
+          "WIX_BIN=$($candle.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+        shell: pwsh
+
+      - name: Compile MSI
+        working-directory: dist/installer
+        shell: pwsh
+        run: |
+          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" `
+              -out PvxSymbols.wixobj PvxSymbols.wxs
+          & "$env:WIX_BIN\light.exe" -nologo -sval `
+              -out "PvxSymbols-$(node -p "require('../../package.json').version").msi" `
+              PvxSymbols.wixobj
+          Get-ChildItem *.msi
+
+      # Reads the shipping MSI's tables and fails the release if the site
+      # settings component has lost its protection. Without these bits an
+      # upgrade silently overwrites a site's PI Web API configuration.
+      - name: Assert site settings are protected
+        shell: pwsh
+        run: |
+          $msi = (Get-ChildItem dist/installer/*.msi | Select-Object -First 1).FullName
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $db = $installer.GetType().InvokeMember('OpenDatabase','InvokeMethod',$null,
+                  $installer,@($msi,0))
+          $manifest = Get-Content dist/installer/components.json | ConvertFrom-Json
+          $site = $manifest.siteConfig.Replace('\','/')
+          $q = "SELECT ``Component``.``Attributes`` FROM ``Component``,``File`` " +
+               "WHERE ``File``.``Component_`` = ``Component``.``Component`` " +
+               "AND ``File``.``FileName`` LIKE '%pvx-config.js'"
+          $view = $db.GetType().InvokeMember('OpenView','InvokeMethod',$null,$db,@($q))
+          $view.GetType().InvokeMember('Execute','InvokeMethod',$null,$view,$null)
+          $rec = $view.GetType().InvokeMember('Fetch','InvokeMethod',$null,$view,$null)
+          if ($null -eq $rec) { throw "pvx-config.js not found in the MSI ($site)" }
+          $attrs = $rec.GetType().InvokeMember('IntegerData','GetProperty',$null,$rec,@(1))
+          $PERMANENT = 16; $NEVER_OVERWRITE = 128
+          Write-Host "Component attributes = $attrs"
+          if (-not ($attrs -band $PERMANENT))       { throw "pvx-config.js is not Permanent" }
+          if (-not ($attrs -band $NEVER_OVERWRITE)) { throw "pvx-config.js is not NeverOverwrite" }
+          Write-Host "Site settings are Permanent + NeverOverwrite."
+
+      # --- Optional code signing -------------------------------------------
+      # Unsigned, Windows shows "Unknown Publisher" on the MSI and execution
+      # policy may block Deploy-PvxSymbols.ps1. Add the two secrets to enable;
+      # without them the release still builds, just unsigned.
+      # `if` is evaluated before the step's own env block exists, so this has
+      # to test the secret directly rather than CERT_PFX_BASE64.
+      - name: Sign MSI and PowerShell script
+        if: ${{ secrets.CODE_SIGN_PFX_BASE64 != '' }}
+        env:
+          CERT_PFX_BASE64: ${{ secrets.CODE_SIGN_PFX_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.CODE_SIGN_PASSWORD }}
+        shell: pwsh
+        run: |
+          $pfx = "${{ runner.temp }}\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_PFX_BASE64))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+                        -Recurse -Filter signtool.exe |
+                       Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1).FullName
+          & $signtool sign /f $pfx /p $env:CERT_PASSWORD /fd SHA256 `
+              /tr http://timestamp.digicert.com /td SHA256 `
+              (Get-ChildItem dist/installer/*.msi).FullName dist/Deploy-PvxSymbols.ps1
+          Remove-Item $pfx -Force
+
+      - name: Package artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item dist/installer/*.msi                artifacts/
+          Copy-Item dist/pvx-symbols-*.zip              artifacts/
+          Copy-Item dist/installer/PvxSymbols.wxs       artifacts/
+          Copy-Item dist/installer/components.json      artifacts/
+          Get-FileHash artifacts/* -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content artifacts/SHA256SUMS.txt -Encoding ascii
+          Get-Content artifacts/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts/
+
+  publish:
+    name: Publish release
+    needs: installer
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            ## Installing
+
+            **MSI** — elevated PowerShell on each PI Vision web server:
+
+            ```powershell
+            msiexec /i PvxSymbols-${{ github.ref_name }}.msi /qn /l*v pvx-install.log
+            # non-default install location:
+            msiexec /i PvxSymbols-${{ github.ref_name }}.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
+            ```
+
+            Then recycle the PI Vision app pool and hard-refresh the browser (Ctrl+F5).
+
+            **Manual copy** — use `pvx-symbols-*.zip` and the included
+            `Deploy-PvxSymbols.ps1` if an MSI has to clear change control first.
+
+            Your `libraries\pvx-config.js` is never overwritten by an upgrade
+            and never removed by an uninstall. See `docs/DEPLOYMENT.md`.
+
+            Verify downloads against `SHA256SUMS.txt`.

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+    <!-- A single entry field with a value in it, a write button beneath, and an
+         arrow leaving the field towards the archive. The tick is the confirm
+         step: this symbol never writes without one. -->
+
+    <!-- the current value, above the field -->
+    <rect x="56" y="72" width="150" height="18" rx="9" fill="#8a8f96" opacity="0.5"/>
+    <rect x="330" y="72" width="126" height="18" rx="9" fill="#8a8f96" opacity="0.3"/>
+
+    <!-- the input field -->
+    <rect x="56" y="118" width="400" height="92" rx="12" fill="none" stroke="#3b82c4" stroke-width="12"/>
+    <!-- the typed value, plus a caret -->
+    <rect x="88" y="150" width="112" height="28" rx="6" fill="#1d2126" opacity="0.75"/>
+    <rect x="216" y="142" width="9" height="44" rx="4" fill="#3b82c4"/>
+
+    <!-- the arrow out of the field: this value is going somewhere permanent -->
+    <path d="M300 164 H392" stroke="#3f9e6a" stroke-width="12" stroke-linecap="round"/>
+    <path d="M374 142 L404 164 L374 186 Z" fill="#3f9e6a"/>
+
+    <!-- the confirm step, drawn as a checked box -->
+    <rect x="56" y="246" width="60" height="60" rx="10" fill="none" stroke="#d99024" stroke-width="12"/>
+    <path d="M70 276 L84 292 L110 258" stroke="#d99024" stroke-width="12"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="140" y="264" width="240" height="24" rx="12" fill="#8a8f96" opacity="0.45"/>
+
+    <!-- the write button -->
+    <rect x="56" y="340" width="400" height="80" rx="14" fill="#3b82c4"/>
+    <rect x="176" y="368" width="160" height="24" rx="12" fill="#ffffff" opacity="0.92"/>
+</svg>

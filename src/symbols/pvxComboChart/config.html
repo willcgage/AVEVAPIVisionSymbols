@@ -1,0 +1,218 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Traces</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxcombo-spec">Trace specification</label>
+            <textarea id="pvxcombo-spec" ng-model="config.TraceSpec" rows="2"
+                      placeholder="1:bar, 2:line:right, 3:area"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One entry per data source, comma separated:
+            <code>index:type[:axis][:#colour]</code>.
+            <br /><em>index</em> counts the data sources in the order they were added (1 = first).
+            <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
+            <code>step</code>, <code>scatter</code> or <code>hidden</code>.
+            <br /><em>axis</em> is <code>left</code> or <code>right</code>.
+            <br /><em>colour</em> is a hex value such as <code>#8267b0</code>.
+            <br />Example: <code>1:bar, 2:line:right, 4:step:right:#8267b0</code>.
+            Anything not listed uses the default type on the left axis.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-deftype">Default type</label>
+            <select id="pvxcombo-deftype" ng-model="config.DefaultType">
+                <option value="line">Line</option>
+                <option value="area">Area</option>
+                <option value="bar">Bar</option>
+                <option value="step">Step</option>
+                <option value="scatter">Scatter</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-smooth">Smooth lines</label>
+            <input id="pvxcombo-smooth" type="checkbox" ng-model="config.SmoothLines" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-lw">Line width</label>
+            <input id="pvxcombo-lw" type="number" ng-model="config.LineWidth" min="0.5" max="6" step="0.2" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-areaop">Area opacity</label>
+            <input id="pvxcombo-areaop" type="number" ng-model="config.AreaOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-barop">Bar opacity</label>
+            <input id="pvxcombo-barop" type="number" ng-model="config.BarOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-stack">Stack bars</label>
+            <input id="pvxcombo-stack" type="checkbox" ng-model="config.StackBars" />
+        </div>
+        <div class="pvx-cfg-hint">Bars that share an axis stack instead of standing side by side.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-minbar">Minimum bar width (px)</label>
+            <input id="pvxcombo-minbar" type="number" ng-model="config.MinBarWidth" min="0.5" max="60" step="0.5" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Decides how many time slots the bars are aggregated into: each slot is made wide
+            enough that every bar inside it reaches this width. Lowering it gives more, narrower
+            slots — finer time resolution, but below about 3px the bars stop reading as bars.
+            Raising it gives fewer, chunkier bars. Grouped bar traces share a slot, so adding a
+            bar trace reduces the number of slots at the same width; stacked bars share one
+            column and so keep their resolution.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-maxpts">Max points per trace</label>
+            <input id="pvxcombo-maxpts" type="number" ng-model="config.MaxPointsPerTrace" min="20" max="5000" step="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-intervals">Query resolution</label>
+            <input id="pvxcombo-intervals" type="number" ng-model="config.Intervals" min="20" max="2000" step="10" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Left axis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-showleft">Show left axis</label>
+            <input id="pvxcombo-showleft" type="checkbox" ng-model="config.ShowLeftAxis" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxcombo-leftlabel">Left axis label</label>
+            <input id="pvxcombo-leftlabel" type="text" ng-model="config.LeftLabel" placeholder="Leave blank for none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-leftmin">Minimum</label>
+            <input id="pvxcombo-leftmin" type="text" ng-model="config.LeftMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-leftmax">Maximum</label>
+            <input id="pvxcombo-leftmax" type="text" ng-model="config.LeftMax" placeholder="auto" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Right axis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-showright">Show right axis</label>
+            <input id="pvxcombo-showright" type="checkbox" ng-model="config.ShowRightAxis" />
+        </div>
+        <div class="pvx-cfg-hint">Only drawn when at least one trace is assigned to it.</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxcombo-rightlabel">Right axis label</label>
+            <input id="pvxcombo-rightlabel" type="text" ng-model="config.RightLabel" placeholder="Leave blank for none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-rightmin">Minimum</label>
+            <input id="pvxcombo-rightmin" type="text" ng-model="config.RightMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-rightmax">Maximum</label>
+            <input id="pvxcombo-rightmax" type="text" ng-model="config.RightMax" placeholder="auto" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Limit bands</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxcombo-bands">Bands (left axis)</label>
+            <textarea id="pvxcombo-bands" ng-model="config.LimitBands" rows="2"
+                      placeholder="80:#d99024:High, 95:#c8452f:Critical"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>lowerLimit:colour:label</code>, comma separated. Each band shades from its own
+            limit up to the next one, and the top band runs to the top of the axis. A limit belongs
+            to the axis, not to a tag, so it costs no data source.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-bandop">Band opacity</label>
+            <input id="pvxcombo-bandop" type="number" ng-model="config.LimitBandOpacity" min="0" max="1" step="0.02" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Grid and legend</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-grid">Show grid</label>
+            <input id="pvxcombo-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-ticks">Value ticks</label>
+            <input id="pvxcombo-ticks" type="number" ng-model="config.TickCount" min="2" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-timeticks">Time labels</label>
+            <input id="pvxcombo-timeticks" type="number" ng-model="config.TimeTickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-legend">Show legend</label>
+            <input id="pvxcombo-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-legendpos">Legend position</label>
+            <select id="pvxcombo-legendpos" ng-model="config.LegendPosition">
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+                <option value="none">Hidden</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-legendval">Show values in legend</label>
+            <input id="pvxcombo-legendval" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-tips">Tooltips on hover</label>
+            <input id="pvxcombo-tips" type="checkbox" ng-model="config.ShowTooltips" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxcombo-title">Title</label>
+            <input id="pvxcombo-title" type="text" ng-model="config.Title" placeholder="Leave blank for no header" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-showlabel">Show title</label>
+            <input id="pvxcombo-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-theme">Theme</label>
+            <select id="pvxcombo-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-decimals">Decimals</label>
+            <select id="pvxcombo-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-compact">Compact numbers (1.2k)</label>
+            <input id="pvxcombo-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-transparent">Transparent background</label>
+            <input id="pvxcombo-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-radius">Corner radius</label>
+            <input id="pvxcombo-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

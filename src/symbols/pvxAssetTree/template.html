@@ -1,0 +1,41 @@
+<!--
+    pvxAssetTree — deliberately thin.
+
+    Every row below .pvx-tree-body is real DOM built imperatively by symbol.js.
+    There is no ng-repeat here on purpose: an AF branch can hold hundreds of
+    children, and a watcher per row per digest on a display that also polls PI
+    data makes the whole page stutter.
+
+    The search box lives here rather than being built by hand because it must
+    survive a re-render of the tree without losing the caret — but it carries no
+    Angular directives at all, so symbol.js owns it outright and the two never
+    fight over the same node.
+-->
+<div class="pvx pvx-tree"
+     ng-class="{'pvx-tree-compact': config.CompactRows}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-tree-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-tree-header" ng-if="pvx.showHeader">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-tree-searchwrap">
+            <input class="pvx-tree-search-input" type="text"
+                   autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="pvx-tree-search-clear" type="button" tabindex="-1"
+                    aria-label="Clear search">&#215;</button>
+        </div>
+
+        <div class="pvx-body pvx-tree-bodywrap">
+            <div class="pvx-tree-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-tree-footer" ng-if="pvx.note">
+            <span class="pvx-tree-note pvx-truncate" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+</div>

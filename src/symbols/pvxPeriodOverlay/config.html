@@ -1,0 +1,304 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">How this works</div>
+        <div class="pvx-cfg-hint">
+            <strong>This symbol folds the display's own time range; it cannot fetch other
+            ranges.</strong> A PI Vision custom symbol only ever receives the window the
+            display is set to, so it cannot ask for "the same shift last week" — that needs
+            the PI Web API. Instead it cuts the one window it is given into equal periods and
+            lays them on a shared relative-time axis.
+        </div>
+        <div class="pvx-cfg-hint">
+            So: to compare seven days, set the <em>display</em> time range to 7 days and choose
+            a 1 day period. To compare three shifts, set the range to 24 hours and choose the
+            shift period. If the display range is shorter than one period there is nothing to
+            compare, and the footer says so instead of drawing something misleading.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Period</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-periodmode">Period length</label>
+            <select id="pvxpo-periodmode" ng-model="config.PeriodMode">
+                <option value="auto">Auto</option>
+                <option value="hour">1 hour</option>
+                <option value="shift">Shift</option>
+                <option value="day">1 day</option>
+                <option value="week">1 week</option>
+                <option value="custom">Custom hours</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="!config.PeriodMode || config.PeriodMode === 'auto'">
+            Chosen from the length of the display range so the symbol is useful before it is
+            configured: under 48 hours folds by the hour, under 14 days by the day, otherwise
+            by the week.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.PeriodMode === 'shift'">
+            <label for="pvxpo-shifthours">Shift length (h)</label>
+            <input id="pvxpo-shifthours" type="number" ng-model="config.ShiftHours" min="0.25" max="168" step="0.25" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.PeriodMode === 'shift'">
+            <label for="pvxpo-shiftstart">First shift starts at (h)</label>
+            <input id="pvxpo-shiftstart" type="number" ng-model="config.ShiftStartHour" min="0" max="23" step="1" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.PeriodMode === 'shift'">
+            Shifts are counted from that hour on each day, in the browser's local time — the
+            same clock the control room reads.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.PeriodMode === 'custom'">
+            <label for="pvxpo-customhours">Period length (h)</label>
+            <input id="pvxpo-customhours" type="number" ng-model="config.CustomPeriodHours" min="0.25" max="8760" step="0.25" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-alignto">Align periods to</label>
+            <select id="pvxpo-alignto" ng-model="config.AlignTo">
+                <option value="clock">The clock</option>
+                <option value="windowEnd">The end of the window</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="!config.AlignTo || config.AlignTo === 'clock'">
+            Periods start on real boundaries — midnight, the shift start, Monday. 08:00 on one
+            trace is 08:00 on every other, and the axis is labelled in clock time. This is the
+            right answer for <em>"Tuesday against Wednesday"</em>. The newest period is still in
+            progress, so its trace stops part way across.
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.AlignTo === 'windowEnd'">
+            Periods count back from the end of the window, so the newest trace always ends at
+            "now" and the axis is labelled in elapsed time. This is the right answer for
+            <em>"the last 8 hours against the 8 before that"</em>. These two settings answer
+            different questions — pick the one that matches yours.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-maxperiods">Maximum periods</label>
+            <input id="pvxpo-maxperiods" type="number" ng-model="config.MaxPeriods" min="1" max="24" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The most recent N are kept. Anything older is dropped and counted in the footer, so
+            the chart never quietly shows less history than the range contains.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-points">Resolution (points)</label>
+            <input id="pvxpo-points" type="number" ng-model="config.Intervals" min="100" max="4000" step="100" />
+        </div>
+        <div class="pvx-cfg-hint">
+            One query covers every period at once, so this budget is shared between them. Eight
+            periods at 800 points is 100 samples each.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Envelope</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-showenv">Show envelope</label>
+            <input id="pvxpo-showenv" type="checkbox" ng-model="config.ShowEnvelope" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-envmode">Envelope from</label>
+            <select id="pvxpo-envmode" ng-model="config.EnvelopeMode">
+                <option value="minmax">Min / max of the older periods</option>
+                <option value="percentile">Percentiles</option>
+                <option value="stddev">Mean ±1 std dev</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Computed for each point on the relative axis, not as one band across the whole
+            chart: what matters is the range the process occupied <em>at this point in the
+            period</em>. Percentiles and standard deviation need at least two older periods to
+            mean anything; with only one the symbol falls back to min/max and says so.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeMode === 'percentile'">
+            <label for="pvxpo-envlow">Lower percentile</label>
+            <input id="pvxpo-envlow" type="number" ng-model="config.EnvelopeLowP" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeMode === 'percentile'">
+            <label for="pvxpo-envhigh">Upper percentile</label>
+            <input id="pvxpo-envhigh" type="number" ng-model="config.EnvelopeHighP" min="0" max="1" step="0.05" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-envcolor">Envelope colour</label>
+            <input id="pvxpo-envcolor" type="color" ng-model="config.EnvelopeColor" />
+        </div>
+        <div class="pvx-cfg-hint">Leave unset to use the accent colour.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-envop">Envelope opacity</label>
+            <input id="pvxpo-envop" type="number" ng-model="config.EnvelopeOpacity" min="0" max="1" step="0.02" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-median">Show median of older periods</label>
+            <input id="pvxpo-median" type="checkbox" ng-model="config.ShowMedian" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Traces</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-colormode">Colour older periods</label>
+            <select id="pvxpo-colormode" ng-model="config.ColorMode">
+                <option value="fade">Faded shades of one colour</option>
+                <option value="palette">One colour each</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="!config.ColorMode || config.ColorMode === 'fade'">
+            The history recedes into the background and only the current period keeps its
+            colour — the fastest way to answer "which line is today". The legend collapses to
+            current / older / envelope, because faded traces cannot honestly be listed one by
+            one.
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ColorMode === 'palette'">
+            Every period gets its own hue and its own legend entry. Worth it when you need to
+            name a specific past period rather than read the envelope.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-fade">Fade older periods</label>
+            <input id="pvxpo-fade" type="checkbox" ng-model="config.FadeOlder" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-currentcolor">Current period colour</label>
+            <input id="pvxpo-currentcolor" type="color" ng-model="config.CurrentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-currentstyle">Current period line</label>
+            <select id="pvxpo-currentstyle" ng-model="config.CurrentStyle">
+                <option value="bold">Heavier than the rest</option>
+                <option value="same">Same weight</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-linewidth">Line width</label>
+            <input id="pvxpo-linewidth" type="number" ng-model="config.LineWidth" min="0.4" max="8" step="0.1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-smooth">Smooth lines</label>
+            <input id="pvxpo-smooth" type="checkbox" ng-model="config.SmoothLine" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Periods are resampled onto a shared relative-time grid before they are overlaid —
+            without that, traces with different sample counts would not line up. The grid keeps
+            each slot's minimum and maximum, so excursion spikes survive.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes and chrome</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-yscale">Value scale</label>
+            <select id="pvxpo-yscale" ng-model="config.YScaleMode">
+                <option value="auto">Auto</option>
+                <option value="fixed">Fixed</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.YScaleMode === 'fixed'">
+            <label for="pvxpo-ymin">Minimum</label>
+            <input id="pvxpo-ymin" type="number" ng-model="config.YMin" step="any" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.YScaleMode === 'fixed'">
+            <label for="pvxpo-ymax">Maximum</label>
+            <input id="pvxpo-ymax" type="number" ng-model="config.YMax" step="any" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.YScaleMode === 'fixed'">
+            Leave either box blank to keep that end automatic.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-grid">Show grid</label>
+            <input id="pvxpo-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-ticks">Value ticks</label>
+            <input id="pvxpo-ticks" type="number" ng-model="config.TickCount" min="2" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-timeticks">Time ticks</label>
+            <input id="pvxpo-timeticks" type="number" ng-model="config.TimeTickCount" min="2" max="12" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-legend">Show legend</label>
+            <input id="pvxpo-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-legendlabels">Legend names</label>
+            <select id="pvxpo-legendlabels" ng-model="config.LegendLabels">
+                <option value="auto">Auto</option>
+                <option value="date">Dates</option>
+                <option value="offset">Offsets (-1 day)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Auto uses dates when the period is a named stretch of the calendar and offsets
+            otherwise — on a four-hour fold "-8 h" says more than a timestamp.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-stats">Show comparison panel</label>
+            <input id="pvxpo-stats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How much of the current period sits inside the envelope, and the largest departure
+            from it. The share is measured from each slot's average so one stray sample cannot
+            condemn a slot; the departure is measured from the extremes, because a two-minute
+            spike out of the envelope is exactly the event worth reporting.
+        </div>
+        <div class="pvx-cfg-hint">
+            Below roughly 200 × 140 px the panel, the legend and the axis titles are dropped;
+            below 140 × 100 px the tick labels go too.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxpo-title">Title</label>
+            <input id="pvxpo-title" type="text" ng-model="config.Title" placeholder="Tag name — period comparison" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-showlabel">Show title</label>
+            <input id="pvxpo-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-theme">Theme</label>
+            <select id="pvxpo-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-accent">Accent colour</label>
+            <input id="pvxpo-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-decimals">Decimals</label>
+            <select id="pvxpo-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-transparent">Transparent background</label>
+            <input id="pvxpo-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-radius">Corner radius</label>
+            <input id="pvxpo-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

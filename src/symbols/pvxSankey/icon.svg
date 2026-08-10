@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxSankey — one trunk entering from the left and splitting into a large
+         stream that carries on and a smaller loss that branches away downwards.
+         The two branches tile the trunk exactly, because that is the whole
+         point of the symbol. Flat, transparent background, no strokes: it has
+         to read at 24px in the PI Vision symbol picker. -->
+
+    <!-- inlet node bar -->
+    <rect x="56" y="106" width="24" height="252" rx="5" fill="#3a4149" />
+
+    <!-- the trunk -->
+    <rect x="80" y="106" width="116" height="252" fill="#3b82c4" />
+
+    <!-- the large stream carrying on to the right -->
+    <path d="M196 106 C314 106, 314 94, 432 94 L432 276 C314 276, 314 288, 196 288 Z" fill="#3f9e6a" />
+
+    <!-- the smaller loss branching away downwards -->
+    <path d="M196 288 C314 288, 314 348, 432 348 L432 418 C314 418, 314 358, 196 358 Z" fill="#c8452f" />
+
+    <!-- outlet node bars -->
+    <rect x="432" y="94" width="24" height="182" rx="5" fill="#3a4149" />
+    <rect x="432" y="348" width="24" height="70" rx="5" fill="#3a4149" />
+</svg>

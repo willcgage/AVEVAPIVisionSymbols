@@ -1,0 +1,199 @@
+<div class="c-config-content pvx-cfg pvx-nav-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Buttons</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-mode">What a click does</label>
+            <select id="pvxnav-mode" ng-model="config.Mode">
+                <option value="display">Open a display</option>
+                <option value="asset">Switch asset</option>
+                <option value="time">Set time range</option>
+                <option value="custom">Custom (mix)</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxnav-items">Items &mdash; one button per line</label>
+            <textarea id="pvxnav-items" ng-model="config.Items" rows="7"
+                      placeholder="Label | target | extra"></textarea>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Format:</b> <code>Label | target | extra</code><br />
+            Blank lines are ignored, and a line starting with <code>#</code> is a comment.
+            Spaces around the <code>|</code> are trimmed.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Open a display</b> &mdash; <code>target</code> is the display id
+            (or <code>id/slug</code>, a path starting with <code>/</code>, or a full
+            <code>http(s)</code> URL). Optional <code>extra</code> is an AF element path
+            passed as <code>?asset=</code>.
+            <pre>Overview      | 1042
+Boiler detail | 1058 | \\PISRV01\Plant\Boiler 3
+Corporate KPI | https://intranet/kpi</pre>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Switch asset</b> &mdash; <code>target</code> is the AF element path. The
+            current display stays put and only the asset context changes.
+            <pre>Boiler 1 | \\PISRV01\Plant\Boiler 1
+Boiler 2 | \\PISRV01\Plant\Boiler 2</pre>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Set time range</b> &mdash; <code>target</code> is the start time in PI time
+            syntax and <code>extra</code> is the end time (defaults to <code>*</code>, now).
+            <pre>8 hours    | *-8h  | *
+Yesterday  | y     | t
+This month | *-1mo | *</pre>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Custom</b> &mdash; <code>target</code> is a display id (leave it blank to stay
+            on this display) and <code>extra</code> is a list of
+            <code>key=value</code> pairs separated by semicolons. Supported keys:
+            <code>asset</code>, <code>start</code>, <code>end</code>, <code>mode</code>.
+            <pre>Boiler 3, last shift | 1058 | asset=\\PISRV01\Plant\Boiler 3;start=*-8h;end=*
+Reset time here      |      | start=*-24h;end=*</pre>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Finding a display id:</b> open the display and look at the browser address
+            bar. The id is the number straight after <code>/Displays/</code> &mdash; in
+            <code>.../PIVision/#/Displays/<b>1042</b>/Boiler-Overview</code> the id is
+            <code>1042</code>. The name after it is cosmetic and may be omitted; it is
+            ignored when matching the active button.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-layout">Arrangement</label>
+            <select id="pvxnav-layout" ng-model="config.Layout">
+                <option value="row">Single row</option>
+                <option value="column">Single column</option>
+                <option value="wrap">Wrapping rows</option>
+                <option value="grid">Grid</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-cols">Grid columns</label>
+            <input id="pvxnav-cols" type="number" ng-model="config.GridColumns" min="1" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">Only used when the arrangement is Grid.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-full">Stretch buttons to fill</label>
+            <input id="pvxnav-full" type="checkbox" ng-model="config.FullWidth" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-gap">Gap between buttons</label>
+            <input id="pvxnav-gap" type="number" ng-model="config.ButtonGap" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-style">Button style</label>
+            <select id="pvxnav-style" ng-model="config.ButtonStyle">
+                <option value="filled">Filled</option>
+                <option value="outline">Outline</option>
+                <option value="ghost">Ghost (text only)</option>
+                <option value="tab">Tabs</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-size">Button size</label>
+            <select id="pvxnav-size" ng-model="config.ButtonSize">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-color">Button colour</label>
+            <input id="pvxnav-color" type="color" ng-model="config.ButtonColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-activecolor">Selected colour</label>
+            <input id="pvxnav-activecolor" type="text" ng-model="config.ActiveColor" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">Leave blank for a darker shade of the button colour.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-radius">Button corner radius</label>
+            <input id="pvxnav-radius" type="number" ng-model="config.ButtonRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-theme">Theme</label>
+            <select id="pvxnav-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-transparent">Transparent background</label>
+            <input id="pvxnav-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-panelradius">Panel corner radius</label>
+            <input id="pvxnav-panelradius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-showtitle">Show title</label>
+            <input id="pvxnav-showtitle" type="checkbox" ng-model="config.ShowTitle" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxnav-title">Title</label>
+            <input id="pvxnav-title" type="text" ng-model="config.Title" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Behaviour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-active">Highlight the current selection</label>
+            <input id="pvxnav-active" type="checkbox" ng-model="config.ShowActiveState" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Compares each button against the display's current URL &mdash; the display id,
+            the asset path, or the start/end times, depending on the mode above.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-newtab">Open in a new tab</label>
+            <input id="pvxnav-newtab" type="checkbox" ng-model="config.OpenInNewTab" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-keepasset">Carry the current asset over</label>
+            <input id="pvxnav-keepasset" type="checkbox" ng-model="config.KeepAsset" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-keeptime">Carry the current time range over</label>
+            <input id="pvxnav-keeptime" type="checkbox" ng-model="config.KeepTime" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A value set by the button itself always wins over the carried-over one.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxnav-confirm">Confirm before navigating</label>
+            <input id="pvxnav-confirm" type="checkbox" ng-model="config.ConfirmNavigation" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxnav-confirmtext">Confirmation tooltip</label>
+            <input id="pvxnav-confirmtext" type="text" ng-model="config.ConfirmText" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The first click turns the button into <b>Confirm?</b> for four seconds; a
+            second click within that window navigates. It cancels itself on timeout, on
+            losing focus, or when another button is clicked. No pop-up dialog is used &mdash;
+            a modal would block the display's data updates.
+        </div>
+    </div>
+
+</div>

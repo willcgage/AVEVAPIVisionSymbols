@@ -1,0 +1,82 @@
+/* pvxSparkline — dense multi-series micro-trend list */
+
+.pvx-spark {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-spark .pvx-spark-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-spark .pvx-spark-header {
+    color: var(--pvx-muted);
+    padding-bottom: 4px;
+}
+
+.pvx-spark .pvx-spark-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and rows never fit. */
+.pvx-spark .pvx-spark-body {
+    flex: 1 1 auto;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-spark .pvx-spark-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Names keep pointer events so their <title> (full AF path) wins over the
+   row-level tooltip; SVG text only reacts over its own glyphs. */
+.pvx-spark .pvx-spark-name {
+    font-weight: 500;
+    letter-spacing: 0.005em;
+}
+
+.pvx-spark .pvx-spark-value {
+    font-weight: 600;
+    pointer-events: none;
+}
+
+.pvx-spark .pvx-spark-line,
+.pvx-spark .pvx-spark-end,
+.pvx-spark .pvx-spark-min,
+.pvx-spark .pvx-spark-max,
+.pvx-spark .pvx-spark-flat,
+.pvx-spark .pvx-spark-bad {
+    pointer-events: none;
+}
+
+.pvx-spark .pvx-spark-more {
+    font-style: italic;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+}
+
+/* Rows are informational, not clickable — undo the base .pvx-hit affordance. */
+.pvx-spark .pvx-hit {
+    cursor: default;
+}
+
+.pvx-spark .pvx-spark-row:hover .pvx-spark-name {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}

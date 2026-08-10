@@ -1,0 +1,335 @@
+/* pvxEntryTable — a rounds sheet that writes back to PI.
+ *
+ * Real DOM, not SVG, because twenty inputs have to be reachable with Tab and
+ * typed into. Focus rings, disabled states and hit sizes are part of whether
+ * the form is safe to use, not decoration.
+ */
+
+.pvx-etable {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme. */
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-ok: #2f9e5f;
+    --pvx-warn: #d99024;
+    --pvx-alarm: #c8452f;
+    color: var(--pvx-text);
+}
+
+.pvx-etable .pvx-etable-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-etable .pvx-etable-header {
+    color: var(--pvx-muted);
+    padding-bottom: 3px;
+}
+
+.pvx-etable .pvx-etable-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+/* Must be able to shrink inside the flex body, or clientHeight reports the
+   content height and the size decisions read the wrong number. */
+.pvx-etable .pvx-etable-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pvx-etable .pvx-etable-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* On a very wide symbol an uncapped sheet strands the entry boxes a hand's
+       width away from the labels they belong to, which is exactly how a reading
+       ends up typed into the wrong row. */
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px 8px 10px;
+    overflow: hidden;
+}
+
+/* --- rows ------------------------------------------------------------------ *
+ * The row list scrolls; the submit button and the message never do. A rounds
+ * sheet whose submit button has scrolled out of sight is a set of readings that
+ * silently never gets sent. */
+
+.pvx-etable .pvx-etable-rows {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.pvx-etable .pvx-etable-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 0;
+    border-bottom: 1px solid transparent;
+}
+
+.pvx-etable .pvx-etable-form[data-compact="yes"] .pvx-etable-row { padding: 0; }
+
+.pvx-etable .pvx-etable-head {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pvx-muted);
+    border-bottom: 1px solid var(--pvx-border);
+    padding-bottom: 2px;
+    flex: 0 0 auto;
+}
+
+.pvx-etable .pvx-etable-c-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.pvx-etable .pvx-etable-c-current {
+    flex: 0 0 58px;
+    text-align: right;
+    font-size: 11.5px;
+    color: var(--pvx-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-etable .pvx-etable-c-input {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+}
+
+/* The caption row is laid out by the same rules as the data rows, so the
+   headings stay over the columns they name rather than drifting as the
+   optional columns come and go. */
+.pvx-etable .pvx-etable-head .pvx-etable-c-input {
+    flex: 0 0 88px;
+    display: block;
+    text-align: left;
+}
+
+.pvx-etable .pvx-etable-c-status {
+    flex: 0 0 72px;
+    text-align: right;
+    font-size: 10px;
+    color: var(--pvx-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Columns are dropped, not squeezed: an unreadable column is worse than an
+   absent one, and the input must never lose width to chrome. */
+.pvx-etable .pvx-etable-form[data-current="no"] .pvx-etable-c-current { display: none; }
+.pvx-etable .pvx-etable-form[data-status="no"] .pvx-etable-c-status { display: none; }
+
+.pvx-etable .pvx-etable-input {
+    font-family: inherit;
+    font-size: 12px;
+    /* 24px is about the smallest control still comfortably clickable on a wall
+       display; below that people miss and re-click. */
+    min-height: 24px;
+    width: 88px;
+    padding: 2px 5px;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+}
+
+.pvx-etable .pvx-etable-form[data-compact="yes"] .pvx-etable-input {
+    min-height: 20px;
+    font-size: 11px;
+}
+
+.pvx-etable .pvx-etable-rowstamp { width: 68px; font-size: 10.5px; }
+
+.pvx-etable .pvx-etable-input:focus {
+    outline: 2px solid #7fb0e0;
+    outline-offset: 1px;
+}
+
+.pvx-etable .pvx-etable-input:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Per-row outcome. Colour AND a word: colour alone is not a message, and a
+   colour-blind operator has to be able to read the same answer. */
+.pvx-etable .pvx-etable-row[data-status="saved"] .pvx-etable-c-status { color: var(--pvx-ok); font-weight: 600; }
+.pvx-etable .pvx-etable-row[data-status="failed"] .pvx-etable-c-status { color: var(--pvx-alarm); font-weight: 600; }
+.pvx-etable .pvx-etable-row[data-status="failed"] { border-bottom-color: var(--pvx-alarm); }
+.pvx-etable .pvx-etable-row[data-status="invalid"] .pvx-etable-input { border-color: var(--pvx-alarm); }
+.pvx-etable .pvx-etable-row[data-status="invalid"] .pvx-etable-c-status { color: var(--pvx-alarm); }
+.pvx-etable .pvx-etable-row[data-status="error"] .pvx-etable-c-label { color: var(--pvx-muted); font-style: italic; }
+.pvx-etable .pvx-etable-row[data-status="error"] .pvx-etable-c-status { color: var(--pvx-warn); }
+
+/* --- one timestamp for the set --------------------------------------------- */
+
+.pvx-etable .pvx-etable-stamp {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding-top: 3px;
+}
+
+.pvx-etable .pvx-etable-stamp-label {
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+    flex: 0 0 auto;
+}
+
+.pvx-etable .pvx-etable-stamp-input { flex: 1 1 auto; width: auto; }
+
+/* --- the foot: submit, confirmation and message ----------------------------- */
+
+.pvx-etable .pvx-etable-foot {
+    flex: 0 0 auto;
+    padding-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pvx-etable .pvx-etable-actions { display: flex; }
+
+.pvx-etable .pvx-etable-submit {
+    flex: 1 1 auto;
+    min-height: 27px;
+    border: none;
+}
+
+.pvx-etable .pvx-etable-submit:disabled,
+.pvx-etable .pvx-etable-yes:disabled,
+.pvx-etable .pvx-etable-no:disabled {
+    /* Deliberately obvious while a submit is in flight: the operator has to see
+       that their click landed, or they will click again. */
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+}
+
+.pvx-etable .pvx-etable-submit:disabled:hover { filter: none; }
+
+.pvx-etable .pvx-etable-confirm {
+    border: 1px solid var(--pvx-warn);
+    border-radius: 4px;
+    padding: 5px 7px;
+    background: var(--pvx-surface-alt);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.pvx-etable .pvx-etable-confirm-text {
+    font-size: 11.5px;
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+/* Every value is listed by name. It scrolls rather than truncating: a
+   confirmation that hides one of the values it is confirming is worthless. */
+.pvx-etable .pvx-etable-confirm-list {
+    max-height: 84px;
+    overflow-y: auto;
+    margin-bottom: 5px;
+    font-size: 11px;
+}
+
+.pvx-etable .pvx-etable-confirm-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.pvx-etable .pvx-etable-confirm-name {
+    color: var(--pvx-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pvx-etable .pvx-etable-confirm-value { font-weight: 600; flex: 0 0 auto; }
+
+.pvx-etable .pvx-etable-confirm-btns { display: flex; gap: 6px; }
+.pvx-etable .pvx-etable-yes { flex: 1 1 auto; border: none; min-height: 25px; }
+
+.pvx-etable .pvx-etable-no {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--pvx-muted);
+    border: 1px solid var(--pvx-border);
+    min-height: 25px;
+}
+
+.pvx-etable .pvx-etable-msg {
+    font-size: 11px;
+    line-height: 1.3;
+    border-left: 3px solid var(--pvx-muted);
+    padding: 1px 0 1px 6px;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.pvx-etable .pvx-etable-msg[data-tone="ok"] { border-left-color: var(--pvx-ok); }
+.pvx-etable .pvx-etable-msg[data-tone="warn"] { border-left-color: var(--pvx-warn); }
+.pvx-etable .pvx-etable-msg[data-tone="error"] { border-left-color: var(--pvx-alarm); }
+
+.pvx-etable .pvx-etable-msg-text { font-weight: 600; }
+.pvx-etable .pvx-etable-msg-detail { color: var(--pvx-muted); font-size: 10.5px; }
+
+/* --- non-form states --------------------------------------------------------- */
+
+.pvx-etable .pvx-etable-state {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6px 10px;
+    gap: 3px;
+    overflow: hidden;
+}
+
+.pvx-etable .pvx-etable-state-head {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--pvx-muted);
+}
+
+.pvx-etable .pvx-etable-state[data-tone="warn"] .pvx-etable-state-head { color: var(--pvx-warn); }
+.pvx-etable .pvx-etable-state[data-tone="error"] .pvx-etable-state-head { color: var(--pvx-alarm); }
+
+.pvx-etable .pvx-etable-state-body {
+    font-size: 10.5px;
+    line-height: 1.32;
+    color: var(--pvx-muted);
+    max-height: 100%;
+    overflow: hidden;
+    word-break: break-word;
+}

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+    <!-- A rounds sheet: four labelled rows, each with its own entry box, and one
+         submit bar underneath. Three rows have saved and one has not — the whole
+         point of the symbol is that a partial success is shown as a partial
+         success, not as a failure. -->
+
+    <!-- row 1 — saved -->
+    <rect x="40" y="72" width="150" height="22" rx="11" fill="#8a8f96" opacity="0.55"/>
+    <rect x="212" y="62" width="180" height="42" rx="8" fill="none" stroke="#3b82c4" stroke-width="9"/>
+    <rect x="232" y="74" width="86" height="18" rx="9" fill="#1d2126" opacity="0.7"/>
+    <path d="M420 84 L438 102 L472 66" stroke="#2f9e5f" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- row 2 — saved -->
+    <rect x="40" y="150" width="122" height="22" rx="11" fill="#8a8f96" opacity="0.55"/>
+    <rect x="212" y="140" width="180" height="42" rx="8" fill="none" stroke="#3b82c4" stroke-width="9"/>
+    <rect x="232" y="152" width="62" height="18" rx="9" fill="#1d2126" opacity="0.7"/>
+    <path d="M420 162 L438 180 L472 144" stroke="#2f9e5f" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- row 3 — refused, and said so rather than hidden -->
+    <rect x="40" y="228" width="164" height="22" rx="11" fill="#8a8f96" opacity="0.55"/>
+    <rect x="212" y="218" width="180" height="42" rx="8" fill="none" stroke="#c8452f" stroke-width="9"/>
+    <rect x="232" y="230" width="74" height="18" rx="9" fill="#1d2126" opacity="0.7"/>
+    <path d="M424 224 L470 262 M470 224 L424 262" stroke="#c8452f" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- row 4 — saved -->
+    <rect x="40" y="306" width="138" height="22" rx="11" fill="#8a8f96" opacity="0.55"/>
+    <rect x="212" y="296" width="180" height="42" rx="8" fill="none" stroke="#3b82c4" stroke-width="9"/>
+    <rect x="232" y="308" width="96" height="18" rx="9" fill="#1d2126" opacity="0.7"/>
+    <path d="M420 318 L438 336 L472 300" stroke="#2f9e5f" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- one submit for the whole sheet -->
+    <rect x="40" y="384" width="432" height="72" rx="14" fill="#3b82c4"/>
+    <rect x="168" y="410" width="176" height="22" rx="11" fill="#ffffff" opacity="0.92"/>
+</svg>

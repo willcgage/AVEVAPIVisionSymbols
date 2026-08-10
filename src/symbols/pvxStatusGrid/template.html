@@ -1,0 +1,22 @@
+<!--
+    pvxStatusGrid template — deliberately thin.
+
+    Everything inside .pvx-grid-body is built imperatively in symbol.js: an
+    ng-repeat over a live tile list would re-digest on every PI Vision update.
+    The only bindings here are on `config`, which changes solely when someone
+    edits the config pane, so the render path needs no $digest.
+-->
+<div class="pvx pvx-grid"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-grid-surface">
+
+        <div class="pvx-header pvx-grid-header" ng-if="config.ShowLabel && config.Title">
+            <div class="pvx-title pvx-truncate" title="{{config.Title}}">{{config.Title}}</div>
+        </div>
+
+        <div class="pvx-body pvx-grid-bodywrap">
+            <div class="pvx-grid-body"></div>
+        </div>
+
+    </div>
+</div>

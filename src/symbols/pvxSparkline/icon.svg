@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Multi Sparkline">
+    <title>PVX Multi Sparkline</title>
+
+    <!-- Three stacked rows, each with its own trend shape: the point of the
+         symbol is comparing several tags at a glance, not one big trend. -->
+    <g fill="none" stroke="#d6dbe1" stroke-width="6" stroke-linecap="round">
+        <line x1="40" y1="176" x2="472" y2="176"/>
+        <line x1="40" y1="336" x2="472" y2="336"/>
+        <line x1="40" y1="496" x2="472" y2="496"/>
+    </g>
+
+    <g fill="none" stroke="#3b82c4" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <!-- rising -->
+        <polyline points="48,140 96,128 144,133 192,110 240,96 288,103 336,78 384,62 432,57 464,44"/>
+        <!-- spiky -->
+        <polyline points="48,276 80,262 112,283 144,210 176,272 208,267 240,232 272,279 304,261 336,207 368,273 400,265 432,239 464,271"/>
+        <!-- falling -->
+        <polyline points="48,371 96,388 144,381 192,404 240,413 288,430 336,423 384,448 432,457 464,466"/>
+    </g>
+
+    <!-- End dots anchor each row to "now", exactly as the symbol renders them. -->
+    <g fill="#3b82c4">
+        <circle cx="464" cy="44" r="13"/>
+        <circle cx="464" cy="271" r="13"/>
+        <circle cx="464" cy="466" r="13"/>
+    </g>
+</svg>

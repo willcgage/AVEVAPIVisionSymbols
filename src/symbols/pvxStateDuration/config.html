@@ -1,0 +1,162 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Display</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-mode">Mode</label>
+            <select id="pvxstate-mode" ng-model="config.Mode">
+                <option value="timeline">Timeline (when)</option>
+                <option value="stacked">Stacked totals (how much)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Timeline</strong> puts each segment at its real position in time — it answers
+            "when did it stop". <strong>Stacked totals</strong> sizes each segment by the total time
+            in that state, in the same order on every bar, so bars can be compared.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-sort">Sort rows by</label>
+            <select id="pvxstate-sort" ng-model="config.SortBy">
+                <option value="none">Data source order</option>
+                <option value="name">Name</option>
+                <option value="uptimeDesc">Uptime (best first)</option>
+                <option value="uptimeAsc">Uptime (worst first)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-seglabels">Label segments</label>
+            <input id="pvxstate-seglabels" type="checkbox" ng-model="config.ShowSegmentLabels" />
+        </div>
+        <div class="pvx-cfg-hint">State name drawn inside a segment, but only where the whole name fits.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">States</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxstate-colors">State colours</label>
+            <textarea id="pvxstate-colors" ng-model="config.StateColors" rows="4"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>state:colour</code>, comma separated. Matched case-insensitively.
+            Any state not listed here gets a colour from the shared palette, in the order
+            it first appears.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxstate-uptime-states">States that count as running</label>
+            <textarea id="pvxstate-uptime-states" ng-model="config.UptimeStates" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">Comma separated, case-insensitive. Drives the uptime column and the summary line.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Columns</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-shownames">Show tag names</label>
+            <input id="pvxstate-shownames" type="checkbox" ng-model="config.ShowNames" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-namew">Name width (%)</label>
+            <input id="pvxstate-namew" type="number" ng-model="config.NameWidthPct" min="0" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showuptime">Show uptime</label>
+            <input id="pvxstate-showuptime" type="checkbox" ng-model="config.ShowUptime" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-uptimemode">Uptime as</label>
+            <select id="pvxstate-uptimemode" ng-model="config.UptimeMode">
+                <option value="percent">Percentage</option>
+                <option value="duration">Duration</option>
+                <option value="both">Both</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showtrans">Show transition count</label>
+            <input id="pvxstate-showtrans" type="checkbox" ng-model="config.ShowTransitions" />
+        </div>
+        <div class="pvx-cfg-hint">Number of state changes inside the window — short-cycling shows up here first.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-autorow">Fit rows to height</label>
+            <input id="pvxstate-autorow" type="checkbox" ng-model="config.AutoRowHeight" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-rowh">Row height</label>
+            <input id="pvxstate-rowh" type="number" ng-model="config.RowHeight" min="12" max="120" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-rowgap">Row gap</label>
+            <input id="pvxstate-rowgap" type="number" ng-model="config.RowGap" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-barradius">Bar corner radius</label>
+            <input id="pvxstate-barradius" type="number" ng-model="config.BarRadius" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-minseg">Minimum segment (px)</label>
+            <input id="pvxstate-minseg" type="number" ng-model="config.MinSegmentPx" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-hint">Anything narrower is merged into its neighbour, so a burst of short trips still leaves a visible mark instead of aliasing away.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chrome</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showheader">Show header</label>
+            <input id="pvxstate-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxstate-title">Title</label>
+            <input id="pvxstate-title" type="text" ng-model="config.Title" placeholder="Leave blank to show only the time range" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showaxis">Show time axis</label>
+            <input id="pvxstate-showaxis" type="checkbox" ng-model="config.ShowTimeAxis" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-ticks">Time ticks</label>
+            <input id="pvxstate-ticks" type="number" ng-model="config.TimeTickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">Timeline mode only; ticks are thinned further if the labels would collide.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showlegend">Show legend</label>
+            <input id="pvxstate-showlegend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-showsummary">Show summary line</label>
+            <input id="pvxstate-showsummary" type="checkbox" ng-model="config.ShowSummary" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-theme">Theme</label>
+            <select id="pvxstate-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-transparent">Transparent background</label>
+            <input id="pvxstate-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxstate-radius">Corner radius</label>
+            <input id="pvxstate-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

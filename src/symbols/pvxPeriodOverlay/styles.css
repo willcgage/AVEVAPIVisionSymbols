@@ -1,0 +1,82 @@
+/* pvxPeriodOverlay */
+
+.pvx-po {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme, so
+       every colour decision lives in one place and the template never needs a
+       scope binding to know whether the display is light or dark. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-po .pvx-po-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and the plot never fits. */
+.pvx-po .pvx-po-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The caption states how the window was folded — a fact about the
+   configuration, not about the data, so it stays quieter than the title. */
+.pvx-po .pvx-po-period {
+    color: var(--pvx-muted);
+    flex: 0 0 auto;
+}
+
+/* Every mark in this symbol is a curve or a diagonal; none of it wants the
+   pixel snapping that suits axis-aligned bars. */
+.pvx-po .pvx-po-line,
+.pvx-po .pvx-po-envelope,
+.pvx-po .pvx-po-envedge,
+.pvx-po .pvx-po-median,
+.pvx-po .pvx-po-dot,
+.pvx-po .pvx-po-end,
+.pvx-po .pvx-po-key {
+    shape-rendering: geometricPrecision;
+}
+
+/* The current period is the subject of the picture: it is drawn last, heavier,
+   and its joins stay round so a spike does not develop a mitre spur. */
+.pvx-po .pvx-po-current .pvx-po-line {
+    stroke-linejoin: round;
+}
+
+/* Decoration must never steal a hover from the traces underneath it. */
+.pvx-po .pvx-po-envelope,
+.pvx-po .pvx-po-envedge,
+.pvx-po .pvx-po-median,
+.pvx-po .pvx-po-stats-g,
+.pvx-po .pvx-po-key,
+.pvx-po .pvx-po-legend-text,
+.pvx-po .pvx-po-axis-title {
+    pointer-events: none;
+}
+
+.pvx-po .pvx-po-axis-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* The footer carries fold notes — window too short, periods dropped, envelope
+   fallbacks. All advisory: they must never compete with the plot. */
+.pvx-po .pvx-footer {
+    color: var(--pvx-muted);
+    padding-top: 0;
+}
+
+.pvx-po .pvx-po-note {
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.85;
+}

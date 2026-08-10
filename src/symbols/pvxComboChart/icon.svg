@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Combo Chart">
+    <title>PVX Combo Chart</title>
+
+    <!-- pvxComboChart — bars and a line in one frame. The icon has to say
+         "two encodings, one chart" at 24px, so the bars stay one flat blue and
+         the line takes the contrasting orange; anything more detailed turns to
+         mush in the symbol picker. Background is transparent by design. -->
+
+    <!-- faint axes, so the data reads first -->
+    <g stroke="#d6dbe1" stroke-width="14" stroke-linecap="round">
+        <path d="M76 62 L76 440" />
+        <path d="M76 440 L452 440" />
+    </g>
+
+    <!-- three bars of differing heights -->
+    <g fill="#3b82c4">
+        <rect x="118" y="286" width="86" height="154" rx="6" />
+        <rect x="222" y="212" width="86" height="228" rx="6" />
+        <rect x="326" y="132" width="86" height="308" rx="6" />
+    </g>
+
+    <!-- the second encoding: a line rising across the bars -->
+    <polyline points="161,352 265,268 369,168 440,116"
+              fill="none" stroke="#e2803c" stroke-width="20"
+              stroke-linecap="round" stroke-linejoin="round" />
+
+    <g fill="#e2803c">
+        <circle cx="161" cy="352" r="22" />
+        <circle cx="265" cy="268" r="22" />
+        <circle cx="369" cy="168" r="22" />
+    </g>
+</svg>

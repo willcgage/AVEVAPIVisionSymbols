@@ -1,0 +1,32 @@
+<div class="pvx pvx-sk"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+    <!-- The surface, not the root, carries the background: the root only exists
+         to clip, so a transparent symbol still rounds its corners correctly. -->
+    <div class="pvx-surface pvx-sk-surface"
+         ng-style="{'background': pvx.background,
+                    'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+        <div class="pvx-header" ng-if="pvx.showHeader">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- Ribbons, node bars, labels and the balance flags are all drawn
+                 as SVG by symbol.js into one coordinate system. Keep this div
+                 empty. -->
+            <div class="pvx-sk-body"></div>
+        </div>
+
+        <!-- The footer is where this symbol tells the truth about itself:
+             automatic layout, broken cycles, dropped streams, unbalanced nodes. -->
+        <div class="pvx-footer" ng-if="pvx.showFooter">
+            <span class="pvx-sk-note pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+            <span class="pvx-sk-count pvx-num pvx-truncate" ng-if="pvx.count">{{pvx.count}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

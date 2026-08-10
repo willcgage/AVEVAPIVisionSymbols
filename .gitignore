@@ -1,0 +1,10 @@
+# Build output. Everything in here is reproducible from src/ + tools/ —
+# `node tools/build.js` regenerates it. Committing it would mean reviewing a
+# 153-file diff on every source change and would let dist/ and src/ disagree.
+dist/
+
+node_modules/
+*.log
+
+# Local probe screenshots
+/tmp-probe/

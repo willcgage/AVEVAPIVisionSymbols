@@ -1,0 +1,429 @@
+/* pvxAnnunciator — PVX Annunciator
+ * ---------------------------------------------------------------------------
+ * Every selector is namespaced under .pvx-ann. The custom properties declared
+ * here are FALLBACKS only: symbol.js overwrites --pvx-* on the symbol root from
+ * the resolved theme tokens, and --pvx-ann-* on each tile from the resolved
+ * state palette, on every render. That is what lets the flash keyframes below
+ * animate a per-tile colour without the stylesheet knowing any colour at all.
+ */
+
+.pvx-ann {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-stripe: rgba(0, 0, 0, 0.14);
+
+    color: var(--pvx-text);
+}
+
+.pvx-ann .pvx-ann-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    overflow: hidden;
+}
+
+/* --- header ---------------------------------------------------------------- */
+
+.pvx-ann .pvx-ann-header {
+    align-items: center;
+    padding: 5px 8px 4px 8px;
+    gap: 6px;
+}
+
+.pvx-ann .pvx-ann-header .pvx-title {
+    color: var(--pvx-text);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+    flex: 0 1 auto;
+}
+
+.pvx-ann .pvx-ann-summary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.pvx-ann .pvx-ann-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    /* Overwritten inline with an alpha wash of the state colour, so the pill
+       reads as "this state" without the saturated block a solid fill gives. */
+    background: rgba(128, 128, 128, 0.14);
+}
+
+.pvx-ann .pvx-ann-count > b {
+    font-weight: 700;
+    font-size: 11.5px;
+}
+
+.pvx-ann .pvx-ann-ackall {
+    flex: 0 0 auto;
+    padding: 3px 10px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    border-width: 1px;
+    border-style: solid;
+}
+
+/* --- shared-acknowledgement banner ------------------------------------------ *
+ * Colour, background and border are written inline from the theme by symbol.js
+ * (amber for a lost write, red for "not being shared at all"), so this rule only
+ * owns the shape. flex: 0 0 auto is the load-bearing part: the banner must keep
+ * its full height and squeeze the tile grid, never be squeezed itself — a
+ * warning that gets flattened to nothing on a short panel is worse than no
+ * warning, because it looks like everything is fine.
+ */
+.pvx-ann .pvx-ann-notice {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    margin: 0 8px 5px 8px;
+    padding: 2px 6px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.45;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Readable across a control room before the sentence is: something is wrong
+   with sharing. Inherits the banner's colour so it never needs its own. */
+.pvx-ann .pvx-ann-notice-dot {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.pvx-ann .pvx-ann-notice-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* --- body ------------------------------------------------------------------ */
+
+.pvx-ann .pvx-ann-bodywrap {
+    padding: 0 8px 8px 8px;
+}
+
+/* The grid itself is written inline by symbol.js (column count, row height and
+   gap all depend on the measured box). It scrolls rather than shrinking tiles
+   below the readable minimum. */
+.pvx-ann .pvx-ann-body {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* The default scrollbar eats most of a narrow tile column. */
+.pvx-ann .pvx-ann-body::-webkit-scrollbar { width: 6px; }
+.pvx-ann .pvx-ann-body::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+}
+
+/* --- tiles ------------------------------------------------------------------ */
+
+.pvx-ann .pvx-ann-tile {
+    --pvx-ann-on: #2f9e5f;
+    --pvx-ann-on-fg: #ffffff;
+    --pvx-ann-off: #d6dbe1;
+    --pvx-ann-off-fg: #1d2126;
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* Name at the top, value in the middle, state and duration on the bottom
+       rail — an engraved annunciator window, not a centred label floating in a
+       large empty box. Collapses gracefully when only one row survives. */
+    justify-content: space-between;
+    gap: 1px;
+    padding: 4px 7px;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid transparent;
+    background: var(--pvx-surface-alt);
+    /* Annunciator legends are engraved capitals; keeping that convention makes
+       a tile readable at a glance from across a control room. */
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.pvx-ann .pvx-ann-clickable { cursor: pointer; }
+.pvx-ann .pvx-ann-clickable:hover { filter: brightness(1.07); }
+
+.pvx-ann .pvx-ann-clickable:focus-visible {
+    outline: 2px solid #7fb0e0;
+    outline-offset: -3px;
+}
+
+.pvx-ann .pvx-ann-namerow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+/* A first-out tile carries a corner wedge; reserve the space so a long tag
+   name never runs underneath it. */
+.pvx-ann .pvx-ann-tile-first .pvx-ann-namerow { padding-right: 17px; }
+
+.pvx-ann .pvx-ann-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.pvx-ann .pvx-ann-mini {
+    display: none;               /* symbol.js turns it on for short tiles */
+    flex: 0 0 auto;
+    font-weight: 700;
+    white-space: nowrap;
+    text-transform: none;
+}
+
+.pvx-ann .pvx-ann-valuerow {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pvx-ann .pvx-ann-value {
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1.1;
+}
+
+.pvx-ann .pvx-ann-units {
+    white-space: nowrap;
+    text-transform: none;
+    /* Inherited colour, knocked back with opacity rather than a fixed tint: the
+       flash keyframes animate the tile's `color`, and anything that pins its own
+       colour goes invisible for half of every cycle. */
+    opacity: 0.82;
+}
+
+.pvx-ann .pvx-ann-foot {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    opacity: 0.88;               /* inherited colour — see .pvx-ann-units */
+}
+
+/* Shrinkable, but never grows: the state word is short, and any space left over
+   belongs to the attribution beside it. */
+.pvx-ann .pvx-ann-state {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+/* Who acknowledged, and when. text-transform is cleared because this is a
+   person or a panel name as somebody typed it — engraving "PANEL 1" into
+   capitals is fine, mangling "McKay" is not. It yields space before the state
+   text does: the duration and the state are what the tile is FOR. */
+.pvx-ann .pvx-ann-by {
+    /* Zero basis: it lives on whatever the state text and the duration did not
+       need, and truncates instead of squeezing them. "ACK" being clipped to
+       "A…" so that a name can be spelled out in full would be the wrong trade —
+       the state is what the tile is FOR. */
+    flex: 1 1 0%;
+    min-width: 0;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    opacity: 0.9;               /* inherited colour — see .pvx-ann-units */
+}
+
+.pvx-ann .pvx-ann-dur {
+    flex: 0 0 auto;
+    font-weight: 500;
+    opacity: 0.9;
+    /* Fixed floor keeps the right edge steady as "59s" becomes "1m". */
+    min-width: 26px;
+    text-align: right;
+}
+
+.pvx-ann .pvx-ann-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10.5px;
+    font-style: italic;
+    color: var(--pvx-muted);
+}
+
+/* --- acknowledgement tick ---------------------------------------------------- */
+
+.pvx-ann .pvx-ann-tick {
+    display: none;               /* symbol.js turns it on for ALARM_ACK */
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    font-size: 8px;
+    line-height: 1;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* --- first-out wedge ---------------------------------------------------------- *
+ * A triangle in the top-right corner, drawn with borders so it costs no extra
+ * node and scales with the tile. Paired with the "1ST" legend in the foot row —
+ * the wedge is what you see across the room, the legend is what confirms it.
+ */
+.pvx-ann .pvx-ann-wedge {
+    display: none;               /* symbol.js turns it on for the first-out tile */
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    /* currentColor, so the wedge tracks the flash instead of disappearing into
+       the off phase of its own tile. */
+    border-top: 15px solid currentColor;
+    border-left: 15px solid transparent;
+    pointer-events: none;
+}
+
+.pvx-ann .pvx-ann-first {
+    display: none;               /* symbol.js turns it on for the first-out tile */
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    font-size: 0.9em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+}
+
+/* --- bad quality --------------------------------------------------------------- *
+ * The latch is frozen while a reading is bad, so the tile has to look frozen:
+ * stripes say "this is not being evaluated", not "this is fine".
+ */
+.pvx-ann .pvx-ann-tile-stale {
+    background-image: repeating-linear-gradient(
+        45deg,
+        var(--pvx-stripe) 0,
+        var(--pvx-stripe) 4px,
+        transparent 4px,
+        transparent 9px
+    );
+}
+
+/* --- flash ---------------------------------------------------------------------- *
+ * animation-duration and a NEGATIVE animation-delay are written inline by
+ * symbol.js from a fixed epoch, so the cycle keeps its phase across the DOM
+ * rewrites every data poll triggers instead of restarting in lockstep with the
+ * refresh. Animations outrank inline styles in the cascade, which is what lets
+ * the keyframes take over the background colour the tile painted for itself.
+ *
+ * ALARM_NEW is a hard 50/50 on-off at ~600ms — the classic unacknowledged
+ * annunciator beat. RETURNED (ringback) uses the same lit and unlit colours at a
+ * much slower rate and a short duty cycle: a brief wink every second or two,
+ * which nobody mistakes across the room for "it is out right now".
+ *
+ * Both switch with steps(), never a fade. The keyframes carry the FOREGROUND as
+ * well as the background, because the readable text colour for the lit phase is
+ * often the opposite of the readable colour for the unlit one — cross-fading
+ * between them would take the text through a mid-grey that reads against
+ * neither. Stepping means the pair always changes together.
+ */
+
+.pvx-ann .pvx-ann-st-alarm-new {
+    animation-name: pvx-ann-flash-fast;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+}
+
+.pvx-ann .pvx-ann-st-returned {
+    animation-name: pvx-ann-flash-slow;
+    animation-timing-function: steps(1, end);
+    animation-iteration-count: infinite;
+}
+
+@keyframes pvx-ann-flash-fast {
+    0% {
+        background-color: var(--pvx-ann-on);
+        color: var(--pvx-ann-on-fg);
+    }
+    50% {
+        background-color: var(--pvx-ann-off);
+        color: var(--pvx-ann-off-fg);
+    }
+    100% {
+        background-color: var(--pvx-ann-on);
+        color: var(--pvx-ann-on-fg);
+    }
+}
+
+@keyframes pvx-ann-flash-slow {
+    0% {
+        background-color: var(--pvx-ann-on);
+        color: var(--pvx-ann-on-fg);
+    }
+    /* Lit for the first third only — a wink, not a beat. */
+    34% {
+        background-color: var(--pvx-ann-off);
+        color: var(--pvx-ann-off-fg);
+    }
+    100% {
+        background-color: var(--pvx-ann-off);
+        color: var(--pvx-ann-off-fg);
+    }
+}
+
+/* --- static substitute for the flash --------------------------------------------- *
+ * Two ways to end up here: the display author turned EnableFlash off, or the
+ * viewer asked their operating system to reduce motion. The viewer's preference
+ * wins over the author's, and symbol.js checks the same media query so it never
+ * writes a duration in that case either. Either way the tile must still SAY
+ * "unacknowledged" — a heavy inset ring in the off-phase colour does that
+ * without moving.
+ */
+
+.pvx-ann.pvx-ann-noflash .pvx-ann-st-alarm-new,
+.pvx-ann.pvx-ann-noflash .pvx-ann-st-returned {
+    animation: none !important;
+    box-shadow: inset 0 0 0 3px var(--pvx-ann-off);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvx-ann .pvx-ann-st-alarm-new,
+    .pvx-ann .pvx-ann-st-returned {
+        animation: none !important;
+        box-shadow: inset 0 0 0 3px var(--pvx-ann-off);
+    }
+
+    .pvx-ann .pvx-ann-clickable:hover { filter: none; }
+}

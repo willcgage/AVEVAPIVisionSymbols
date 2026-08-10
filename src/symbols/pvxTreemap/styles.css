@@ -1,0 +1,117 @@
+/* pvxTreemap — squarified treemap
+ * Only the chrome (header, footer, SVG host) is styled here. Tile fills, label
+ * colours and the legend all come from the runtime theme tokens, never from
+ * CSS, so the same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-tm {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-tm .pvx-tm-surface {
+    border-color: transparent;
+}
+
+.pvx-tm .pvx-header {
+    padding: 5px 8px 2px 8px;
+}
+
+.pvx-tm .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-tm .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the treemap never
+   resizes downwards. */
+.pvx-tm .pvx-tm-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-tm .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-tm .pvx-tm-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-tm .pvx-tm-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- tiles ---------------------------------------------------------------- */
+
+/* Tiles are axis-aligned rectangles packed edge to edge; crisp edges stop
+   antialiasing from smearing the 1px separator into a grey haze. */
+.pvx-tm .pvx-tm-tile rect {
+    shape-rendering: crispEdges;
+}
+
+/* Hover outlines rather than changing the fill: the fill is the colour
+   dimension of the chart and the area is the size dimension, so neither may be
+   altered by an interaction. */
+.pvx-tm .pvx-tm-tile:hover rect {
+    stroke: var(--pvx-accent);
+    stroke-width: 2;
+    paint-order: stroke;
+}
+
+.pvx-tm .pvx-tm-click {
+    cursor: pointer;
+}
+
+.pvx-tm .pvx-tm-click:focus {
+    outline: none;
+}
+
+.pvx-tm .pvx-tm-click:focus rect {
+    stroke: var(--pvx-accent);
+    stroke-width: 2;
+    paint-order: stroke;
+}
+
+/* Labels sit on top of their own tile and must never intercept the pointer,
+   or a click near a name would miss the tile it belongs to. */
+.pvx-tm .pvx-tm-name,
+.pvx-tm .pvx-tm-value,
+.pvx-tm .pvx-tm-groupname,
+.pvx-tm .pvx-tm-grouptotal {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-tm .pvx-tm-value {
+    opacity: 0.95;
+}
+
+.pvx-tm .pvx-tm-groupname {
+    letter-spacing: 0.03em;
+}
+
+.pvx-tm .pvx-tm-legend {
+    pointer-events: none;
+}
+
+.pvx-tm .pvx-tm-emptymsg {
+    opacity: 0.75;
+}

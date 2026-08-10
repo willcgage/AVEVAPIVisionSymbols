@@ -1,0 +1,174 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-autorow">Fit rows to height</label>
+            <input id="pvxspk-autorow" type="checkbox" ng-model="config.AutoRowHeight" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-rowh">Row height (px)</label>
+            <input id="pvxspk-rowh" type="number" ng-model="config.RowHeight" min="14" max="120" ng-disabled="config.AutoRowHeight" />
+        </div>
+        <div class="pvx-cfg-hint">Rows never shrink below 14px. If more tags are added than fit, the extras are summarised as a "+N more" line.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-sort">Sort by</label>
+            <select id="pvxspk-sort" ng-model="config.SortBy">
+                <option value="none">Data source order</option>
+                <option value="name">Name (A–Z)</option>
+                <option value="valueDesc">Value (high to low)</option>
+                <option value="valueAsc">Value (low to high)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-sep">Row separators</label>
+            <input id="pvxspk-sep" type="checkbox" ng-model="config.ShowRowSeparators" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-zebra">Alternating row shading</label>
+            <input id="pvxspk-zebra" type="checkbox" ng-model="config.ShowZebra" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Columns</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-names">Show names</label>
+            <input id="pvxspk-names" type="checkbox" ng-model="config.ShowNames" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-namew">Name width (%)</label>
+            <input id="pvxspk-namew" type="number" ng-model="config.NameWidthPct" min="0" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-values">Show values</label>
+            <input id="pvxspk-values" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-valuew">Value width (%)</label>
+            <input id="pvxspk-valuew" type="number" ng-model="config.ValueWidthPct" min="0" max="50" />
+        </div>
+        <div class="pvx-cfg-hint">The sparkline takes the remaining width, and is never squeezed below a quarter of the symbol.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-units">Show units</label>
+            <input id="pvxspk-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-decimals">Decimals</label>
+            <select id="pvxspk-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-compact">Compact numbers (1.2k)</label>
+            <input id="pvxspk-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Sparkline</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-style">Style</label>
+            <select id="pvxspk-style" ng-model="config.LineStyle">
+                <option value="line">Line</option>
+                <option value="area">Filled area</option>
+                <option value="bars">Bars</option>
+                <option value="stepped">Stepped</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Use <em>Stepped</em> for tags that hold their value between updates (digital states, setpoints).</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-smooth">Smooth line</label>
+            <input id="pvxspk-smooth" type="checkbox" ng-model="config.SmoothLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-scale">Vertical scale</label>
+            <select id="pvxspk-scale" ng-model="config.ScaleMode">
+                <option value="perRow">Each row auto-scaled</option>
+                <option value="shared">One scale for all rows</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Auto-scaling shows each tag's own shape. Use a shared scale only when every tag is in the same engineering units.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-minmax">Min / max markers</label>
+            <input id="pvxspk-minmax" type="checkbox" ng-model="config.ShowMinMax" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-enddot">End-of-trend dot</label>
+            <input id="pvxspk-enddot" type="checkbox" ng-model="config.ShowEndDot" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-points">Resolution (points)</label>
+            <input id="pvxspk-points" type="number" ng-model="config.Intervals" min="20" max="1000" step="10" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-colormode">Colour rows by</label>
+            <select id="pvxspk-colormode" ng-model="config.ColorMode">
+                <option value="palette">Palette (one colour per row)</option>
+                <option value="single">A single colour</option>
+                <option value="threshold">Threshold band of latest value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-linecolor">Line colour</label>
+            <input id="pvxspk-linecolor" type="color" ng-model="config.LineColor" />
+        </div>
+        <div class="pvx-cfg-hint">Used for <em>single</em> mode, and as the fallback when a value falls below the first threshold band.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-enthresh">Enable thresholds</label>
+            <input id="pvxspk-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxspk-thresh">Threshold bands</label>
+            <textarea id="pvxspk-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-showheader">Show header</label>
+            <input id="pvxspk-showheader" type="checkbox" ng-model="config.ShowHeader" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxspk-headertext">Header text</label>
+            <input id="pvxspk-headertext" type="text" ng-model="config.HeaderText" placeholder="e.g. Unit 4 — key tags" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-theme">Theme</label>
+            <select id="pvxspk-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-accent">Accent colour</label>
+            <input id="pvxspk-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-transparent">Transparent background</label>
+            <input id="pvxspk-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-radius">Corner radius</label>
+            <input id="pvxspk-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

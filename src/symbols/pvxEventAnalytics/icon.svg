@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Event Analytics">
+    <title>PVX Event Analytics</title>
+
+    <!-- Horizontal bars in descending order: this symbol answers a ranking
+         question, so the icon has to read as "sorted" before anything else.
+         Background is transparent by design. -->
+    <g fill="#3b82c4">
+        <rect x="120" y="70"  width="336" height="52" rx="8"/>
+        <rect x="120" y="150" width="232" height="52" rx="8"/>
+        <rect x="120" y="230" width="150" height="52" rx="8"/>
+        <rect x="120" y="310" width="96"  height="52" rx="8"/>
+    </g>
+
+    <!-- The last bar is the "(unassigned)" bucket — drawn in the warning colour
+         because a missing reason code is a gap in the data, not a reason. -->
+    <rect x="120" y="390" width="58" height="52" rx="8" fill="#d99024"/>
+
+    <!-- Category gutter: the groups the bars are ranked by. -->
+    <g fill="#8a8f96" opacity="0.55">
+        <rect x="34" y="86"  width="66" height="20" rx="10"/>
+        <rect x="48" y="166" width="52" height="20" rx="10"/>
+        <rect x="42" y="246" width="58" height="20" rx="10"/>
+        <rect x="56" y="326" width="44" height="20" rx="10"/>
+        <rect x="50" y="406" width="50" height="20" rx="10"/>
+    </g>
+
+    <!-- Cumulative Pareto line with the 80% marker, drawn above the bars in the
+         attention colour so the two encodings never blur together. -->
+    <line x1="404" y1="46" x2="404" y2="466" stroke="#c8452f" stroke-width="8"
+          stroke-dasharray="20 14" opacity="0.75"/>
+    <polyline points="288,96 372,176 414,256 442,336 456,416"
+              fill="none" stroke="#c8452f" stroke-width="14"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#c8452f">
+        <circle cx="288" cy="96"  r="17"/>
+        <circle cx="372" cy="176" r="17"/>
+        <circle cx="414" cy="256" r="17"/>
+        <circle cx="442" cy="336" r="17"/>
+        <circle cx="456" cy="416" r="17"/>
+    </g>
+</svg>

@@ -1,0 +1,17 @@
+<div class="pvx pvx-nav"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-nav-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-nav-header" ng-if="config.ShowTitle && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <!-- The button bar itself is built imperatively by symbol.js; Angular
+             owns nothing inside .pvx-nav-body, so the two never fight. -->
+        <div class="pvx-body pvx-nav-bodywrap">
+            <div class="pvx-nav-body"></div>
+        </div>
+
+    </div>
+</div>

@@ -1,0 +1,25 @@
+<!--
+    pvxSparkline — deliberately thin.
+
+    Everything below .pvx-spark-body is drawn imperatively as a single SVG by
+    symbol.js. There is no ng-repeat here on purpose: a 30-row list of Angular
+    bindings would be re-evaluated on every digest of a live display.
+
+    Colours come from CSS custom properties that symbol.js writes on the root,
+    so this template never needs a scope binding for theme.
+-->
+<div class="pvx pvx-spark"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px',
+                'background': config.Transparent ? 'transparent' : 'var(--pvx-surface)'}">
+    <div class="pvx-surface pvx-spark-surface">
+
+        <div class="pvx-header pvx-spark-header" ng-if="config.ShowHeader">
+            <div class="pvx-title pvx-truncate" title="{{config.HeaderText}}">{{config.HeaderText}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-spark-body"></div>
+        </div>
+
+    </div>
+</div>

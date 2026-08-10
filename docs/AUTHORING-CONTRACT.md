@@ -1,0 +1,235 @@
+# PVX symbol authoring contract
+
+Every symbol in this library MUST follow this contract. Deviations break the
+build validator in `tools/build.js`.
+
+## Files
+
+Each symbol lives in `src/symbols/<typeName>/` and contains exactly:
+
+```
+symbol.js       # implementation (IIFE, ES5 style)
+template.html   # presentation markup (AngularJS 1.x)
+config.html     # configuration pane markup
+styles.css      # symbol-specific CSS
+icon.svg        # 512x512 viewBox, transparent background
+```
+
+The build copies these to `dist/ext/sym-<typeName>.js`, `-template.html`,
+`-config.html`, `.css` and `dist/ext/icons/<typeName>.svg`.
+
+## Hard rules
+
+1. **ES5 only.** `var`, `function`, no arrow functions, no `let`/`const`, no
+   template literals, no `class`, no optional chaining, no spread. PI Vision
+   hosts symbols inside its AngularJS 1.x app; this keeps us portable across
+   every supported release and browser.
+2. **No external libraries.** No jQuery calls, no D3, no Chart.js. Everything
+   is built on `window.PVX` (`src/shared/pvx-core.js`) and raw SVG/DOM.
+3. **Never touch `window.PVX` at definition time.** Only inside `init()` and
+   the callbacks it wires up. (Library load order is guaranteed before render,
+   not before file evaluation.)
+4. **Register via `window.PVX.register(PV, definition)`** — never call
+   `PV.symbolCatalog.register` directly. The wrapper supplies `iconUrl`,
+   `templateUrl`, `configTemplateUrl` and `loadConfig` and traps errors so one
+   bad symbol cannot take down the library.
+5. **Use `PVX.bootstrap(this, scope, elem, hooks)`** for lifecycle wiring.
+   Do not assign `this.onDataUpdate` / `onResize` / `onConfigChange` /
+   `onDestroy` by hand.
+6. **Config defaults come from `PVX.config.base({...})`** so every symbol
+   inherits `Theme`, `Transparent`, `Thresholds`, `Decimals`, `AccentColor`,
+   `CornerRadius`, etc.
+7. **Theme from `ctx.theme`** (light/dark auto-detected). Never hardcode
+   `#fff` or `#000` in rendering code. `styles.css` may declare CSS custom
+   property fallbacks, which the symbol overwrites at runtime.
+8. **All CSS selectors are namespaced** under the symbol's own root class
+   (e.g. `.pvx-heatmap ...`). Shared `.pvx-*` base classes come from
+   `src/shared/base.css`, which the build prepends automatically — do not
+   duplicate them.
+9. **Every rendering path must survive null/empty data.** Render an empty
+   state, never throw.
+10. **`typeName` must equal the folder name** and be unique.
+
+## Skeleton
+
+```js
+(function (PV) {
+    'use strict';
+
+    function symbolVis() { }
+    PV.deriveVisualizationFromBase(symbolVis);
+
+    var definition = {
+        typeName: 'pvxThing',
+        displayName: 'PVX Thing',
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        visObjectType: symbolVis,
+        supportsCollections: true,
+        configTitle: 'Format Thing',
+        getDefaultConfig: function () {
+            return window.PVX.config.base({
+                DataShape: 'Table',
+                Columns: ['Value'],
+                Height: 200,
+                Width: 320
+            });
+        }
+    };
+
+    symbolVis.prototype.init = function (scope, elem) {
+        var PVX = window.PVX;
+        scope.pvx = { /* fields the template binds to */ };
+
+        var rows = [];
+
+        var ctx = PVX.bootstrap(this, scope, elem, {
+            rootSelector: '.pvx-thing-body',
+            onData: function (d) { rows = PVX.data.rows(d, ['Value']); },
+            render: function (c) { /* pure render from rows + c.config + c.theme */ }
+        });
+
+        return ctx;
+    };
+
+    window.PVX.register(PV, definition);
+}(window.PIVisualization));
+```
+
+## Angular digest
+
+`PVX.bootstrap` renders inside `requestAnimationFrame`, which is outside
+Angular's digest. If the render function writes to `scope.pvx.*` for template
+bindings, end the render with the guarded digest used in `pvxKpiCard`:
+
+```js
+if (!scope.$$phase && scope.$root && !scope.$root.$$phase) {
+    try { scope.$digest(); } catch (e) { /* already digesting */ }
+}
+```
+
+Symbols that draw only into SVG (no scope bindings) do not need it.
+
+## PVX API you will use
+
+| Namespace | Members |
+|---|---|
+| `PVX.util` | `num, isNum, clamp, def, debounce, uid, node, find, escapeHtml` |
+| `PVX.fmt` | `number, compact, percent, group, autoDecimals, time, ago, duration, tick, toDate` |
+| `PVX.color` | `categorical[], status{}, sequential[], diverging[], toRgb, toHex, rgba, mix, ramp, luminance, contrastRatio, readable` |
+| `PVX.theme` | `isDark(elem), tokens(config, elem)` → `{dark, surface, surfaceAlt, border, text, textMuted, grid, axis, track, shadow, status, categorical}` |
+| `PVX.thresholds` | `DEFAULT, parse, stringify, evaluate, colorFor, bands` |
+| `PVX.scale` | `linear(d0,d1,r0,r1), niceDomain, tickStep, ticks` |
+| `PVX.svg` | `el, clear, text, polar, arc, annulus, roundRect, line, stepLine, area` |
+| `PVX.data` | `single, series, stateSeries, stateRuns, rows, statValue, trend, stats` |
+| `PVX.stats` | `linreg, sma, percentile, delta, sorted, mean, stddev, quartiles, histogram, normalPdf, normalCdf, capability` |
+| `PVX.nav` | `url, go, parseHash, buildHash, setTimeRange, currentAsset` |
+| `PVX.layout` | `renderer, fitFont` |
+| `PVX.config` | `base, upgrade, numberOpts, TABLE_STATS, statKey, statLabel, statColumns, syncStatColumns` |
+
+## Config pane markup
+
+Wrap in `<div class="c-config-content pvx-cfg">`. Group settings with
+`.pvx-cfg-group` + `.pvx-cfg-legend`. Rows use `.pvx-cfg-row` (label + control)
+or `.pvx-cfg-stack` (label above a full-width control). Explain non-obvious
+settings with `.pvx-cfg-hint`. Bind everything with `ng-model="config.X"`.
+
+## Digital-state symbols
+
+A symbol that reasons about digital states (time-in-state, latching alarms)
+must do two things:
+
+1. Use `PVX.data.stateSeries(d)`, not `PVX.data.series(d)`. The latter exists to
+   feed charts and discards every non-numeric sample, which silently empties a
+   tag whose values are `Running` / `Stopped`. Collapse the samples into runs
+   with `PVX.data.stateRuns(points, fromMs, toMs)`.
+2. Set `DataQueryMode: 'ModeEvents'` in `getDefaultConfig()`. PI Vision then
+   returns the actual transitions instead of an interpolated sample grid, which
+   is what makes duration arithmetic correct rather than approximate.
+
+Declare the mock profile in the file header so the preview harness and the
+verifier feed the symbol the right shape of test data:
+
+```js
+/* ...
+ * @mock digital
+ * ...
+ */
+```
+
+Without that tag both tools send a numeric signal, and a time-in-state symbol
+would be "verified" against data it can never receive in the field.
+
+## Table symbols that let the operator pick a statistic
+
+PI Vision returns `Summary` cells **positionally**, matching `config.Columns`.
+If the chosen statistic and that array drift apart the symbol silently charts
+the wrong number — no error, just wrong. Do not hand-roll this. Use:
+
+```js
+// in getDefaultConfig
+Statistic: 'Value',          // Value|Average|Minimum|Maximum|Range|StdDev|Total
+Columns: ['Value'],
+SortColumn: 'Value',
+
+// in onData
+rows = PVX.data.rows(d, PVX.config.statColumns(scope.config));
+
+// in onConfigChange AND at the top of render — a display saved by an older
+// build repairs itself on load instead of charting a stale aggregate
+PVX.config.syncStatColumns(cfg);
+
+// reading a value
+var v = PVX.data.statValue(row, cfg);
+```
+
+`PVX.config.statLabel(cfg)` gives the human-facing name for the header.
+
+## Symbols that talk to PI Web API
+
+Only for what PI Vision's DataShape mechanism cannot reach: Event Frames, the
+AF hierarchy, writing values back. Set `datasourceBehavior: None` and no
+`DataShape` — such a symbol never receives `onDataUpdate`, so it drives its own
+refresh timer and must clear it in `onDestroy`. A leaked poller on a kiosk
+display runs for weeks.
+
+Never use `XMLHttpRequest` or `$http` directly. Everything goes through
+`PVX.api`, because authentication is a property of the deployment and no symbol
+should encode it:
+
+| Call | For |
+|---|---|
+| `PVX.api.get / post / put` | plain requests, relative to the configured base |
+| `PVX.api.batch(requests)` | many sub-requests in one round trip — use wherever the request count scales with the number of assets |
+| `PVX.api.batchResults(res)` | split a batch response into `ok` / `failed`; report `failedCount` rather than dropping the failures |
+| `PVX.api.eventFrames(query)` | Event Frames overlapping a window |
+| `PVX.api.elementByPath / attributeByPath` | resolve an AF path |
+| `PVX.api.readValue / readValues` | current values, one or many |
+| `PVX.api.writeValue / writeValues` | writes — see below |
+| `PVX.api.isConfigured()` | render the "not configured" state instead of failing |
+
+Always pass `selectedFields` on list queries. It is the difference between a
+few kilobytes and a few megabytes on a large database.
+
+### Failure states are part of the symbol
+
+Every rejection carries `err.pvxError.message` and `err.pvxError.check`. Show
+both. "Failed to fetch" tells an operator nothing and sends an engineer to the
+wrong place. Handle each of these distinctly:
+
+- not configured — name `libraries/pvx-config.js` **and** `ext/piwebapi-check.html`
+- request failed — the message and the check line
+- authenticated but forbidden — PI/AF security, not the symbol
+- query succeeded, no results — say so; it is not an error
+- more results than the cap — say how many were dropped
+
+### Writes
+
+- Confirm with a human before writing. There is no undo.
+- One value per call. `PVX.api` never caches, retries or batches a write, and
+  neither should the symbol.
+- Report each write's outcome separately. `writeValues` resolves with `ok` and
+  `failed` and never rejects, precisely so a partial success shows as one.
+- Disable the control while a write is in flight, or an impatient double-click
+  writes twice.
+- PI and AF security are the access control. The symbol does not decide who may
+  write; it surfaces the 403 clearly when they may not.

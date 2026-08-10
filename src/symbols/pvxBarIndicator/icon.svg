@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Bar indicator">
+    <!-- Empty track -->
+    <rect x="48" y="160" width="416" height="112" rx="56" fill="#d6dbe1"/>
+    <!-- Filled portion, ~60% -->
+    <rect x="48" y="160" width="250" height="112" rx="56" fill="#3b82c4"/>
+    <!-- Scale ticks under the start, middle and end of the track -->
+    <rect x="48" y="312" width="16" height="40" rx="8" fill="#d6dbe1"/>
+    <rect x="248" y="312" width="16" height="40" rx="8" fill="#d6dbe1"/>
+    <rect x="448" y="312" width="16" height="40" rx="8" fill="#d6dbe1"/>
+</svg>

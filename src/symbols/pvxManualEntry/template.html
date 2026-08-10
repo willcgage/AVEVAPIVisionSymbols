@@ -1,0 +1,28 @@
+<!--
+    pvxManualEntry — deliberately thin.
+
+    Everything below .pvx-mentry-body is built imperatively by symbol.js as real
+    DOM: <label>, <input>/<select> and <button>. That is not a stylistic choice.
+    The operator has to be able to Tab into the field, type, and press Enter, and
+    an ng-repeat cannot be given focus the way a real control can. Building it in
+    code also means a render never destroys a half-typed value — the nodes are
+    patched, not recreated.
+
+    Only the header is Angular-bound, from scope.pvx.
+-->
+<div class="pvx pvx-mentry"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-mentry-surface">
+
+        <div class="pvx-header pvx-mentry-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-mentry-body"></div>
+        </div>
+
+    </div>
+</div>

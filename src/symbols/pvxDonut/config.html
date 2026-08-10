@@ -1,0 +1,251 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Before you use this</div>
+        <div class="pvx-cfg-hint pvx-donut-caveat">
+            If you are <em>comparing</em> sources, use <strong>PVX Ranked Bar</strong> instead. People
+            judge lengths far more accurately than angles, so a bar chart wins that job in
+            essentially every controlled study. This symbol is the right one when the question is
+            genuinely <em>part&#8209;to&#8209;whole</em> &mdash; "how is the total split" &mdash; and the total itself
+            matters as much as the split.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Contribution</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxdon-title">Title</label>
+            <input id="pvxdon-title" type="text" ng-model="config.Title" placeholder="Contribution" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-stat">Statistic</label>
+            <select id="pvxdon-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Everything except <em>Current value</em> is calculated by PI Vision over the display's time range. <em>Total</em> is usually the honest choice here: shares of a sum of averages rarely mean anything.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-sort">Slice order</label>
+            <select id="pvxdon-sort" ng-model="config.SortMode">
+                <option value="valueDesc">Largest first</option>
+                <option value="valueAsc">Smallest first</option>
+                <option value="name">By name</option>
+                <option value="none">As added</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-groupsmall">Roll up slices below (%)</label>
+            <input id="pvxdon-groupsmall" type="number" ng-model="config.GroupSmallBelow" min="0" max="50" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-maxslices">Maximum slices</label>
+            <input id="pvxdon-maxslices" type="number" ng-model="config.MaxSlices" min="1" max="40" />
+        </div>
+        <div class="pvx-cfg-hint">Anything past either limit is combined into one slice. Nothing is ever dropped from the total, so the percentages still add to 100%.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-otherlabel">Combined slice name</label>
+            <input id="pvxdon-otherlabel" type="text" ng-model="config.OtherLabel" placeholder="Other" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-othercolor">Combined slice colour</label>
+            <input id="pvxdon-othercolor" type="color" ng-model="config.OtherColor" />
+        </div>
+        <div class="pvx-cfg-hint">Negative values have no share of a total, so those sources are excluded and named in the footer rather than dropped silently.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Ring</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-inner">Hole size (%)</label>
+            <input id="pvxdon-inner" type="number" ng-model="config.InnerRadiusPct" min="0" max="92" />
+        </div>
+        <div class="pvx-cfg-hint">0 makes it a pie. Keeping a hole gives the total somewhere to live and stops the eye comparing wedges by area, which it does badly.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-start">Start angle (&deg;)</label>
+            <input id="pvxdon-start" type="number" ng-model="config.StartAngle" min="-360" max="360" />
+        </div>
+        <div class="pvx-cfg-hint">0&deg; is 12 o'clock.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-cw">Clockwise</label>
+            <input id="pvxdon-cw" type="checkbox" ng-model="config.Clockwise" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-pad">Gap between slices (&deg;)</label>
+            <input id="pvxdon-pad" type="number" ng-model="config.PadAngle" min="0" max="15" step="0.2" />
+        </div>
+        <div class="pvx-cfg-hint">Ignored for a single source: a gap in a complete ring reads as missing data.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-colormode">Colour by</label>
+            <select id="pvxdon-colormode" ng-model="config.ColorMode">
+                <option value="palette">Palette per slice</option>
+                <option value="threshold">Threshold band</option>
+                <option value="single">One colour</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-single">Slice colour</label>
+            <input id="pvxdon-single" type="color" ng-model="config.SingleColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-accent">Accent colour</label>
+            <input id="pvxdon-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Slices whose source reports bad quality are always drawn hatched, whatever the colour mode, and they stay in the legend so the percentages remain accountable.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-enthresh">Enable thresholds</label>
+            <input id="pvxdon-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxdon-thresh">Threshold bands</label>
+            <textarea id="pvxdon-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used when <em>Colour by</em> is set to <em>Threshold band</em>.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Centre</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-showcenter">Show centre readout</label>
+            <input id="pvxdon-showcenter" type="checkbox" ng-model="config.ShowCenter" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-centermode">Centre shows</label>
+            <select id="pvxdon-centermode" ng-model="config.CenterMode">
+                <option value="total">Total of all sources</option>
+                <option value="count">Number of slices</option>
+                <option value="largest">Largest share</option>
+                <option value="custom">Fixed text</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-centerlabel">Caption</label>
+            <input id="pvxdon-centerlabel" type="text" ng-model="config.CenterLabel" placeholder="Total" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-centervalue">Fixed text</label>
+            <input id="pvxdon-centervalue" type="text" ng-model="config.CenterValue" />
+        </div>
+        <div class="pvx-cfg-hint">The readout is sized to the hole, so a bigger hole buys a bigger number. Set the hole below about a quarter of the ring (or to 0 for a pie) and the readout disappears &mdash; there is nowhere to put it that is not on top of the data. The caption is dropped first when the symbol gets small.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Legend</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-showlegend">Show legend</label>
+            <input id="pvxdon-showlegend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-legendpos">Position</label>
+            <select id="pvxdon-legendpos" ng-model="config.LegendPosition">
+                <option value="auto">Automatic</option>
+                <option value="right">Right</option>
+                <option value="bottom">Below</option>
+                <option value="none">Hidden</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint"><em>Automatic</em> puts the legend to the right of a wide symbol and below a tall one. Forcing the wrong side squeezes the ring to nothing.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-legendval">Show values</label>
+            <input id="pvxdon-legendval" type="checkbox" ng-model="config.LegendShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-legendpct">Show percentages</label>
+            <input id="pvxdon-legendpct" type="checkbox" ng-model="config.LegendShowPercent" />
+        </div>
+        <div class="pvx-cfg-hint">Names truncate rather than wrap, and the numbers are right-aligned so the columns can be read down.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Slice labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-showslicelabels">Label the slices</label>
+            <input id="pvxdon-showslicelabels" type="checkbox" ng-model="config.ShowSliceLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-slicemode">Label shows</label>
+            <select id="pvxdon-slicemode" ng-model="config.SliceLabelMode">
+                <option value="percent">Percentage</option>
+                <option value="value">Value</option>
+                <option value="name">Name</option>
+                <option value="nameAndPercent">Name and percentage</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-minslicepct">Only label slices above (%)</label>
+            <input id="pvxdon-minslicepct" type="number" ng-model="config.MinSliceLabelPct" min="0" max="100" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-leaders">Leader lines</label>
+            <input id="pvxdon-leaders" type="checkbox" ng-model="config.ShowLeaderLines" />
+        </div>
+        <div class="pvx-cfg-hint">Labels sit inside their slice when they measurably fit and move outside on a leader line when they do not. Where two outside labels would collide the smaller slice loses its label &mdash; use the legend for the full list.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Numbers &amp; appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-decimals">Decimals</label>
+            <select id="pvxdon-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-compact">Compact numbers (1.2k)</label>
+            <input id="pvxdon-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-showlabel">Show header</label>
+            <input id="pvxdon-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-units">Show units in header</label>
+            <input id="pvxdon-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-theme">Theme</label>
+            <select id="pvxdon-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-transparent">Transparent background</label>
+            <input id="pvxdon-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdon-radius">Corner radius</label>
+            <input id="pvxdon-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

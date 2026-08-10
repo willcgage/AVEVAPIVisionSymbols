@@ -1,0 +1,60 @@
+<!--
+    pvxAnnunciator template — deliberately thin.
+
+    Everything inside .pvx-ann-body is built imperatively in symbol.js: an
+    ng-repeat over a live tile list re-runs a watcher per tile on every PI Vision
+    poll. Only the header binds to Angular, and symbol.js ends its render with a
+    guarded $digest because it writes scope.pvx from inside requestAnimationFrame.
+-->
+<div class="pvx pvx-ann"
+     ng-class="{'pvx-ann-noflash': config.EnableFlash === false}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+    <div class="pvx-surface pvx-ann-surface"
+         ng-style="{'background': config.Transparent ? 'transparent' : pvx.surface,
+                    'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+        <div class="pvx-header pvx-ann-header" ng-if="pvx.showHeader">
+
+            <div class="pvx-title pvx-truncate"
+                 ng-if="config.ShowLabel && pvx.title"
+                 title="{{pvx.title}}">{{pvx.title}}</div>
+
+            <!-- Summary bar: how many points are new, acknowledged, ringing back. -->
+            <div class="pvx-ann-summary" ng-if="pvx.counts.length">
+                <span class="pvx-ann-count"
+                      ng-repeat="c in pvx.counts track by c.key"
+                      ng-style="{'color': c.color, 'background': c.bg}">
+                    <b class="pvx-num">{{c.count}}</b><span>{{c.label}}</span>
+                </span>
+            </div>
+
+            <button type="button"
+                    class="pvx-btn pvx-ann-ackall"
+                    ng-if="pvx.showAckAll"
+                    ng-click="pvx.ackAll()"
+                    ng-style="pvx.ackBtn"
+                    title="{{pvx.ackAllTip}}">{{pvx.ackAllLabel}}</button>
+
+        </div>
+
+        <!--
+            Shared-acknowledgement honesty banner. Present only while the store
+            is reporting a problem: an operator must never be left believing an
+            acknowledgement reached the crew when it did not. It is deliberately
+            not dismissible and sits above the tiles, and the tooltip carries the
+            store's full message plus its "check this" line.
+        -->
+        <div class="pvx-ann-notice" ng-if="pvx.notice"
+             ng-style="pvx.noticeStyle"
+             title="{{pvx.noticeTip}}">
+            <span class="pvx-ann-notice-dot"></span>
+            <span class="pvx-ann-notice-text pvx-truncate">{{pvx.notice}}</span>
+        </div>
+
+        <div class="pvx-body pvx-ann-bodywrap">
+            <div class="pvx-ann-body"></div>
+        </div>
+
+    </div>
+</div>

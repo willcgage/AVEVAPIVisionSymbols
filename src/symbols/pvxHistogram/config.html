@@ -1,0 +1,243 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Data</div>
+        <div class="pvx-cfg-hint">
+            The distribution is drawn from <strong>one</strong> data source. Add more only if you
+            want to overlay them for comparison.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-series">Data source number</label>
+            <input id="pvxhist-series" type="number" ng-model="config.SeriesIndex" min="1" step="1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-overlay">Overlay all data sources</label>
+            <input id="pvxhist-overlay" type="checkbox" ng-model="config.Overlay" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Overlaid sources are drawn as translucent outlines on shared bins, up to four.
+            Statistics and capability always describe the data source selected above.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-intervals">Resolution (samples)</label>
+            <input id="pvxhist-intervals" type="number" ng-model="config.Intervals" min="50" max="5000" step="50" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A distribution needs samples to be stable. Below about 200 the bin heights move
+            noticeably every time the display refreshes.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bins</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-bins">Number of bins</label>
+            <input id="pvxhist-bins" type="text" ng-model="config.Bins" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>auto</code> uses the Freedman&ndash;Diaconis rule, which is driven by the
+            interquartile range and so is not thrown off by the occasional spike PI data is
+            full of.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-binwidth">Bin width</label>
+            <input id="pvxhist-binwidth" type="text" ng-model="config.BinWidth" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A fixed width in engineering units. Overrides the bin count &mdash; use it when two
+            displays have to be compared bin for bin.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-rangemin">Range minimum</label>
+            <input id="pvxhist-rangemin" type="text" ng-model="config.RangeMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-rangemax">Range maximum</label>
+            <input id="pvxhist-rangemax" type="text" ng-model="config.RangeMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Blank bins over the full data extent. A narrower range clips the <em>chart</em> only;
+            the statistics and capability below still use every sample.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Specification limits</div>
+        <div class="pvx-cfg-hint">
+            These are what turn a histogram into an answer. Without them the symbol shows what the
+            tag did; with them it shows whether the process is centred and capable.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-lsl">Lower spec limit (LSL)</label>
+            <input id="pvxhist-lsl" type="text" ng-model="config.LSL" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-usl">Upper spec limit (USL)</label>
+            <input id="pvxhist-usl" type="text" ng-model="config.USL" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Either limit may be left blank for a one-sided specification; Cpk is then computed from
+            the single limit and Cp is not defined.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-target">Target</label>
+            <input id="pvxhist-target" type="text" ng-model="config.Target" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-colorbyspec">Colour out-of-spec bars</label>
+            <input id="pvxhist-colorbyspec" type="checkbox" ng-model="config.ColorBySpec" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Only bins lying <em>entirely</em> beyond a limit are recoloured &mdash; a bin straddling
+            the limit still holds conforming samples.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Capability</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-showcap">Show capability panel</label>
+            <input id="pvxhist-showcap" type="checkbox" ng-model="config.ShowCapability" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-warnbelow">Warn when Cpk below</label>
+            <input id="pvxhist-warnbelow" type="number" ng-model="config.CapabilityWarnBelow" min="0" max="5" step="0.01" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Cpk under this value is amber, under 1.00 red. 1.33 is the usual industrial floor
+            (four sigma between the mean and the nearer limit).
+        </div>
+        <div class="pvx-cfg-hint">
+            A PI time series has no rational subgroups, so sigma is the overall sample standard
+            deviation &mdash; which makes Cp equal Pp and Cpk equal Ppk. The panel reports that
+            honestly rather than inventing subgroups.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chart</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-orient">Orientation</label>
+            <select id="pvxhist-orient" ng-model="config.Orientation">
+                <option value="vertical">Vertical bars</option>
+                <option value="horizontal">Horizontal bars</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Horizontal puts the value on the vertical axis, so the symbol lines up beside a trend
+            of the same tag.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-yaxis">Frequency axis</label>
+            <select id="pvxhist-yaxis" ng-model="config.YAxisMode">
+                <option value="count">Count</option>
+                <option value="percent">Percent of samples</option>
+                <option value="density">Density</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-barcolor">Bar colour</label>
+            <input id="pvxhist-barcolor" type="color" ng-model="config.BarColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-baropacity">Bar opacity</label>
+            <input id="pvxhist-baropacity" type="number" ng-model="config.BarOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-bargap">Gap between bars</label>
+            <input id="pvxhist-bargap" type="number" ng-model="config.BarGap" min="0" max="0.6" step="0.02" />
+        </div>
+        <div class="pvx-cfg-hint">Fraction of the bin width. Use 0 for a classic touching histogram.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-grid">Show grid</label>
+            <input id="pvxhist-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-ticks">Tick count</label>
+            <input id="pvxhist-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-axislabels">Show axis titles</label>
+            <input id="pvxhist-axislabels" type="checkbox" ng-model="config.ShowAxisLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-showstats">Show footer statistics</label>
+            <input id="pvxhist-showstats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Overlays</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-curve">Fitted normal curve</label>
+            <input id="pvxhist-curve" type="checkbox" ng-model="config.ShowNormalCurve" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Scaled to the bars, so a distribution that hugs the curve is normal and one that does
+            not is telling you something &mdash; two peaks, a hard clamp, a skew.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-curvecolor">Curve colour</label>
+            <input id="pvxhist-curvecolor" type="color" ng-model="config.NormalCurveColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-mean">Mean line</label>
+            <input id="pvxhist-mean" type="checkbox" ng-model="config.ShowMeanLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-median">Median line</label>
+            <input id="pvxhist-median" type="checkbox" ng-model="config.ShowMedianLine" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A mean well away from the median is the quickest sign the distribution is skewed.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-sigma">Sigma markers (&plusmn;1, 2, 3&sigma;)</label>
+            <input id="pvxhist-sigma" type="checkbox" ng-model="config.ShowSigmaLines" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-theme">Theme</label>
+            <select id="pvxhist-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-showlabel">Show title</label>
+            <input id="pvxhist-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-units">Show units in title</label>
+            <input id="pvxhist-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-decimals">Decimals</label>
+            <select id="pvxhist-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-transparent">Transparent background</label>
+            <input id="pvxhist-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-radius">Corner radius</label>
+            <input id="pvxhist-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

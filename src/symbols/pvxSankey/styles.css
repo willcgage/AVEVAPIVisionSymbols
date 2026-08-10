@@ -1,0 +1,116 @@
+/* pvxSankey — weighted flow (Sankey) diagram
+ * Only the chrome (header, footer, SVG host) is styled here. Ribbon fills, node
+ * colours and label colours all come from the runtime theme tokens, never from
+ * CSS, so the same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-sk {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-sk .pvx-sk-surface {
+    border-color: transparent;
+}
+
+.pvx-sk .pvx-header {
+    padding: 5px 8px 2px 8px;
+}
+
+.pvx-sk .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-sk .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the diagram never
+   resizes downwards. */
+.pvx-sk .pvx-sk-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-sk .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-sk .pvx-sk-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-sk .pvx-sk-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- ribbons -------------------------------------------------------------- */
+
+/* Hovering lifts one stream out of the pile without changing its width or its
+   colour: both of those are data, and an interaction may not alter data. */
+.pvx-sk .pvx-sk-link path {
+    transition: fill-opacity 120ms ease;
+}
+
+.pvx-sk .pvx-sk-link:hover path {
+    fill-opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvx-sk .pvx-sk-link path { transition: none; }
+}
+
+/* --- nodes ---------------------------------------------------------------- */
+
+/* Node bars are axis-aligned and only a handful of pixels wide; crisp edges
+   stop antialiasing from smearing them into a grey haze. */
+.pvx-sk .pvx-sk-node rect {
+    shape-rendering: crispEdges;
+}
+
+.pvx-sk .pvx-sk-flag {
+    pointer-events: none;
+}
+
+/* --- labels --------------------------------------------------------------- */
+
+/* Labels sit on top of ribbons, so symbol.js gives them a stroke in the surface
+   colour as a halo. paint-order puts that stroke UNDER the glyph, which is the
+   difference between a legible name and an outlined one. */
+.pvx-sk .pvx-sk-label,
+.pvx-sk .pvx-sk-value,
+.pvx-sk .pvx-sk-linkvalue {
+    paint-order: stroke;
+    letter-spacing: 0.01em;
+}
+
+/* The name keeps its pointer events so a truncated one can be hovered for the
+   full string; the numbers do not, because there is nothing behind them that a
+   tooltip would add. */
+.pvx-sk .pvx-sk-value,
+.pvx-sk .pvx-sk-linkvalue {
+    pointer-events: none;
+}
+
+.pvx-sk .pvx-sk-value {
+    opacity: 0.95;
+}
+
+.pvx-sk .pvx-sk-emptymsg {
+    opacity: 0.75;
+}

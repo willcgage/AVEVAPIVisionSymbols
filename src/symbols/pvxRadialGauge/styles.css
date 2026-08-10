@@ -1,0 +1,25 @@
+/* pvxRadialGauge */
+
+.pvx-gauge .pvx-gauge-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.pvx-gauge .pvx-gauge-track {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-gauge .pvx-gauge-value-arc {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-gauge .pvx-gauge-needle {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-gauge .pvx-svg-value {
+    letter-spacing: -0.01em;
+}

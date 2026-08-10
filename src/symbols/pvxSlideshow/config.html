@@ -1,0 +1,222 @@
+<div class="c-config-content pvx-cfg pvx-ss-cfg">
+
+    <div class="pvx-cfg-callout">
+        <b>Put this symbol on every display in the rotation, with this same
+        configuration.</b><br />
+        Navigating away destroys the symbol along with the rest of the display, so
+        one copy on one display cannot keep a rotation running &mdash; it would jump
+        once and then no longer exist. Each copy reads the current display out of the
+        address bar, finds its own place in the list below, and schedules the next
+        jump. Nothing changes per display: copy the symbol onto each display in the
+        list, or paste the same settings in, and the rotation works.
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rotation</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-enabled">Rotate automatically</label>
+            <input id="pvxss-enabled" type="checkbox" ng-model="config.Enabled" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The master switch. Turn it off to stop the rotation on every display at
+            once without deleting the symbol. The operator's previous / next buttons
+            still work.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxss-displays">Displays &mdash; one per line</label>
+            <textarea id="pvxss-displays" ng-model="config.Displays" rows="7"
+                      placeholder="display | label | dwellSeconds"></textarea>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Format:</b> <code>display | label | dwellSeconds</code><br />
+            Only <code>display</code> is required. <code>label</code> is the name shown
+            on screen (left blank, it is taken from the display's own URL).
+            <code>dwellSeconds</code> overrides the default dwell for that one entry
+            &mdash; useful for a busy overview that deserves longer than the rest.
+            Blank lines are ignored, and a line starting with <code>#</code> is a
+            comment, so a display can be dropped out of the rotation for a shift
+            without losing the line.
+            <pre>101 | Plant Overview | 60
+102 | Boilers
+/Displays/103/Turbine-Hall | Turbines | 20
+# 104 | Out of service this week</pre>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>Finding a display id:</b> open the display and look at the address bar.
+            The id is the number straight after <code>/Displays/</code> &mdash; in
+            <code>.../PIVision/#/Displays/<b>101</b>/Plant-Overview</code> the id is
+            <code>101</code>. The name after it is cosmetic and is ignored when
+            matching, so a renamed display does not fall out of the rotation.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-dwell">Default dwell (seconds)</label>
+            <input id="pvxss-dwell" type="number" ng-model="config.DwellSeconds" min="1" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">Used for every entry that does not carry its own dwell.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">When this display is not in the list</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-start">Start behaviour</label>
+            <select id="pvxss-start" ng-model="config.StartBehaviour">
+                <option value="resume">Stay put</option>
+                <option value="first">Go to the first entry</option>
+                <option value="nearest">Pick the rotation back up</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Applies when the display this symbol is on is <i>not</i> one of the entries
+            above &mdash; somebody navigated somewhere by hand, or the display was taken
+            out of the list.<br />
+            <b>Stay put</b> &mdash; do nothing at all. The safest choice, and the
+            default: an operator who went somewhere deliberately is never yanked away.<br />
+            <b>Go to the first entry</b> &mdash; after the default dwell, jump to entry 1.<br />
+            <b>Pick the rotation back up</b> &mdash; after the default dwell, jump to the
+            entry <i>after</i> the last one the rotation actually visited in this browser
+            session, falling back to entry 1 when there is nothing to remember.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Pausing</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-pauseint">Pause when the screen is being used</label>
+            <input id="pvxss-pauseint" type="checkbox" ng-model="config.PauseOnInteraction" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Any mouse movement, key press, scroll or touch anywhere on the page pauses
+            the rotation. A display that navigates away while somebody is reading it is
+            worse than no rotation at all. The symbol's own buttons do not count.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-resume">Resume after idle (seconds)</label>
+            <input id="pvxss-resume" type="number" ng-model="config.ResumeAfterIdleSeconds" min="0" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How long the screen must be left alone before the rotation carries on.
+            <b>0</b> means it stays paused until somebody presses Resume.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            Pausing is remembered for the whole browser tab, not just this display, so a
+            pause survives the rotation moving on and the copy on the next display stays
+            put too. It is forgotten when the browser session ends. Pressing Resume
+            clears both a manual pause and the idle timer.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">What travels to the next display</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-keeptime">Carry the current time range over</label>
+            <input id="pvxss-keeptime" type="checkbox" ng-model="config.KeepTimeRange" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-keepasset">Carry the current asset over</label>
+            <input id="pvxss-keepasset" type="checkbox" ng-model="config.KeepAsset" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave the asset off unless every display in the rotation is built on the same
+            AF template &mdash; carrying an asset to a display that cannot use it leaves
+            that display blank.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-controls">Operator controls</label>
+            <select id="pvxss-controls" ng-model="config.ShowControls">
+                <option value="always">Always visible</option>
+                <option value="hover">On hover or keyboard focus</option>
+                <option value="never">Never</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Previous, pause / resume and next. On hover they also appear when tabbed to,
+            so they are still reachable on a screen with no mouse.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-progress">Show the countdown</label>
+            <input id="pvxss-progress" type="checkbox" ng-model="config.ShowProgress" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-position">Show the position ("3 of 7")</label>
+            <input id="pvxss-position" type="checkbox" ng-model="config.ShowPosition" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-showlabel">Show the display name</label>
+            <input id="pvxss-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Below about 160&times;60 only the countdown and the position are drawn, and
+            below 100&times;40 only the countdown &mdash; the words would be unreadable
+            at those sizes.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-orient">Orientation</label>
+            <select id="pvxss-orient" ng-model="config.Orientation">
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-compact">Compact</label>
+            <input id="pvxss-compact" type="checkbox" ng-model="config.CompactMode" />
+        </div>
+        <div class="pvx-cfg-hint">Tighter spacing and no title, for a slim strip along the edge of a display.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxss-title">Title</label>
+            <input id="pvxss-title" type="text" ng-model="config.Title" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxss-accent">Countdown colour</label>
+            <input id="pvxss-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-theme">Theme</label>
+            <select id="pvxss-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-transparent">Transparent background</label>
+            <input id="pvxss-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxss-radius">Corner radius</label>
+            <input id="pvxss-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Notes</div>
+        <div class="pvx-cfg-hint">
+            The rotation never runs while a display is being edited, so a display cannot
+            navigate out from under you while you are working on it. The symbol says so
+            on screen while that is the case.
+        </div>
+        <div class="pvx-cfg-hint">
+            An entry that resolves to the display you are already on is skipped rather
+            than reloaded, so a display listed twice does not cause a visible refresh.
+        </div>
+    </div>
+
+</div>

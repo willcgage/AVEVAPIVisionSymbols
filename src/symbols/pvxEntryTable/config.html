@@ -1,0 +1,245 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxet-element">Element path (optional)</label>
+            <input id="pvxet-element" type="text" ng-model="config.ElementPath"
+                   placeholder="\\AFSERVER01\Production\Reactor1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Set this and every row below can be a bare attribute name. That is the difference between
+            a readable twenty-row sheet and twenty lines of near-identical eighty-character paths.
+            A row that starts with <code>\\</code> is treated as a full path and ignores this.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxet-rows">Rows &mdash; one per line</label>
+            <textarea id="pvxet-rows" ng-model="config.Rows" rows="8"
+                      placeholder="Catalyst Charge | Charge | kg | 0:500"></textarea>
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>Grammar</strong><br />
+            <code>path | label | units | min:max</code><br />
+            Only the path is required; drop any field from the right. To skip a field but keep a later
+            one, leave it empty: <code>Bed Temp | | degC</code>.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>A worked example.</strong> With the element path set to
+            <code>\\AFSERVER01\Production\Reactor1</code>, this sheet:
+            <br />
+            <code>
+                # 06:00 rounds<br />
+                Catalyst Charge | Charge | kg | 0:500<br />
+                Bed Temp | Bed temperature | degC | 0:900<br />
+                Tank Level<br />
+                \\AFSERVER01\Production\Cooling|Basin Temp | Basin temp | degC
+            </code>
+            <br />
+            gives four rows. The third takes its label from the attribute name and has no range. The
+            fourth points at a different element entirely, so it is written out in full. Lines
+            starting with <code>#</code> are notes and are skipped.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>Why the spaces around the <code>|</code> matter.</strong> An AF path already
+            contains a pipe, between the element and the attribute. So the rule is: a pipe with a
+            <em>space beside it</em> separates fields, and a pipe with no space belongs to the path.
+            That is why the fourth row above resolves to
+            <code>Cooling|Basin Temp</code> and not to an element called <code>Cooling</code> with a
+            label of <code>Basin Temp</code>. Write full paths without spaces around their pipe, and
+            put spaces around the separators, and the two never collide.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            A row that does not resolve is marked <em>no path</em> and disabled. The other rows carry
+            on working — one mistyped line in a rounds sheet must not take the sheet down with it.
+            <br />
+            This symbol writes through <strong>PI Web API</strong>, not PI Vision's data pipeline, so
+            it has no attribute drop target. If it says PI Web API is not configured, set
+            <code>baseUrl</code> in <code>libraries/pvx-config.js</code> on this PI Vision server and
+            confirm it with <code>ext/piwebapi-check.html</code>.
+            <strong>Who may write is decided by PI and AF security, not by this symbol.</strong>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Submitting</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-confirm">Confirm before writing</label>
+            <input id="pvxet-confirm" type="checkbox" ng-model="config.RequireConfirm" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Leave this on.</strong> There is no undo on a PI write. The confirmation lists
+            every value with the row it is going to, by name — a summary that only said "write 4
+            values?" would be a button people learn to click without reading.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-submitlabel">Submit button label</label>
+            <input id="pvxet-submitlabel" type="text" ng-model="config.SubmitLabel" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-partial">Allow partial submission</label>
+            <input id="pvxet-partial" type="checkbox" ng-model="config.AllowPartial" />
+        </div>
+        <div class="pvx-cfg-hint">
+            On (the default): only the rows that were filled in are sent, and the blanks are simply
+            not written. Off: every row must have a value before the button enables — for a
+            regulatory rounds sheet where a missing reading is itself the problem. Either way, a row
+            with an <em>invalid</em> value stops the whole submit: which of the operator's readings to
+            keep is not the symbol's decision to make.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-clear">Clear after submit</label>
+            <input id="pvxet-clear" type="checkbox" ng-model="config.ClearAfterSubmit" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Only the rows that actually <em>saved</em> are cleared. Clearing a row that failed would
+            throw away a reading the operator still has to send, and by then they may not remember it.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Timestamp</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-tsmode">Values are stamped</label>
+            <select id="pvxet-tsmode" ng-model="config.TimestampMode">
+                <option value="now">When they are written</option>
+                <option value="custom">One time for the whole sheet</option>
+                <option value="perRow">A time per row</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            "When they are written" sends <code>*</code> and lets PI stamp them — the historian's
+            clock is the authority and a browser's is routinely minutes out.
+            <br />
+            "One time for the whole sheet" is the normal choice for rounds: the readings were taken at
+            06:00 and typed in at 07:15, and they belong at 06:00.
+            <br />
+            "A time per row" is for a walk that takes an hour, where each reading has its own moment.
+            It costs a second field on every row, so use it only when that is true.
+            <br />
+            Both accept <code>2026-08-08 06:00</code> or <code>*</code> with an offset such as
+            <code>*-2h</code>. Future timestamps are rejected: they are nearly always a typed year or
+            a mixed-up day, and they sit in the archive ahead of every real value until they arrive.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">What the sheet shows</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-current">Show current values</label>
+            <input id="pvxet-current" type="checkbox" ng-model="config.ShowCurrentValues" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Fetched for the whole sheet in one request. Seeing the last value beside the box is the
+            cheapest guard against a transposed digit there is. The column drops itself automatically
+            when the symbol is too narrow to hold it.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-refresh">Refresh (seconds)</label>
+            <input id="pvxet-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol has no PI Vision data pipeline, so nothing else will refresh it. The refresh
+            pauses while a confirmation is open or a submit is in flight, and it never touches a value
+            the operator has already typed.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-rowstatus">Show per-row result</label>
+            <input id="pvxet-rowstatus" type="checkbox" ng-model="config.ShowRowStatus" />
+        </div>
+        <div class="pvx-cfg-hint">
+            PI has no transaction: ten writes are ten independent facts and the ninth can fail while
+            the rest succeed. This column is where that gets said honestly, row by row, instead of
+            collapsing a partial success into "failed" and sending the operator back to re-type nine
+            readings that are already in the historian.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-compact">Compact rows</label>
+            <input id="pvxet-compact" type="checkbox" ng-model="config.CompactRows" />
+        </div>
+        <div class="pvx-cfg-hint">Tighter rows for a long sheet in a short symbol.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chrome</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-showheader">Show header</label>
+            <input id="pvxet-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxet-title">Title</label>
+            <input id="pvxet-title" type="text" ng-model="config.Title" placeholder="Shift log" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxet-accent">Button colour</label>
+            <input id="pvxet-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxet-theme">Theme</label>
+            <select id="pvxet-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxet-transparent">Transparent background</label>
+            <input id="pvxet-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxet-radius">Corner radius</label>
+            <input id="pvxet-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Below roughly 200 &times; 140 pixels the sheet is not usable and the symbol says so by name
+            instead of drawing a squeezed version of itself. A cramped entry field is a mis-typed
+            write waiting to happen.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Advanced</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-preview">Read-only preview</label>
+            <input id="pvxet-preview" type="checkbox" ng-model="config.ReadOnlyPreview" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Renders the whole sheet and refuses to write. This is for building and reviewing a display
+            <em>before</em> the AF write permissions exist, so the layout can be agreed without anyone
+            putting test numbers into the historian. Clear it when you go live.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxet-baseurl">PI Web API base URL override</label>
+            <input id="pvxet-baseurl" type="text" ng-model="config.BaseUrlOverride"
+                   placeholder="Leave blank — use libraries/pvx-config.js" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave this blank in production. The base URL belongs in
+            <code>libraries/pvx-config.js</code>, where one site setting serves every symbol and
+            survives an upgrade. Use this only for testing, or to point at a <em>second</em> PI Web
+            API — a test instance, or another plant's server.
+            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
+            <code>PVX.api</code> is deliberately one shared client so that authentication is
+            configured once per site. Two symbols with two different overrides on one display will
+            fight.
+        </div>
+    </div>
+
+</div>

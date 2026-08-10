@@ -1,0 +1,270 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Event source</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-db">AF database path</label>
+            <input id="pvxeg-db" type="text" ng-model="config.DatabasePath"
+                   placeholder="\\AFSERVER01\Production" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol reads Event Frames from <strong>PI Web API</strong>, not from PI Vision's own
+            data pipeline, so it has no attribute drop target. If it says PI Web API is not configured,
+            set <code>baseUrl</code> in <code>libraries/pvx-config.js</code> on this PI Vision server and
+            confirm it with <code>ext/piwebapi-check.html</code>.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-template">Event Frame template</label>
+            <input id="pvxeg-template" type="text" ng-model="config.TemplateName"
+                   placeholder="Leave blank for every template" />
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-namefilter">Event name filter</label>
+            <input id="pvxeg-namefilter" type="text" ng-model="config.NameFilter"
+                   placeholder="Downtime*" />
+        </div>
+        <div class="pvx-cfg-hint"><code>*</code> and <code>?</code> wildcards, as in PI Web API.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-elemfilter">Referenced element filter</label>
+            <input id="pvxeg-elemfilter" type="text" ng-model="config.ElementNameFilter"
+                   placeholder="Mill*" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-searchmode">Search mode</label>
+            <select id="pvxeg-searchmode" ng-model="config.SearchMode">
+                <option value="Overlapped">Overlapped</option>
+                <option value="Inclusive">Inclusive</option>
+                <option value="StartInclusive">Start inclusive</option>
+                <option value="EndInclusive">End inclusive</option>
+                <option value="BackwardFromStartTime">Backward from start</option>
+                <option value="ForwardFromStartTime">Forward from start</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Overlapped</strong> is almost always what you want, and it is the default for a
+            reason: an event that started before the window and is <em>still running</em> is exactly the
+            one an operator is looking for, and every stricter mode drops it. <code>Inclusive</code>
+            only returns events that both started and ended inside the window, which quietly hides the
+            trip that is happening right now.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-max">Max events</label>
+            <input id="pvxeg-max" type="number" ng-model="config.MaxEvents" min="1" max="5000" />
+        </div>
+        <div class="pvx-cfg-hint">If more match, the footer says so — it never silently shows a subset.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-refresh">Refresh (seconds)</label>
+            <input id="pvxeg-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol has no PI Vision data pipeline, so nothing else will refresh it. It also
+            re-queries whenever the display's time range changes.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Time range</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-start">Start</label>
+            <input id="pvxeg-start" type="text" ng-model="config.StartTime" placeholder="*-8h" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-end">End</label>
+            <input id="pvxeg-end" type="text" ng-model="config.EndTime" placeholder="*" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Fallback only. The display's own time range wins whenever the URL carries one, which is how
+            this symbol follows the time bar without a data pipeline to be told through. PI time
+            grammar: <code>*-8h</code>, <code>t</code>, <code>y+6h</code>, or an absolute timestamp.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Swimlanes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-laneby">A lane is one</label>
+            <select id="pvxeg-laneby" ng-model="config.LaneBy">
+                <option value="element">Asset (referenced element)</option>
+                <option value="template">Event Frame template</option>
+                <option value="none">Everything on one lane</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Per-asset lanes need one extra lookup to turn each referenced element into a name. It is
+            done in a single batched request and cached, so it costs nothing after the first refresh.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-maxlanes">Max lanes</label>
+            <input id="pvxeg-maxlanes" type="number" ng-model="config.MaxLanes" min="1" max="200" />
+        </div>
+        <div class="pvx-cfg-hint">
+            When there are more, the lanes with the most event time are kept — dropping the
+            least-affected assets is the only truncation that leaves the chart meaningful. The footer
+            reports how many lanes and events were left out.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-colorby">Colour bars by</label>
+            <select id="pvxeg-colorby" ng-model="config.ColorBy">
+                <option value="template">Template</option>
+                <option value="duration">Duration</option>
+                <option value="attribute">Event attribute</option>
+                <option value="single">One colour</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-stack" ng-if="config.ColorBy === 'attribute'">
+            <label for="pvxeg-colorattr">Attribute name</label>
+            <input id="pvxeg-colorattr" type="text" ng-model="config.ColorAttribute"
+                   placeholder="Reason Code" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ColorBy === 'attribute'">
+            One value per event, fetched in a single batched request rather than one request per event.
+            Text values get a palette colour each; numeric values use the threshold bands below.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.ColorBy === 'single' || config.ColorBy === 'attribute'">
+            <label for="pvxeg-single">Bar colour</label>
+            <input id="pvxeg-single" type="color" ng-model="config.SingleColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bars</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-open">Show open events</label>
+            <input id="pvxeg-open" type="checkbox" ng-model="config.ShowOpenEvents" />
+        </div>
+        <div class="pvx-cfg-hint">
+            An event with no end time has not finished. It is drawn to the right edge with a pointed
+            end rather than a square one, because a square end reads as "finished exactly here" — which
+            is a lie about a fault that is still on the plant.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-minbar">Minimum bar width (px)</label>
+            <input id="pvxeg-minbar" type="number" ng-model="config.MinBarPx" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A 20-second trip on an 8-hour window is a third of a pixel wide, and it is often the most
+            interesting mark on the chart. This is the floor that keeps it visible.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-labels">Show event names</label>
+            <input id="pvxeg-labels" type="checkbox" ng-model="config.ShowLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-durations">Show durations</label>
+            <input id="pvxeg-durations" type="checkbox" ng-model="config.ShowDurations" />
+        </div>
+        <div class="pvx-cfg-hint">Both are dropped automatically once the symbol is too small to hold them.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chrome</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-showheader">Show header</label>
+            <input id="pvxeg-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-title">Title</label>
+            <input id="pvxeg-title" type="text" ng-model="config.Title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-grid">Show grid</label>
+            <input id="pvxeg-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-ticks">Time ticks</label>
+            <input id="pvxeg-ticks" type="number" ng-model="config.TimeTickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-now">Show "now" line</label>
+            <input id="pvxeg-now" type="checkbox" ng-model="config.ShowNowLine" />
+        </div>
+        <div class="pvx-cfg-hint">Drawn only when the window actually contains now.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-summary">Show summary line</label>
+            <input id="pvxeg-summary" type="checkbox" ng-model="config.ShowSummary" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-click">Clicking a bar</label>
+            <select id="pvxeg-click" ng-model="config.ClickAction">
+                <option value="none">Does nothing</option>
+                <option value="navigate">Opens a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+            <label for="pvxeg-target">Target display</label>
+            <input id="pvxeg-target" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or id/slug" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'navigate'">
+            The target display opens on the <em>clicked event's</em> time range, not the current one —
+            the reason to click a bar is to see what everything else was doing during it.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-theme">Theme</label>
+            <select id="pvxeg-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-transparent">Transparent background</label>
+            <input id="pvxeg-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxeg-radius">Corner radius</label>
+            <input id="pvxeg-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Advanced</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxeg-baseurl">PI Web API base URL override</label>
+            <input id="pvxeg-baseurl" type="text" ng-model="config.BaseUrlOverride"
+                   placeholder="Leave blank — use libraries/pvx-config.js" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave this blank in production. The base URL belongs in
+            <code>libraries/pvx-config.js</code>, where one site setting serves every symbol and
+            survives an upgrade. Use this only to point at a <em>second</em> PI Web API — a test
+            instance, or another plant's server.
+            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
+            <code>PVX.api</code> is deliberately one shared client so that authentication is configured
+            once per site. Two symbols with two different overrides on one display will fight.
+        </div>
+    </div>
+
+</div>

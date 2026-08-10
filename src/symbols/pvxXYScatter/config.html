@@ -1,0 +1,212 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Data sources</div>
+        <div class="pvx-cfg-hint">
+            The <strong>first</strong> data source is the X axis, the <strong>second</strong> is the Y axis.
+            Any further data sources are ignored. Drag the attributes onto the symbol in that order,
+            or reorder them in the display's data source list.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-intervals">Resolution (points per tag)</label>
+            <input id="pvxxy-intervals" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-gap">Max pairing gap (s)</label>
+            <input id="pvxxy-gap" type="number" ng-model="config.MaxPairGapSeconds" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Each Y sample is paired with the X value in force at that instant. If the newest X sample
+            is older than this, the pair is dropped rather than plotted against stale data.
+            Use <code>0</code> for no limit.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxxy-xlabel">X axis title</label>
+            <input id="pvxxy-xlabel" type="text" ng-model="config.XLabel" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxxy-ylabel">Y axis title</label>
+            <input id="pvxxy-ylabel" type="text" ng-model="config.YLabel" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-auto">Round axes to nice values</label>
+            <input id="pvxxy-auto" type="checkbox" ng-model="config.AutoScale" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-xmin">X minimum</label>
+            <input id="pvxxy-xmin" type="text" ng-model="config.XMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-xmax">X maximum</label>
+            <input id="pvxxy-xmax" type="text" ng-model="config.XMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-ymin">Y minimum</label>
+            <input id="pvxxy-ymin" type="text" ng-model="config.YMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-ymax">Y maximum</label>
+            <input id="pvxxy-ymax" type="text" ng-model="config.YMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">Blank bounds scale to the data (and to the envelope, when one is shown).</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-grid">Show grid</label>
+            <input id="pvxxy-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-ticks">Tick count</label>
+            <input id="pvxxy-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Points</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-size">Point size</label>
+            <input id="pvxxy-size" type="number" ng-model="config.PointSize" min="1" max="20" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-opacity">Point opacity</label>
+            <input id="pvxxy-opacity" type="number" ng-model="config.PointOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-colormode">Colour by</label>
+            <select id="pvxxy-colormode" ng-model="config.ColorMode">
+                <option value="single">Single colour</option>
+                <option value="time">Time (oldest to newest)</option>
+                <option value="threshold">Y value threshold</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <em>Time</em> shades points along the sequential ramp with a legend key.
+            <em>Threshold</em> uses the bands below.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-color">Point colour</label>
+            <input id="pvxxy-color" type="color" ng-model="config.PointColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-connect">Join points in time order</label>
+            <input id="pvxxy-connect" type="checkbox" ng-model="config.ShowConnectingLine" />
+        </div>
+        <div class="pvx-cfg-hint">Turns the plot into a phase portrait — useful for start-up and batch trajectories.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-count">Show point count</label>
+            <input id="pvxxy-count" type="checkbox" ng-model="config.ShowPointCount" />
+        </div>
+        <div class="pvx-cfg-hint">Above 4,000 paired points the plot is uniformly subsampled; the footer says so.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Regression</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-reg">Show best-fit line</label>
+            <input id="pvxxy-reg" type="checkbox" ng-model="config.ShowRegression" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-regcolor">Line colour</label>
+            <input id="pvxxy-regcolor" type="color" ng-model="config.RegressionColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-eq">Show equation</label>
+            <input id="pvxxy-eq" type="checkbox" ng-model="config.ShowEquation" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-r2">Show R²</label>
+            <input id="pvxxy-r2" type="checkbox" ng-model="config.ShowR2" />
+        </div>
+        <div class="pvx-cfg-hint">Fitted on all paired samples, not just the drawn ones.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Operating envelope</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-env">Show envelope box</label>
+            <input id="pvxxy-env" type="checkbox" ng-model="config.ShowEnvelope" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-envxmin">X minimum</label>
+            <input id="pvxxy-envxmin" type="text" ng-model="config.EnvelopeXMin" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-envxmax">X maximum</label>
+            <input id="pvxxy-envxmax" type="text" ng-model="config.EnvelopeXMax" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-envymin">Y minimum</label>
+            <input id="pvxxy-envymin" type="text" ng-model="config.EnvelopeYMin" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-envymax">Y maximum</label>
+            <input id="pvxxy-envymax" type="text" ng-model="config.EnvelopeYMax" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Points outside the dashed box are drawn in the alarm colour. Blank bounds are unbounded
+            on that side.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-theme">Theme</label>
+            <select id="pvxxy-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-showlabel">Show title</label>
+            <input id="pvxxy-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-accent">Accent colour</label>
+            <input id="pvxxy-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-transparent">Transparent background</label>
+            <input id="pvxxy-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-radius">Corner radius</label>
+            <input id="pvxxy-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-decimals">Decimals</label>
+            <select id="pvxxy-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-compact">Compact numbers (1.2k)</label>
+            <input id="pvxxy-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-usethresh">Enable thresholds</label>
+            <input id="pvxxy-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxxy-thresh">Threshold bands</label>
+            <textarea id="pvxxy-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>lowerLimit:colour:label</code>, comma separated. Applied to the Y value when
+            "Colour by" is set to threshold and thresholds are enabled.
+        </div>
+    </div>
+
+</div>

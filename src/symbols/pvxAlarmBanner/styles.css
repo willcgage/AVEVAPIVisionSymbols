@@ -1,0 +1,353 @@
+/* pvxAlarmBanner — PVX Exception Banner
+ * ---------------------------------------------------------------------------
+ * Every selector is namespaced under .pvx-alarm. The custom properties below
+ * are fallbacks only; symbol.js overwrites them on the root element from the
+ * resolved theme tokens on every render.
+ */
+
+.pvx-alarm {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+
+    /* Row metrics live here so dense mode is a single override, not a fork of
+       every rule below. */
+    --pvx-alarm-pad: 8px;
+    --pvx-alarm-gap: 8px;
+    --pvx-alarm-font: 12px;
+
+    color: var(--pvx-text);
+}
+
+.pvx-alarm.pvx-alarm-dense {
+    --pvx-alarm-pad: 5px;
+    --pvx-alarm-gap: 5px;
+    --pvx-alarm-font: 11px;
+}
+
+.pvx-alarm .pvx-alarm-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    overflow: hidden;
+}
+
+/* --- header ---------------------------------------------------------------- */
+
+.pvx-alarm .pvx-alarm-header {
+    align-items: center;
+    padding: 6px 10px 4px 10px;
+    flex-wrap: wrap;
+}
+
+.pvx-alarm .pvx-alarm-header .pvx-title {
+    color: var(--pvx-text);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.pvx-alarm .pvx-alarm-pills {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* --- severity pills -------------------------------------------------------- */
+
+.pvx-alarm .pvx-alarm-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    /* The background is an alpha wash of the band colour, so the pill reads as
+       "this band" without the saturated block a solid fill would give. */
+    background: rgba(128, 128, 128, 0.14);
+}
+
+.pvx-alarm .pvx-alarm-pill > b {
+    font-weight: 700;
+    font-size: 11.5px;
+}
+
+.pvx-alarm .pvx-alarm-pill-lg {
+    padding: 4px 12px;
+    border-radius: 13px;
+    font-size: 12.5px;
+    gap: 6px;
+}
+
+.pvx-alarm .pvx-alarm-pill-lg > b {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* --- body ------------------------------------------------------------------ */
+
+.pvx-alarm .pvx-alarm-bodywrap {
+    padding: 0 0 2px 0;
+    overflow: hidden;
+}
+
+.pvx-alarm .pvx-alarm-body {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.pvx-alarm .pvx-alarm-list {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Thin scrollbar: the default one eats most of a 24px row's usable width. */
+.pvx-alarm .pvx-alarm-list::-webkit-scrollbar { width: 6px; }
+.pvx-alarm .pvx-alarm-list::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 3px;
+}
+
+/* --- rows ------------------------------------------------------------------ */
+
+.pvx-alarm .pvx-alarm-row {
+    display: flex;
+    align-items: center;
+    gap: var(--pvx-alarm-gap);
+    padding: 2px var(--pvx-alarm-pad) 2px 0;
+    font-size: var(--pvx-alarm-font);
+    border-bottom: 1px solid var(--pvx-border);
+    min-width: 0;
+    position: relative;
+}
+
+.pvx-alarm .pvx-alarm-row:last-child { border-bottom: none; }
+
+.pvx-alarm .pvx-alarm-row:nth-child(even) {
+    background: var(--pvx-surface-alt);
+}
+
+.pvx-alarm .pvx-alarm-clickable { cursor: pointer; }
+.pvx-alarm .pvx-alarm-clickable:hover { filter: brightness(1.06); }
+
+/* Severity chip: a full-height bar rather than a dot, so a long list reads as
+   a colour-coded stripe down the left edge at a glance. */
+.pvx-alarm .pvx-alarm-chip {
+    flex: 0 0 auto;
+    width: 4px;
+    align-self: stretch;
+    min-height: 12px;
+    border-radius: 0 2px 2px 0;
+    background: #6f7378;
+}
+
+.pvx-alarm .pvx-alarm-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 500;
+    color: var(--pvx-text);
+}
+
+.pvx-alarm .pvx-alarm-value {
+    flex: 0 0 auto;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.pvx-alarm .pvx-alarm-units {
+    flex: 0 0 auto;
+    font-size: 0.85em;
+    color: var(--pvx-muted);
+    white-space: nowrap;
+    margin-left: -4px;
+}
+
+.pvx-alarm .pvx-alarm-band {
+    flex: 0 1 auto;
+    max-width: 40%;
+    padding: 0 5px;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.pvx-alarm .pvx-alarm-time,
+.pvx-alarm .pvx-alarm-dur {
+    flex: 0 0 auto;
+    color: var(--pvx-muted);
+    font-size: 0.87em;
+    white-space: nowrap;
+    /* Fixed minimum keeps the right edge steady as "59s" becomes "1m". */
+    min-width: 34px;
+    text-align: right;
+}
+
+.pvx-alarm .pvx-alarm-more {
+    padding: 3px var(--pvx-alarm-pad) 3px 10px;
+    font-size: 0.85em;
+    color: var(--pvx-muted);
+    font-style: italic;
+}
+
+/* --- ticker ---------------------------------------------------------------- */
+
+.pvx-alarm .pvx-alarm-ticker {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.pvx-alarm .pvx-alarm-strip {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    will-change: transform;
+    /* Stepped fallback (reduced motion) animates this property directly. */
+    transition: transform 420ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pvx-alarm .pvx-alarm-strip-run {
+    /* The duration is set inline from strip width / TickerSpeed so the speed is
+       constant in px/sec regardless of how much text is in the strip. */
+    animation-name: pvx-alarm-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    transition: none;
+}
+
+/* Two identical copies sit in the strip, so translating by exactly half its
+   width lands copy 2 where copy 1 began — the wrap is invisible. */
+@keyframes pvx-alarm-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+
+.pvx-alarm .pvx-alarm-ticker:hover .pvx-alarm-strip {
+    animation-play-state: paused;
+}
+
+.pvx-alarm .pvx-alarm-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    margin-right: 18px;
+    font-size: var(--pvx-alarm-font);
+    border-radius: 10px;
+    background: var(--pvx-surface-alt);
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+.pvx-alarm .pvx-alarm-item .pvx-alarm-chip {
+    width: 8px;
+    height: 8px;
+    min-height: 0;
+    align-self: center;
+    border-radius: 50%;
+}
+
+.pvx-alarm .pvx-alarm-item .pvx-alarm-name {
+    flex: 0 0 auto;
+    max-width: none;
+}
+
+/* --- summary --------------------------------------------------------------- */
+
+.pvx-alarm .pvx-alarm-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+    padding: 6px 10px;
+    overflow: hidden;
+}
+
+/* --- empty state ----------------------------------------------------------- */
+
+.pvx-alarm .pvx-alarm-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    text-align: center;
+    font-size: var(--pvx-alarm-font);
+    font-weight: 500;
+}
+
+.pvx-alarm .pvx-alarm-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    font-size: 10px;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+/* --- new-row pulse ---------------------------------------------------------- *
+ * Iteration count and a negative animation-delay are set inline by symbol.js so
+ * the pulse keeps its phase and its remaining lifetime across the DOM rebuilds
+ * that every data poll triggers. Keep this duration in sync with PULSE_MS.
+ */
+.pvx-alarm .pvx-alarm-new {
+    animation-name: pvx-alarm-pulse;
+    animation-duration: 1200ms;
+    animation-timing-function: ease-in-out;
+}
+
+@keyframes pvx-alarm-pulse {
+    0%   { background-color: transparent; }
+    35%  { background-color: rgba(200, 69, 47, 0.28); }
+    100% { background-color: transparent; }
+}
+
+/* --- reduced motion --------------------------------------------------------- *
+ * Continuous scroll and repeated flashing are the two things this symbol does
+ * that a motion-sensitive operator cannot opt out of at the display level, so
+ * both are removed here. symbol.js independently detects the same preference
+ * and drives the ticker as a timed step instead.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .pvx-alarm .pvx-alarm-strip,
+    .pvx-alarm .pvx-alarm-strip-run {
+        animation: none !important;
+    }
+
+    .pvx-alarm .pvx-alarm-new {
+        animation: none !important;
+        /* Keep the "this is new" signal, just hold it still. */
+        box-shadow: inset 3px 0 0 0 rgba(200, 69, 47, 0.55);
+    }
+
+    .pvx-alarm .pvx-alarm-clickable:hover { filter: none; }
+}

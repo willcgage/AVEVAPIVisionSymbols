@@ -1,0 +1,102 @@
+/* pvxEventGantt — Event Frames as timeline swimlanes */
+
+.pvx-egantt {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-egantt .pvx-egantt-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-egantt .pvx-egantt-header {
+    color: var(--pvx-muted);
+    padding-bottom: 3px;
+}
+
+.pvx-egantt .pvx-egantt-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.pvx-egantt .pvx-egantt-footer {
+    color: var(--pvx-muted);
+}
+
+/* The note is the honesty column — truncation warnings, failed sub-requests.
+   It sits to the right of the summary and never squeezes it out of view. */
+.pvx-egantt .pvx-egantt-note {
+    opacity: 0.85;
+    font-style: italic;
+    flex: 0 1 auto;
+    text-align: right;
+}
+
+.pvx-egantt .pvx-egantt-summary {
+    flex: 1 1 auto;
+    letter-spacing: 0.01em;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and lanes never fit. */
+.pvx-egantt .pvx-egantt-body {
+    flex: 1 1 auto;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-egantt .pvx-egantt-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Bars own the hover tooltip, so nothing drawn on top of them may swallow the
+   pointer. Labels are painted inside the bar's own <g>, which keeps the
+   tooltip reachable across the whole bar. */
+.pvx-egantt .pvx-egantt-band,
+.pvx-egantt .pvx-egantt-tick,
+.pvx-egantt .pvx-egantt-now,
+.pvx-egantt .pvx-egantt-nowlabel,
+.pvx-egantt .pvx-egantt-barlabel,
+.pvx-egantt .pvx-egantt-msg-head,
+.pvx-egantt .pvx-egantt-msg-body {
+    pointer-events: none;
+}
+
+/* Deliberately NOT shape-rendering:crispEdges: snapping each bar to whole
+   pixels independently opens hairline gaps between neighbouring events and
+   loses the sub-pixel bars that MinBarPx exists to preserve. */
+.pvx-egantt .pvx-egantt-shape {
+    shape-rendering: auto;
+}
+
+.pvx-egantt .pvx-egantt-bar:hover .pvx-egantt-shape {
+    filter: brightness(1.12);
+}
+
+/* Lane names keep pointer events so their <title> (event count and total
+   duration) is reachable; SVG text only reacts over its own glyphs. */
+.pvx-egantt .pvx-egantt-lane {
+    font-weight: 500;
+    letter-spacing: 0.005em;
+}
+
+.pvx-egantt.pvx-egantt-clickable .pvx-hit-group {
+    cursor: pointer;
+}
+
+.pvx-egantt .pvx-egantt-msg-body {
+    letter-spacing: 0.005em;
+}

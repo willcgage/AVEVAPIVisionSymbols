@@ -1,0 +1,332 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Event source</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-db">AF database path</label>
+            <input id="pvxea-db" type="text" ng-model="config.DatabasePath"
+                   placeholder="\\AFSERVER01\Production" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol reads Event Frames from <strong>PI Web API</strong>, not from PI Vision's own
+            data pipeline, so it has no attribute drop target. If it says PI Web API is not configured,
+            set <code>baseUrl</code> in <code>libraries/pvx-config.js</code> on this PI Vision server and
+            confirm it with <code>ext/piwebapi-check.html</code>.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-template">Event Frame template</label>
+            <input id="pvxea-template" type="text" ng-model="config.TemplateName"
+                   placeholder="Leave blank for every template" />
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-namefilter">Event name filter</label>
+            <input id="pvxea-namefilter" type="text" ng-model="config.NameFilter"
+                   placeholder="Downtime*" />
+        </div>
+        <div class="pvx-cfg-hint"><code>*</code> and <code>?</code> wildcards, as in PI Web API.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-elemfilter">Referenced element filter</label>
+            <input id="pvxea-elemfilter" type="text" ng-model="config.ElementNameFilter"
+                   placeholder="Mill*" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-searchmode">Search mode</label>
+            <select id="pvxea-searchmode" ng-model="config.SearchMode">
+                <option value="Overlapped">Overlapped</option>
+                <option value="Inclusive">Inclusive</option>
+                <option value="StartInclusive">Start inclusive</option>
+                <option value="EndInclusive">End inclusive</option>
+                <option value="BackwardFromStartTime">Backward from start</option>
+                <option value="ForwardFromStartTime">Forward from start</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Overlapped</strong> is the only mode that is arithmetically right for downtime
+            accounting, and it is the default for that reason: an event that started before the window
+            and is still running <em>consumed time inside the window</em>, and every stricter mode drops
+            it. <code>Inclusive</code> returns only events that both started and ended inside the
+            window, which quietly under-reports the outage that is happening right now.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-max">Max events</label>
+            <input id="pvxea-max" type="number" ng-model="config.MaxEvents" min="1" max="20000" />
+        </div>
+        <div class="pvx-cfg-hint">
+            If more match, the footer says so — and says that the <em>ranking</em> may be wrong, not
+            merely that some events are missing. PI Web API returns the first N by start time, not the
+            N that matter, so a truncated result can put the wrong reason code at the top.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-refresh">Refresh (seconds)</label>
+            <input id="pvxea-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol has no PI Vision data pipeline, so nothing else will refresh it. It also
+            re-queries whenever the display's time range changes.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Time range</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-start">Start</label>
+            <input id="pvxea-start" type="text" ng-model="config.StartTime" placeholder="*-7d" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-end">End</label>
+            <input id="pvxea-end" type="text" ng-model="config.EndTime" placeholder="*" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Fallback only. The display's own time range wins whenever the URL carries one, which is how
+            this symbol follows the time bar without a data pipeline to be told through. PI time
+            grammar: <code>*-7d</code>, <code>t</code>, <code>y+6h</code>, or an absolute timestamp.
+            Every duration on the chart is <strong>clipped to this window</strong> — an event that ran
+            for three days but only two hours of it fall inside the window contributes two hours.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Grouping</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-groupby">A group is one</label>
+            <select id="pvxea-groupby" ng-model="config.GroupBy">
+                <option value="template">Event Frame template</option>
+                <option value="element">Asset (referenced element)</option>
+                <option value="attribute">Event attribute value</option>
+                <option value="name">Part of the event name</option>
+                <option value="none">Everything in one group</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-stack" ng-if="config.GroupBy === 'attribute'">
+            <label for="pvxea-groupattr">Attribute name</label>
+            <input id="pvxea-groupattr" type="text" ng-model="config.GroupAttribute"
+                   placeholder="Reason Code" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.GroupBy === 'attribute'">
+            The most valuable grouping there is, and the most expensive: it needs one value per event.
+            They are fetched in a <strong>single batched request</strong> rather than one request per
+            event, and any sub-requests that fail are counted in the footer instead of quietly landing
+            those events in "(unassigned)" without explanation. The name must match the Event Frame
+            template exactly.
+        </div>
+
+        <div class="pvx-cfg-stack" ng-if="config.GroupBy === 'name'">
+            <label for="pvxea-namepattern">Name pattern (regular expression)</label>
+            <input id="pvxea-namepattern" type="text" ng-model="config.NamePattern"
+                   placeholder="- ([A-Z]+)-" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.GroupBy === 'name'">
+            Downtime reasons are very often buried in the event name, and a regular expression is the
+            only way to get them out without touching the AF model.
+            <strong>Capture group 1 becomes the group</strong> — the pattern
+            <code>- ([A-Z]+)-</code> turns <em>Downtime - Mill 1 - MECH-04</em> into <em>MECH</em>.
+            Leave it blank to group by the whole event name. An invalid expression is reported in the
+            footer, not swallowed.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            Events with no value for whatever you grouped by go into an explicit
+            <strong>"(unassigned)"</strong> group rather than being dropped. That group is frequently
+            the finding: nobody is filling the reason code in.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Ranking</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-metric">Rank groups by</label>
+            <select id="pvxea-metric" ng-model="config.Metric">
+                <option value="totalDuration">Total duration</option>
+                <option value="count">Event count</option>
+                <option value="meanDuration">Mean duration</option>
+                <option value="maxDuration">Longest single event</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Total duration is the cost; count is the nuisance. They frequently disagree, and the
+            disagreement is usually the interesting part. Total duration <strong>merges overlapping
+            events</strong> within a group before summing — two operators logging the same outage twice
+            must not book it twice — and the footer says when merging changed the total.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-chart">Chart</label>
+            <select id="pvxea-chart" ng-model="config.Chart">
+                <option value="pareto">Pareto (bars + cumulative)</option>
+                <option value="bars">Ranked bars</option>
+                <option value="donut">Donut (contribution)</option>
+                <option value="table">Table</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.Chart === 'pareto'">
+            <label for="pvxea-cum">Cumulative line</label>
+            <input id="pvxea-cum" type="checkbox" ng-model="config.ShowCumulative" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Chart === 'pareto'">
+            <label for="pvxea-eighty">80% marker</label>
+            <input id="pvxea-eighty" type="checkbox" ng-model="config.EightyLine" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Chart === 'pareto' || config.Chart === 'donut'">
+            Both assume the parts add up to the whole, so they are suppressed automatically when the
+            metric is a mean or a maximum — those do not sum, and a cumulative percentage of them would
+            be a made-up number.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-topn">Top N groups</label>
+            <input id="pvxea-topn" type="number" ng-model="config.TopN" min="0" max="200" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-other">Combine the rest as "Other"</label>
+            <input id="pvxea-other" type="checkbox" ng-model="config.GroupRemainderAsOther" />
+        </div>
+        <div class="pvx-cfg-hint">
+            0 shows every group. "Other" keeps the cumulative line honest — without it the percentages
+            are taken over a subset and every share looks bigger than it is.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Presentation</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-values">Show values</label>
+            <input id="pvxea-values" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-unit">Duration unit</label>
+            <select id="pvxea-unit" ng-model="config.DurationUnit">
+                <option value="auto">Automatic</option>
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Automatic gives the human form (<em>2d 4h</em>), which reads fastest on a wall display.
+            Pick an explicit unit when the number is going to be copied into a report and has to be
+            comparable — <em>52.3 h</em> rather than <em>2d 4h</em>.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-colormode">Colour bars by</label>
+            <select id="pvxea-colormode" ng-model="config.ColorMode">
+                <option value="single">One colour</option>
+                <option value="palette">Palette per group</option>
+                <option value="threshold">Threshold bands</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ColorMode === 'single'">
+            <label for="pvxea-barcolor">Bar colour</label>
+            <input id="pvxea-barcolor" type="color" ng-model="config.BarColor" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ColorMode === 'threshold'">
+            Threshold bands are compared against the value <em>in the duration unit above</em> — the
+            only unit you saw when you typed the numbers. With "Automatic" that unit is chosen from the
+            data, so pick an explicit one before setting thresholds on a duration.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-summary">Show summary line</label>
+            <input id="pvxea-summary" type="checkbox" ng-model="config.ShowSummary" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Event count, total time, how much of the window is covered once overlaps between groups are
+            removed, and that as a percentage of the window.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-opennote">Note open events</label>
+            <input id="pvxea-opennote" type="checkbox" ng-model="config.ShowOpenEventNote" />
+        </div>
+        <div class="pvx-cfg-hint">
+            An event with no end time is still running. It is counted up to now, so its group's total
+            grows every minute — a figure that silently includes one is a different number tomorrow,
+            and this is the line that says so.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-click">Clicking a group</label>
+            <select id="pvxea-click" ng-model="config.ClickAction">
+                <option value="none">Does nothing</option>
+                <option value="navigate">Opens a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+            <label for="pvxea-target">Target display</label>
+            <input id="pvxea-target" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or id/slug" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'navigate'">
+            The target display opens over the clicked group's own span — first event start to last
+            event end — because the reason to click a reason code is to see what the plant was doing
+            while it was happening.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-showheader">Show header</label>
+            <input id="pvxea-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-title">Title</label>
+            <input id="pvxea-title" type="text" ng-model="config.Title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-theme">Theme</label>
+            <select id="pvxea-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-transparent">Transparent background</label>
+            <input id="pvxea-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-radius">Corner radius</label>
+            <input id="pvxea-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Advanced</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-baseurl">PI Web API base URL override</label>
+            <input id="pvxea-baseurl" type="text" ng-model="config.BaseUrlOverride"
+                   placeholder="Leave blank — use libraries/pvx-config.js" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>A testing escape hatch. Leave it blank in production.</strong> The base URL belongs
+            in <code>libraries/pvx-config.js</code>, where one site setting serves every symbol and
+            survives an upgrade. Use this only to point at a <em>second</em> PI Web API — a test
+            instance, or another plant's server.
+            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
+            <code>PVX.api</code> is deliberately one shared client so that authentication is configured
+            once per site. Two symbols with two different overrides on one display will fight.
+        </div>
+    </div>
+
+</div>

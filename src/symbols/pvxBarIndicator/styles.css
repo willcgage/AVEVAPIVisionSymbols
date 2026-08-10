@@ -1,0 +1,41 @@
+/* pvxBarIndicator */
+
+.pvx-bar .pvx-bar-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Bars are axis-aligned rectangles, so snapping them to the pixel grid keeps
+   the track and fill edges from turning into a half-pixel blur. */
+.pvx-bar .pvx-bar-track,
+.pvx-bar .pvx-bar-band,
+.pvx-bar .pvx-bar-cell {
+    shape-rendering: crispEdges;
+}
+
+/* The fill moves, so it gets geometric precision instead — crispEdges would
+   make it jump a whole pixel at a time as the value changes. */
+.pvx-bar .pvx-bar-fill {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-bar .pvx-bar-target {
+    shape-rendering: geometricPrecision;
+    pointer-events: none;
+}
+
+.pvx-bar .pvx-svg-value {
+    letter-spacing: -0.01em;
+}
+
+/* The stroked copy that sits under the readout on a segmented bar. It must
+   track the real text exactly, so it inherits the same value styling and only
+   adds the join treatment that keeps the halo from growing spikes. */
+.pvx-bar .pvx-bar-value-halo {
+    stroke-linejoin: round;
+    paint-order: stroke;
+    pointer-events: none;
+}

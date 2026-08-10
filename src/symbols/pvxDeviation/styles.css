@@ -1,0 +1,91 @@
+/* pvxDeviation */
+
+.pvx-dev {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme, so
+       every colour decision lives in one place and the template never needs a
+       scope binding to know whether the display is light or dark. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-dev .pvx-dev-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and the plot never fits. */
+.pvx-dev .pvx-dev-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* The target caption is a fact about the configuration, not about the data, so
+   it stays quieter than the title it sits beside. */
+.pvx-dev .pvx-dev-target {
+    color: var(--pvx-muted);
+    flex: 0 0 auto;
+}
+
+/* Bars are axis-aligned rectangles: let the renderer snap them to the pixel
+   grid, because anti-aliased bar edges read as gaps between adjacent bars. */
+.pvx-dev .pvx-dev-bar {
+    shape-rendering: crispEdges;
+    stroke: none;
+}
+
+/* Everything curved or diagonal wants the opposite treatment. */
+.pvx-dev .pvx-dev-line,
+.pvx-dev .pvx-dev-fill,
+.pvx-dev .pvx-dev-band,
+.pvx-dev .pvx-dev-sp,
+.pvx-dev .pvx-dev-dot,
+.pvx-dev .pvx-dev-key,
+.pvx-dev .pvx-dev-chip {
+    shape-rendering: geometricPrecision;
+}
+
+/* The zero line is the anchor of the whole picture — a hairline that the
+   browser has snapped half a pixel off would read as a drifting baseline. */
+.pvx-dev .pvx-dev-zero {
+    shape-rendering: crispEdges;
+    pointer-events: none;
+}
+
+/* Decoration must never steal the hover from the trace underneath it. */
+.pvx-dev .pvx-dev-fill,
+.pvx-dev .pvx-dev-band,
+.pvx-dev .pvx-dev-limit,
+.pvx-dev .pvx-dev-sp,
+.pvx-dev .pvx-dev-stats-g,
+.pvx-dev .pvx-dev-chip,
+.pvx-dev .pvx-dev-key,
+.pvx-dev .pvx-dev-legend-text,
+.pvx-dev .pvx-dev-axis-title {
+    pointer-events: none;
+}
+
+.pvx-dev .pvx-dev-axis-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* The footer carries decimation / pairing / unit-fallback notes, all of which
+   are advisory: they should never compete with the plot for attention. */
+.pvx-dev .pvx-footer {
+    color: var(--pvx-muted);
+    padding-top: 0;
+}
+
+.pvx-dev .pvx-dev-note {
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.85;
+}

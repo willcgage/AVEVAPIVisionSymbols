@@ -1,0 +1,374 @@
+/* pvxNavPanel — everything namespaced under .pvx-nav.
+   Values marked with var() are written by symbol.js at render time; the
+   literals here are only the fallbacks used before the first paint. */
+
+.pvx-nav {
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+
+    --pvx-nav-color: #3b82c4;
+    --pvx-nav-active: #285885;   /* = ButtonColor mixed 32% toward black */
+    --pvx-nav-on-color: #ffffff;
+    --pvx-nav-on-active: #ffffff;
+    --pvx-nav-confirm: #d99024;
+    --pvx-nav-on-confirm: #14171a;
+    --pvx-nav-tint: rgba(59, 130, 196, 0.14);
+    --pvx-nav-tint-strong: rgba(59, 130, 196, 0.26);
+    --pvx-nav-focus: rgba(59, 130, 196, 0.55);
+
+    --pvx-nav-gap: 6px;
+    --pvx-nav-radius: 4px;
+    --pvx-nav-cols: 3;
+    /* Natural button height for the current ButtonSize. The size rules below
+       override it; layouts that stretch buttons use it as their yardstick. */
+    --pvx-nav-btn-h: 28px;
+
+    color: var(--pvx-text);
+}
+
+.pvx-nav .pvx-nav-surface {
+    background: var(--pvx-surface);
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-nav .pvx-nav-header {
+    padding: 5px 8px 0 8px;
+}
+
+.pvx-nav .pvx-nav-header .pvx-title {
+    color: var(--pvx-muted);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+}
+
+.pvx-nav .pvx-nav-bodywrap {
+    padding: 0;
+}
+
+/* --- the button host ------------------------------------------------------ */
+
+.pvx-nav .pvx-nav-body {
+    flex: 1 1 auto;      /* .pvx-body is a flex container; fill it */
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 5px;
+    gap: var(--pvx-nav-gap);
+    /* Panels are often sized tighter than their contents; scroll rather than
+       clip so no button becomes unreachable. */
+    overflow: auto;
+}
+
+/* --- layouts -------------------------------------------------------------- */
+/* The `safe center` duplicates are progressive enhancement: where they are
+   understood they stop a centred group that is taller than the panel from
+   spilling past the *start* edge, which is the one place overflow: auto cannot
+   scroll to. Browsers that do not know the keyword keep the plain `center`. */
+
+/* A row is a toolbar, not a set of columns: buttons keep the height ButtonSize
+   gives them and the strip is centred in whatever box the author drew. */
+.pvx-nav .pvx-nav-body.pvx-nav-lay-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    align-items: safe center;
+}
+
+.pvx-nav .pvx-nav-body.pvx-nav-lay-wrap {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    align-content: safe center;
+}
+
+/* Column and grid are the layouts whose whole point is filling the box, so
+   here the buttons *do* share the height — see the cap below. */
+.pvx-nav .pvx-nav-body.pvx-nav-lay-column {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    justify-content: safe center;
+}
+
+.pvx-nav .pvx-nav-body.pvx-nav-lay-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--pvx-nav-cols), minmax(0, 1fr));
+    /* Rows grow into the spare height but stop at the cap; align-content then
+       puts what is left over around the group rather than between the rows. */
+    grid-auto-rows: minmax(var(--pvx-nav-btn-h), var(--pvx-nav-btn-max));
+    align-content: center;
+    align-content: safe center;
+}
+
+/* The cap. Without it two buttons in a 200px-tall panel become two 90px slabs,
+   which reads as a pair of panels rather than a pair of buttons. */
+.pvx-nav .pvx-nav-body.pvx-nav-lay-column > .pvx-nav-btn {
+    flex: 1 1 auto;
+    max-height: var(--pvx-nav-btn-max);
+}
+
+/* Full width shares the *width* evenly and nothing else. flex-basis 0 with
+   min-width 0 is what makes the shares equal regardless of label length; the
+   vertical axis is left entirely to align-items above. */
+.pvx-nav .pvx-nav-body.pvx-nav-full.pvx-nav-lay-row > .pvx-nav-btn {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* Wrap fills its lines the same way, but from a content-sized basis rather
+   than 0: an item whose hypothetical size is 0 always fits the current line,
+   so a basis of 0 here would mean the wrap layout could never wrap. */
+.pvx-nav .pvx-nav-body.pvx-nav-full.pvx-nav-lay-wrap > .pvx-nav-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* An equal share is a tight budget, and the padding a content-sized button
+   wants would eat the label ("24 hours" -> "24 ho..."). Give the text the room
+   instead: it is centred, so a narrow gutter is invisible when there is space
+   and decisive when there is not. */
+.pvx-nav .pvx-nav-body.pvx-nav-full.pvx-nav-lay-row > .pvx-nav-btn,
+.pvx-nav .pvx-nav-body.pvx-nav-full.pvx-nav-lay-wrap > .pvx-nav-btn,
+.pvx-nav .pvx-nav-body.pvx-nav-full.pvx-nav-lay-grid > .pvx-nav-btn {
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+/* Not full width: size to content on the axis the layout distributes. */
+.pvx-nav .pvx-nav-body:not(.pvx-nav-full).pvx-nav-lay-column > .pvx-nav-btn {
+    align-self: flex-start;    /* cross axis of a column is the width */
+}
+
+.pvx-nav .pvx-nav-body:not(.pvx-nav-full).pvx-nav-lay-grid > .pvx-nav-btn {
+    justify-self: start;
+}
+
+.pvx-nav .pvx-nav-body:not(.pvx-nav-full).pvx-nav-lay-row > .pvx-nav-btn,
+.pvx-nav .pvx-nav-body:not(.pvx-nav-full).pvx-nav-lay-wrap > .pvx-nav-btn {
+    flex: 0 0 auto;
+}
+
+/* --- the button ----------------------------------------------------------- */
+
+.pvx-nav .pvx-nav-btn {
+    border-radius: var(--pvx-nav-radius);
+    font-family: inherit;
+    line-height: 1.15;
+    background: transparent;
+    color: inherit;
+    overflow: hidden;
+    transition: background-color 120ms ease, color 120ms ease,
+                border-color 120ms ease, box-shadow 120ms ease,
+                transform 100ms ease;
+}
+
+.pvx-nav .pvx-nav-btn .pvx-nav-label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pvx-nav .pvx-nav-btn:active {
+    transform: translateY(1px);
+}
+
+/* A visible ring only for keyboard users; mouse users already know where they
+   clicked and a persistent ring on a button bar is visual noise. */
+.pvx-nav .pvx-nav-btn:focus { outline: none; }
+
+.pvx-nav .pvx-nav-btn:focus-visible {
+    outline: 2px solid var(--pvx-nav-focus);
+    outline-offset: 2px;
+    z-index: 1;
+}
+
+/* --- sizes ---------------------------------------------------------------- */
+/* --pvx-nav-btn-h is the natural height of a button at this size (the layouts
+   above measure their stretch against it); --pvx-nav-btn-max is how far a
+   stretching layout may take it. */
+
+.pvx-nav .pvx-nav-body.pvx-nav-size-small {
+    --pvx-nav-btn-h: 22px;
+    --pvx-nav-btn-max: 55px;
+}
+
+.pvx-nav .pvx-nav-body.pvx-nav-size-medium {
+    --pvx-nav-btn-h: 28px;
+    --pvx-nav-btn-max: 70px;
+}
+
+.pvx-nav .pvx-nav-body.pvx-nav-size-large {
+    --pvx-nav-btn-h: 38px;
+    --pvx-nav-btn-max: 95px;
+}
+
+.pvx-nav .pvx-nav-size-small > .pvx-nav-btn {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    min-height: 22px;
+}
+
+.pvx-nav .pvx-nav-size-medium > .pvx-nav-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    min-height: 28px;
+}
+
+.pvx-nav .pvx-nav-size-large > .pvx-nav-btn {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 18px;
+    min-height: 38px;
+}
+
+/* --- style: filled -------------------------------------------------------- */
+
+.pvx-nav .pvx-nav-style-filled > .pvx-nav-btn {
+    background: var(--pvx-nav-color);
+    color: var(--pvx-nav-on-color);
+    border-color: transparent;
+}
+
+.pvx-nav .pvx-nav-style-filled > .pvx-nav-btn:hover {
+    filter: brightness(1.08);
+}
+
+.pvx-nav .pvx-nav-style-filled > .pvx-nav-btn.pvx-nav-btn-active {
+    background: var(--pvx-nav-active);
+    color: var(--pvx-nav-on-active);
+}
+
+/* --- style: outline ------------------------------------------------------- */
+
+.pvx-nav .pvx-nav-style-outline > .pvx-nav-btn {
+    background: transparent;
+    color: var(--pvx-nav-color);
+    border: 1px solid var(--pvx-nav-color);
+}
+
+.pvx-nav .pvx-nav-style-outline > .pvx-nav-btn:hover {
+    background: var(--pvx-nav-tint);
+}
+
+.pvx-nav .pvx-nav-style-outline > .pvx-nav-btn.pvx-nav-btn-active {
+    background: var(--pvx-nav-active);
+    border-color: var(--pvx-nav-active);
+    color: var(--pvx-nav-on-active);
+}
+
+/* --- style: ghost --------------------------------------------------------- */
+
+.pvx-nav .pvx-nav-style-ghost > .pvx-nav-btn {
+    background: transparent;
+    color: var(--pvx-nav-color);
+    border-color: transparent;
+}
+
+.pvx-nav .pvx-nav-style-ghost > .pvx-nav-btn:hover {
+    background: var(--pvx-nav-tint);
+}
+
+.pvx-nav .pvx-nav-style-ghost > .pvx-nav-btn.pvx-nav-btn-active {
+    background: var(--pvx-nav-tint-strong);
+    color: var(--pvx-nav-active);
+}
+
+/* --- style: tab ----------------------------------------------------------- */
+/* Tabs read as a strip, so they lose their own radius and sit on a shared
+   baseline rule drawn by the host. */
+
+.pvx-nav .pvx-nav-body.pvx-nav-style-tab {
+    gap: 0;
+}
+
+.pvx-nav .pvx-nav-style-tab > .pvx-nav-btn {
+    background: transparent;
+    color: var(--pvx-muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    font-weight: 600;
+}
+
+.pvx-nav .pvx-nav-style-tab > .pvx-nav-btn:hover {
+    color: var(--pvx-nav-color);
+    border-bottom-color: var(--pvx-nav-tint-strong);
+}
+
+.pvx-nav .pvx-nav-style-tab > .pvx-nav-btn:active {
+    transform: none;
+}
+
+.pvx-nav .pvx-nav-style-tab > .pvx-nav-btn.pvx-nav-btn-active {
+    color: var(--pvx-nav-active);
+    border-bottom-color: var(--pvx-nav-active);
+}
+
+/* --- confirm state -------------------------------------------------------- */
+/* Four class selectors so it outranks every per-style rule above without
+   resorting to !important. */
+
+.pvx-nav .pvx-nav-body > .pvx-nav-btn.pvx-nav-confirm,
+.pvx-nav .pvx-nav-body > .pvx-nav-btn.pvx-nav-confirm:hover {
+    background: var(--pvx-nav-confirm);
+    color: var(--pvx-nav-on-confirm);
+    border-color: var(--pvx-nav-confirm);
+    filter: none;
+    animation: pvx-nav-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pvx-nav-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--pvx-nav-tint); }
+    50%      { box-shadow: 0 0 0 3px var(--pvx-nav-tint); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvx-nav .pvx-nav-btn { transition: none; }
+    .pvx-nav .pvx-nav-body > .pvx-nav-btn.pvx-nav-confirm { animation: none; }
+}
+
+/* --- empty state ---------------------------------------------------------- */
+
+.pvx-nav .pvx-nav-hint {
+    color: var(--pvx-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+/* --- config pane ---------------------------------------------------------- */
+/* Namespaced under this symbol's own config root so the worked examples do not
+   restyle hints in any other symbol's pane. */
+
+.pvx-nav-cfg .pvx-cfg-hint pre {
+    margin: 4px 0 0 0;
+    padding: 4px 6px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.pvx-nav-cfg .pvx-cfg-hint code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 2px;
+    padding: 0 3px;
+}

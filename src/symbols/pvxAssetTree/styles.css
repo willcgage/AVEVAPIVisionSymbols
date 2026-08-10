@@ -1,0 +1,296 @@
+/* pvxAssetTree — the live AF hierarchy as a keyboard-navigable tree */
+
+.pvx-tree {
+    /* Fallbacks only; symbol.js overwrites every one of these from the
+       resolved theme on the first frame. */
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-tree-accent: #3b82c4;
+    --pvx-tree-hover: rgba(59, 130, 196, 0.10);
+    --pvx-tree-sel: rgba(59, 130, 196, 0.18);
+    --pvx-tree-focus: rgba(59, 130, 196, 0.65);
+    --pvx-tree-row-font: 12px;
+    --pvx-tree-row-pad: 3px;
+    color: var(--pvx-text);
+}
+
+.pvx-tree .pvx-tree-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+}
+
+.pvx-tree .pvx-tree-header {
+    color: var(--pvx-muted);
+    padding-bottom: 3px;
+}
+
+.pvx-tree .pvx-tree-header .pvx-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.pvx-tree .pvx-tree-footer {
+    color: var(--pvx-muted);
+}
+
+.pvx-tree .pvx-tree-note {
+    font-style: italic;
+    opacity: 0.85;
+}
+
+/* --- search ---------------------------------------------------------------- */
+
+.pvx-tree .pvx-tree-searchwrap {
+    flex: 0 0 auto;
+    position: relative;
+    padding: 2px 8px 4px 8px;
+}
+
+.pvx-tree .pvx-tree-search-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 3px 20px 3px 7px;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    outline: none;
+}
+
+.pvx-tree .pvx-tree-search-input:focus {
+    border-color: var(--pvx-tree-accent);
+    box-shadow: 0 0 0 2px var(--pvx-tree-focus);
+}
+
+.pvx-tree .pvx-tree-search-clear {
+    position: absolute;
+    right: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--pvx-muted);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* --- the tree itself ------------------------------------------------------- */
+
+/* Must be able to SHRINK inside the flex body, or clientHeight reports the
+   content height, the host never scrolls and the rows spill out of the symbol. */
+.pvx-tree .pvx-tree-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    outline: none;
+    padding: 0 2px 2px 2px;
+}
+
+.pvx-tree .pvx-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-top: var(--pvx-tree-row-pad);
+    padding-bottom: var(--pvx-tree-row-pad);
+    padding-right: 6px;
+    font-size: var(--pvx-tree-row-font);
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    min-width: 0;
+}
+
+.pvx-tree .pvx-tree-row:hover {
+    background: var(--pvx-tree-hover);
+}
+
+/* The current asset. Both a fill and a left bar: the fill alone disappears
+   under a hover, and an operator has to be able to see where they are. */
+.pvx-tree .pvx-tree-row-current {
+    background: var(--pvx-tree-sel);
+    box-shadow: inset 2px 0 0 0 var(--pvx-tree-accent);
+    font-weight: 600;
+}
+
+/* Focus is drawn explicitly rather than relying on the UA ring: the rows are
+   rebuilt constantly and the ring must survive that, and it must be visible on
+   both themes. */
+.pvx-tree .pvx-tree-row:focus {
+    box-shadow: inset 0 0 0 2px var(--pvx-tree-focus);
+}
+
+.pvx-tree .pvx-tree-row-current:focus {
+    box-shadow: inset 0 0 0 2px var(--pvx-tree-focus), inset 2px 0 0 0 var(--pvx-tree-accent);
+}
+
+.pvx-tree .pvx-tree-row-failed {
+    opacity: 0.8;
+}
+
+/* Fixed width even on a leaf: without the spacer, leaf names sit one twisty
+   to the left of their branch siblings and the indent stops reading. */
+.pvx-tree .pvx-tree-twisty {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pvx-tree .pvx-tree-twisty-on {
+    cursor: pointer;
+}
+
+.pvx-tree .pvx-tree-caret {
+    width: 8px;
+    height: 8px;
+    display: block;
+    transition: transform 110ms ease;
+}
+
+.pvx-tree .pvx-tree-twisty-open .pvx-tree-caret {
+    transform: rotate(90deg);
+}
+
+.pvx-tree .pvx-tree-icon {
+    flex: 0 0 13px;
+    height: 13px;
+    display: flex;
+    align-items: center;
+}
+
+.pvx-tree .pvx-tree-glyph {
+    width: 13px;
+    height: 13px;
+    display: block;
+}
+
+.pvx-tree .pvx-tree-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pvx-tree .pvx-tree-template {
+    flex: 0 1 auto;
+    max-width: 40%;
+    font-size: 10px;
+    color: var(--pvx-muted);
+    opacity: 0.9;
+}
+
+/* Deliberately NOT direction:rtl to keep the tail of a long path. Bidi
+   reordering moves the leading "\\SERVER" backslashes to the far end and the
+   path renders as a lie. The path shown here is already relative to the tree's
+   root (symbol.js), which is what makes it short enough not to need the trick;
+   the absolute path is on the row's tooltip. */
+.pvx-tree .pvx-tree-path {
+    flex: 0 1 auto;
+    max-width: 48%;
+    font-size: 9.5px;
+    color: var(--pvx-muted);
+    text-align: right;
+}
+
+.pvx-tree .pvx-tree-warn {
+    flex: 0 0 auto;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* --- per-node loading ------------------------------------------------------ */
+
+.pvx-tree .pvx-tree-spin {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+}
+
+.pvx-tree .pvx-tree-spin-ring {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    /* 2px and an accent-tinted track: at 1.5px on a light surface the whole
+       ring disappears and the row just looks blank, which is exactly the
+       impression this element exists to prevent. */
+    border: 2px solid var(--pvx-tree-sel);
+    border-top-color: var(--pvx-tree-accent);
+    animation: pvx-tree-spin 750ms linear infinite;
+}
+
+@keyframes pvx-tree-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Movement is the signal here, so the reduced-motion fallback has to keep a
+   signal: a static two-tone ring still reads as "this row is busy". */
+@media (prefers-reduced-motion: reduce) {
+    .pvx-tree .pvx-tree-spin-ring {
+        animation: none;
+        border-top-color: var(--pvx-tree-accent);
+        border-right-color: var(--pvx-tree-accent);
+    }
+}
+
+/* --- messages and the too-small state -------------------------------------- */
+
+.pvx-tree .pvx-tree-msg {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    padding: 8px 10px;
+    text-align: center;
+}
+
+.pvx-tree .pvx-tree-msg-head {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pvx-tree .pvx-tree-msg-body {
+    font-size: 10.5px;
+    line-height: 1.35;
+    color: var(--pvx-muted);
+}
+
+.pvx-tree .pvx-tree-tiny {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
+    text-align: center;
+}
+
+.pvx-tree .pvx-tree-tiny-name {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.pvx-tree .pvx-tree-tiny-hint {
+    font-size: 9px;
+    color: var(--pvx-muted);
+}

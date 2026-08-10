@@ -1,0 +1,302 @@
+/* pvxSlideshow — everything namespaced under .pvx-slideshow.
+   Values marked with var() are written by symbol.js at render time; the
+   literals here are only the fallbacks used before the first paint. */
+
+.pvx-slideshow {
+    --pvx-surface: #ffffff;
+    --pvx-ss-text: #1d2126;
+    --pvx-ss-muted: #5c6570;
+    --pvx-ss-border: #d6dbe1;
+    --pvx-ss-track: rgba(0, 0, 0, 0.10);
+    --pvx-ss-accent: #3b82c4;
+    --pvx-ss-warn: #d99024;
+    --pvx-ss-tint: rgba(59, 130, 196, 0.16);
+    --pvx-ss-ctlbg: rgba(255, 255, 255, 0.94);
+    --pvx-ss-focus: rgba(59, 130, 196, 0.55);
+
+    --pvx-ss-ring: 28px;
+    --pvx-ss-label: 14px;
+    --pvx-ss-status: 11px;
+
+    color: var(--pvx-ss-text);
+}
+
+.pvx-slideshow .pvx-ss-surface {
+    background: var(--pvx-surface);
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-slideshow .pvx-ss-header {
+    padding: 4px 8px 0 8px;
+}
+
+.pvx-slideshow .pvx-ss-header .pvx-title {
+    color: var(--pvx-ss-muted);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+}
+
+.pvx-slideshow .pvx-ss-bodywrap {
+    padding: 0;
+}
+
+/* --- the host ------------------------------------------------------------- */
+
+.pvx-slideshow .pvx-ss-body {
+    flex: 1 1 auto;          /* .pvx-body is a flex container; fill it */
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px;
+    overflow: hidden;        /* a slideshow bar must never grow a scrollbar */
+}
+
+.pvx-slideshow .pvx-ss-body.pvx-ss-vertical {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+}
+
+/* Below the readable thresholds there is nothing to lay out, only to centre. */
+.pvx-slideshow .pvx-ss-body.pvx-ss-tier-mini,
+.pvx-slideshow .pvx-ss-body.pvx-ss-tier-tiny {
+    justify-content: center;
+    gap: 6px;
+    padding: 2px 4px;
+}
+
+.pvx-slideshow .pvx-ss-body.pvx-ss-compact {
+    gap: 7px;
+    padding: 3px 6px;
+}
+
+/* --- countdown ring ------------------------------------------------------- */
+
+.pvx-slideshow .pvx-ss-progress {
+    flex: 0 0 auto;
+    width: var(--pvx-ss-ring);
+    height: var(--pvx-ss-ring);
+    line-height: 0;
+}
+
+.pvx-slideshow .pvx-ss-ring {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.pvx-slideshow .pvx-ss-ring .pvx-ss-track {
+    stroke: var(--pvx-ss-track);
+}
+
+.pvx-slideshow .pvx-ss-ring .pvx-ss-arc {
+    stroke: var(--pvx-ss-accent);
+    /* The arc is redrawn four times a second; a transition here would fight
+       every update and smear the countdown. */
+    transition: none;
+}
+
+.pvx-slideshow .pvx-ss-ring .pvx-ss-ringtext,
+.pvx-slideshow .pvx-ss-ring .pvx-ss-ringglyph {
+    fill: var(--pvx-ss-muted);
+}
+
+.pvx-slideshow .pvx-ss-ring .pvx-ss-ringtext {
+    font-weight: 600;
+    dominant-baseline: middle;
+}
+
+/* Tone carries the state at every size — at 90x36 the ring colour is the only
+   thing left to say it with. */
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-run .pvx-ss-arc { stroke: var(--pvx-ss-accent); }
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-run .pvx-ss-ringtext { fill: var(--pvx-ss-text); }
+
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-paused .pvx-ss-arc { stroke: var(--pvx-ss-muted); }
+
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-warn .pvx-ss-arc { stroke: var(--pvx-ss-warn); }
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-warn .pvx-ss-ringglyph { fill: var(--pvx-ss-warn); }
+
+.pvx-slideshow .pvx-ss-ring.pvx-ss-tone-off .pvx-ss-arc { stroke: var(--pvx-ss-track); }
+
+/* --- text ----------------------------------------------------------------- */
+
+.pvx-slideshow .pvx-ss-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+}
+
+.pvx-slideshow .pvx-ss-vertical .pvx-ss-info {
+    flex: 0 0 auto;
+    width: 100%;
+}
+
+.pvx-slideshow .pvx-ss-label {
+    font-size: var(--pvx-ss-label);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.pvx-slideshow .pvx-ss-status {
+    font-size: var(--pvx-ss-status);
+    color: var(--pvx-ss-muted);
+    line-height: 1.25;
+}
+
+/* Where there is a second line to spare, the status uses it. The failure
+   messages name the config field to go and fix; "...in the Displays box in t…"
+   would waste the one sentence that could have saved somebody an hour. */
+.pvx-slideshow .pvx-ss-roomy .pvx-ss-status {
+    white-space: normal;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    max-height: 2.6em;
+}
+
+.pvx-slideshow .pvx-ss-pos {
+    flex: 0 0 auto;
+    font-size: var(--pvx-ss-status);
+    color: var(--pvx-ss-muted);
+    white-space: nowrap;
+}
+
+/* --- controls ------------------------------------------------------------- */
+
+.pvx-slideshow .pvx-ss-controls {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    transition: opacity 140ms ease;
+}
+
+/* Hidden means invisible, NOT display:none — the buttons stay in the tab order
+   so a keyboard user can reach them, and focus brings them back into view.
+
+   They are also taken out of the flow: reserving 74px for controls nobody can
+   see squeezes the display name of a 200px-wide strip down to "B...". Floating
+   them over the right-hand end costs nothing until somebody actually reaches
+   for them, and then covering the position indicator is the right trade. */
+.pvx-slideshow .pvx-ss-body.pvx-ss-ctl-hover { position: relative; }
+
+.pvx-slideshow .pvx-ss-body.pvx-ss-ctl-hover .pvx-ss-controls {
+    opacity: 0;
+    position: absolute;
+    right: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 2px;
+    border-radius: 5px;
+    background: var(--pvx-ss-ctlbg);
+    box-shadow: 0 0 0 1px var(--pvx-ss-border);
+}
+
+.pvx-slideshow .pvx-ss-body.pvx-ss-vertical.pvx-ss-ctl-hover .pvx-ss-controls {
+    right: auto;
+    top: auto;
+    left: 50%;
+    bottom: 3px;
+    transform: translateX(-50%);
+}
+
+.pvx-slideshow:hover .pvx-ss-body.pvx-ss-ctl-hover .pvx-ss-controls,
+.pvx-slideshow .pvx-ss-body.pvx-ss-ctl-hover.pvx-ss-focus .pvx-ss-controls,
+.pvx-slideshow .pvx-ss-body.pvx-ss-ctl-hover .pvx-ss-controls:focus-within { opacity: 1; }
+
+.pvx-slideshow .pvx-ss-body.pvx-ss-ctl-never .pvx-ss-controls { display: none; }
+
+.pvx-slideshow .pvx-ss-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--pvx-ss-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.pvx-slideshow .pvx-ss-btn:hover {
+    background: var(--pvx-ss-tint);
+    color: var(--pvx-ss-text);
+}
+
+.pvx-slideshow .pvx-ss-btn:focus { outline: none; }
+
+.pvx-slideshow .pvx-ss-btn:focus-visible {
+    outline: 2px solid var(--pvx-ss-focus);
+    outline-offset: 1px;
+}
+
+.pvx-slideshow .pvx-ss-btn[disabled] {
+    opacity: 0.35;
+    cursor: default;
+    background: transparent;
+}
+
+.pvx-slideshow .pvx-ss-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+    display: block;
+}
+
+.pvx-slideshow .pvx-ss-compact .pvx-ss-btn {
+    width: 20px;
+    height: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvx-slideshow .pvx-ss-controls { transition: none; }
+}
+
+/* --- config pane ---------------------------------------------------------- */
+/* Namespaced under this symbol's own config root so the worked example does not
+   restyle hints in any other symbol's pane. */
+
+.pvx-ss-cfg .pvx-cfg-callout {
+    margin: 2px 0 10px 0;
+    padding: 7px 9px;
+    border-left: 3px solid #3b82c4;
+    background: rgba(59, 130, 196, 0.12);
+    border-radius: 3px;
+    font-size: 11.5px;
+    line-height: 1.4;
+}
+
+.pvx-ss-cfg .pvx-cfg-hint pre {
+    margin: 4px 0 0 0;
+    padding: 4px 6px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.pvx-ss-cfg .pvx-cfg-hint code,
+.pvx-ss-cfg .pvx-cfg-callout code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 2px;
+    padding: 0 3px;
+}

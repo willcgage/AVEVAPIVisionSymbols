@@ -1,0 +1,34 @@
+{
+  "name": "pvx-symbols",
+  "version": "1.5.0",
+  "description": "PVX \u2014 an extended custom symbol library for AVEVA PI Vision (charts, KPI/status, navigation)",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.js",
+    "clean": "node tools/build.js --clean",
+    "package": "node tools/build.js --clean --package",
+    "watch": "node tools/build.js --watch",
+    "preview": "node tools/serve.js",
+    "verify": "node tools/build.js && node tools/verify.js",
+    "verify:shots": "node tools/build.js && node tools/verify.js --shots",
+    "test:api": "node tools/build.js && node tools/test-api.js",
+    "installer": "node tools/build.js --clean --package && node tools/wix.js",
+    "verify:msi": "node tools/verify-msi.js",
+    "check:text": "node tools/check-text.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/willcgage/AVEVAPIVisionSymbols.git"
+  },
+  "bugs": {
+    "url": "https://github.com/willcgage/AVEVAPIVisionSymbols/issues"
+  },
+  "homepage": "https://github.com/willcgage/AVEVAPIVisionSymbols#readme"
+}

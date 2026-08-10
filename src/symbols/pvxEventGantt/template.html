@@ -1,0 +1,34 @@
+<!--
+    pvxEventGantt — deliberately thin.
+
+    Every lane, bar, chevron, gridline and axis tick below .pvx-egantt-body is
+    drawn imperatively as one SVG by symbol.js. There is no ng-repeat here on
+    purpose: lanes x events on a 500-event timeline would put thousands of
+    watchers into the digest loop of a display that refreshes every minute.
+
+    Only the header and footer are Angular-bound, from scope.pvx.
+-->
+<div class="pvx pvx-egantt"
+     ng-class="{'pvx-egantt-clickable': pvx.clickable}"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-egantt-surface">
+
+        <div class="pvx-header pvx-egantt-header" ng-if="config.ShowLabel && (pvx.title || pvx.range)">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.range">{{pvx.range}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-egantt-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-egantt-footer" ng-if="pvx.summary || pvx.note">
+            <span class="pvx-egantt-summary pvx-num pvx-truncate"
+                  ng-if="pvx.summary" title="{{pvx.summary}}">{{pvx.summary}}</span>
+            <span class="pvx-egantt-note pvx-truncate"
+                  ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+</div>

@@ -1,0 +1,30 @@
+<!--
+    pvxStateDuration — deliberately thin.
+
+    Every bar, segment, axis tick and legend swatch below .pvx-state-body is
+    drawn imperatively as a single SVG by symbol.js. There is no ng-repeat here
+    on purpose: rows x segments would put hundreds of watchers into the digest
+    loop of a display that refreshes every few seconds.
+
+    Only the header and footer are Angular-bound, from scope.pvx.
+-->
+<div class="pvx pvx-state"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-state-surface">
+
+        <div class="pvx-header pvx-state-header" ng-if="config.ShowLabel && (pvx.title || pvx.range)">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.range">{{pvx.range}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-state-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-state-footer" ng-if="pvx.summary">
+            <span class="pvx-state-summary pvx-num pvx-truncate" title="{{pvx.summary}}">{{pvx.summary}}</span>
+        </div>
+
+    </div>
+</div>

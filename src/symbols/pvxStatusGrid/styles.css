@@ -1,0 +1,208 @@
+/* pvxStatusGrid
+ * ---------------------------------------------------------------------------
+ * Every selector is namespaced under .pvx-grid. The custom properties below are
+ * fallbacks only — symbol.js overwrites them from the resolved theme tokens on
+ * every render, so the grid stays correct when PI Vision's theme changes under
+ * it without a reload.
+ */
+
+.pvx-grid {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-stripe: rgba(0, 0, 0, 0.13);
+    color: var(--pvx-text);
+}
+
+.pvx-grid .pvx-grid-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-grid .pvx-grid-header {
+    color: var(--pvx-muted);
+}
+
+.pvx-grid .pvx-grid-bodywrap {
+    padding: 6px;
+    min-height: 0;
+}
+
+/* The grid template columns / gap / row height are written inline by symbol.js
+   because they are derived from the measured tile box. Scrolling is vertical
+   only: horizontal scroll in an overview panel hides tags an operator needs. */
+.pvx-grid .pvx-grid-body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-content: start;
+}
+
+/* --- tile ---------------------------------------------------------------- */
+
+.pvx-grid .pvx-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    padding: 4px 7px;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid transparent;
+    background: var(--pvx-surface-alt);
+    line-height: 1.15;
+}
+
+.pvx-grid .pvx-tile-namerow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+/* Names are the one string allowed to truncate — a clipped tag name is still
+   recoverable from the tile's title tooltip, a clipped value is not. */
+.pvx-grid .pvx-tile-name {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.pvx-grid .pvx-tile-valuerow {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    min-width: 0;
+    order: 1;
+}
+
+.pvx-grid .pvx-tile-value {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pvx-grid .pvx-tile-units {
+    font-weight: 500;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+.pvx-grid .pvx-tile-state {
+    order: 2;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pvx-grid .pvx-tile-time {
+    order: 4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    opacity: 0.85;
+}
+
+/* --- tile styles --------------------------------------------------------- */
+
+/* Left accent bar. Absolutely positioned so it never steals width from the
+   text, which would make tiles of different styles wrap differently. */
+.pvx-grid .pvx-tile-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    display: none;
+    border-radius: inherit;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Tile-style classes carry an `-st-` infix so `pvx-tile-st-dot` on the tile
+   cannot collide with `pvx-tile-dot` on the marker span inside it. */
+.pvx-grid .pvx-tile-st-accentBar { padding-left: 11px; }
+
+.pvx-grid .pvx-tile-dot {
+    display: none;
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+/* --- bad quality --------------------------------------------------------- */
+/* Diagonal hatching reads as "do not trust this number" at a glance and stays
+   distinguishable for colour-vision-deficient operators, where a colour change
+   alone would not. Explicit double stops rather than the terser two-position
+   syntax, which older engines do not parse. */
+.pvx-grid .pvx-tile-bad {
+    background-image: repeating-linear-gradient(
+        45deg,
+        var(--pvx-stripe),
+        var(--pvx-stripe) 5px,
+        transparent 5px,
+        transparent 11px
+    );
+}
+
+.pvx-grid .pvx-tile-bad .pvx-tile-value {
+    opacity: 0.7;
+    font-style: italic;
+}
+
+/* --- alarm blink --------------------------------------------------------- */
+
+@keyframes pvx-grid-blink {
+    0%   { opacity: 1; }
+    50%  { opacity: 0.38; }
+    100% { opacity: 1; }
+}
+
+.pvx-grid .pvx-tile-blink {
+    animation: pvx-grid-blink 1.1s ease-in-out infinite;
+}
+
+/* A blinking tile in a control room is a vestibular/photosensitivity hazard;
+   keep the emphasis but drop the motion. */
+@media (prefers-reduced-motion: reduce) {
+    .pvx-grid .pvx-tile-blink {
+        animation: none;
+        box-shadow: inset 0 0 0 2px currentColor;
+    }
+}
+
+/* --- interaction --------------------------------------------------------- */
+
+.pvx-grid .pvx-tile-click {
+    cursor: pointer;
+    user-select: none;
+}
+
+.pvx-grid .pvx-tile-click:hover { filter: brightness(1.06); }
+
+.pvx-grid .pvx-tile-click:focus {
+    outline: 2px solid #7fb0e0;
+    outline-offset: -2px;
+}
+
+.pvx-grid .pvx-empty {
+    color: var(--pvx-muted);
+}

@@ -1,0 +1,38 @@
+<!--
+    pvxEventAnalytics — deliberately thin.
+
+    Every bar, slice, table row, axis tick and cumulative marker below
+    .pvx-ea-body is drawn imperatively as one SVG by symbol.js. There is no
+    ng-repeat here on purpose: a ranking over a thousand events refreshed every
+    couple of minutes would put its whole model into the digest loop for no
+    benefit at all.
+
+    Only the header and footer are Angular-bound, from scope.pvx.
+-->
+<div class="pvx pvx-ea"
+     ng-class="{'pvx-ea-clickable': pvx.clickable}"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-ea-surface">
+
+        <div class="pvx-header pvx-ea-header" ng-if="config.ShowLabel && (pvx.title || pvx.subtitle)">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle" title="{{pvx.subtitle}}">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-ea-body"></div>
+        </div>
+
+        <!-- Summary is the accounting; the note is the honesty column (merged
+             overlaps, open events, truncation). Neither is ever silently
+             dropped except when the symbol is too small to hold it. -->
+        <div class="pvx-footer pvx-ea-footer" ng-if="pvx.summary || pvx.note">
+            <span class="pvx-ea-summary pvx-num pvx-truncate"
+                  ng-if="pvx.summary" title="{{pvx.summary}}">{{pvx.summary}}</span>
+            <span class="pvx-ea-note pvx-truncate"
+                  ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+</div>

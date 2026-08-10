@@ -1,0 +1,371 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Latching</div>
+
+        <div class="pvx-cfg-hint">
+            Each tile <b>latches</b>. A point that goes out of limits stays lit until
+            someone acknowledges it &mdash; including a point that goes out and comes
+            back between two refreshes, which a live status tile can never show you.
+            An unacknowledged alarm that has already returned to normal flashes slowly
+            (the ISA&#8209;18.2 <i>ringback</i> state) and does not clear itself.
+        </div>
+        <div class="pvx-cfg-hint">
+            <b>Scope:</b> by default the latch and every acknowledgement live in this
+            browser tab only. They reset when the display is reopened or refreshed, and
+            they are <b>not shared between operators</b> &mdash; two people on the same
+            display acknowledge independently. Turn on <b>Shared acknowledgement</b>
+            below to store acknowledgements in an AF attribute instead, so every screen
+            sees them and they survive a reload.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-sevfrom">Alarm condition</label>
+            <select id="pvxann-sevfrom" ng-model="config.SeverityFrom">
+                <option value="thresholds">Threshold bands</option>
+                <option value="quality">Bad data quality</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            In threshold mode a bad-quality reading <i>freezes</i> a tile instead of
+            moving it: a value you cannot trust is not evidence of an alarm or of a
+            return. Frozen tiles are drawn with diagonal stripes.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-usethresh">Enable thresholds</label>
+            <input id="pvxann-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxann-thresh">Threshold bands</label>
+            <textarea id="pvxann-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-minband">Alarm from band</label>
+            <input id="pvxann-minband" type="number" ng-model="config.MinSeverityBand" min="0" max="10" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Band index, counting from 0. With the default bands, <code>1</code> means
+            High and above latch, Normal does not.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Acknowledgement</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-ackmode">Acknowledge with</label>
+            <select id="pvxann-ackmode" ng-model="config.AckMode">
+                <option value="click">Clicking a tile</option>
+                <option value="button">An ACK ALL button</option>
+                <option value="both">Both</option>
+                <option value="none">Neither (display only)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Tiles are keyboard reachable and acknowledge with Enter or Space. Choose
+            &ldquo;Neither&rdquo; for a wallboard nobody stands at &mdash; tiles then
+            latch and never clear.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-acklabel">Button label</label>
+            <input id="pvxann-acklabel" type="text" ng-model="config.AckAllLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Shared&nbsp;acknowledgement</div>
+
+        <div class="pvx-cfg-hint">
+            Off by default, because it cannot be otherwise: it needs a PI Web API this
+            display can reach <b>and</b> a String attribute provisioned in AF to hold the
+            record. With it on, an acknowledgement made at one screen appears on every
+            other screen pointed at the same attribute, and survives reopening the
+            display.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-sharedack">Share acknowledgements</label>
+            <input id="pvxann-sharedack" type="checkbox" ng-model="config.SharedAck" />
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxann-ackattr">Acknowledgement attribute</label>
+            <input id="pvxann-ackattr" type="text" ng-model="config.AckAttributePath"
+                   placeholder="\\AFSERVER01\Production\Control Room|Annunciator Ack" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A <b>String</b> attribute, which this symbol keeps a small JSON map in &mdash;
+            one attribute for the whole panel, not one per alarm. Everyone who
+            acknowledges needs write access to it; PI and AF security are the access
+            control, and a refusal appears on the panel as a banner rather than being
+            swallowed.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-ackpoll">Poll interval (s)</label>
+            <input id="pvxann-ackpoll" type="number" ng-model="config.AckPollSeconds" min="2" max="3600" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How long another operator&rsquo;s acknowledgement can take to appear here.
+            Your own is immediate. Shorter costs a PI Web API read per display per
+            interval, so leave it at 15s unless a control room needs faster.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxann-ackuser">Acknowledged by</label>
+            <input id="pvxann-ackuser" type="text" ng-model="config.AckUser"
+                   placeholder="unknown" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Recorded against every acknowledgement made here. <b>Leave it blank and
+            &ldquo;unknown&rdquo; is recorded and displayed</b> &mdash; the browser cannot
+            reliably know which PI Vision user is at the screen, and a wrong name on an
+            acknowledgement is worse than no name. Where it matters, set it
+            <em>per control-room display</em> to the panel or position it lives on
+            (&ldquo;Panel 1&rdquo;, &ldquo;Board Operator&rdquo;), which is a fact about
+            the screen and therefore actually true.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-ackattrib">Show who and when</label>
+            <input id="pvxann-ackattrib" type="checkbox" ng-model="config.ShowAckAttribution" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Adds the acknowledging name and how long ago to acknowledged tiles, where
+            the tile is big enough. The full version is always in the tile&rsquo;s
+            tooltip.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <b>What this does not give you:</b> PI Web API has no compare-and-swap, so
+            two operators writing in the same instant is handled by re-reading, merging
+            and verifying &mdash; not by a transaction. When a write cannot be made to
+            stick the panel says so and tells you to acknowledge again; while the store
+            is unreachable, tiles fall back to acknowledging in this browser only and the
+            panel says <i>that</i>. If acknowledgement must be guaranteed, this is not the
+            mechanism &mdash; an AF analysis or PI Notifications is.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">First&nbsp;out</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-showfirst">Mark the first out</label>
+            <input id="pvxann-showfirst" type="checkbox" ng-model="config.ShowFirstOut" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-firstwin">Cascade window (s)</label>
+            <input id="pvxann-firstwin" type="number" ng-model="config.FirstOutWindow" min="0" max="3600" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The first tile to alarm inside the window gets a corner wedge and a
+            <b>1ST</b> legend; everything that follows within the window is treated as
+            a consequence. In a trip cascade this is the tile that says what actually
+            happened. Points already out of limits when the display opens are never
+            marked &mdash; they all arrived at once, so none of them was first.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Flash</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-enflash">Enable flashing</label>
+            <input id="pvxann-enflash" type="checkbox" ng-model="config.EnableFlash" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-fast">Unacknowledged (ms)</label>
+            <input id="pvxann-fast" type="number" ng-model="config.FlashFast" min="120" max="5000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-slow">Ringback (ms)</label>
+            <input id="pvxann-slow" type="number" ng-model="config.FlashSlow" min="200" max="10000" step="100" />
+        </div>
+        <div class="pvx-cfg-hint">
+            One full cycle, in milliseconds. Viewers who have asked their operating
+            system to reduce motion get a static outline instead of a flash, whatever
+            this is set to.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Tiles</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-cols">Columns</label>
+            <input id="pvxann-cols" type="number" ng-model="config.ColumnsCount" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-hint">0 fits as many columns as the minimum tile width allows.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-minw">Min tile width (px)</label>
+            <input id="pvxann-minw" type="number" ng-model="config.TileMinWidth" min="40" max="600" step="5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-tileh">Tile height (px)</label>
+            <input id="pvxann-tileh" type="number" ng-model="config.TileHeight" min="0" max="400" step="2" />
+        </div>
+        <div class="pvx-cfg-hint">
+            0 shares the available height between the rows. Tiles never shrink below a
+            readable minimum; the panel scrolls instead.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-max">Maximum tiles</label>
+            <input id="pvxann-max" type="number" ng-model="config.MaxTiles" min="1" max="200" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Points beyond this are counted in a &ldquo;+n more&rdquo; note. Order always
+            follows the data sources &mdash; an annunciator whose tiles move around is
+            an annunciator nobody can read by position.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Content</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-showvalue">Show value</label>
+            <input id="pvxann-showvalue" type="checkbox" ng-model="config.ShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-units">Show units</label>
+            <input id="pvxann-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-statetext">Show state text</label>
+            <input id="pvxann-statetext" type="checkbox" ng-model="config.ShowStateText" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-showdur">Show duration</label>
+            <input id="pvxann-showdur" type="checkbox" ng-model="config.ShowDuration" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-durmode">Duration counts</label>
+            <select id="pvxann-durmode" ng-model="config.DurationMode">
+                <option value="inState">Time in this state</option>
+                <option value="sinceFirstAlarm">Time since the alarm started</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            &ldquo;Time in this state&rdquo; restarts on acknowledgement; &ldquo;since the
+            alarm started&rdquo; keeps running until the tile clears. Both are measured
+            from when this browser first saw the transition.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-summary">Show summary bar</label>
+            <input id="pvxann-summary" type="checkbox" ng-model="config.ShowSummaryBar" />
+        </div>
+        <div class="pvx-cfg-hint">New / acknowledged / ringback counts in the header.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-decimals">Decimals</label>
+            <select id="pvxann-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-compact">Compact numbers (1.2k)</label>
+            <input id="pvxann-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-hint">
+            An alarmed tile takes the colour of the threshold band it landed in, so a
+            Critical tile and a High tile are visibly different problems.
+            Acknowledgement keeps that colour &mdash; it removes the flash and adds a
+            tick, it does not repaint the severity away.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-normal">Normal</label>
+            <input id="pvxann-normal" type="color" ng-model="config.NormalColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-ackcol">Acknowledgement tick</label>
+            <input id="pvxann-ackcol" type="color" ng-model="config.AckColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-retcol">Ringback</label>
+            <input id="pvxann-retcol" type="color" ng-model="config.ReturnedColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-dim">Recede normal tiles</label>
+            <input id="pvxann-dim" type="checkbox" ng-model="config.DimNormal" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Normal tiles drop to a pale wash so the abnormal ones are the only
+            saturated blocks on the panel.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxann-accent">Accent colour</label>
+            <input id="pvxann-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Used for the ACK ALL button when anything is outstanding.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxann-title">Header title</label>
+            <input id="pvxann-title" type="text" ng-model="config.Title" placeholder="Annunciator" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-showlabel">Show header title</label>
+            <input id="pvxann-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-theme">Theme</label>
+            <select id="pvxann-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-transparent">Transparent background</label>
+            <input id="pvxann-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-radius">Corner radius</label>
+            <input id="pvxann-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Advanced</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxann-baseurl">PI Web API base URL override</label>
+            <input id="pvxann-baseurl" type="text" ng-model="config.BaseUrlOverride"
+                   placeholder="Leave blank — use libraries/pvx-config.js" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Only used when shared acknowledgement is on, and only a <b>testing escape
+            hatch</b> &mdash; leave it blank in production. The base URL belongs in
+            <code>libraries/pvx-config.js</code>, where one site setting serves every
+            symbol and survives an upgrade. Use this to point at a <em>second</em> PI Web
+            API: a test instance, or another plant's server.
+            <strong>It moves the base URL for every PVX symbol on the page</strong>,
+            because <code>PVX.api</code> is deliberately one shared client so that
+            authentication is configured once per site. Two symbols with two different
+            overrides on one display will fight.
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Status grid">
+    <title>PVX Status Grid</title>
+    <!-- Flat, transparent, no strokes: PI Vision renders symbol icons small and
+         monochrome-ish chrome, so the shape and the status colours have to carry
+         the meaning on their own. Four normal tiles, one warning, one alarm. -->
+    <g>
+        <rect x="40"  y="74"  width="128" height="170" rx="20" fill="#2f9e5f"/>
+        <rect x="192" y="74"  width="128" height="170" rx="20" fill="#2f9e5f"/>
+        <rect x="344" y="74"  width="128" height="170" rx="20" fill="#d99024"/>
+
+        <rect x="40"  y="268" width="128" height="170" rx="20" fill="#2f9e5f"/>
+        <rect x="192" y="268" width="128" height="170" rx="20" fill="#c8452f"/>
+        <rect x="344" y="268" width="128" height="170" rx="20" fill="#2f9e5f"/>
+    </g>
+</svg>

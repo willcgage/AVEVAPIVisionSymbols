@@ -1,0 +1,282 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Profile</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxprof-title">Title</label>
+            <input id="pvxprof-title" type="text" ng-model="config.Title"
+                   placeholder="Leave blank for a generic heading" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-stat">Statistic</label>
+            <select id="pvxprof-stat" ng-model="config.Statistic">
+                <option value="Value">Value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Computed by PI Vision over the display's time range, one number per data source.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showlabel">Show header</label>
+            <input id="pvxprof-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-units">Show units</label>
+            <input id="pvxprof-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-decimals">Decimals</label>
+            <select id="pvxprof-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Position axis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-posmode">Order by</label>
+            <select id="pvxprof-posmode" ng-model="config.PositionMode">
+                <option value="source">Data source order</option>
+                <option value="parsed">Number in the name</option>
+                <option value="manual">Manual positions</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Data sources arrive in whatever order they were dropped, which is often
+            alphabetical — so Zone10 lands before Zone2. "Number in the name" reads a
+            number out of each attribute name and sorts on it. "Manual positions" puts
+            each point at a true physical distance.
+        </div>
+
+        <div class="pvx-cfg-stack" ng-show="config.PositionMode === 'parsed'">
+            <label for="pvxprof-pospattern">Position pattern</label>
+            <input id="pvxprof-pospattern" type="text" ng-model="config.PositionPattern" />
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.PositionMode === 'parsed'">
+            Regular expression; the first capture group is the position. The default takes
+            the last number in the name, so <code>KILN1.ZONE07.TEMP</code> gives 7.
+        </div>
+
+        <div class="pvx-cfg-stack" ng-show="config.PositionMode === 'manual'">
+            <label for="pvxprof-positions">Positions</label>
+            <input id="pvxprof-positions" type="text" ng-model="config.Positions"
+                   placeholder="0, 1.5, 3.2, 7" />
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.PositionMode === 'manual'">
+            One number per data source, in the order they are listed. Uneven spacing is
+            drawn unevenly, which is the point.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxprof-poslabel">Axis title</label>
+            <input id="pvxprof-poslabel" type="text" ng-model="config.PositionLabel"
+                   placeholder="Zone, Tray, Distance (m)…" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Line and points</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-linestyle">Line style</label>
+            <select id="pvxprof-linestyle" ng-model="config.LineStyle">
+                <option value="line">Straight</option>
+                <option value="smooth">Smoothed</option>
+                <option value="step">Stepped</option>
+                <option value="none">Points only</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LineStyle === 'smooth'">
+            Smoothing interpolates between positions that were never measured, and can
+            overshoot where two positions sit close together. Use "Straight" when the
+            exact readings matter more than the sweep.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-linecolor">Line colour</label>
+            <input id="pvxprof-linecolor" type="color" ng-model="config.LineColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-linewidth">Line width</label>
+            <input id="pvxprof-linewidth" type="number" ng-model="config.LineWidth"
+                   min="0.5" max="10" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showpoints">Show points</label>
+            <input id="pvxprof-showpoints" type="checkbox" ng-model="config.ShowPoints" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-pointsize">Point size</label>
+            <input id="pvxprof-pointsize" type="number" ng-model="config.PointSize"
+                   min="0.5" max="14" step="0.2" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-pointthresh">Colour points by threshold</label>
+            <input id="pvxprof-pointthresh" type="checkbox" ng-model="config.ColorPointsByThreshold" />
+        </div>
+        <div class="pvx-cfg-hint">Each point takes its threshold band colour; the line keeps its own colour so the shape stays readable.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showarea">Fill under the line</label>
+            <input id="pvxprof-showarea" type="checkbox" ng-model="config.ShowArea" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-areaop">Fill opacity</label>
+            <input id="pvxprof-areaop" type="number" ng-model="config.AreaOpacity"
+                   min="0" max="1" step="0.02" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Reference profile</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showshadow">Show reference profile</label>
+            <input id="pvxprof-showshadow" type="checkbox" ng-model="config.ShowShadow" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A faded second profile from a different statistic over the same window —
+            typically the average behind the current value. Drift then shows up as a
+            change of shape, not just of level.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-shadowstat">Reference statistic</label>
+            <select id="pvxprof-shadowstat" ng-model="config.ShadowStatistic">
+                <option value="Value">Value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.ShowShadow && config.ShadowStatistic === config.Statistic">
+            Same as the charted statistic — the reference profile is hidden until they differ.
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxprof-shadowcolor">Reference colour</label>
+            <input id="pvxprof-shadowcolor" type="text" ng-model="config.ShadowColor"
+                   placeholder="Blank = muted line colour" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-shadowop">Reference opacity</label>
+            <input id="pvxprof-shadowop" type="number" ng-model="config.ShadowOpacity"
+                   min="0.05" max="1" step="0.05" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Limits</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showenv">Show limit envelope</label>
+            <input id="pvxprof-showenv" type="checkbox" ng-model="config.ShowLimitEnvelope" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-upper">Upper limit</label>
+            <input id="pvxprof-upper" type="text" ng-model="config.UpperLimit" placeholder="blank = none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-lower">Lower limit</label>
+            <input id="pvxprof-lower" type="text" ng-model="config.LowerLimit" placeholder="blank = none" />
+        </div>
+        <div class="pvx-cfg-hint">Both limits shade a band; one limit alone draws a single line. Points outside are ringed and recoloured.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-limitcolor">Limit colour</label>
+            <input id="pvxprof-limitcolor" type="color" ng-model="config.LimitColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-envop">Band opacity</label>
+            <input id="pvxprof-envop" type="number" ng-model="config.EnvelopeOpacity"
+                   min="0" max="1" step="0.02" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-shownames">Show names</label>
+            <input id="pvxprof-shownames" type="checkbox" ng-model="config.ShowNames" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-nameangle">Name angle</label>
+            <select id="pvxprof-nameangle" ng-model="config.NameAngle"
+                    ng-options="o.v as o.t for o in [{v:0,t:'Horizontal'},{v:-45,t:'Angled'}]">
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showvalues">Show values</label>
+            <input id="pvxprof-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-hint">Value labels are thinned automatically so they never overlap.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-extremes">Highlight highest and lowest</label>
+            <input id="pvxprof-extremes" type="checkbox" ng-model="config.HighlightExtremes" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-showstats">Show footer statistics</label>
+            <input id="pvxprof-showstats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Value axis</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-grid">Show grid</label>
+            <input id="pvxprof-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-ticks">Tick count</label>
+            <input id="pvxprof-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-scalemin">Scale minimum</label>
+            <input id="pvxprof-scalemin" type="text" ng-model="config.ScaleMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-scalemax">Scale maximum</label>
+            <input id="pvxprof-scalemax" type="text" ng-model="config.ScaleMax" placeholder="auto" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-theme">Theme</label>
+            <select id="pvxprof-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-transparent">Transparent background</label>
+            <input id="pvxprof-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-radius">Corner radius</label>
+            <input id="pvxprof-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxprof-usethresh">Enable thresholds</label>
+            <input id="pvxprof-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxprof-thresh">Threshold bands</label>
+            <textarea id="pvxprof-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+    </div>
+
+</div>

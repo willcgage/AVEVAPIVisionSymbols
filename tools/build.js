@@ -1,0 +1,520 @@
+#!/usr/bin/env node
+/* ============================================================================
+ * PVX build — assembles src/ into a deployable PI Vision `ext` folder.
+ * ----------------------------------------------------------------------------
+ *   node tools/build.js            build + validate
+ *   node tools/build.js --package  also produce dist/pvx-symbols-<ver>.zip
+ *   node tools/build.js --watch    rebuild on change (development)
+ *   node tools/build.js --clean    remove dist/ first
+ *
+ * Zero npm dependencies on purpose: this has to run on a locked-down
+ * engineering workstation with nothing but Node installed.
+ * ==========================================================================*/
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const ROOT = path.resolve(__dirname, '..');
+const SRC = path.join(ROOT, 'src');
+const SYMBOLS_DIR = path.join(SRC, 'symbols');
+const SHARED_DIR = path.join(SRC, 'shared');
+const DIST = path.join(ROOT, 'dist');
+const EXT = path.join(DIST, 'ext');
+
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const VERSION = pkg.version;
+
+const args = process.argv.slice(2);
+const FLAG = (f) => args.indexOf(f) !== -1;
+
+/* ---------------------------------------------------------------- helpers */
+
+const C = {
+    reset: '\x1b[0m', dim: '\x1b[2m', red: '\x1b[31m',
+    green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m', bold: '\x1b[1m'
+};
+const say = (msg) => process.stdout.write(msg + '\n');
+const ok = (msg) => say(C.green + '  ok  ' + C.reset + msg);
+const warn = (msg) => say(C.yellow + ' warn ' + C.reset + msg);
+const fail = (msg) => say(C.red + ' FAIL ' + C.reset + msg);
+
+function rmrf(p) {
+    if (fs.existsSync(p)) { fs.rmSync(p, { recursive: true, force: true }); }
+}
+function mkdirp(p) { fs.mkdirSync(p, { recursive: true }); }
+function read(p) { return fs.readFileSync(p, 'utf8'); }
+function write(p, s) { mkdirp(path.dirname(p)); fs.writeFileSync(p, s, 'utf8'); }
+
+/* ----------------------------------------------------------- validation */
+
+const problems = [];
+const warnings = [];
+
+function problem(sym, msg) { problems.push(sym + ': ' + msg); }
+function warning(sym, msg) { warnings.push(sym + ': ' + msg); }
+
+/**
+ * Catch the ES6+ constructs that would break inside PI Vision's AngularJS host
+ * on older supported browsers. Strings and comments are stripped first so a
+ * documentation example never trips the check.
+ *
+ * KNOWN LIMITATION: this does not understand regular-expression literals. A
+ * regex containing a quote (/['"]/) reads as the start of a string and can
+ * swallow the code after it until the next matching quote — which means checks
+ * can silently pass over a region rather than failing on it. That is a
+ * false-negative risk, never a false positive, so it will not block a good
+ * build; but do not trust a clean result as proof that a file was fully
+ * scanned. The rendering gate in tools/verify.js is the real safety net.
+ */
+function stripStringsAndComments(js) {
+    let out = '';
+    let i = 0;
+    const n = js.length;
+    let state = 'code';
+    let quote = '';
+    while (i < n) {
+        const c = js[i];
+        const c2 = js[i + 1];
+        if (state === 'code') {
+            if (c === '/' && c2 === '/') { state = 'line'; i += 2; continue; }
+            if (c === '/' && c2 === '*') { state = 'block'; i += 2; continue; }
+            if (c === '"' || c === "'" || c === '`') { state = 'str'; quote = c; out += ' '; i++; continue; }
+            out += c; i++; continue;
+        }
+        if (state === 'line') {
+            if (c === '\n') { state = 'code'; out += '\n'; }
+            i++; continue;
+        }
+        if (state === 'block') {
+            if (c === '*' && c2 === '/') { state = 'code'; i += 2; continue; }
+            if (c === '\n') { out += '\n'; }
+            i++; continue;
+        }
+        if (state === 'str') {
+            if (c === '\\') { i += 2; continue; }
+            if (c === quote) { state = 'code'; }
+            i++; continue;
+        }
+    }
+    return out;
+}
+
+const ES6_PATTERNS = [
+    [/=>/, 'arrow function'],
+    [/\blet\s+[A-Za-z_$]/, 'let declaration'],
+    [/\bconst\s+[A-Za-z_$]/, 'const declaration'],
+    [/\bclass\s+[A-Za-z_$]/, 'class declaration'],
+    [/\.\.\./, 'spread/rest'],
+    [/\?\./, 'optional chaining'],
+    [/\?\?/, 'nullish coalescing'],
+    [/\bfor\s*\([^)]*\bof\b/, 'for...of'],
+    [/`/, 'template literal']
+];
+
+/**
+ * @param {String} typeName
+ * @param {String} js
+ * @param {Object} opts {isLibrary} — a library is not a symbol: it has no
+ *        typeName, does not register itself, and pvx-core is the ONE file
+ *        permitted to call PV.symbolCatalog.register, because it is the wrapper
+ *        every symbol is required to use instead.
+ */
+/**
+ * Raw control characters in a source file are legal JavaScript and completely
+ * invisible in an editor, but they make the file register as binary: grep skips
+ * it, git stops treating it as text, and a text-mode file transfer to the PI
+ * Vision server can mangle it in flight. A NUL used as a cache-key separator
+ * shipped this way once; it is cheaper to fail the build than to find it again.
+ *
+ * Tab, LF and CR are fine. Everything else below 0x20 is not.
+ */
+function validateNoControlChars(name, text) {
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c < 32 && c !== 9 && c !== 10 && c !== 13) {
+            const line = text.slice(0, i).split('\n').length;
+            problem(name, 'raw control character U+' +
+                c.toString(16).toUpperCase().padStart(4, '0') +
+                ' at line ' + line + ' — use the \\uXXXX escape instead of the literal byte');
+            return;
+        }
+    }
+}
+
+function validateSymbolJs(typeName, js, opts) {
+    opts = opts || {};
+    const bare = stripStringsAndComments(js);
+
+    validateNoControlChars(typeName, js);
+
+    ES6_PATTERNS.forEach(([re, label]) => {
+        const m = re.exec(bare);
+        if (m) {
+            const line = bare.slice(0, m.index).split('\n').length;
+            problem(typeName, 'ES6 construct "' + label + '" at line ' + line + ' (PI Vision symbols must be ES5)');
+        }
+    });
+
+    if (!opts.isLibrary) {
+        // String literals are gone from `bare`, so this runs against the raw source.
+        if (!new RegExp("typeName\\s*:\\s*['\"]" + typeName + "['\"]").test(js)) {
+            problem(typeName, 'typeName in symbol.js does not match the folder name');
+        }
+        if (bare.indexOf('PVX.register(') === -1) {
+            problem(typeName, 'must register via window.PVX.register(PV, definition)');
+        }
+        if (/PV\.symbolCatalog\.register/.test(bare)) {
+            problem(typeName, 'calls PV.symbolCatalog.register directly; use window.PVX.register instead');
+        }
+        if (bare.indexOf('PVX.bootstrap(') === -1) {
+            warning(typeName, 'does not use PVX.bootstrap — lifecycle wiring may be inconsistent');
+        }
+    }
+    if (/\$\(\s*['"]/.test(bare) || /\bjQuery\b/.test(bare)) {
+        warning(typeName, 'appears to use jQuery; the library is meant to be dependency-free');
+    }
+    if (/\bconsole\.log\(/.test(bare)) {
+        warning(typeName, 'contains console.log — noisy on a live display');
+    }
+
+    // Node can parse ES5 as a script; this catches genuine syntax errors.
+    try {
+        new (require('vm').Script)(js, { filename: typeName + '/symbol.js' });
+    } catch (e) {
+        problem(typeName, 'syntax error — ' + e.message);
+    }
+}
+
+function validateCss(typeName, css) {
+    // Symbol CSS must stay inside its own namespace or it will bleed into the
+    // PI Vision chrome (which loads its stylesheet after ours).
+    const rules = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const selectors = rules.match(/(^|\})\s*([^{@}]+)\{/g) || [];
+    selectors.forEach((raw) => {
+        const sel = raw.replace(/^[}\s]*/, '').replace(/\{$/, '').trim();
+        if (!sel || sel.startsWith('@') || sel.startsWith('from') || sel.startsWith('to') || /^\d+%/.test(sel)) { return; }
+        const parts = sel.split(',').map((s) => s.trim()).filter(Boolean);
+        parts.forEach((p) => {
+            if (!/(^|\s|>)\.pvx/.test(p) && !/^:root/.test(p)) {
+                warning(typeName, 'CSS selector is not namespaced under .pvx — "' + p + '"');
+            }
+        });
+    });
+}
+
+function validateTemplate(typeName, html) {
+    if (!/class\s*=\s*["'][^"']*\bpvx\b/.test(html)) {
+        warning(typeName, 'template root does not carry the shared "pvx" class');
+    }
+    // A quick unbalanced-tag check catches the most common copy/paste error.
+    const opens = (html.match(/<div\b/g) || []).length;
+    const closes = (html.match(/<\/div>/g) || []).length;
+    if (opens !== closes) {
+        problem(typeName, 'template has ' + opens + ' <div> and ' + closes + ' </div> — unbalanced');
+    }
+}
+
+function validateIcon(typeName, svg) {
+    if (!/<svg[\s\S]*?viewBox\s*=\s*["'][^"']+["']/.test(svg)) {
+        problem(typeName, 'icon.svg has no viewBox — PI Vision will not scale it in the picker');
+    }
+    if (/<script/i.test(svg)) {
+        problem(typeName, 'icon.svg contains a <script> tag');
+    }
+}
+
+/* --------------------------------------------------------------- the build */
+
+function discoverSymbols() {
+    return fs.readdirSync(SYMBOLS_DIR)
+        .filter((d) => fs.statSync(path.join(SYMBOLS_DIR, d)).isDirectory())
+        .sort();
+}
+
+const REQUIRED = ['symbol.js', 'template.html', 'config.html', 'styles.css', 'icon.svg'];
+
+function build() {
+    const started = Date.now();
+    if (FLAG('--clean')) { rmrf(DIST); }
+    mkdirp(EXT);
+    mkdirp(path.join(EXT, 'icons'));
+    mkdirp(path.join(EXT, 'libraries'));
+
+    problems.length = 0;
+    warnings.length = 0;
+
+    say('');
+    say(C.bold + 'PVX symbol library ' + VERSION + C.reset);
+    say(C.dim + 'src -> dist/ext' + C.reset);
+    say('');
+
+    // --- shared runtime ---------------------------------------------------
+    const core = read(path.join(SHARED_DIR, 'pvx-core.js'));
+    validateSymbolJs('pvx-core', core, { isLibrary: true });
+
+    write(path.join(EXT, 'libraries', 'pvx-core.js'), banner('PVX Core runtime') + core);
+    ok('libraries/pvx-core.js  ' + kb(core));
+
+    // Per-site deployment settings. Emitted with an inert default so a fresh
+    // build is safe to deploy, and explicitly NOT stamped with the generated-file
+    // banner — this is the one file a site is meant to edit, and the deploy
+    // script preserves an existing copy on the server rather than clobbering it.
+    const siteConfig = read(path.join(SHARED_DIR, 'pvx-config.js'));
+    validateSymbolJs('pvx-config', siteConfig, { isLibrary: true });
+    write(path.join(EXT, 'libraries', 'pvx-config.js'), siteConfig);
+    ok('libraries/pvx-config.js  ' + C.dim + 'site settings — preserved on redeploy' + C.reset);
+
+    // The connectivity diagnostic ships INSIDE the ext folder on purpose: it has
+    // to be served from the PI Vision origin to reproduce the conditions a real
+    // symbol faces. Opened from a file:// path or another host it would test
+    // something else entirely and give a confidently wrong answer.
+    const checkPage = path.join(SRC, 'tools', 'piwebapi-check.html');
+    if (fs.existsSync(checkPage)) {
+        write(path.join(EXT, 'piwebapi-check.html'), read(checkPage));
+        ok('piwebapi-check.html  ' + C.dim + 'PI Web API diagnostic' + C.reset);
+    }
+
+    const baseCss = read(path.join(SHARED_DIR, 'base.css'));
+
+    // --- symbols ----------------------------------------------------------
+    const symbols = discoverSymbols();
+    const manifest = [];
+
+    symbols.forEach((typeName) => {
+        const dir = path.join(SYMBOLS_DIR, typeName);
+        const missing = REQUIRED.filter((f) => !fs.existsSync(path.join(dir, f)));
+        if (missing.length) {
+            problem(typeName, 'missing file(s): ' + missing.join(', '));
+            return;
+        }
+
+        const js = read(path.join(dir, 'symbol.js'));
+        const template = read(path.join(dir, 'template.html'));
+        const config = read(path.join(dir, 'config.html'));
+        const css = read(path.join(dir, 'styles.css'));
+        const icon = read(path.join(dir, 'icon.svg'));
+
+        validateSymbolJs(typeName, js);
+        validateTemplate(typeName, template);
+        validateCss(typeName, css);
+        validateIcon(typeName, icon);
+
+        write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
+        write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), config);
+        // Shared base styles are prepended to every symbol stylesheet. PI Vision
+        // only auto-loads sym-<name>.css from ext/, so there is nowhere else to
+        // put them; the duplication is a few KB and keeps deployment to a
+        // single flat folder.
+        write(path.join(EXT, 'sym-' + typeName + '.css'),
+            banner(typeName + ' styles') + baseCss + '\n\n' + css);
+        write(path.join(EXT, 'icons', typeName + '.svg'), icon);
+
+        const displayName = (/displayName:\s*['"]([^'"]+)['"]/.exec(js) || [])[1] || typeName;
+        const shape = (/DataShape:\s*['"]([^'"]+)['"]/.exec(js) || [])[1] || 'None';
+        const behavior = (/DatasourceBehaviors\.(\w+)/.exec(js) || [])[1] || 'None';
+        // Optional `@mock digital` in the file header tells the preview harness
+        // and the verifier to feed this symbol digital-state transitions instead
+        // of a numeric signal. Without it, a time-in-state symbol would be
+        // "verified" against data it can never receive in the field.
+        const mockProfile = (/@mock\s+(\w+)/.exec(js) || [])[1] || 'numeric';
+
+        manifest.push({ typeName, displayName, dataShape: shape, datasourceBehavior: behavior, mockProfile });
+        ok('sym-' + typeName + '.*'.padEnd(Math.max(1, 26 - typeName.length)) + C.dim + displayName + C.reset);
+    });
+
+    // --- manifest ---------------------------------------------------------
+    write(path.join(DIST, 'manifest.json'), JSON.stringify({
+        name: pkg.name,
+        version: VERSION,
+        builtOn: new Date().toISOString(),
+        extPath: 'Scripts/app/editor/symbols/ext',
+        symbols: manifest
+    }, null, 2));
+
+    // --- deploy script ----------------------------------------------------
+    write(path.join(DIST, 'Deploy-PvxSymbols.ps1'), deployScript());
+
+    // --- report -----------------------------------------------------------
+    say('');
+    warnings.forEach((w) => warn(w));
+    problems.forEach((p) => fail(p));
+    say('');
+    const files = countFiles(EXT);
+    say(C.bold + symbols.length + ' symbols' + C.reset + C.dim +
+        ' · ' + files + ' files · ' + (Date.now() - started) + 'ms' + C.reset);
+
+    if (problems.length) {
+        say(C.red + C.bold + problems.length + ' error(s) — not safe to deploy' + C.reset);
+        return false;
+    }
+    say(C.green + C.bold + 'Build clean' + C.reset +
+        (warnings.length ? C.dim + ' (' + warnings.length + ' warning(s))' + C.reset : ''));
+    return true;
+}
+
+function banner(what) {
+    return '/* ' + pkg.name + ' v' + VERSION + ' — ' + what + '\n' +
+           '   Generated by tools/build.js. Edit the sources under src/, not this file. */\n';
+}
+
+function kb(s) { return C.dim + (Buffer.byteLength(s) / 1024).toFixed(1) + ' KB' + C.reset; }
+
+function countFiles(dir) {
+    let n = 0;
+    fs.readdirSync(dir).forEach((f) => {
+        const p = path.join(dir, f);
+        n += fs.statSync(p).isDirectory() ? countFiles(p) : 1;
+    });
+    return n;
+}
+
+/* --------------------------------------------------------------- packaging */
+
+function packageZip() {
+    const zipName = 'pvx-symbols-' + VERSION + '.zip';
+    const zipPath = path.join(DIST, zipName);
+    rmrf(zipPath);
+    try {
+        execFileSync('zip', ['-r', '-q', zipPath, 'ext', 'manifest.json', 'Deploy-PvxSymbols.ps1'], { cwd: DIST });
+        ok('packaged ' + zipName + ' ' + kb(fs.readFileSync(zipPath)));
+        return true;
+    } catch (e) {
+        warn('zip not available — copy the dist/ext folder manually');
+        return false;
+    }
+}
+
+/* ------------------------------------------------------------------ deploy */
+
+function deployScript() {
+    return `<#
+.SYNOPSIS
+    Deploys the PVX custom symbol library to a PI Vision server.
+
+.DESCRIPTION
+    Copies the contents of .\\ext into the PI Vision extensibility folder,
+    taking a timestamped backup of anything it replaces. Run from an elevated
+    PowerShell session on the PI Vision web server.
+
+.PARAMETER PIVisionPath
+    PI Vision installation root. Defaults to the standard install location.
+
+.PARAMETER WhatIf
+    Show what would be copied without changing anything.
+
+.EXAMPLE
+    .\\Deploy-PvxSymbols.ps1
+    .\\Deploy-PvxSymbols.ps1 -PIVisionPath 'D:\\Program Files\\PIPC\\PIVision'
+    .\\Deploy-PvxSymbols.ps1 -WhatIf
+#>
+[CmdletBinding(SupportsShouldProcess = $true)]
+param(
+    [string] $PIVisionPath = 'C:\\Program Files\\PIPC\\PIVision',
+    [switch] $SkipBackup
+)
+
+$ErrorActionPreference = 'Stop'
+
+$source = Join-Path $PSScriptRoot 'ext'
+if (-not (Test-Path $source)) {
+    throw "Cannot find '$source'. Run this script from the folder that contains the ext directory."
+}
+
+$extRoot = Join-Path $PIVisionPath 'Scripts\\app\\editor\\symbols\\ext'
+if (-not (Test-Path $PIVisionPath)) {
+    throw "PI Vision not found at '$PIVisionPath'. Pass -PIVisionPath with the correct location."
+}
+
+Write-Host ''
+Write-Host "PI Vision : $PIVisionPath"
+Write-Host "Target    : $extRoot"
+Write-Host ''
+
+# --- backup ---------------------------------------------------------------
+if ((Test-Path $extRoot) -and -not $SkipBackup) {
+    $stamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $backup = Join-Path $PIVisionPath "Scripts\\app\\editor\\symbols\\ext-backup-$stamp"
+    if ($PSCmdlet.ShouldProcess($backup, 'Create backup')) {
+        Copy-Item -Path $extRoot -Destination $backup -Recurse -Force
+        Write-Host "Backed up existing ext folder to: $backup" -ForegroundColor Yellow
+    }
+}
+
+# --- copy -----------------------------------------------------------------
+foreach ($dir in @($extRoot, (Join-Path $extRoot 'icons'), (Join-Path $extRoot 'libraries'))) {
+    if (-not (Test-Path $dir)) {
+        if ($PSCmdlet.ShouldProcess($dir, 'Create directory')) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+    }
+}
+
+# pvx-config.js holds the site's PI Web API settings. It is the one file an
+# administrator edits, so an upgrade must never overwrite it.
+$preserve = @('libraries\\pvx-config.js')
+
+$files = Get-ChildItem -Path $source -Recurse -File
+$skipped = 0
+foreach ($f in $files) {
+    $relative = $f.FullName.Substring($source.Length).TrimStart('\\')
+    $dest     = Join-Path $extRoot $relative
+    $destDir  = Split-Path $dest -Parent
+    if (-not (Test-Path $destDir)) {
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+    }
+
+    if (($preserve -contains $relative) -and (Test-Path $dest)) {
+        Write-Host "  $relative " -NoNewline
+        Write-Host "(kept existing site settings)" -ForegroundColor Yellow
+        $skipped++
+        continue
+    }
+
+    if ($PSCmdlet.ShouldProcess($dest, 'Copy')) {
+        Copy-Item -Path $f.FullName -Destination $dest -Force
+    }
+    Write-Host "  $relative"
+}
+
+Write-Host ''
+Write-Host "Deployed $($files.Count - $skipped) file(s)." -ForegroundColor Green
+if ($skipped -gt 0) {
+    Write-Host "Preserved $skipped existing site settings file(s)." -ForegroundColor Yellow
+}
+Write-Host ''
+Write-Host 'Next steps:' -ForegroundColor Cyan
+Write-Host '  1. Recycle the PI Vision application pool, or run: iisreset'
+Write-Host '  2. Hard-refresh the browser (Ctrl+F5) - symbol files are cached aggressively.'
+Write-Host '  3. The PVX symbols appear at the bottom of the symbol palette in display edit mode.'
+Write-Host ''
+Write-Host 'PI Web API symbols (Event Frames, AF browsing, manual entry) additionally need' -ForegroundColor Cyan
+Write-Host 'libraries\\pvx-config.js edited with your base URL and authentication method.'
+Write-Host 'Open ext\\piwebapi-check.html in a browser on this server to test the settings.'
+Write-Host ''
+Write-Host 'To roll back, delete the ext folder and rename the ext-backup-* folder back to ext.'
+Write-Host ''
+`;
+}
+
+/* --------------------------------------------------------------------- run */
+
+function main() {
+    const clean = build();
+    if (clean && FLAG('--package')) { packageZip(); }
+
+    if (FLAG('--watch')) {
+        say(C.dim + '\nwatching src/ — Ctrl+C to stop' + C.reset);
+        let timer = null;
+        fs.watch(SRC, { recursive: true }, () => {
+            if (timer) { clearTimeout(timer); }
+            timer = setTimeout(() => { build(); }, 120);
+        });
+        return;
+    }
+    process.exit(clean ? 0 : 1);
+}
+
+main();

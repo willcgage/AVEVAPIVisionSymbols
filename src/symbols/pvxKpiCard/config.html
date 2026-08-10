@@ -1,0 +1,200 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Headline</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxkpi-title">Title override</label>
+            <input id="pvxkpi-title" type="text" ng-model="config.Title" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-stat">Statistic</label>
+            <select id="pvxkpi-stat" ng-model="config.Statistic">
+                <option value="last">Latest value</option>
+                <option value="avg">Average</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+                <option value="first">First value</option>
+                <option value="range">Range</option>
+                <option value="sum">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-align">Alignment</label>
+            <select id="pvxkpi-align" ng-model="config.Align">
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-decimals">Decimals</label>
+            <select id="pvxkpi-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-compact">Compact numbers (1.2k)</label>
+            <input id="pvxkpi-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-showlabel">Show title</label>
+            <input id="pvxkpi-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-units">Show units</label>
+            <input id="pvxkpi-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-time">Show timestamp</label>
+            <input id="pvxkpi-time" type="checkbox" ng-model="config.ShowTime" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Trend indicator</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-showdelta">Show change</label>
+            <input id="pvxkpi-showdelta" type="checkbox" ng-model="config.ShowDelta" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-deltamode">Display as</label>
+            <select id="pvxkpi-deltamode" ng-model="config.DeltaMode">
+                <option value="percent">Percent</option>
+                <option value="absolute">Absolute</option>
+                <option value="both">Both</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-lookback">Baseline window</label>
+            <select id="pvxkpi-lookback" ng-model="config.DeltaLookback">
+                <option value="0.1">Last 10% of range</option>
+                <option value="0.25">Last 25% of range</option>
+                <option value="0.5">Last 50% of range</option>
+                <option value="1">Full range</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Compares the latest value against the value that far back in the display's time range.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-good">Good direction</label>
+            <select id="pvxkpi-good" ng-model="config.DeltaGoodDirection">
+                <option value="up">Up is good</option>
+                <option value="down">Down is good</option>
+                <option value="none">Neutral</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-goodcolor">Good colour</label>
+            <input id="pvxkpi-goodcolor" type="color" ng-model="config.GoodColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-badcolor">Bad colour</label>
+            <input id="pvxkpi-badcolor" type="color" ng-model="config.BadColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Sparkline</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-showspark">Show sparkline</label>
+            <input id="pvxkpi-showspark" type="checkbox" ng-model="config.ShowSparkline" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-sparkstyle">Style</label>
+            <select id="pvxkpi-sparkstyle" ng-model="config.SparkStyle">
+                <option value="area">Filled area</option>
+                <option value="line">Line</option>
+                <option value="bars">Bars</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-sparkh">Height (% of card)</label>
+            <input id="pvxkpi-sparkh" type="number" ng-model="config.SparkHeightPct" min="10" max="70" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-smooth">Smooth line</label>
+            <input id="pvxkpi-smooth" type="checkbox" ng-model="config.SmoothLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-points">Resolution (points)</label>
+            <input id="pvxkpi-points" type="number" ng-model="config.Intervals" min="20" max="1000" step="10" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Secondary stats</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-showsec">Show footer stats</label>
+            <input id="pvxkpi-showsec" type="checkbox" ng-model="config.ShowSecondary" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-secl">Left</label>
+            <select id="pvxkpi-secl" ng-model="config.SecondaryLeft">
+                <option value="none">None</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+                <option value="avg">Average</option>
+                <option value="range">Range</option>
+                <option value="first">First</option>
+                <option value="count">Count</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-secr">Right</label>
+            <select id="pvxkpi-secr" ng-model="config.SecondaryRight">
+                <option value="none">None</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+                <option value="avg">Average</option>
+                <option value="range">Range</option>
+                <option value="first">First</option>
+                <option value="count">Count</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-theme">Theme</label>
+            <select id="pvxkpi-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-accent">Accent colour</label>
+            <input id="pvxkpi-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-transparent">Transparent background</label>
+            <input id="pvxkpi-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-radius">Corner radius</label>
+            <input id="pvxkpi-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-usethresh">Colour value by threshold</label>
+            <input id="pvxkpi-usethresh" type="checkbox" ng-model="config.ValueColorFromThreshold" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-enthresh">Enable thresholds</label>
+            <input id="pvxkpi-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxkpi-thresh">Threshold bands</label>
+            <textarea id="pvxkpi-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated.</div>
+    </div>
+
+</div>

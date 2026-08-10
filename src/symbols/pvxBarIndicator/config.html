@@ -1,0 +1,205 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-orient">Orientation</label>
+            <select id="pvxbi-orient" ng-model="config.Orientation">
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-thickpct">Bar thickness</label>
+            <input id="pvxbi-thickpct" type="number" ng-model="config.BarThicknessPct" min="5" max="100" step="5" />
+        </div>
+        <div class="pvx-cfg-hint">Percent of the symbol&rsquo;s short side taken up by the bar itself. The rest is used by the scale.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Scale</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-min">Minimum</label>
+            <input id="pvxbi-min" type="number" ng-model="config.MinValue" step="any" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-max">Maximum</label>
+            <input id="pvxbi-max" type="number" ng-model="config.MaxValue" step="any" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-usescale">Use these limits</label>
+            <input id="pvxbi-usescale" type="checkbox" ng-model="config.UseSymbolScale" />
+        </div>
+        <div class="pvx-cfg-hint">Uncheck to follow the scale PI Vision calculates from the attribute instead.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-showscale">Show scale</label>
+            <input id="pvxbi-showscale" type="checkbox" ng-model="config.ShowScale" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-tickcount">Tick count</label>
+            <input id="pvxbi-tickcount" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-scalepos">Scale position</label>
+            <select id="pvxbi-scalepos" ng-model="config.ScalePosition">
+                <option value="end">After the bar (below / right)</option>
+                <option value="start">Before the bar (above / left)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-minmax">Label the ends</label>
+            <input id="pvxbi-minmax" type="checkbox" ng-model="config.ShowMinMaxLabels" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The minimum and maximum always get a tick mark; this controls whether they are also labelled.
+            Crowded labels are dropped automatically as the symbol shrinks.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bar</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-style">Fill style</label>
+            <select id="pvxbi-style" ng-model="config.BarStyle">
+                <option value="solid">Solid</option>
+                <option value="gradient">Gradient</option>
+                <option value="segmented">Segmented</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-segments">Segments</label>
+            <input id="pvxbi-segments" type="number" ng-model="config.SegmentCount" min="2" max="200" />
+        </div>
+        <div class="pvx-cfg-hint">Only used by the segmented style. The boundary segment dims to show a partial value.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-rounded">Rounded corners</label>
+            <input id="pvxbi-rounded" type="checkbox" ng-model="config.RoundedBar" />
+        </div>
+        <div class="pvx-cfg-hint">Softens the corners of the track, fill and segments by a few pixels. The bar deliberately stays square-ended so the fill still lines up with the scale.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-showtrack">Show empty track</label>
+            <input id="pvxbi-showtrack" type="checkbox" ng-model="config.ShowTrack" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-theme">Theme</label>
+            <select id="pvxbi-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-accent">Accent colour</label>
+            <input id="pvxbi-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-transparent">Transparent background</label>
+            <input id="pvxbi-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-radius">Corner radius</label>
+            <input id="pvxbi-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Thresholds</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-usethresh">Enable thresholds</label>
+            <input id="pvxbi-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxbi-thresh">Bands</label>
+            <textarea id="pvxbi-thresh" ng-model="config.Thresholds" rows="3"
+                      placeholder="0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One band per entry: <code>lowerLimit:colour:label</code>, separated by commas.
+            Each band applies from its limit up to the next one.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-showbands">Show bands on track</label>
+            <input id="pvxbi-showbands" type="checkbox" ng-model="config.ShowBands" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-bandop">Band opacity</label>
+            <input id="pvxbi-bandop" type="number" ng-model="config.BandOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-valcolor">Colour bar by band</label>
+            <input id="pvxbi-valcolor" type="checkbox" ng-model="config.ValueColorFromThreshold" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Target</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-showtarget">Show target marker</label>
+            <input id="pvxbi-showtarget" type="checkbox" ng-model="config.ShowTarget" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-target">Target value</label>
+            <input id="pvxbi-target" type="number" ng-model="config.TargetValue" step="any" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-targetcolor">Marker colour</label>
+            <input id="pvxbi-targetcolor" type="color" ng-model="config.TargetColor" />
+        </div>
+        <div class="pvx-cfg-hint">Hidden automatically when the target falls outside the scale.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Readout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-showvalue">Show value</label>
+            <input id="pvxbi-showvalue" type="checkbox" ng-model="config.ShowValueText" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-valuepos">Value position</label>
+            <select id="pvxbi-valuepos" ng-model="config.ValuePosition">
+                <option value="inside">Inside the bar</option>
+                <option value="end">Past the end of the bar</option>
+                <option value="none">Hidden</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Inside falls back to the end of the fill whenever the bar is too short to hold the text.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-decimals">Decimals</label>
+            <select id="pvxbi-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-compact">Compact numbers (1.2k)</label>
+            <input id="pvxbi-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-label">Show label</label>
+            <input id="pvxbi-label" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-units">Show units</label>
+            <input id="pvxbi-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-time">Show timestamp</label>
+            <input id="pvxbi-time" type="checkbox" ng-model="config.ShowTime" />
+        </div>
+    </div>
+
+</div>

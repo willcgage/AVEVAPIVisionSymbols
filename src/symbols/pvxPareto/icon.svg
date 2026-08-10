@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Ranked Bar">
+    <title>PVX Ranked Bar</title>
+
+    <!-- Four bars in strictly descending order: the ranking is the whole point
+         of the symbol, so the icon has to read as "sorted" before anything
+         else. Background is transparent by design. -->
+    <g fill="#3b82c4">
+        <rect x="40"  y="150" width="92" height="320" rx="8"/>
+        <rect x="152" y="250" width="92" height="220" rx="8"/>
+        <rect x="264" y="330" width="92" height="140" rx="8"/>
+        <rect x="376" y="395" width="92" height="75"  rx="8"/>
+    </g>
+
+    <!-- Cumulative Pareto line, rising and flattening, drawn above the bars in
+         the alarm/attention colour so the two encodings never blur together. -->
+    <polyline points="86,306 198,191 310,117 422,76"
+              fill="none" stroke="#c8452f" stroke-width="16"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+    <g fill="#c8452f">
+        <circle cx="86"  cy="306" r="20"/>
+        <circle cx="198" cy="191" r="20"/>
+        <circle cx="310" cy="117" r="20"/>
+        <circle cx="422" cy="76"  r="20"/>
+    </g>
+</svg>

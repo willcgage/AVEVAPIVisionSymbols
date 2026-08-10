@@ -1,0 +1,32 @@
+<div class="pvx pvx-tm"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+    <!-- The surface, not the root, carries the background: the root only exists
+         to clip, so a transparent symbol still rounds its corners correctly. -->
+    <div class="pvx-surface pvx-tm-surface"
+         ng-style="{'background': pvx.background,
+                    'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+        <div class="pvx-header" ng-if="pvx.showHeader">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- Tiles, group headers and the colour legend are all drawn as SVG
+                 by symbol.js. The legend lives in the same SVG as the tiles so
+                 it shares one coordinate system with them and can be dropped in
+                 one place when the symbol gets too small for it. Keep this div
+                 empty. -->
+            <div class="pvx-tm-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.showFooter">
+            <span class="pvx-tm-note pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+            <span class="pvx-tm-count pvx-num pvx-truncate" ng-if="pvx.count">{{pvx.count}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

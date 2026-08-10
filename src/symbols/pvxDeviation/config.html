@@ -1,0 +1,254 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Target</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-targetmode">Target comes from</label>
+            <select id="pvxdev-targetmode" ng-model="config.TargetMode">
+                <option value="fixed">A fixed value</option>
+                <option value="series">A setpoint data source</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.TargetMode !== 'series'">
+            One constant target for every data source on the symbol.
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.TargetMode === 'series'">
+            <strong>The LAST data source is the setpoint.</strong> Every source above it is a
+            process value measured against it. Samples are paired by timestamp using the last
+            setpoint written at or before each process value, so the two tags do not have to
+            share timestamps.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.TargetMode !== 'series'">
+            <label for="pvxdev-targetvalue">Target value</label>
+            <input id="pvxdev-targetvalue" type="number" ng-model="config.TargetValue" step="any" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-devmode">Measure deviation in</label>
+            <select id="pvxdev-devmode" ng-model="config.DeviationMode">
+                <option value="percent">Percent of target</option>
+                <option value="absolute">Engineering units</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.DeviationMode !== 'absolute'">
+            Percentage deviation from a zero or negative target is undefined. A source whose
+            target reaches zero is shown in engineering units instead, and the footer says so.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Tolerance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-tolmode">Band</label>
+            <select id="pvxdev-tolmode" ng-model="config.ToleranceMode">
+                <option value="symmetric">Symmetric (±)</option>
+                <option value="asymmetric">Asymmetric</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ToleranceMode !== 'asymmetric'">
+            <label for="pvxdev-tol">Tolerance (±)</label>
+            <input id="pvxdev-tol" type="number" ng-model="config.Tolerance" step="any" min="0" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ToleranceMode === 'asymmetric'">
+            <label for="pvxdev-tollow">Allowed below target</label>
+            <input id="pvxdev-tollow" type="number" ng-model="config.ToleranceLow" step="any" min="0" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ToleranceMode === 'asymmetric'">
+            <label for="pvxdev-tolhigh">Allowed above target</label>
+            <input id="pvxdev-tolhigh" type="number" ng-model="config.ToleranceHigh" step="any" min="0" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Units follow the deviation setting above — percent of target, or engineering units.
+            Both asymmetric limits are entered as magnitudes; leave one blank to reuse the
+            symmetric tolerance.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chart</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-mode">Style</label>
+            <select id="pvxdev-mode" ng-model="config.Mode">
+                <option value="band">Deviation band</option>
+                <option value="bars">Deviation bars</option>
+                <option value="trend">Value vs setpoint</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="!config.Mode || config.Mode === 'band'">
+            Deviation around a zero baseline with the tolerance band shaded and excursions
+            coloured.
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode === 'bars'">
+            One bar per sample from the zero baseline. Reads better than a line for sparse or
+            intermittent data.
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode === 'trend'">
+            Process value and setpoint as two conventional traces with the gap between them
+            shaded — for when the absolute values matter too.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-smooth">Smooth line</label>
+            <input id="pvxdev-smooth" type="checkbox" ng-model="config.SmoothLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-linewidth">Line width</label>
+            <input id="pvxdev-linewidth" type="number" ng-model="config.LineWidth" min="0.5" max="8" step="0.1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-fill">Fill deviation</label>
+            <input id="pvxdev-fill" type="checkbox" ng-model="config.FillDeviation" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-fillop">Fill opacity</label>
+            <input id="pvxdev-fillop" type="number" ng-model="config.FillOpacity" min="0" max="1" step="0.02" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-maxseries">Maximum sources</label>
+            <input id="pvxdev-maxseries" type="number" ng-model="config.MaxSeries" min="1" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Beyond a handful of traces the excursions overlap into one colour. Extra sources are
+            dropped and counted in the footer.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-points">Resolution (points)</label>
+            <input id="pvxdev-points" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-bandcolor">Tolerance band</label>
+            <input id="pvxdev-bandcolor" type="color" ng-model="config.BandColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-bandop">Band opacity</label>
+            <input id="pvxdev-bandop" type="number" ng-model="config.BandOpacity" min="0" max="1" step="0.02" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-inband">In tolerance</label>
+            <input id="pvxdev-inband" type="color" ng-model="config.InBandColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-high">Above tolerance</label>
+            <input id="pvxdev-high" type="color" ng-model="config.HighColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-low">Below tolerance</label>
+            <input id="pvxdev-low" type="color" ng-model="config.LowColor" />
+        </div>
+        <div class="pvx-cfg-hint">
+            High and low are deliberately different colours: running hot and running cold are
+            different problems, and nobody should have to read the axis to tell them apart.
+            With more than one source the in-tolerance colour gives way to the palette so the
+            traces stay distinguishable.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Statistics</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-showstats">Show statistics panel</label>
+            <input id="pvxdev-showstats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-warnbelow">Warn below (% in band)</label>
+            <input id="pvxdev-warnbelow" type="number" ng-model="config.StatsWarnBelow" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Time in band, mean deviation, worst excursion, excursion count and longest
+            excursion. All durations are measured from the sample intervals, not the sample
+            count, because PI stores on compression and samples cluster where the signal is
+            busy. Below the warning percentage the panel turns amber; below 80% it turns red.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-current">Show current deviation</label>
+            <input id="pvxdev-current" type="checkbox" ng-model="config.ShowCurrentValue" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-scalemode">Value scale</label>
+            <select id="pvxdev-scalemode" ng-model="config.ScaleMode">
+                <option value="auto">Auto</option>
+                <option value="symmetric">Symmetric about zero</option>
+                <option value="fixed">Fixed ±</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ScaleMode === 'symmetric'">
+            Equal extent above and below puts zero dead centre — usually what you want, because
+            an asymmetric axis makes a small offset look like a trend.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ScaleMode === 'fixed'">
+            <label for="pvxdev-scalemax">Scale maximum (±)</label>
+            <input id="pvxdev-scalemax" type="number" ng-model="config.ScaleMax" step="any" min="0" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-zero">Show zero line</label>
+            <input id="pvxdev-zero" type="checkbox" ng-model="config.ShowZeroLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-grid">Show grid</label>
+            <input id="pvxdev-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-ticks">Value ticks</label>
+            <input id="pvxdev-ticks" type="number" ng-model="config.TickCount" min="2" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-timeticks">Time ticks</label>
+            <input id="pvxdev-timeticks" type="number" ng-model="config.TimeTickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-legend">Show legend</label>
+            <input id="pvxdev-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-theme">Theme</label>
+            <select id="pvxdev-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-showlabel">Show title</label>
+            <input id="pvxdev-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-decimals">Decimals</label>
+            <select id="pvxdev-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-transparent">Transparent background</label>
+            <input id="pvxdev-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-radius">Corner radius</label>
+            <input id="pvxdev-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

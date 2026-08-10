@@ -1,0 +1,27 @@
+<div class="pvx pvx-donut"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-donut-surface"
+         ng-style="{'background': pvx.background}">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && (pvx.title || pvx.subtitle)">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- Ring, centre readout, slice labels and legend are all drawn as
+                 SVG by symbol.js; keep this div empty. -->
+            <div class="pvx-donut-body"></div>
+        </div>
+
+        <!-- Excluded rows are named here. A display that quietly omits a tag is
+             a display that lies, so the footer is not decoration. -->
+        <div class="pvx-footer" ng-if="pvx.note || pvx.count">
+            <span class="pvx-donut-note pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+            <span class="pvx-donut-count pvx-num pvx-truncate" ng-if="pvx.count">{{pvx.count}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

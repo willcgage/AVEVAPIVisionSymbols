@@ -1,0 +1,210 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxbox-title">Title override</label>
+            <input id="pvxbox-title" type="text" ng-model="config.Title" placeholder="Leave blank for a generic heading" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-orient">Orientation</label>
+            <select id="pvxbox-orient" ng-model="config.Orientation">
+                <option value="vertical">Vertical (names below)</option>
+                <option value="horizontal">Horizontal (names on the left)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Horizontal reads better with long tag names — they stay upright instead of being rotated.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-namew">Name column (% of width)</label>
+            <input id="pvxbox-namew" type="number" ng-model="config.NameWidthPct" min="10" max="55" />
+        </div>
+        <div class="pvx-cfg-hint">Horizontal orientation only.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-sort">Sort by</label>
+            <select id="pvxbox-sort" ng-model="config.SortBy">
+                <option value="none">Display order</option>
+                <option value="name">Name</option>
+                <option value="medianAsc">Median, lowest first</option>
+                <option value="medianDesc">Median, highest first</option>
+                <option value="spreadDesc">Spread (widest box first)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Sorting by spread puts the most variable asset at the front, which is usually the one worth looking at. Display order is the default so the layout stays predictable as data changes.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-maxboxes">Maximum boxes</label>
+            <input id="pvxbox-maxboxes" type="number" ng-model="config.MaxBoxes" min="1" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-width">Box width (fraction of slot)</label>
+            <input id="pvxbox-width" type="number" ng-model="config.BoxWidthFraction" min="0.1" max="1" step="0.05" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Statistics</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-whisker">Whiskers</label>
+            <select id="pvxbox-whisker" ng-model="config.WhiskerMode">
+                <option value="tukey">Tukey fences</option>
+                <option value="percentile">Percentiles</option>
+                <option value="minmax">Min to max</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Tukey stops the whisker at the last value inside Q1/Q3 &plusmn; k &times; IQR and marks everything beyond it as an outlier. Min-to-max never produces outliers.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-k">Tukey multiplier (k)</label>
+            <input id="pvxbox-k" type="number" ng-model="config.WhiskerK" min="0" max="10" step="0.1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-lowp">Low percentile</label>
+            <input id="pvxbox-lowp" type="number" ng-model="config.LowPercentile" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-highp">High percentile</label>
+            <input id="pvxbox-highp" type="number" ng-model="config.HighPercentile" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-mean">Show mean marker</label>
+            <input id="pvxbox-mean" type="checkbox" ng-model="config.ShowMean" />
+        </div>
+        <div class="pvx-cfg-hint">A diamond at the mean. Far from the median means a skewed distribution.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-notch">Show median notch</label>
+            <input id="pvxbox-notch" type="checkbox" ng-model="config.ShowNotch" />
+        </div>
+        <div class="pvx-cfg-hint">Pinches the box by &plusmn;1.58 &times; IQR / &radic;n around the median. When two boxes' notches do not overlap, their medians differ meaningfully rather than by chance.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-values">Print median value</label>
+            <input id="pvxbox-values" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-summary">Show group median line</label>
+            <input id="pvxbox-summary" type="checkbox" ng-model="config.ShowSummaryLine" />
+        </div>
+        <div class="pvx-cfg-hint">A dashed line at the median of all medians — useful for spotting a whole group that has shifted.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-intervals">Resolution (samples per tag)</label>
+            <input id="pvxbox-intervals" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Outliers</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-showout">Show outliers</label>
+            <input id="pvxbox-showout" type="checkbox" ng-model="config.ShowOutliers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-outsize">Marker size</label>
+            <input id="pvxbox-outsize" type="number" ng-model="config.OutlierSize" min="0.5" max="10" step="0.1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-outop">Marker opacity</label>
+            <input id="pvxbox-outop" type="number" ng-model="config.OutlierOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-maxout">Maximum drawn per box</label>
+            <input id="pvxbox-maxout" type="number" ng-model="config.MaxOutliers" min="0" max="5000" step="10" />
+        </div>
+        <div class="pvx-cfg-hint">Beyond a couple of hundred markers the outliers overplot into a solid bar. Extras are dropped from the drawing but the true count stays in the tooltip.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Scale</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-norm">Normalise each box (0-100%)</label>
+            <input id="pvxbox-norm" type="checkbox" ng-model="config.NormalizeScales" />
+        </div>
+        <div class="pvx-cfg-hint">Off: every box shares one engineering-unit axis, which is the honest comparison but collapses when the tags have very different magnitudes (610 mA next to 0.4 &micro;S/cm). On: each box is scaled to its own observed range, so the boxes stay comparable by SHAPE — spread, skew, whisker asymmetry — while the axis becomes percent and the real min/max move into each tooltip. It changes what the chart means, so leave it off unless the tags really are of different kinds.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-showscale">Show value axis</label>
+            <input id="pvxbox-showscale" type="checkbox" ng-model="config.ShowScale" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-ticks">Tick count</label>
+            <input id="pvxbox-ticks" type="number" ng-model="config.TickCount" min="2" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-min">Axis minimum</label>
+            <input id="pvxbox-min" type="text" ng-model="config.ScaleMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-max">Axis maximum</label>
+            <input id="pvxbox-max" type="text" ng-model="config.ScaleMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">Leave blank to fit the data. Ignored while normalising, which always spans 0-100%.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-decimals">Decimals</label>
+            <select id="pvxbox-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-colormode">Colour mode</label>
+            <select id="pvxbox-colormode" ng-model="config.ColorMode">
+                <option value="single">Single colour</option>
+                <option value="palette">Palette per box</option>
+                <option value="threshold">By median vs thresholds</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-color">Box colour</label>
+            <input id="pvxbox-color" type="color" ng-model="config.BoxColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-opacity">Box fill opacity</label>
+            <input id="pvxbox-opacity" type="number" ng-model="config.BoxOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-theme">Theme</label>
+            <select id="pvxbox-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-accent">Accent colour</label>
+            <input id="pvxbox-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-showlabel">Show header</label>
+            <input id="pvxbox-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-units">Show units in header</label>
+            <input id="pvxbox-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-transparent">Transparent background</label>
+            <input id="pvxbox-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-radius">Corner radius</label>
+            <input id="pvxbox-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-usethresh">Enable thresholds</label>
+            <input id="pvxbox-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxbox-thresh">Threshold bands</label>
+            <textarea id="pvxbox-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used by the "by median" colour mode, always against the real engineering value even when the axis is normalised.</div>
+    </div>
+
+</div>

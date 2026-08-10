@@ -1,0 +1,108 @@
+/* pvxProfile — spatial profile
+ * Only the chrome (header, footer, SVG host) is styled here. Line, point, axis
+ * and envelope colours all come from the runtime theme tokens or from explicit
+ * config, never from CSS, so the same stylesheet works on light and dark
+ * displays. The custom properties below are fallbacks; symbol.js overwrites
+ * them on the root element every render. */
+
+.pvx-profile {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-profile .pvx-profile-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-profile .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-profile .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-profile .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the chart never
+   resizes downwards. */
+.pvx-profile .pvx-profile-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-profile .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-profile .pvx-profile-stats {
+    flex: 0 1 auto;
+    opacity: 0.9;
+    letter-spacing: 0.01em;
+}
+
+.pvx-profile .pvx-profile-note {
+    flex: 0 1 auto;
+    text-align: right;
+    opacity: 0.8;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+.pvx-profile .pvx-profile-name,
+.pvx-profile .pvx-profile-value,
+.pvx-profile .pvx-profile-extreme-label,
+.pvx-profile .pvx-profile-axis-title {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-profile .pvx-profile-axis-title {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+/* Markers carry the tooltip, so they must stay hittable even though the label
+   layers above them do not. */
+.pvx-profile .pvx-profile-point {
+    pointer-events: all;
+}
+
+/* No hover restyling of the markers on purpose: the fill encodes the threshold
+   band and a hollow ring encodes bad quality, so anything that touches fill or
+   stroke would overwrite data. The <title> tooltip is the interaction. */
+.pvx-profile .pvx-profile-point {
+    cursor: default;
+}
+
+.pvx-profile .pvx-profile-outring,
+.pvx-profile .pvx-profile-extreme {
+    pointer-events: none;
+}
+
+.pvx-profile .pvx-profile-limit,
+.pvx-profile .pvx-profile-envelope {
+    pointer-events: none;
+}
+
+.pvx-profile .pvx-profile-shadow {
+    pointer-events: none;
+}
+
+.pvx-profile .pvx-profile-emptymsg {
+    opacity: 0.75;
+}

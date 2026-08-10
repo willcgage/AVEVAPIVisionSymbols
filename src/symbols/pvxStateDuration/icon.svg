@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+    <!-- Three stacked time-in-state bars, each split green / grey / red in
+         different proportions: the shape of the symbol in one glance.
+         Only the outer ends are rounded, so the segment joins stay square. -->
+    <g>
+        <path d="M56 120 H276 V184 H56 A8 8 0 0 1 48 176 V128 A8 8 0 0 1 56 120 Z" fill="#2f9e5f"/>
+        <path d="M276 120 H388 V184 H276 Z" fill="#8a8f96"/>
+        <path d="M388 120 H456 A8 8 0 0 1 464 128 V176 A8 8 0 0 1 456 184 H388 Z" fill="#c8452f"/>
+    </g>
+    <g>
+        <path d="M56 224 H180 V288 H56 A8 8 0 0 1 48 280 V232 A8 8 0 0 1 56 224 Z" fill="#2f9e5f"/>
+        <path d="M180 224 H396 V288 H180 Z" fill="#8a8f96"/>
+        <path d="M396 224 H456 A8 8 0 0 1 464 232 V280 A8 8 0 0 1 456 288 H396 Z" fill="#c8452f"/>
+    </g>
+    <g>
+        <path d="M56 328 H368 V392 H56 A8 8 0 0 1 48 384 V336 A8 8 0 0 1 56 328 Z" fill="#2f9e5f"/>
+        <path d="M368 328 H432 V392 H368 Z" fill="#8a8f96"/>
+        <path d="M432 328 H456 A8 8 0 0 1 464 336 V384 A8 8 0 0 1 456 392 H432 Z" fill="#c8452f"/>
+    </g>
+</svg>

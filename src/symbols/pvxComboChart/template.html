@@ -1,0 +1,32 @@
+<!--
+    pvxComboChart — deliberately thin.
+
+    Everything inside .pvx-combo-body is drawn imperatively as a single SVG by
+    symbol.js; only the header title, the footer note and the bad-quality badge
+    are Angular bindings, because those are the three things a user may want to
+    select, read with a screen reader, or see ellipsised by the browser.
+
+    Theme colours arrive as CSS custom properties written on the root by
+    symbol.js, so the template needs no scope binding for light/dark.
+-->
+<div class="pvx pvx-combo"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px',
+                'background': config.Transparent ? 'transparent' : 'var(--pvx-surface)'}">
+    <div class="pvx-surface pvx-combo-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-combo-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.note">
+            <span class="pvx-truncate pvx-combo-note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

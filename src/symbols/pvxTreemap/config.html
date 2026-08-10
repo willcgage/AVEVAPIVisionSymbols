@@ -1,0 +1,220 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Size</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxtm-title">Title</label>
+            <input id="pvxtm-title" type="text" ng-model="config.Title" placeholder="Treemap" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-stat">Statistic</label>
+            <select id="pvxtm-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Tile <em>area</em> is proportional to this number. Everything except <em>Current value</em> is calculated by PI Vision over the display's time range. Zero and negative values cannot be drawn as an area, so they are excluded and named in the footer.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-maxtiles">Maximum tiles</label>
+            <input id="pvxtm-maxtiles" type="number" ng-model="config.MaxTiles" min="1" max="400" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Grouping</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-groupby">Group by</label>
+            <select id="pvxtm-groupby" ng-model="config.GroupBy">
+                <option value="none">No grouping</option>
+                <option value="delimiter">Path segment</option>
+                <option value="prefix">Name prefix</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">PI returns a flat list, so the hierarchy has to come out of the AF path or the tag name. Groups are laid out first, then the tags inside each group, and each group gets a header strip with its name and total.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-delim">Path delimiter</label>
+            <input id="pvxtm-delim" type="text" ng-model="config.GroupDelimiter" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-depth">Path segment (depth)</label>
+            <input id="pvxtm-depth" type="number" ng-model="config.GroupDepth" min="1" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">Depth 1 is the first segment after the server name. A path shorter than this groups on its last real segment rather than falling into "Ungrouped".</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-prefix">Prefix characters</label>
+            <input id="pvxtm-prefix" type="number" ng-model="config.GroupPrefixChars" min="1" max="24" />
+        </div>
+        <div class="pvx-cfg-hint">Used by <em>Name prefix</em>: tags whose names start with the same N characters share a group.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-colormode">Colour by</label>
+            <select id="pvxtm-colormode" ng-model="config.ColorMode">
+                <option value="threshold">Threshold band</option>
+                <option value="value">Value (continuous ramp)</option>
+                <option value="palette">Palette per tile</option>
+                <option value="group">Group</option>
+                <option value="single">One colour</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Size shows who is big, colour shows who is in trouble. <em>Threshold band</em> colours by the same statistic the tiles are sized by, which is the combination worth reading. <em>Palette</em> and <em>Group</em> identify rather than rank, so they carry no legend of magnitude.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-single">Tile colour</label>
+            <input id="pvxtm-single" type="color" ng-model="config.SingleColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-legend">Show colour legend</label>
+            <input id="pvxtm-legend" type="checkbox" ng-model="config.ShowColorLegend" />
+        </div>
+        <div class="pvx-cfg-hint">Tiles whose source reports bad quality are always drawn hatched, whatever the colour mode, and keep their share of the area.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Readability</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-mintile">Minimum tile size (px)</label>
+            <input id="pvxtm-mintile" type="number" ng-model="config.MinTilePx" min="6" max="200" />
+        </div>
+        <div class="pvx-cfg-hint">Tiles smaller than this get no label. Below half of it they are combined into one tile: a treemap of unreadable slivers is worse than an honest aggregate.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-showother">Combine tiny tiles</label>
+            <input id="pvxtm-showother" type="checkbox" ng-model="config.ShowOther" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-otherlabel">Combined tile label</label>
+            <input id="pvxtm-otherlabel" type="text" ng-model="config.OtherLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-labelmode">Label content</label>
+            <select id="pvxtm-labelmode" ng-model="config.LabelMode">
+                <option value="auto">Automatic</option>
+                <option value="nameOnly">Name only</option>
+                <option value="valueOnly">Value only</option>
+                <option value="both">Name and value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Labels are measured against their own tile. When a tile is too short the value line is dropped first, then the name is truncated, then the label is dropped entirely.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-showvalues">Show values</label>
+            <input id="pvxtm-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-showpercent">Add % of total</label>
+            <input id="pvxtm-showpercent" type="checkbox" ng-model="config.ShowPercent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-units">Show units</label>
+            <input id="pvxtm-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-decimals">Decimals</label>
+            <select id="pvxtm-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-compact">Compact numbers (1.2k)</label>
+            <input id="pvxtm-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-showlabel">Show header</label>
+            <input id="pvxtm-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Tiles</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-tilepad">Tile spacing</label>
+            <input id="pvxtm-tilepad" type="number" ng-model="config.TilePadding" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-tileradius">Tile corner radius</label>
+            <input id="pvxtm-tileradius" type="number" ng-model="config.TileRadius" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-borders">Show tile borders</label>
+            <input id="pvxtm-borders" type="checkbox" ng-model="config.ShowBorders" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Interaction</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-click">On click</label>
+            <select id="pvxtm-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxtm-target">Target display</label>
+            <input id="pvxtm-target" type="text" ng-model="config.NavigateTarget" placeholder="display id or id/name" />
+        </div>
+        <div class="pvx-cfg-hint">The clicked tile's asset path is passed through as the <code>asset</code> parameter, so one detail display serves every tile. Leave the target blank to stay on this display and just switch asset. The combined tile stands for several assets, so it never navigates.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-theme">Theme</label>
+            <select id="pvxtm-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-transparent">Transparent background</label>
+            <input id="pvxtm-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-radius">Corner radius</label>
+            <input id="pvxtm-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-accent">Accent colour</label>
+            <input id="pvxtm-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtm-enthresh">Enable thresholds</label>
+            <input id="pvxtm-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxtm-thresh">Threshold bands</label>
+            <textarea id="pvxtm-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used when <em>Colour by</em> is set to <em>Threshold band</em>.</div>
+    </div>
+
+</div>

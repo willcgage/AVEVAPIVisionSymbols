@@ -1,0 +1,101 @@
+/* pvxHistogram — "PVX Distribution"
+ * Only the chrome (header, footer, SVG host) is styled here. Bar, curve, spec
+ * and capability colours all come from the runtime theme tokens, never from
+ * CSS, so one stylesheet serves light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-hist {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    color: var(--pvx-text);
+}
+
+.pvx-hist .pvx-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-hist .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-hist .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-hist .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-hist .pvx-hist-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Bars are axis-aligned rectangles, so let the browser snap them to the pixel
+   grid — anti-aliased edges between adjacent bins read as phantom gaps. */
+.pvx-hist .pvx-hist-bar {
+    shape-rendering: crispEdges;
+    stroke: none;
+}
+
+/* The fitted normal and the overlay silhouettes are the opposite case: they are
+   curves and steep steps, where sub-pixel accuracy matters more than crispness. */
+.pvx-hist .pvx-hist-curve,
+.pvx-hist .pvx-hist-outline {
+    shape-rendering: geometricPrecision;
+    pointer-events: none;
+}
+
+/* Reference lines carry <title> tooltips, so they must stay hit-testable; the
+   out-of-spec tint sits behind everything and must not steal those hovers. */
+.pvx-hist .pvx-hist-ref,
+.pvx-hist .pvx-hist-spec {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-hist .pvx-hist-oos {
+    pointer-events: none;
+    shape-rendering: crispEdges;
+}
+
+.pvx-hist .pvx-hist-spec-label {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+}
+
+.pvx-hist .pvx-hist-axis-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* The capability card keeps its tooltip (it explains Cp vs Pp) but must not
+   block hovering the bars underneath it, so only the card itself is a target. */
+.pvx-hist .pvx-hist-cap text {
+    pointer-events: none;
+}
+
+.pvx-hist .pvx-hist-key {
+    pointer-events: none;
+}
+
+/* Footer: the summary statistics lead, the bin/overlay note yields space first
+   when the symbol is narrow. */
+.pvx-hist .pvx-hist-stats {
+    flex: 1 1 auto;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.pvx-hist .pvx-hist-note {
+    flex: 0 1 auto;
+    text-align: right;
+    opacity: 0.7;
+}

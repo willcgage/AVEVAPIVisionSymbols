@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PVX — PI Web API connectivity check</title>
+<link rel="icon" href="data:," />
+<style>
+    :root {
+        --bg: #f5f7f9; --panel: #fff; --border: #dde2e8; --text: #1c2126;
+        --muted: #5f6a75; --faint: #8d97a3; --accent: #3b82c4;
+        --ok: #2f9e5f; --warn: #d99024; --bad: #c8452f;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
+    h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+
+    .card {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 10px; padding: 18px 20px; margin: 0 0 16px;
+    }
+    .card h2 {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--faint); margin: 0 0 12px; font-weight: 700;
+    }
+    label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 3px; }
+    input, select, textarea {
+        width: 100%; font: inherit; font-size: 13px; padding: 7px 9px;
+        border: 1px solid var(--border); border-radius: 5px; background: #fff; color: var(--text);
+    }
+    textarea { font-family: Consolas, monospace; font-size: 12px; min-height: 62px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 220px; min-width: 0; }
+    .hint { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+
+    button {
+        font: inherit; font-size: 13px; font-weight: 600; padding: 9px 18px;
+        border-radius: 6px; border: 1px solid var(--accent); background: var(--accent);
+        color: #fff; cursor: pointer; margin-top: 16px;
+    }
+    button.ghost { background: transparent; color: var(--text); border-color: var(--border); }
+    button:disabled { opacity: 0.55; cursor: default; }
+
+    .test { border-top: 1px solid var(--border); padding: 12px 0; }
+    .test:first-of-type { border-top: none; }
+    .test .head { display: flex; align-items: baseline; gap: 9px; }
+    .badge {
+        flex: 0 0 auto; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; padding: 2px 8px; border-radius: 4px;
+        background: #eef1f5; color: var(--muted);
+    }
+    .badge.ok { background: #e6f4ec; color: #1f6d42; }
+    .badge.warn { background: #fdf3e3; color: #8a6116; }
+    .badge.bad { background: #fbeceb; color: #8f3226; }
+    .badge.run { background: #e8eefb; color: #33518f; }
+    .test .name { font-weight: 600; font-size: 13.5px; }
+    .test .why { font-size: 12.5px; color: var(--muted); margin: 4px 0 0 0; }
+    .test .detail {
+        font-family: Consolas, monospace; font-size: 11.5px; color: var(--muted);
+        background: #f7f9fb; border: 1px solid var(--border); border-radius: 5px;
+        padding: 7px 9px; margin-top: 7px; white-space: pre-wrap; word-break: break-word;
+    }
+    .verdict {
+        border-left: 3px solid var(--accent); padding: 14px 18px; border-radius: 8px;
+        background: #eef5fb; font-size: 14px; margin-top: 4px;
+    }
+    .verdict.ok { border-left-color: var(--ok); background: #edf7f1; }
+    .verdict.bad { border-left-color: var(--bad); background: #fbeeec; }
+    .verdict h3 { margin: 0 0 6px; font-size: 15px; }
+    .verdict p { margin: 0 0 8px; color: var(--muted); }
+    .verdict p:last-child { margin-bottom: 0; }
+    .verdict code, .detail code { background: rgba(0,0,0,0.06); padding: 0 4px; border-radius: 3px; }
+    footer { margin-top: 30px; font-size: 12px; color: var(--faint); }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #15181b; --panel: #1f2429; --border: #333b44;
+            --text: #e7ecf1; --muted: #98a3af; --faint: #7b8592;
+        }
+        input, select, textarea { background: #171b1f; color: var(--text); }
+        .test .detail { background: #171b1f; }
+        .verdict { background: #1d2833; }
+        .verdict.ok { background: #17281f; }
+        .verdict.bad { background: #2a1c1a; }
+        .badge { background: #2b323a; }
+        .badge.ok { background: #1e3a2a; color: #7ed3a0; }
+        .badge.warn { background: #33291a; color: #dcb066; }
+        .badge.bad { background: #3a2320; color: #e09b8f; }
+        .badge.run { background: #222c3d; color: #8fb2e8; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>PI Web API connectivity check</h1>
+<p class="sub">
+    Run this <strong>from the PI Vision server, in a browser, as a normal user</strong> — that is the
+    only place the real conditions exist. It reproduces exactly what a PVX symbol does, and reports
+    which configuration actually works on your network rather than which one should.
+</p>
+
+<div class="card">
+    <h2>Settings</h2>
+    <div id="loaded" class="hint"></div>
+
+    <label for="baseUrl">PI Web API base URL</label>
+    <input id="baseUrl" type="text" placeholder="https://piwebapi01.corp.example/piwebapi" />
+    <div class="hint">Include <code>/piwebapi</code>, no trailing slash. The hostname must match the certificate.</div>
+
+    <div class="row">
+        <div>
+            <label for="auth">Authentication to test</label>
+            <select id="auth">
+                <option value="auto">Try all of them</option>
+                <option value="iwa">Kerberos / Negotiate only</option>
+                <option value="bearer">Bearer token only</option>
+                <option value="basic">Basic only</option>
+                <option value="anonymous">Anonymous only</option>
+            </select>
+        </div>
+        <div>
+            <label for="afdb">AF database path (optional)</label>
+            <input id="afdb" type="text" placeholder="\\AFSERVER01\Production" />
+            <div class="hint">Enables the Event Frame test.</div>
+        </div>
+    </div>
+
+    <label for="token">Bearer token (optional, for the bearer test)</label>
+    <textarea id="token" placeholder="Paste an access token issued for PI Web API's audience"></textarea>
+    <div class="hint">
+        Not PI Vision's session token — with OIDC, PI Vision talks to its backends using its own
+        Process Identity and never hands the user's token to display code.
+    </div>
+
+    <button id="run">Run checks</button>
+    <button id="copy" class="ghost">Copy report</button>
+</div>
+
+<div class="card" id="results" hidden>
+    <h2>Results</h2>
+    <div id="tests"></div>
+</div>
+
+<div id="verdictBox" hidden></div>
+
+<footer>
+    Part of the PVX symbol library. Nothing here writes to PI — every request is a read.
+</footer>
+
+</div>
+
+<script src="libraries/pvx-core.js"></script>
+<script src="libraries/pvx-config.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var PVX = window.PVX;
+    var $ = function (id) { return document.getElementById(id); };
+    var report = [];
+
+    /* Prefill from the deployed site config, so this page also verifies that
+       pvx-config.js is present and parsed — a blank base URL here is itself
+       a finding. */
+    (function prefill() {
+        var note = 'pvx-config.js not found or did not load.';
+        if (PVX && PVX.api) {
+            var s = PVX.api.settings;
+            $('baseUrl').value = s.baseUrl || '';
+            if (s.auth) { $('auth').value = 'auto'; }
+            note = s.baseUrl
+                ? 'Loaded from pvx-config.js — base URL set, auth "' + s.auth + '".'
+                : 'pvx-config.js loaded but baseUrl is blank. Fill it in below to test, then put the ' +
+                  'working value into that file.';
+        }
+        $('loaded').textContent = note;
+    }());
+
+    function addTest(name, why) {
+        var el = document.createElement('div');
+        el.className = 'test';
+        el.innerHTML = '<div class="head"><span class="badge run">…</span><span class="name"></span></div>' +
+                       '<p class="why"></p><div class="detail" hidden></div>';
+        el.querySelector('.name').textContent = name;
+        el.querySelector('.why').textContent = why || '';
+        $('tests').appendChild(el);
+        return {
+            set: function (state, detail) {
+                var b = el.querySelector('.badge');
+                b.className = 'badge ' + state;
+                b.textContent = state === 'ok' ? 'pass' : (state === 'bad' ? 'fail' : (state === 'warn' ? 'note' : '…'));
+                var d = el.querySelector('.detail');
+                if (detail) { d.hidden = false; d.textContent = detail; }
+                report.push([state.toUpperCase(), name, detail || ''].join(' | '));
+            }
+        };
+    }
+
+    function describe(e) {
+        if (e && e.pvxError) {
+            return e.pvxError.message + '\n\nWhat to check: ' + e.pvxError.check +
+                   (e.status ? '\nHTTP status: ' + e.status : '');
+        }
+        return String((e && e.message) || e);
+    }
+
+    $('run').addEventListener('click', function () {
+        var baseUrl = $('baseUrl').value.trim();
+        if (!baseUrl) { alert('Enter the PI Web API base URL first.'); return; }
+
+        $('run').disabled = true;
+        $('results').hidden = false;
+        $('tests').innerHTML = '';
+        $('verdictBox').hidden = true;
+        report = ['PVX PI Web API connectivity check',
+                  'Page origin: ' + window.location.origin,
+                  'Base URL: ' + baseUrl, ''];
+
+        var token = $('token').value.trim();
+        PVX.api.configure({
+            baseUrl: baseUrl,
+            getToken: token ? function () { return token; } : null,
+            cacheTtlMs: 0            // never cache while diagnosing
+        });
+
+        var chosen = $('auth').value;
+        var strategies = chosen === 'auto'
+            ? ['iwa', 'anonymous'].concat(token ? ['bearer'] : [])
+            : [chosen];
+
+        var working = [];
+
+        /* -- 1. origin ---------------------------------------------------- */
+        var t1 = addTest('Origin', 'Whether CORS is involved at all. Same-origin removes the entire class of preflight and credential problems.');
+        var cross = PVX.api.isCrossOrigin();
+        t1.set(cross ? 'warn' : 'ok',
+            cross
+                ? 'CROSS-ORIGIN.\nPage:     ' + window.location.origin + '\nPI Web API: ' + baseUrl +
+                  '\n\nThis is the arrangement AVEVA documents, and it works — but it requires PI Web API to ' +
+                  'list this exact page origin in CorsOrigins, set CorsSupportsCredentials to true, and ' +
+                  'answer the OPTIONS preflight WITHOUT an authentication challenge.'
+                : 'SAME-ORIGIN. No CORS, no preflight, no credential-mode rules. The simplest possible case.');
+
+        /* -- 2. reachability ------------------------------------------------ */
+        var t2 = addTest('Reachability', 'Can the browser open a connection at all — DNS, firewall, TLS, certificate name.');
+
+        /* Deliberately anonymous and cache-busted: this separates "cannot reach
+           the server" from "reached it and was refused", which are completely
+           different problems with completely different owners. */
+        PVX.api.get('', { auth: 'anonymous', cache: false })
+            .then(function () {
+                t2.set('ok', 'Reached PI Web API and it answered anonymously.');
+            })
+            .catch(function (e) {
+                var code = e && e.pvxError && e.pvxError.code;
+                if (code === 'unauthorized') {
+                    t2.set('ok', 'Reached PI Web API. It answered 401, which is expected when anonymous access ' +
+                                 'is disabled — the connection itself is fine.');
+                } else {
+                    t2.set('bad', describe(e));
+                }
+            })
+            .then(function () { return runAuth(0); });
+
+        /* -- 3. each auth strategy ------------------------------------------ */
+        function runAuth(i) {
+            if (i >= strategies.length) { return finish(); }
+            var mode = strategies[i];
+            var label = { iwa: 'Kerberos / Negotiate', bearer: 'Bearer token',
+                          basic: 'Basic', anonymous: 'Anonymous' }[mode];
+            var t = addTest('Authentication — ' + label,
+                mode === 'iwa'
+                    ? 'AVEVA\u2019s recommended arrangement. The browser attaches the signed-in Windows credential.'
+                    : (mode === 'bearer'
+                        ? 'PI Web API must be set to "OpenId Connect / Bearer" and the token must carry its audience.'
+                        : 'Fallback path.'));
+
+            return PVX.api.get('', { auth: mode, cache: false })
+                .then(function (rootDoc) {
+                    working.push(mode);
+                    var links = rootDoc && rootDoc.Links ? Object.keys(rootDoc.Links).join(', ') : '(no links)';
+                    t.set('ok', 'Authenticated.\nAvailable root links: ' + links);
+                    return probeIdentity(mode);
+                })
+                .catch(function (e) { t.set('bad', describe(e)); })
+                .then(function () { return runAuth(i + 1); });
+        }
+
+        /* -- 4. identity + AF visibility ------------------------------------ */
+        function probeIdentity(mode) {
+            var t = addTest('AF visibility (' + mode + ')',
+                'Authentication succeeding is not the same as being allowed to see anything. PI and AF security are the real access control.');
+            return PVX.api.get('assetservers', { auth: mode, cache: false })
+                .then(function (res) {
+                    var items = (res && res.Items) || [];
+                    if (!items.length) {
+                        t.set('warn', 'Authenticated, but no AF servers are visible to this identity. ' +
+                                      'Check the mapping for this user on the AF server.');
+                        return;
+                    }
+                    t.set('ok', 'AF servers visible: ' + items.map(function (a) { return a.Name; }).join(', '));
+                    return probeEventFrames(mode, items[0]);
+                })
+                .catch(function (e) { t.set('warn', describe(e)); });
+        }
+
+        /* -- 5. event frames ------------------------------------------------- */
+        function probeEventFrames(mode, server) {
+            var dbPath = $('afdb').value.trim();
+            if (!dbPath) { return; }
+            var t = addTest('Event Frames (' + mode + ')',
+                'The actual query pvxEventGantt and pvxEventAnalytics will make.');
+            return PVX.api.get('assetdatabases?path=' + encodeURIComponent(dbPath), { auth: mode, cache: false })
+                .then(function (db) {
+                    return PVX.api.eventFrames({
+                        databaseWebId: db.WebId,
+                        startTime: '*-7d', endTime: '*', maxCount: 5,
+                        selectedFields: 'Items.Name;Items.StartTime;Items.EndTime'
+                    }, { auth: mode, cache: false });
+                })
+                .then(function (res) {
+                    var items = (res && res.Items) || [];
+                    t.set(items.length ? 'ok' : 'warn',
+                        items.length
+                            ? 'Returned ' + items.length + ' event frame(s) from the last 7 days. Example: ' +
+                              items[0].Name + ' (' + items[0].StartTime + ')'
+                            : 'Query succeeded but returned no event frames in the last 7 days. The path and ' +
+                              'permissions are fine; there may simply be no events, or they may be on a ' +
+                              'different database.');
+                })
+                .catch(function (e) { t.set('bad', describe(e)); });
+        }
+
+        /* -- verdict ---------------------------------------------------------- */
+        function finish() {
+            $('run').disabled = false;
+            var box = $('verdictBox');
+            box.hidden = false;
+
+            if (!working.length) {
+                box.className = 'verdict bad';
+                box.innerHTML = '<h3>No authentication method worked</h3>' +
+                    '<p>Nothing above got through. Work down in this order, because each one masks the next:</p>' +
+                    '<p>1. If <em>Reachability</em> failed, this is not an authentication problem yet — check the ' +
+                    'base URL, that the PI Web API service is running, and that the certificate matches the ' +
+                    'hostname you typed.</p>' +
+                    '<p>2. If it reached the server but every method failed cross-origin, the preflight is the ' +
+                    'prime suspect: <code>CorsOrigins</code> must contain <code>' + window.location.origin +
+                    '</code> exactly, <code>CorsSupportsCredentials</code> must be true, and the OPTIONS request ' +
+                    'must be answered without an auth challenge.</p>' +
+                    '<p>3. If only Kerberos failed, the browser may not be willing to send Windows credentials to ' +
+                    'that host — check that it is in the Local Intranet zone or the equivalent browser policy.</p>';
+                return;
+            }
+
+            /* The most dangerous outcome is not total failure — it is a PARTIAL
+               pass. Anonymous succeeding while a credentialed request fails,
+               cross-origin, is the exact signature of either
+               Access-Control-Allow-Origin: * (browsers refuse a wildcard once
+               credentials are involved) or CorsSupportsCredentials left false.
+               Someone testing casually sees "it connects" and ships it, and
+               then every user is anonymous to PI. Name it explicitly. */
+            var anonOnly = working.length === 1 && working[0] === 'anonymous';
+            var credentialedTried = strategies.indexOf('iwa') !== -1 || strategies.indexOf('bearer') !== -1;
+            var credentialedFailed = credentialedTried &&
+                working.indexOf('iwa') === -1 && working.indexOf('bearer') === -1;
+
+            if (anonOnly && credentialedFailed && cross) {
+                box.className = 'verdict bad';
+                box.innerHTML = '<h3>Anonymous works, credentials do not — do not ship this</h3>' +
+                    '<p>The connection is fine and unauthenticated requests get through, but every ' +
+                    'credentialed request failed. Cross-origin, that combination has two usual causes:</p>' +
+                    '<p><strong>1. <code>Access-Control-Allow-Origin</code> is set to <code>*</code>.</strong> ' +
+                    'Browsers refuse a wildcard origin as soon as credentials are attached. This is precisely ' +
+                    'why AVEVA\'s guidance says to list the explicit PI Vision URLs in <code>CorsOrigins</code> ' +
+                    'rather than an asterisk. Set it to <code>' + window.location.origin + '</code>.</p>' +
+                    '<p><strong>2. <code>CorsSupportsCredentials</code> is false.</strong> It must be true.</p>' +
+                    '<p>Why this matters more than an outright failure: if you configured the library as ' +
+                    '<code>anonymous</code> on the strength of this result, PI Web API would stop ' +
+                    'identifying your users. Every symbol would act as the same identity, PI and AF security ' +
+                    'could no longer tell who did what, and manual data entry would be unattributable.</p>';
+                return;
+            }
+
+            box.className = 'verdict ok';
+            var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
+            box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
+                '<p>Put this into <code>libraries\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
+                'server — the ext folder is not replicated between them:</p>' +
+                '<div class="detail" style="margin-top:8px">root.PVX.api.configure({\n' +
+                '    baseUrl: \'' + baseUrl + '\',\n' +
+                '    auth: \'' + best + '\'\n});</div>' +
+                (working.indexOf('anonymous') !== -1 && working.length === 1
+                    ? '<p style="margin-top:10px"><strong>Note:</strong> only anonymous worked. That means PI Web ' +
+                      'API is not identifying your users, so every symbol acts with the same permissions and PI/AF ' +
+                      'security cannot distinguish who did what. Fine for a read-only proof; not something to ' +
+                      'deploy manual data entry against.</p>'
+                    : '');
+        }
+    });
+
+    $('copy').addEventListener('click', function () {
+        var text = report.join('\n');
+        if (navigator.clipboard) { navigator.clipboard.writeText(text); }
+        $('copy').textContent = 'Copied';
+        setTimeout(function () { $('copy').textContent = 'Copy report'; }, 1500);
+    });
+}());
+</script>
+</body>
+</html>

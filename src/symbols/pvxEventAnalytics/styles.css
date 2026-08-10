@@ -1,0 +1,150 @@
+/* pvxEventAnalytics — Event Frames grouped and ranked by cost
+ *
+ * Only the chrome (header, footer, SVG host) is styled here. Every bar, slice
+ * and text colour comes from the runtime theme tokens, never from CSS, so the
+ * same stylesheet works on a light and a dark display. The custom properties
+ * below are fallbacks; symbol.js overwrites them on the root every render. */
+
+.pvx-ea {
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-ea .pvx-ea-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-ea .pvx-ea-header {
+    color: var(--pvx-muted);
+    padding-bottom: 3px;
+}
+
+/* Shrinkable, unlike the shared default. The subtitle is generated text; the
+   title is what the engineer called this chart, and letting a long generated
+   subtitle crush it to one glyph on a narrow symbol is the wrong trade. */
+.pvx-ea .pvx-ea-header .pvx-subtitle {
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pvx-ea .pvx-ea-header .pvx-title {
+    color: var(--pvx-text);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 11px;
+}
+
+.pvx-ea .pvx-ea-footer {
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+/* The summary carries the numbers someone may be asked to defend, so it gets
+   the room; the note carries the caveats and yields first. */
+.pvx-ea .pvx-ea-summary {
+    flex: 1 1 auto;
+    letter-spacing: 0.01em;
+}
+
+/* Capped rather than merely shrinkable: without a ceiling a long run of
+   caveats squeezes the numbers they are caveats about off the line. */
+.pvx-ea .pvx-ea-note {
+    flex: 0 1 auto;
+    max-width: 58%;
+    text-align: right;
+    opacity: 0.85;
+    font-style: italic;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and the chart never
+   resizes downwards. */
+.pvx-ea .pvx-ea-body {
+    flex: 1 1 auto;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-ea .pvx-ea-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+/* Text drawn on top of a bar must not swallow the bar's own tooltip: labels
+   live inside the bar's <g>, which keeps the <title> reachable across the whole
+   mark. */
+.pvx-ea .pvx-ea-value,
+.pvx-ea .pvx-ea-name,
+.pvx-ea .pvx-ea-tick,
+.pvx-ea .pvx-ea-cumtick,
+.pvx-ea .pvx-ea-slicelabel,
+.pvx-ea .pvx-ea-center,
+.pvx-ea .pvx-ea-centersub,
+.pvx-ea .pvx-ea-th,
+.pvx-ea .pvx-ea-rowband,
+.pvx-ea .pvx-ea-msg-head,
+.pvx-ea .pvx-ea-msg-body {
+    pointer-events: none;
+}
+
+.pvx-ea .pvx-ea-eighty {
+    pointer-events: none;
+    shape-rendering: crispEdges;
+}
+
+/* Hover brightens rather than recolouring: bar length is the encoded value and
+   nothing about the interaction may appear to change it. */
+.pvx-ea .pvx-ea-bar:hover .pvx-ea-shape,
+.pvx-ea .pvx-ea-slice:hover path {
+    filter: brightness(1.12);
+}
+
+.pvx-ea .pvx-ea-row:hover rect {
+    fill: var(--pvx-accent);
+    fill-opacity: 0.10;
+}
+
+.pvx-ea .pvx-ea-name {
+    font-weight: 500;
+    letter-spacing: 0.005em;
+}
+
+.pvx-ea .pvx-ea-cumtick {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.pvx-ea .pvx-ea-th {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.8;
+}
+
+/* Legend text keeps pointer events so its <title> (the full breakdown) is
+   reachable; SVG text only reacts over its own glyphs. */
+.pvx-ea .pvx-ea-legendtext {
+    letter-spacing: 0.005em;
+}
+
+.pvx-ea.pvx-ea-clickable .pvx-hit-group {
+    cursor: pointer;
+}
+
+.pvx-ea .pvx-ea-msg-body {
+    letter-spacing: 0.005em;
+}

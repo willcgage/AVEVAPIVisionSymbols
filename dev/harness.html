@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PVX Symbol Preview — PI Vision custom symbols</title>
+<link rel="icon" href="data:," />
+<style>
+    :root {
+        --h-bg: #f0f2f5;
+        --h-panel: #ffffff;
+        --h-border: #d6dbe1;
+        --h-text: #1d2126;
+        --h-muted: #5c6570;
+        --h-accent: #3b82c4;
+        --h-canvas: #ffffff;
+    }
+    body.dark {
+        --h-bg: #16181b;
+        --h-panel: #22262b;
+        --h-border: #3b424b;
+        --h-text: #e8ecf1;
+        --h-muted: #9aa4b0;
+        --h-canvas: #1f2124;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--h-bg);
+        color: var(--h-text);
+        display: flex;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---------------- sidebar ---------------- */
+    #side {
+        width: 268px;
+        flex: 0 0 268px;
+        background: var(--h-panel);
+        border-right: 1px solid var(--h-border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #side header {
+        padding: 14px 16px 10px 16px;
+        border-bottom: 1px solid var(--h-border);
+    }
+    #side h1 { font-size: 15px; margin: 0 0 2px 0; letter-spacing: -0.01em; }
+    #side .sub { font-size: 11px; color: var(--h-muted); }
+    #side .scroll { overflow-y: auto; flex: 1 1 auto; padding: 10px 14px 24px 14px; }
+
+    .grp { margin: 0 0 16px 0; }
+    .grp > h2 {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--h-muted); margin: 0 0 7px 0; font-weight: 700;
+    }
+    .row {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px; margin: 5px 0; font-size: 12.5px; min-height: 24px;
+    }
+    .row label { flex: 1 1 auto; cursor: pointer; min-width: 0; }
+    .row input[type=number], .row select {
+        flex: 0 0 92px; font-size: 12px; padding: 3px 4px;
+        background: var(--h-canvas); color: var(--h-text);
+        border: 1px solid var(--h-border); border-radius: 3px;
+    }
+    .row input[type=checkbox] { flex: 0 0 auto; cursor: pointer; }
+    .symrow { display: flex; align-items: center; gap: 7px; margin: 3px 0; font-size: 12.5px; }
+    .symrow img { width: 18px; height: 18px; flex: 0 0 18px; }
+    .symrow label { cursor: pointer; flex: 1 1 auto; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    button.h {
+        width: 100%; padding: 7px 10px; font-size: 12px; font-weight: 600;
+        border: 1px solid var(--h-border); border-radius: 4px; cursor: pointer;
+        background: var(--h-canvas); color: var(--h-text); margin: 3px 0;
+    }
+    button.h:hover { border-color: var(--h-accent); }
+    button.h.primary { background: var(--h-accent); border-color: var(--h-accent); color: #fff; }
+
+    /* ---------------- stage ---------------- */
+    #stage { flex: 1 1 auto; overflow: auto; padding: 18px; }
+    #cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 18px;
+        align-items: start;
+    }
+    .card {
+        background: var(--h-panel);
+        border: 1px solid var(--h-border);
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .card > .chead {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 10px; border-bottom: 1px solid var(--h-border);
+        font-size: 12px; font-weight: 600;
+    }
+    .card > .chead .type { color: var(--h-muted); font-weight: 400; font-size: 10.5px; }
+    .card > .chead .spacer { flex: 1 1 auto; }
+    .card > .chead .dims { color: var(--h-muted); font-weight: 400; font-size: 10.5px;
+        font-variant-numeric: tabular-nums; }
+    .card > .chead button {
+        border: 1px solid var(--h-border); background: transparent; color: var(--h-text);
+        font-size: 10.5px; padding: 2px 7px; border-radius: 3px; cursor: pointer;
+    }
+    .card > .chead button:hover { border-color: var(--h-accent); }
+    .frame {
+        resize: both; overflow: hidden;
+        width: 100%; height: 220px; min-width: 90px; min-height: 60px;
+        background: var(--h-canvas);
+        position: relative;
+    }
+    .frame > * { width: 100%; height: 100%; }
+    .cfg {
+        border-top: 1px solid var(--h-border);
+        max-height: 320px; overflow-y: auto;
+        padding: 6px 10px 10px 10px;
+        font-size: 12px;
+        display: none;
+    }
+    .cfg.open { display: block; }
+    .cfg input, .cfg select, .cfg textarea {
+        background: var(--h-canvas); color: var(--h-text);
+        border: 1px solid var(--h-border); border-radius: 3px;
+    }
+    .cfg code { font-size: 10.5px; background: rgba(128,128,128,0.15); padding: 0 3px; border-radius: 2px; }
+    .err {
+        padding: 10px; font-size: 11.5px; color: #c8452f;
+        font-family: Consolas, monospace; white-space: pre-wrap;
+    }
+    #boot { padding: 40px; font-size: 14px; color: var(--h-muted); }
+</style>
+</head>
+<body>
+
+<div id="side">
+    <header>
+        <h1>PVX Symbol Preview</h1>
+        <div class="sub">Offline harness &middot; no PI Vision server required</div>
+    </header>
+    <div class="scroll">
+
+        <div class="grp">
+            <h2>Display</h2>
+            <div class="row">
+                <label for="c-dark">Dark theme</label>
+                <input type="checkbox" id="c-dark" />
+            </div>
+            <div class="row">
+                <label for="c-live">Live data</label>
+                <input type="checkbox" id="c-live" checked />
+            </div>
+            <div class="row">
+                <label for="c-rate">Refresh (s)</label>
+                <input type="number" id="c-rate" value="3" min="1" max="60" />
+            </div>
+            <button class="h primary" id="b-refresh">Push data now</button>
+        </div>
+
+        <div class="grp">
+            <h2>Simulated data</h2>
+            <div class="row">
+                <label for="c-count">Data sources</label>
+                <input type="number" id="c-count" value="8" min="1" max="16" />
+            </div>
+            <div class="row">
+                <label for="c-points">Points / series</label>
+                <input type="number" id="c-points" value="140" min="4" max="600" step="10" />
+            </div>
+            <div class="row">
+                <label for="c-hours">Time range (h)</label>
+                <input type="number" id="c-hours" value="8" min="1" max="720" />
+            </div>
+            <div class="row">
+                <label for="c-bad">Bad quality on row 2</label>
+                <input type="checkbox" id="c-bad" />
+            </div>
+            <div class="row">
+                <label for="c-empty">Send empty payload</label>
+                <input type="checkbox" id="c-empty" />
+            </div>
+        </div>
+
+        <div class="grp">
+            <h2>Symbols</h2>
+            <div id="symlist"></div>
+            <button class="h" id="b-all">Show all</button>
+            <button class="h" id="b-none">Hide all</button>
+        </div>
+
+        <div class="grp">
+            <h2>Layout</h2>
+            <div class="row">
+                <label for="c-w">Card height (px)</label>
+                <input type="number" id="c-w" value="220" min="60" max="900" step="10" />
+            </div>
+            <button class="h" id="b-reset">Reset sizes</button>
+        </div>
+
+    </div>
+</div>
+
+<div id="stage">
+    <div id="boot">Loading symbol library&hellip;</div>
+    <div id="cards"></div>
+</div>
+
+<script src="vendor/angular.min.js"></script>
+<script src="pv-mock.js"></script>
+<script>
+/* ============================================================================
+ * Harness controller. Loads the BUILT library from dist/ext so what you review
+ * here is byte-for-byte what deploys to the server.
+ * ==========================================================================*/
+(function () {
+    'use strict';
+
+    var $ = function (id) { return document.getElementById(id); };
+    var instances = [];
+    var injector = null;
+    var tick = 0;
+
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = function () { reject(new Error('failed to load ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    function loadCss(href) {
+        var l = document.createElement('link');
+        l.rel = 'stylesheet';
+        l.href = href;
+        document.head.appendChild(l);
+    }
+
+    function text(url) {
+        return fetch(url, { cache: 'no-store' }).then(function (r) {
+            if (!r.ok) { throw new Error(url + ' -> ' + r.status); }
+            return r.text();
+        });
+    }
+
+    /* ------------------------------------------------------------ boot ---- */
+    var manifest = null;
+
+    fetch('../dist/manifest.json', { cache: 'no-store' })
+        .then(function (r) {
+            if (!r.ok) { throw new Error('dist/manifest.json missing — run `npm run build` first'); }
+            return r.json();
+        })
+        .then(function (m) {
+            manifest = m;
+            return loadScript('../dist/ext/libraries/pvx-core.js');
+        })
+        .then(function () {
+            return manifest.symbols.reduce(function (chain, s) {
+                return chain.then(function () {
+                    loadCss('../dist/ext/sym-' + s.typeName + '.css');
+                    return loadScript('../dist/ext/sym-' + s.typeName + '.js');
+                });
+            }, Promise.resolve());
+        })
+        .then(start)
+        .catch(function (e) {
+            $('boot').innerHTML = '<span style="color:#c8452f">' + e.message + '</span>';
+        });
+
+    /* ----------------------------------------------------------- start ---- */
+    function start() {
+        $('boot').style.display = 'none';
+        injector = angular.injector(['ng']);
+
+        buildSymbolList();
+        wireControls();
+        rebuild();
+        pushData();
+        scheduleTimer();
+    }
+
+    function selectedTypes() {
+        return Array.prototype.slice
+            .call(document.querySelectorAll('#symlist input:checked'))
+            .map(function (i) { return i.value; });
+    }
+
+    function buildSymbolList() {
+        var list = $('symlist');
+        list.innerHTML = '';
+        manifest.symbols.forEach(function (s) {
+            var row = document.createElement('div');
+            row.className = 'symrow';
+            var img = document.createElement('img');
+            img.src = '../dist/ext/icons/' + s.typeName + '.svg';
+            img.alt = '';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = s.typeName;
+            cb.id = 'sym-' + s.typeName;
+            cb.checked = true;
+            cb.addEventListener('change', rebuild);
+            var lab = document.createElement('label');
+            lab.htmlFor = cb.id;
+            lab.textContent = s.displayName;
+            lab.title = s.typeName + '  (' + s.dataShape + ' / ' + s.datasourceBehavior + ')';
+            row.appendChild(cb); row.appendChild(img); row.appendChild(lab);
+            list.appendChild(row);
+        });
+    }
+
+    /* --------------------------------------------------------- instances -- */
+    function destroyAll() {
+        instances.forEach(function (inst) {
+            try { if (inst.vis.onDestroy) { inst.vis.onDestroy(); } } catch (e) { }
+            try { if (inst.ro) { inst.ro.disconnect(); } } catch (e) { }
+            try { inst.scope.$destroy(); } catch (e) { }
+        });
+        instances = [];
+    }
+
+    function rebuild() {
+        destroyAll();
+        var host = $('cards');
+        host.innerHTML = '';
+        var types = selectedTypes();
+        types.reduce(function (chain, typeName) {
+            return chain.then(function () { return makeCard(typeName, host); });
+        }, Promise.resolve()).then(pushData);
+    }
+
+    function makeCard(typeName, host) {
+        var def = window.PVMock.get(typeName);
+        var meta = manifest.symbols.filter(function (s) { return s.typeName === typeName; })[0] || {};
+        if (!def) { return Promise.resolve(); }
+
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML =
+            '<div class="chead">' +
+                '<span>' + escapeHtml(def.displayName || typeName) + '</span>' +
+                '<span class="type">' + escapeHtml(meta.dataShape || '') + '</span>' +
+                '<span class="spacer"></span>' +
+                '<span class="dims"></span>' +
+                '<button class="cfgbtn">Format</button>' +
+            '</div>' +
+            '<div class="frame"></div>' +
+            '<div class="cfg"></div>';
+        host.appendChild(card);
+
+        var frame = card.querySelector('.frame');
+        var cfgPane = card.querySelector('.cfg');
+        var dims = card.querySelector('.dims');
+        frame.style.height = ($('c-w').value || 220) + 'px';
+
+        card.querySelector('.cfgbtn').addEventListener('click', function () {
+            cfgPane.classList.toggle('open');
+        });
+
+        return Promise.all([
+            text('../dist/ext/sym-' + typeName + '-template.html'),
+            text('../dist/ext/sym-' + typeName + '-config.html').catch(function () { return ''; })
+        ]).then(function (parts) {
+            var $compile = injector.get('$compile');
+            var $rootScope = injector.get('$rootScope');
+            var scope = $rootScope.$new(true);
+
+            scope.config = def.getDefaultConfig ? def.getDefaultConfig() : {};
+            // PI Vision exposes these on the symbol scope; several symbols probe
+            // them defensively, so the harness must provide them too.
+            scope.runtimeData = { isEditMode: false };
+            scope.symbol = { Name: typeName };
+
+            var el;
+            try {
+                el = $compile(parts[0])(scope);
+                angular.element(frame).append(el);
+            } catch (e) {
+                frame.innerHTML = '<div class="err">template compile failed\n' + escapeHtml(e.message) + '</div>';
+                return;
+            }
+
+            var vis = new def.visObjectType();
+            try {
+                vis.init(scope, el, undefined);
+            } catch (e) {
+                frame.insertAdjacentHTML('beforeend',
+                    '<div class="err">init() threw\n' + escapeHtml(e.stack || e.message) + '</div>');
+            }
+
+            if (parts[1]) {
+                try { angular.element(cfgPane).append($compile(parts[1])(scope)); }
+                catch (e) { cfgPane.innerHTML = '<div class="err">config template failed\n' + escapeHtml(e.message) + '</div>'; }
+            } else {
+                cfgPane.innerHTML = '<em style="opacity:.6">No configuration pane.</em>';
+            }
+
+            // Mirror PI Vision: a config edit triggers onConfigChange.
+            scope.$watch('config', function (nv, ov) {
+                if (nv === ov) { return; }
+                try { vis.onConfigChange(nv, ov); } catch (e) { }
+            }, true);
+
+            var inst = { typeName: typeName, def: def, vis: vis, scope: scope, frame: frame,
+                         shape: meta.dataShape, mockProfile: meta.mockProfile };
+            instances.push(inst);
+
+            var report = function () {
+                var w = frame.clientWidth, h = frame.clientHeight;
+                dims.textContent = w + ' × ' + h;
+                try { vis.onResize(w, h); } catch (e) { }
+            };
+            if (window.ResizeObserver) {
+                inst.ro = new ResizeObserver(report);
+                inst.ro.observe(frame);
+            }
+            setTimeout(report, 30);
+            try { scope.$applyAsync(); } catch (e) { }
+        });
+    }
+
+    /* -------------------------------------------------------------- data -- */
+    function pushData() {
+        tick++;
+        var opts = {
+            count: parseInt($('c-count').value, 10) || 8,
+            points: parseInt($('c-points').value, 10) || 140,
+            hours: parseFloat($('c-hours').value) || 8,
+            tick: tick,
+            seed: 7,
+            badIndex: $('c-bad').checked ? 1 : -1
+        };
+        var empty = $('c-empty').checked;
+
+        instances.forEach(function (inst) {
+            var shape = inst.shape;
+            if (!shape || shape === 'None') { return; }
+            var count = inst.def.datasourceBehavior === 1 ? 1 : opts.count;
+            var payload = empty ? null : window.PVMock.generate(shape, {
+                count: count, points: opts.points, hours: opts.hours,
+                tick: opts.tick, seed: opts.seed,
+                digital: inst.mockProfile === 'digital',
+                badIndex: count > 1 ? opts.badIndex : -1
+            });
+            try { inst.vis.onDataUpdate(payload); }
+            catch (e) {
+                console.error('[harness] onDataUpdate threw for ' + inst.typeName, e);
+                inst.frame.insertAdjacentHTML('beforeend',
+                    '<div class="err">onDataUpdate threw\n' + escapeHtml(e.stack || e.message) + '</div>');
+            }
+            try { inst.scope.$applyAsync(); } catch (e) { }
+        });
+    }
+
+    var timer = null;
+    function scheduleTimer() {
+        if (timer) { clearInterval(timer); timer = null; }
+        if (!$('c-live').checked) { return; }
+        var s = Math.max(1, parseInt($('c-rate').value, 10) || 3);
+        timer = setInterval(pushData, s * 1000);
+    }
+
+    /* ---------------------------------------------------------- controls -- */
+    function wireControls() {
+        $('c-dark').addEventListener('change', function () {
+            document.body.classList.toggle('dark', this.checked);
+            // Give the browser a frame to repaint before symbols re-sample the
+            // background colour for their light/dark decision.
+            setTimeout(function () {
+                instances.forEach(function (i) {
+                    try { i.vis.onResize(i.frame.clientWidth, i.frame.clientHeight); } catch (e) { }
+                });
+            }, 40);
+        });
+        $('c-live').addEventListener('change', scheduleTimer);
+        $('c-rate').addEventListener('change', scheduleTimer);
+        $('b-refresh').addEventListener('click', pushData);
+        ['c-count', 'c-points', 'c-hours', 'c-bad', 'c-empty'].forEach(function (id) {
+            $(id).addEventListener('change', pushData);
+        });
+        $('b-all').addEventListener('click', function () {
+            setAll(true);
+        });
+        $('b-none').addEventListener('click', function () {
+            setAll(false);
+        });
+        $('b-reset').addEventListener('click', function () {
+            var h = ($('c-w').value || 220) + 'px';
+            instances.forEach(function (i) { i.frame.style.height = h; i.frame.style.width = ''; });
+        });
+        $('c-w').addEventListener('change', function () {
+            var h = (this.value || 220) + 'px';
+            instances.forEach(function (i) { i.frame.style.height = h; });
+        });
+    }
+
+    function setAll(on) {
+        Array.prototype.slice.call(document.querySelectorAll('#symlist input'))
+            .forEach(function (i) { i.checked = on; });
+        rebuild();
+    }
+
+    function escapeHtml(s) {
+        return String(s === undefined || s === null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+}());
+</script>
+</body>
+</html>

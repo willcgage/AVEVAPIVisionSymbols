@@ -1,0 +1,235 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Exceptions</div>
+
+        <div class="pvx-cfg-hint">
+            Rows are scored by comparing each attribute's <b>live value</b> against the
+            threshold bands configured below. This is not a PI Notifications or AF Event
+            Frames client &mdash; there is no acknowledgement, no priority and no event
+            history behind it.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-sevfrom">Severity from</label>
+            <select id="pvxab-sevfrom" ng-model="config.SeverityFrom">
+                <option value="thresholds">Threshold bands</option>
+                <option value="quality">Bands + data quality</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            With <em>Bands + data quality</em>, an attribute PI Vision cannot read is
+            listed above every deviation and always shown, whatever the minimum band.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-minband">Minimum band</label>
+            <input id="pvxab-minband" type="number" ng-model="config.MinSeverityBand" min="0" max="9" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Band index into the threshold list, counting from 0 at the lowest limit.
+            <code>0</code> lists everything including Normal; <code>1</code> hides the
+            first band, which is the usual "only show me deviations" setting.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-sort">Sort by</label>
+            <select id="pvxab-sort" ng-model="config.SortBy">
+                <option value="severity">Severity (worst first)</option>
+                <option value="duration">Duration (longest first)</option>
+                <option value="valueDesc">Value (highest first)</option>
+                <option value="name">Name</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-maxrows">Maximum rows</label>
+            <input id="pvxab-maxrows" type="number" ng-model="config.MaxRows" min="1" max="200" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-mode">Mode</label>
+            <select id="pvxab-mode" ng-model="config.Mode">
+                <option value="list">List</option>
+                <option value="ticker">Ticker</option>
+                <option value="summary">Summary counts</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <b>List</b> stacks the active exceptions vertically. <b>Ticker</b> scrolls them
+            through a single line and pauses on hover. <b>Summary</b> shows one pill per
+            band; it counts every attribute, ignoring the minimum band above.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxab-title">Header title</label>
+            <input id="pvxab-title" type="text" ng-model="config.Title" placeholder="Exceptions" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showlabel">Show header title</label>
+            <input id="pvxab-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-counts">Show count pills</label>
+            <input id="pvxab-counts" type="checkbox" ng-model="config.ShowCounts" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-rowh">Row height (px)</label>
+            <input id="pvxab-rowh" type="number" ng-model="config.RowHeight" min="14" max="72" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-dense">Dense mode</label>
+            <input id="pvxab-dense" type="checkbox" ng-model="config.DenseMode" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Row columns</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showval">Show value</label>
+            <input id="pvxab-showval" type="checkbox" ng-model="config.ShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showunits">Show units</label>
+            <input id="pvxab-showunits" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showband">Show band label</label>
+            <input id="pvxab-showband" type="checkbox" ng-model="config.ShowBandLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showdur">Show duration</label>
+            <input id="pvxab-showdur" type="checkbox" ng-model="config.ShowDuration" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Duration counts from the moment <em>this browser</em> first saw the attribute in
+            its current band, and restarts when it moves to another band. It resets when the
+            display is reopened, because PI Vision supplies current values only.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showtime">Show timestamp</label>
+            <input id="pvxab-showtime" type="checkbox" ng-model="config.ShowTime" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-decimals">Decimals</label>
+            <select id="pvxab-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-compact">Compact numbers (1.2k)</label>
+            <input id="pvxab-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Columns drop themselves as the symbol narrows: duration first, then the band
+            label, then units.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Motion</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-blink">Pulse new rows</label>
+            <input id="pvxab-blink" type="checkbox" ng-model="config.BlinkNew" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-blinksec">Pulse for (seconds)</label>
+            <input id="pvxab-blinksec" type="number" ng-model="config.BlinkSeconds" min="0" max="120" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-tickerspeed">Ticker speed (px/sec)</label>
+            <input id="pvxab-tickerspeed" type="number" ng-model="config.TickerSpeed" min="5" max="400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Rows already on screen when the display opens never pulse. If the operator's
+            system asks for reduced motion, the ticker steps between items instead of
+            scrolling and pulses are suppressed.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Nothing to show</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showempty">Show empty state</label>
+            <input id="pvxab-showempty" type="checkbox" ng-model="config.ShowEmptyState" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxab-emptytext">Message</label>
+            <input id="pvxab-emptytext" type="text" ng-model="config.EmptyText" placeholder="All values within limits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-emptycolor">Message colour</label>
+            <input id="pvxab-emptycolor" type="color" ng-model="config.EmptyColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click behaviour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-click">On row click</label>
+            <select id="pvxab-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxab-navtarget">Target display</label>
+            <input id="pvxab-navtarget" type="text" ng-model="config.NavigateTarget" placeholder="e.g. 42/Pump-Detail" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Display id, <code>id/name</code>, or a full URL. The clicked row's asset path is
+            passed through as <code>?asset=</code>, so an element-relative display opens on
+            the right equipment.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-theme">Theme</label>
+            <select id="pvxab-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-accent">Accent colour</label>
+            <input id="pvxab-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-transparent">Transparent background</label>
+            <input id="pvxab-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-radius">Corner radius</label>
+            <input id="pvxab-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-usethresh">Enable thresholds</label>
+            <input id="pvxab-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxab-thresh">Threshold bands</label>
+            <textarea id="pvxab-thresh" ng-model="config.Thresholds" rows="3"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>lowerLimit:colour:label</code>, comma separated, lowest first. Position in
+            this list <em>is</em> the severity &mdash; the last band is the worst.
+        </div>
+    </div>
+
+</div>

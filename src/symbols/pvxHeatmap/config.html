@@ -1,0 +1,202 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Grid</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-mode">Mode</label>
+            <select id="pvxheat-mode" ng-model="config.Mode">
+                <option value="calendar">Calendar (hour × day)</option>
+                <option value="matrix">Matrix (tag × time)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <b>Calendar</b> uses the first data source only: rows are the hour of day, columns are
+            calendar days. <b>Matrix</b> gives every data source a row and splits the display's time
+            range into equal columns.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-agg">Cell value</label>
+            <select id="pvxheat-agg" ng-model="config.Aggregate">
+                <option value="avg">Average</option>
+                <option value="max">Maximum</option>
+                <option value="min">Minimum</option>
+                <option value="last">Last value</option>
+                <option value="range">Range (max − min)</option>
+                <option value="count">Sample count</option>
+            </select>
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-buckets">Time buckets</label>
+            <input id="pvxheat-buckets" type="number" ng-model="config.BucketCount" min="2" max="500" />
+        </div>
+        <div class="pvx-cfg-hint">Matrix mode only. Reduced automatically if rows × buckets would exceed 2000 cells.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-points">Resolution (points)</label>
+            <input id="pvxheat-points" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-hint">Values requested per data source. Buckets are built from these, so raise it if buckets look under-sampled.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxheat-title">Title override</label>
+            <input id="pvxheat-title" type="text" ng-model="config.Title" placeholder="Leave blank to use the attribute name" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour scale</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-scale">Scale</label>
+            <select id="pvxheat-scale" ng-model="config.ColorScale">
+                <option value="sequential">Sequential</option>
+                <option value="diverging">Diverging</option>
+                <option value="thresholds">Threshold bands</option>
+                <option value="custom">Custom two-colour</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Sequential for magnitudes, diverging for deviation from a target, threshold bands for
+            discrete states (no blending between colours).
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-low">Custom low colour</label>
+            <input id="pvxheat-low" type="color" ng-model="config.CustomLowColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-high">Custom high colour</label>
+            <input id="pvxheat-high" type="color" ng-model="config.CustomHighColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-centre">Diverging centre</label>
+            <input id="pvxheat-centre" type="number" ng-model="config.DivergingCenter" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-reverse">Reverse scale</label>
+            <input id="pvxheat-reverse" type="checkbox" ng-model="config.ReverseScale" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-min">Scale minimum</label>
+            <input id="pvxheat-min" type="text" ng-model="config.ScaleMin" placeholder="Auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-max">Scale maximum</label>
+            <input id="pvxheat-max" type="text" ng-model="config.ScaleMax" placeholder="Auto" />
+        </div>
+        <div class="pvx-cfg-hint">Leave blank to fit the scale to the data. Fix both to compare two heatmaps side by side.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-empty">Empty cell colour</label>
+            <input id="pvxheat-empty" type="text" ng-model="config.EmptyCellColor" placeholder="Auto (theme)" />
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxheat-thresh">Threshold bands</label>
+            <textarea id="pvxheat-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used when the scale is set to threshold bands.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Legend</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-showlegend">Show legend</label>
+            <input id="pvxheat-showlegend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-legendpos">Position</label>
+            <select id="pvxheat-legendpos" ng-model="config.LegendPosition">
+                <option value="bottom">Below the grid</option>
+                <option value="right">Right of the grid</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">The legend is dropped automatically when the symbol is too small to keep a readable grid.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Cells</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-showvalues">Show values in cells</label>
+            <input id="pvxheat-showvalues" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-hint">Only drawn where a cell is at least 28 × 16 px; text colour is contrast-matched to each cell.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-gap">Cell gap (px)</label>
+            <input id="pvxheat-gap" type="number" ng-model="config.CellGap" min="0" max="8" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-cellradius">Cell corner radius</label>
+            <input id="pvxheat-cellradius" type="number" ng-model="config.CellRadius" min="0" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-decimals">Decimals</label>
+            <select id="pvxheat-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-compact">Compact numbers (1.2k)</label>
+            <input id="pvxheat-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-showtitle">Show title</label>
+            <input id="pvxheat-showtitle" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-rowlabels">Show row labels</label>
+            <input id="pvxheat-rowlabels" type="checkbox" ng-model="config.ShowRowLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-collabels">Show column labels</label>
+            <input id="pvxheat-collabels" type="checkbox" ng-model="config.ShowColumnLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-rowwidth">Row label width (%)</label>
+            <input id="pvxheat-rowwidth" type="number" ng-model="config.RowLabelWidthPct" min="4" max="50" />
+        </div>
+        <div class="pvx-cfg-hint">Labels thin out automatically as the grid shrinks, so they never overlap. Hover any cell for the full row, column and value.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-theme">Theme</label>
+            <select id="pvxheat-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-accent">Accent colour</label>
+            <input id="pvxheat-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Used for the hover outline on a cell.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-transparent">Transparent background</label>
+            <input id="pvxheat-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-radius">Corner radius</label>
+            <input id="pvxheat-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

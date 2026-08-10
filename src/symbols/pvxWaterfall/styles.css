@@ -1,0 +1,95 @@
+/* pvxWaterfall — floating-bar waterfall / bridge
+ * Only the chrome (header, footer, SVG host) is styled here. Bar, connector and
+ * axis colours all come from the runtime theme tokens and the symbol config,
+ * never from CSS, so the same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-wf {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-wf .pvx-wf-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-wf .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-wf .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-wf .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the chart never
+   resizes downwards. */
+.pvx-wf .pvx-wf-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-wf .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-wf .pvx-wf-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-wf .pvx-wf-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+/* Bars are axis-aligned rectangles; crisp edges keep a 1px zero-step bar from
+   being antialiased into invisibility. */
+.pvx-wf .pvx-wf-bar rect {
+    shape-rendering: crispEdges;
+}
+
+/* Hover outlines rather than changing the fill, so neither the encoded value
+   (bar extent) nor the quality hatching is altered by the interaction. */
+.pvx-wf .pvx-wf-bar:hover rect {
+    stroke: var(--pvx-accent);
+    stroke-width: 1.5;
+    paint-order: stroke;
+}
+
+/* Connectors sit behind the bars and must never intercept a hover meant for a
+   bar underneath the pointer. */
+.pvx-wf .pvx-wf-connectors {
+    pointer-events: none;
+    shape-rendering: crispEdges;
+    opacity: 0.85;
+}
+
+.pvx-wf .pvx-wf-name,
+.pvx-wf .pvx-wf-value {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+.pvx-wf .pvx-wf-emptymsg {
+    opacity: 0.75;
+}

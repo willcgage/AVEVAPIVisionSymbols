@@ -1,0 +1,19 @@
+<div class="pvx pvx-slideshow"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-ss-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-ss-header" ng-if="pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <!-- Everything below is built imperatively by symbol.js: the controls
+             must be real focusable <button> elements whose state changes four
+             times a second, and Angular owns nothing inside .pvx-ss-body so the
+             two never fight over the same nodes. -->
+        <div class="pvx-body pvx-ss-bodywrap">
+            <div class="pvx-ss-body"></div>
+        </div>
+
+    </div>
+</div>

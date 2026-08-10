@@ -1,0 +1,31 @@
+<div class="pvx pvx-alarm"
+     ng-class="{'pvx-alarm-dense': config.DenseMode, 'pvx-alarm-mode-ticker': config.Mode === 'ticker', 'pvx-alarm-mode-summary': config.Mode === 'summary'}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+    <div class="pvx-surface pvx-alarm-surface"
+         ng-style="{'background': config.Transparent ? 'transparent' : pvx.surface,
+                    'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+        <div class="pvx-header pvx-alarm-header" ng-if="pvx.showHeader">
+            <div class="pvx-title pvx-truncate"
+                 ng-if="config.ShowLabel && pvx.title"
+                 title="{{pvx.title}}">{{pvx.title}}</div>
+
+            <div class="pvx-alarm-pills" ng-if="pvx.counts.length">
+                <span class="pvx-alarm-pill"
+                      ng-repeat="p in pvx.counts track by p.key"
+                      ng-style="{'color': p.color, 'background': p.bg}">
+                    <b class="pvx-num">{{p.count}}</b><span>{{p.label}}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Rows are built imperatively into this host by symbol.js. Leaving it
+             empty here is deliberate: an ng-repeat over live PI values re-runs a
+             watcher per row on every digest. -->
+        <div class="pvx-body pvx-alarm-bodywrap">
+            <div class="pvx-alarm-body"></div>
+        </div>
+
+    </div>
+</div>

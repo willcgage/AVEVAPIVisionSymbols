@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PVX symbol library — build plan</title>
+<style>
+    :root {
+        --bg: #f5f7f9; --panel: #ffffff; --border: #dde2e8;
+        --text: #1c2126; --muted: #5f6a75; --faint: #8d97a3;
+        --accent: #3b82c4; --built: #2f9e5f;
+        --t1: #3b82c4; --t2: #8267b0; --t3: #7a6355;
+        --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Segoe UI", Roboto, -apple-system, Helvetica, Arial, sans-serif;
+        line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px 24px; }
+
+    header h1 { font-size: 30px; margin: 0 0 6px 0; letter-spacing: -0.02em; font-weight: 650; }
+    header .sub { color: var(--muted); font-size: 15px; margin: 0 0 4px 0; }
+    header .meta { color: var(--faint); font-size: 12.5px; }
+
+    .note {
+        background: var(--panel); border: 1px solid var(--border);
+        border-left: 3px solid var(--accent); border-radius: var(--radius);
+        padding: 16px 20px; margin: 26px 0; font-size: 14px; color: var(--muted);
+    }
+    .note strong { color: var(--text); }
+    .note p { margin: 0 0 10px 0; }
+    .note p:last-child { margin-bottom: 0; }
+
+    .stats { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0 8px 0; }
+    .stat {
+        background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 12px 18px; flex: 1 1 150px; min-width: 0;
+    }
+    .stat .n { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
+    .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 22px 0 18px 0; align-items: center; }
+    .chip {
+        border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+        border-radius: 999px; padding: 5px 13px; font-size: 12.5px; cursor: pointer;
+        font-family: inherit; transition: all 120ms ease;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--text); }
+    .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .filters .spacer { flex: 1 1 auto; }
+    .count { font-size: 12.5px; color: var(--faint); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
+    .card {
+        background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+        padding: 16px 18px 15px 18px; display: flex; flex-direction: column; gap: 8px;
+        border-top: 3px solid var(--t1);
+    }
+    .card.tier-2 { border-top-color: var(--t2); }
+    .card.tier-3 { border-top-color: var(--t3); }
+    .card.built { border-top-color: var(--built); background: #fbfdfc; }
+    .card.closed { border-top-color: var(--faint); opacity: 0.78; }
+    .card.closed .name { text-decoration: line-through; text-decoration-color: var(--faint); }
+
+    .card .top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .card .name {
+        font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+        font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
+    }
+    .card .title { font-size: 13px; color: var(--muted); }
+    .card .desc { font-size: 13.5px; color: var(--text); margin: 0; }
+    .card .why { font-size: 12.5px; color: var(--muted); margin: 0; }
+    .card .caveat {
+        font-size: 12px; color: #8a5a1f; background: #fdf6e8;
+        border-radius: 6px; padding: 7px 10px; margin: 2px 0 0 0;
+    }
+    .card .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 6px; }
+    .tag {
+        font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em;
+        border-radius: 4px; padding: 2px 7px; font-weight: 600;
+        background: #eef1f5; color: var(--muted);
+    }
+    .tag.b { background: #e6f4ec; color: #1f6d42; }
+    .tag.v { background: #e8eefb; color: #33518f; }
+    .tag.e-S { background: #e8f2e9; color: #35703f; }
+    .tag.e-M { background: #fdf3e3; color: #8a6116; }
+    .tag.e-L { background: #fbeceb; color: #8f3226; }
+    .tag.x { background: #f0eeec; color: #6b6560; }
+
+    .rec {
+        background: linear-gradient(180deg, #eef5fb 0%, #ffffff 100%);
+        border: 1px solid #cbdff0; border-radius: var(--radius);
+        padding: 20px 24px; margin: 34px 0 0 0;
+    }
+    .rec h3 { margin: 0 0 4px 0; font-size: 17px; letter-spacing: -0.01em; }
+    .rec p.lead { margin: 0 0 14px 0; color: var(--muted); font-size: 14px; }
+    .rec ol, .rec ul { margin: 0; padding-left: 20px; font-size: 14px; color: var(--muted); }
+    .rec li { margin: 5px 0; }
+    .rec li code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 13px; font-weight: 600; color: var(--text); }
+
+    footer { margin-top: 46px; font-size: 12.5px; color: var(--faint); }
+    .empty { padding: 40px; text-align: center; color: var(--faint); font-size: 14px; }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #15181b; --panel: #1f2429; --border: #333b44;
+            --text: #e7ecf1; --muted: #98a3af; --faint: #7b8592;
+        }
+        .card.built { background: #1c2724; }
+        .rec { background: linear-gradient(180deg, #1d2833 0%, #1f2429 100%); border-color: #2f4356; }
+        .card .caveat { background: #33291a; color: #e0b56a; }
+        .tag { background: #2b323a; }
+        .tag.b { background: #1e3a2a; color: #7ed3a0; }
+        .tag.v { background: #222c3d; color: #8fb2e8; }
+        .tag.e-S { background: #22321f; color: #94c99b; }
+        .tag.e-M { background: #33291a; color: #dcb066; }
+        .tag.e-L { background: #3a2320; color: #e09b8f; }
+        .tag.x { background: #2e2b28; color: #a89f97; }
+    }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+    <h1>PVX symbol library — build plan</h1>
+    <p class="sub">Plan complete — 30 symbols shipped through v1.5. Tier 3 is closed: one built, four declined with reasons.</p>
+    <p class="meta">AVEVA PI Vision 2019&ndash;2025 &middot; library v1.5 &middot; updated 9 August 2026</p>
+</header>
+
+<div class="note">
+    <p><strong>On where these ideas come from.</strong> The candidate list was informed by surveying what the commercial PI&nbsp;Vision symbol market sells, alongside AVEVA's documentation for what PI&nbsp;Vision 2025 ships natively. That survey is a map of what plant staff repeatedly ask for — which is not anyone's property, and neither are the chart types. Box plots, Sankey diagrams, Pareto charts, capability histograms and the Duval triangle are published, decades-old standard techniques.</p>
+    <p>What <em>is</em> proprietary is a vendor's source code, specific visual design, icons and branding. None of that has been read and none of it is obtainable — the commercial libraries ship obfuscated to paying customers. Every symbol here is specified from first principles against AVEVA's public extensibility API.</p>
+    <p>Two practical notes. Where a commercial product already solves a problem well and the licence is affordable, buying it is often the right call. That argument used to point at <code>pvxEventGantt</code> — the hard part being the PI&nbsp;Web&nbsp;API plumbing rather than the chart — which was true right up until the plumbing was built in v1.3. The reasoning stands even though the example no longer does. And do not ship a PVX symbol that is a visual clone of a specific commercial one: solve the problem, don't copy the answer.</p>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters" id="filters" role="group" aria-label="Filter symbols"></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" hidden>Nothing matches those filters.</div>
+
+<div class="rec">
+    <h3>The plan is complete</h3>
+    <p class="lead">Thirty symbols. Tiers&nbsp;1 and&nbsp;2 were built out through v1.4; tier&nbsp;3 is now closed &mdash; <code>pvxSlideshow</code> shipped in v1.5 and the other four were declined rather than left open, each with the reason on its card. An item on a plan that nobody intends to build is a promise, and it is better to say so.</p>
+    <p class="lead">The one tier-3 symbol worth having turned out to be the one with an interesting problem in it. Navigating away destroys the symbol, so a slideshow cannot be a loop that runs: the same configuration is placed on every display in the rotation, and each copy reads the URL to work out which step it is on. Pause therefore has to outlive the navigation it exists to interrupt, which is why it lives in <code>sessionStorage</code> rather than in the symbol.</p>
+    <p class="lead">Three correctness decisions from v1.4 still worth knowing, because they are the difference between a chart and an instrument:</p>
+    <ul>
+        <li><strong>Event durations are clipped to the window and overlaps merged</strong> before summing, with the footer disclosing when merging changed the total. An unclipped, double-counted downtime figure ends up in a report.</li>
+        <li><strong>Writes are treated as irreversible</strong> &mdash; validated before sending, confirmed with a human, never cached or retried, and reported per row so a partial success reads as one.</li>
+        <li><strong>Shared acknowledgement verifies after writing.</strong> Read-merge-write alone lost an acknowledgement every time two operators acted at once; PI&nbsp;Web&nbsp;API has no compare-and-swap, so the write checks that it survived and retries if it did not.</li>
+    </ul>
+
+    <h3 style="margin-top:22px">What next</h3>
+    <p class="lead"><strong>Nothing on this plan is outstanding. The next step is deployment, not development.</strong> None of the PI&nbsp;Web&nbsp;API symbols has run against a real PI&nbsp;Web&nbsp;API yet; they are verified against mocks that were deliberately misconfigured six ways, which is a good proxy and is not the same thing. Run <code>ext/piwebapi-check.html</code> on a PI&nbsp;Vision server, put the result into <code>libraries/pvx-config.js</code> on <em>every</em> server, deploy the read-only <code>pvxEventGantt</code> to one display, and let it run before anything writes.</p>
+    <p class="lead" style="margin-bottom:0">And a broader one: 30 symbols is a large palette to introduce at once. There is a good argument for putting what exists in front of operators, finding out which symbols people actually place on displays, and letting that decide what gets built next &mdash; rather than this page deciding it. A symbol nobody places is worse than one that was never written, because it still has to be maintained.</p>
+</div>
+
+<footer>
+    Full write-up: <code>docs/ROADMAP.md</code>. Per-option reference: <code>docs/SYMBOL-REFERENCE.md</code>. PI&nbsp;Web&nbsp;API setup: <code>docs/PI-WEB-API.md</code>.
+</footer>
+
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var SYMBOLS = [
+        /* ---- shipped v1.0 ---- */
+        { n: 'pvxRadialGauge', t: 'Radial Gauge', tier: 0, ver: '1.0', cat: 'Charts', shape: 'Gauge',
+          d: 'Threshold-banded dial with configurable sweep, needle or arc, target marker.' },
+        { n: 'pvxBarIndicator', t: 'Bar Indicator', tier: 0, ver: '1.0', cat: 'Charts', shape: 'Gauge',
+          d: 'Horizontal or vertical level bar; solid, gradient or segmented.' },
+        { n: 'pvxSparkline', t: 'Multi Sparkline', tier: 0, ver: '1.0', cat: 'Charts', shape: 'TimeSeries',
+          d: 'One dense row per tag — name, micro-trend, current value.' },
+        { n: 'pvxXYScatter', t: 'XY Scatter', tier: 0, ver: '1.0', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Correlation with least-squares regression, R², operating envelope.' },
+        { n: 'pvxHeatmap', t: 'Heatmap', tier: 0, ver: '1.0', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Hour-of-day calendar or tag × time-bucket matrix.' },
+        { n: 'pvxPareto', t: 'Ranked Bar', tier: 0, ver: '1.0', cat: 'Charts', shape: 'Table',
+          d: 'Sorted bars with an optional cumulative Pareto line.' },
+        { n: 'pvxKpiCard', t: 'KPI Card', tier: 0, ver: '1.0', cat: 'Status', shape: 'TimeSeries',
+          d: 'Headline number, period delta, inline sparkline, footer statistics.' },
+        { n: 'pvxStatusGrid', t: 'Status Grid', tier: 0, ver: '1.0', cat: 'Status', shape: 'Table',
+          d: 'Responsive tile grid coloured by thresholds or digital state map.' },
+        { n: 'pvxAlarmBanner', t: 'Exception Banner', tier: 0, ver: '1.0', cat: 'Status', shape: 'Table',
+          d: 'Only the tags outside limits, worst first, with dwell time.' },
+        { n: 'pvxNavPanel', t: 'Navigation Panel', tier: 0, ver: '1.0', cat: 'Navigation', shape: '—',
+          d: 'Buttons for display jumps, asset swaps and time-range presets.' },
+
+        /* ---- shipped v1.1 ---- */
+        { n: 'pvxComboChart', t: 'Combo Chart', tier: 0, ver: '1.1', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands.',
+          w: 'Per-trace types come from an index-based spec — 1:bar, 2:line:right — in the same spirit as the threshold grammar. Bar slots solve for a minimum readable bar width rather than the plot width.' },
+        { n: 'pvxStateDuration', t: 'Time in State', tier: 0, ver: '1.1', cat: 'Status', shape: 'TimeSeries',
+          d: 'Timeline or stacked bar per digital tag, with uptime percentage and transition count.',
+          w: 'Uses ModeEvents so the durations come from real transitions, not an interpolated grid. Downtime accounting with no Event Frames, no AF templates and no PI Web API.' },
+        { n: 'pvxHistogram', t: 'Distribution', tier: 0, ver: '1.1', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Frequency histogram with a fitted normal curve, spec limits and Cp / Cpk / expected ppm.',
+          w: 'The capability panel is the point of the symbol, not an add-on. Freedman-Diaconis auto-binning; the fitted curve is scaled into the histogram’s own units.' },
+        { n: 'pvxBoxPlot', t: 'Variability', tier: 0, ver: '1.1', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Quartiles, whiskers and outliers, one box per tag, with optional cross-unit normalisation.',
+          w: 'Tukey, percentile or min/max whiskers. Normalising to 0–100% lets tags with different units be compared by shape.' },
+        { n: 'pvxProfile', t: 'Spatial Profile', tier: 0, ver: '1.1', cat: 'Charts', shape: 'Table',
+          d: 'Values along a physical axis, with a limit envelope and a faded shadow profile.',
+          w: 'Positions come from the source order, a number parsed out of the tag name, or an explicit list — so uneven physical spacing renders as uneven spacing.' },
+        { n: 'pvxDeviation', t: 'Deviation from Target', tier: 0, ver: '1.1', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Deviation from setpoint with tolerance band, direction-coloured excursions and time-in-band statistics.',
+          w: 'Above and below tolerance get different colours because running hot and running cold are different problems. Statistics are computed from sample intervals, not sample counts.' },
+
+        /* ---- tier 1 remaining ---- */
+
+        /* ---- tier 2 ---- */
+
+        /* ---- shipped v1.2 ---- */
+        { n: 'pvxAnnunciator', t: 'Latching Alarms', tier: 0, ver: '1.2', cat: 'Status', shape: 'Table',
+          d: 'Latching tiles with the ISA-18.2 ringback state, first-out marking and acknowledge.',
+          w: 'Catches an excursion that starts and clears between two refreshes — the one thing neither the status grid nor the exception banner can do. Acknowledgement is session-scoped until pvxAckStore exists.' },
+        { n: 'pvxWaterfall', t: 'Waterfall', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
+          d: 'Floating bars bridging a start value to an end value through signed steps, with connectors and running subtotals.',
+          w: 'Step bars carry a signed change, total bars carry a position — the labels say which, because conflating them is how a bridge chart misleads.' },
+        { n: 'pvxRadar', t: 'Fingerprint', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
+          d: 'Normalised multi-axis polygon, optionally over a reference profile.',
+          w: 'Three scale modes, because a radar over mixed units is meaningless unless each axis owns its limits. Per-axis fixed limits is the only mode whose shape means the same thing tomorrow.' },
+        { n: 'pvxPeriodOverlay', t: 'Period Comparison', tier: 0, ver: '1.2', cat: 'Charts', shape: 'TimeSeries',
+          d: 'Folds the window into N periods on a common relative-time axis, with a min/max envelope from the older ones.',
+          w: 'Folds one long window rather than fetching several short ones — a symbol only ever receives the display\'s own time range. Clock and window-end alignment answer different questions and are labelled differently.' },
+        { n: 'pvxTreemap', t: 'Treemap', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
+          d: 'Squarified rectangles sized by one statistic and coloured by another, optionally grouped from the AF path.',
+          w: 'Size shows who is big, colour shows who is in trouble; the tile that is both is the one to look at. Slivers merge into an honest Other rather than becoming unreadable.' },
+        { n: 'pvxDonut', t: 'Contribution', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
+          d: 'Share of a total with the total in the hole, small slices rolled into Other.',
+          w: 'The config pane opens by pointing at the ranked bar for magnitude comparison — framed as which question you are asking, not as a scolding.' },
+        { n: 'pvxSitePlan', t: 'Site Plan', tier: 0, ver: '1.2', cat: 'Status', shape: 'Table',
+          d: 'A plant drawing with hotspots in percentage coordinates, coloured by threshold band.',
+          w: 'The offline answer to a map symbol: no tile provider, and for a single site a scaled drawing beats a satellite view. The no-image placeholder grid lets the layout be configured before the drawing exists.' },
+        { n: 'pvxSankey', t: 'Flow', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
+          d: 'Weighted ribbons between nodes, sized by value, with per-node balance checking.',
+          w: 'Topology is authored in config because the PI System has no graph to read. The balance check is what makes it an instrument: where inflow and outflow disagree you have a leak, a bad meter or a missing tag.' },
+
+        /* ---- shipped v1.3 ---- */
+        { n: 'PVX.api', t: 'PI Web API client', tier: 0, ver: '1.3', cat: 'Foundation', shape: 'PI Web API',
+          d: 'Not a symbol: one client with swappable authentication — Kerberos, OIDC bearer, Basic — configured once per site in libraries/pvx-config.js.',
+          w: 'Authentication is a property of the deployment, not of a chart. No symbol knows which strategy is live, so changing it later touches one file. Batched requests, a shared GET cache, and errors that name a cause and a thing to check rather than "failed to fetch".' },
+        { n: 'piwebapi-check', t: 'Connectivity diagnostic', tier: 0, ver: '1.3', cat: 'Foundation', shape: 'PI Web API',
+          d: 'Not a symbol: a page you open on the PI Vision server that reports which PI Web API configuration actually works on your network.',
+          w: 'Ships inside the ext folder because it has to run from the PI Vision origin to reproduce what a symbol faces. It names the partial-pass trap explicitly — anonymous succeeding while credentials fail looks like success and is worse than an outright failure.' },
+        { n: 'pvxEventGantt', t: 'Event Timeline', tier: 0, ver: '1.3', cat: 'Events', shape: 'PI Web API',
+          d: 'Event Frames as swimlanes per asset, stacked where they overlap, coloured by template or attribute.',
+          w: 'The native Events Table is a list; a Gantt shows overlap and clustering. Open events draw to the edge with a chevron rather than a flat cap, because a square end reads as "finished at the window edge", which is a lie.' },
+
+        /* ---- shipped v1.4 ---- */
+        { n: 'pvxEventAnalytics', t: 'Event Analytics', tier: 0, ver: '1.4', cat: 'Events', shape: 'PI Web API',
+          d: 'Pareto and duration statistics over Event Frames, grouped by template, element, attribute or a regex on the name.',
+          w: 'Durations are clipped to the window and overlapping events merged before summing, with the footer disclosing when merging changed the total. A downtime figure that double-counts ends up in a report.' },
+        { n: 'pvxManualEntry', t: 'Manual Data Entry', tier: 0, ver: '1.4', cat: 'Entry', shape: 'PI Web API',
+          d: 'Writes one value to an AF attribute or PI point, with range validation and a confirm step.',
+          w: 'Validates before sending rather than after, disables the control while in flight so a double-click cannot write twice, and never caches or retries. PI and AF security remain the access control.' },
+        { n: 'pvxEntryTable', t: 'Shift Log', tier: 0, ver: '1.4', cat: 'Entry', shape: 'PI Web API',
+          d: 'Multi-row capture for operator rounds: several attributes, one form, one submit.',
+          w: 'Reports each row separately — three saved and one refused reads as exactly that, never as a single failure that hides the three that worked.' },
+        { n: 'pvxAssetTree', t: 'Asset Navigator', tier: 0, ver: '1.4', cat: 'Navigation', shape: 'PI Web API',
+          d: 'Browses the live AF hierarchy and sets the display\'s asset context.',
+          w: 'Lazy-loaded per level, because an AF database can hold tens of thousands of elements. Fully keyboard navigable, and auto-expands to the current asset so reopening a display does not hide where you are.' },
+        { n: 'pvxAckStore', t: 'Shared Acknowledgement', tier: 0, ver: '1.4', cat: 'Foundation', shape: 'PI Web API',
+          d: 'Not a symbol: acknowledgement state in an AF attribute, wired into the annunciator as its SharedAck option.',
+          w: 'Shipped as a capability rather than a palette entry — acknowledgement belongs to the annunciator, and a separate symbol would draw nothing. Writes verify and retry, because read-merge-write alone lost an acknowledgement whenever two operators acted at once.' },
+
+        /* ---- shipped v1.5 ---- */
+        { n: 'pvxSlideshow', t: 'Display Slideshow', tier: 0, ver: '1.5', cat: 'Navigation', shape: '—',
+          d: 'Rotates a control-room screen through a list of displays on a dwell timer, with pause, manual step and a countdown ring.',
+          w: 'Navigating destroys the symbol, so there is no rotating loop to run — the same config goes on every display in the list and each copy reads the URL to work out where it is. Pause is held in sessionStorage so it survives the navigation it has to outlive, and edit mode stops the timer so a display cannot walk away from the person editing it.' },
+
+        /* ---- tier 3: closed ---- */
+        { n: 'pvxTimePicker', t: 'Time Range Picker', tier: 3, closed: 1, cat: 'Navigation', shape: '—', effort: 'M',
+          d: 'Calendar plus a PI-time expression field with live validation.',
+          c: 'Not building. PI Vision\'s own time control already does this, and does it for the whole display rather than for one symbol. The navigation panel covers the preset-button case.' },
+        { n: 'pvxWebView', t: 'Web View', tier: 3, closed: 1, cat: 'Navigation', shape: '—', effort: 'S',
+          d: 'An iframe for a work instruction, camera feed or report.',
+          c: 'Not building. X-Frame-Options and frame-ancestors block the target more often than not, and the failure is a blank rectangle the symbol cannot detect or explain. A symbol that silently shows nothing is worse than no symbol.' },
+        { n: 'pvxAlarmSound', t: 'Audible Alarm', tier: 3, closed: 1, cat: 'Status', shape: 'Table', effort: 'S',
+          d: 'Plays a tone when a data source crosses into a configured band.',
+          c: 'Not building. Browser autoplay policy needs a click on exactly the unattended kiosk nobody is standing at, so it fails precisely where it would be useful. In a staffed control room the DCS annunciator is the right layer.' },
+        { n: 'pvxMap', t: 'Geographic Map', tier: 3, closed: 1, cat: 'Status', shape: 'Table', effort: 'L',
+          d: 'Assets plotted on a map, coloured by status.',
+          c: 'Not building. It needs a tile provider most plant networks cannot reach, and for a single site pvxSitePlan is the better answer with no external service. Worth revisiting only for a genuinely multi-site estate with internet egress.' }
+    ];
+
+    var TIER_LABEL = { 0: 'Shipped', 1: 'Tier 1', 2: 'Tier 2', 3: 'Tier 3' };
+
+    var state = { tier: 'all', cat: 'all' };
+    var grid = document.getElementById('grid');
+    var empty = document.getElementById('empty');
+
+    function renderStats() {
+        var shipped = 0, foundation = 0, outstanding = 0, closed = 0;
+        SYMBOLS.forEach(function (s) {
+            if (s.tier === 0) {
+                shipped++;
+                // Three shipped items are not symbols — the API client, the
+                // diagnostic and the acknowledgement store. Counting them as
+                // symbols would overstate the palette, so the label says what
+                // the number actually contains.
+                if (s.cat === 'Foundation') { foundation++; }
+            } else if (s.closed) { closed++; } else { outstanding++; }
+        });
+        var el = document.getElementById('stats');
+        el.innerHTML = '';
+        [[shipped - foundation, 'symbols on the palette'],
+         [foundation, 'foundation pieces'],
+         [outstanding, 'still outstanding'],
+         [closed, 'declined, with reasons']]
+        .forEach(function (pair) {
+            var d = document.createElement('div');
+            d.className = 'stat';
+            var n = document.createElement('div'); n.className = 'n'; n.textContent = pair[0];
+            var l = document.createElement('div'); l.className = 'l'; l.textContent = pair[1];
+            d.appendChild(n); d.appendChild(l);
+            el.appendChild(d);
+        });
+    }
+
+    function chip(label, key, value) {
+        var b = document.createElement('button');
+        b.className = 'chip';
+        b.type = 'button';
+        b.textContent = label;
+        b.setAttribute('aria-pressed', String(state[key] === value));
+        b.addEventListener('click', function () {
+            state[key] = value;
+            renderFilters();
+            render();
+        });
+        return b;
+    }
+
+    function renderFilters() {
+        var host = document.getElementById('filters');
+        host.innerHTML = '';
+        [['all', 'Everything'], ['0', 'Shipped'], ['3', 'Declined']]
+            .forEach(function (t) { host.appendChild(chip(t[1], 'tier', t[0])); });
+
+        var sep = document.createElement('span');
+        sep.style.cssText = 'width:1px;height:20px;background:var(--border);margin:0 6px';
+        host.appendChild(sep);
+
+        var cats = ['all'];
+        SYMBOLS.forEach(function (s) { if (cats.indexOf(s.cat) === -1) { cats.push(s.cat); } });
+        cats.forEach(function (c) { host.appendChild(chip(c === 'all' ? 'All areas' : c, 'cat', c)); });
+
+        var spacer = document.createElement('span');
+        spacer.className = 'spacer';
+        host.appendChild(spacer);
+
+        var count = document.createElement('span');
+        count.className = 'count';
+        count.id = 'count';
+        host.appendChild(count);
+    }
+
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (text !== undefined && text !== null) { e.textContent = text; }
+        return e;
+    }
+
+    function card(s) {
+        var c = el('div', 'card tier-' + s.tier +
+            (s.tier === 0 ? ' built' : '') + (s.closed ? ' closed' : ''));
+
+        var top = el('div', 'top');
+        top.appendChild(el('span', 'name', s.n));
+        top.appendChild(el('span', 'title', s.t));
+        c.appendChild(top);
+
+        c.appendChild(el('p', 'desc', s.d));
+        if (s.w) { c.appendChild(el('p', 'why', s.w)); }
+        if (s.c) { c.appendChild(el('p', 'caveat', s.c)); }
+
+        var tags = el('div', 'tags');
+        if (s.tier === 0) {
+            tags.appendChild(el('span', 'tag b', 'shipped'));
+            tags.appendChild(el('span', 'tag v', 'v' + s.ver));
+        } else if (s.closed) {
+            tags.appendChild(el('span', 'tag x', 'not building'));
+        } else {
+            tags.appendChild(el('span', 'tag', TIER_LABEL[s.tier]));
+        }
+        tags.appendChild(el('span', 'tag', s.cat));
+        if (s.shape && s.shape !== '—') { tags.appendChild(el('span', 'tag', s.shape)); }
+        if (s.effort) {
+            tags.appendChild(el('span', 'tag e-' + s.effort,
+                s.effort === 'S' ? 'small' : (s.effort === 'M' ? 'medium' : 'large')));
+        }
+        c.appendChild(tags);
+        return c;
+    }
+
+    function render() {
+        var list = SYMBOLS.filter(function (s) {
+            if (state.tier !== 'all' && String(s.tier) !== state.tier) { return false; }
+            if (state.cat !== 'all' && s.cat !== state.cat) { return false; }
+            return true;
+        });
+        grid.innerHTML = '';
+        list.forEach(function (s) { grid.appendChild(card(s)); });
+        empty.hidden = list.length > 0;
+        var c = document.getElementById('count');
+        if (c) { c.textContent = list.length + ' of ' + SYMBOLS.length; }
+    }
+
+    renderStats();
+    renderFilters();
+    render();
+}());
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    pvxPeriodOverlay icon — three runs of the same shape, stacked inside the
+    band they collectively occupied. Flat, transparent, no gradients: PI Vision
+    renders the picker icon at about 40px, where anything beyond the silhouette
+    is lost anyway, so the band is drawn generously wide and the three traces
+    well separated — at thumbnail size that separation is the whole message.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+
+    <!-- The envelope: the range the runs covered, at 15%. -->
+    <path d="M48 131 C112 41 176 41 240 131 C304 221 368 221 432 131 C444 111 452 96 464 86
+             L464 336
+             C452 346 444 361 432 381 C368 471 304 471 240 381 C176 291 112 291 48 381 Z"
+          fill="#3b82c4" fill-opacity="0.15" />
+
+    <!-- Oldest run, palest. -->
+    <path d="M48 311 C118 227 172 215 240 311 C300 397 372 407 432 311 C444 291 452 276 464 266"
+          stroke="#ccd1d8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Previous run. -->
+    <path d="M48 256 C108 160 180 172 240 256 C308 352 362 340 432 256 C444 236 452 221 464 211"
+          stroke="#98a1ac" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- The current run, drawn last and heaviest. -->
+    <path d="M48 201 C112 111 176 111 240 201 C304 291 368 291 432 201 C444 181 452 166 464 156"
+          stroke="#3b82c4" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" />
+
+</svg>

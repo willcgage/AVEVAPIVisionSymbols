@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Asset navigator">
+    <!-- PVX Asset Navigator: a root node with an open branch beneath it.
+         Elbow connectors read as hierarchy at the 24px the PI Vision symbol
+         tray renders this at, where a full tree would turn to mush. -->
+
+    <!-- connectors: one vertical spine, three elbows -->
+    <path d="M120 150 V386 M120 214 H188 M120 300 H188 M120 386 H188"
+          fill="none" stroke="#d6dbe1" stroke-width="16"
+          stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- root node, filled: this is where the tree starts -->
+    <rect x="64" y="96" width="188" height="60" rx="14" fill="#3b82c4"/>
+
+    <!-- child nodes -->
+    <rect x="204" y="184" width="244" height="60" rx="14" fill="#d6dbe1"/>
+    <!-- the selected child, accented: a navigator always shows where you are -->
+    <rect x="204" y="270" width="244" height="60" rx="14" fill="#3b82c4"/>
+    <rect x="204" y="356" width="244" height="60" rx="14" fill="#d6dbe1"/>
+</svg>

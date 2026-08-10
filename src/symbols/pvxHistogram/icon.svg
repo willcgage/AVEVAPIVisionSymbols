@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Distribution">
+    <title>PVX Distribution</title>
+
+    <!-- Seven bins rising to a single central peak: the icon has to read as
+         "distribution", so the silhouette is symmetric and unimodal before any
+         detail is legible. Background is transparent by design. -->
+    <g fill="#3b82c4">
+        <rect x="43"  y="410" width="54" height="42"  rx="6"/>
+        <rect x="105" y="324" width="54" height="128" rx="6"/>
+        <rect x="167" y="197" width="54" height="255" rx="6"/>
+        <rect x="229" y="112" width="54" height="340" rx="6"/>
+        <rect x="291" y="197" width="54" height="255" rx="6"/>
+        <rect x="353" y="324" width="54" height="128" rx="6"/>
+        <rect x="415" y="410" width="54" height="42"  rx="6"/>
+    </g>
+
+    <!-- The fitted normal, in the same attention colour the symbol uses for the
+         curve and the spec limits, drawn above the bars so the two encodings
+         never blur together. -->
+    <path d="M30 442 C36.7 434.7 53 421.7 70 398 C87 374.3 111.3 337 132 300
+             C152.7 263 173.3 210.7 194 176 C214.7 141.3 235.3 92 256 92
+             C276.7 92 297.3 141.3 318 176 C338.7 210.7 359.3 263 380 300
+             C400.7 337 425 374.3 442 398 C459 421.7 475.3 434.7 482 442"
+          fill="none" stroke="#c8452f" stroke-width="16"
+          stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

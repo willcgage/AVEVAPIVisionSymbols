@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Fingerprint">
+    <title>PVX Fingerprint</title>
+
+    <!-- Flat, transparent, no gradients: PI Vision renders these at about 32px
+         in the symbol palette, where anything softer turns to mush. Stroke
+         weights match the rest of the library (see pvxRadialGauge) so the web
+         survives at picker size instead of thinning into nothing.
+         Three rings rather than four — the fourth is invisible when small and
+         only muddies the outline it is supposed to frame. -->
+
+    <g stroke="#d6dbe1" stroke-width="9" stroke-linejoin="round" fill="none">
+        <polygon points="256,56 446.21,194.20 373.56,417.80 138.44,417.80 65.79,194.20"/>
+        <polygon points="256,116 389.15,212.74 338.29,369.26 173.71,369.26 122.85,212.74"/>
+        <polygon points="256,176 332.08,231.28 303.02,320.72 208.98,320.72 179.92,231.28"/>
+
+        <path d="M256 256 L256 56"/>
+        <path d="M256 256 L446.21 194.20"/>
+        <path d="M256 256 L373.56 417.80"/>
+        <path d="M256 256 L138.44 417.80"/>
+        <path d="M256 256 L65.79 194.20"/>
+    </g>
+
+    <!-- The profile: translucent fill under a solid outline, so the icon reads
+         as "a shape" rather than "a reading". -->
+    <polygon points="256,86 341.60,228.19 340.64,372.50 220.73,304.54 141.87,218.92"
+             fill="#3b82c4" fill-opacity="0.25"
+             stroke="#3b82c4" stroke-width="18" stroke-linejoin="round"/>
+
+    <g fill="#3b82c4">
+        <circle cx="256" cy="86" r="19"/>
+        <circle cx="341.60" cy="228.19" r="19"/>
+        <circle cx="340.64" cy="372.50" r="19"/>
+        <circle cx="220.73" cy="304.54" r="19"/>
+        <circle cx="141.87" cy="218.92" r="19"/>
+    </g>
+</svg>

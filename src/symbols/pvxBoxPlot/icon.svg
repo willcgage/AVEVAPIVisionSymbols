@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Variability">
+    <title>PVX Variability</title>
+    <!-- Three box-and-whisker glyphs of different heights: the whole point of the
+         symbol is that the shapes differ, so the icon has to differ too at 16px.
+         Boxes are #3b82c4 at low opacity with solid whiskers and a darker
+         (#0d3b66) median bar; two small dots stand in for outliers.
+         Transparent background by design. -->
+    <g>
+        <!-- box 1 — tight spread -->
+        <rect x="97"  y="120" width="14"  height="284" fill="#3b82c4"/>
+        <rect x="70"  y="120" width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="70"  y="390" width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="52"  y="200" width="104" height="140" rx="10" fill="#3b82c4" fill-opacity="0.5"/>
+        <rect x="52"  y="200" width="104" height="140" rx="10" fill="none" stroke="#3b82c4" stroke-width="10"/>
+        <rect x="52"  y="258" width="104" height="20"  rx="6"  fill="#0d3b66"/>
+
+        <!-- box 2 — wide spread, one high outlier -->
+        <circle cx="256" cy="46" r="13" fill="#3b82c4" fill-opacity="0.75"/>
+        <rect x="249" y="96"  width="14"  height="360" fill="#3b82c4"/>
+        <rect x="222" y="96"  width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="222" y="442" width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="204" y="150" width="104" height="252" rx="10" fill="#3b82c4" fill-opacity="0.5"/>
+        <rect x="204" y="150" width="104" height="252" rx="10" fill="none" stroke="#3b82c4" stroke-width="10"/>
+        <rect x="204" y="290" width="104" height="20"  rx="6"  fill="#0d3b66"/>
+
+        <!-- box 3 — narrow, sitting low, one low outlier -->
+        <rect x="401" y="176" width="14"  height="242" fill="#3b82c4"/>
+        <rect x="374" y="176" width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="374" y="404" width="68"  height="14"  fill="#3b82c4"/>
+        <rect x="356" y="228" width="104" height="120" rx="10" fill="#3b82c4" fill-opacity="0.5"/>
+        <rect x="356" y="228" width="104" height="120" rx="10" fill="none" stroke="#3b82c4" stroke-width="10"/>
+        <rect x="356" y="300" width="104" height="20"  rx="6"  fill="#0d3b66"/>
+        <circle cx="408" cy="466" r="13" fill="#3b82c4" fill-opacity="0.75"/>
+    </g>
+</svg>

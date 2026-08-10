@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxDonut — contribution ring. Four segments, a generous hole, and thin
+         white separators. Flat, no gradients, transparent background. -->
+    <g>
+        <path fill="#3b82c4" d="M256 50 A206 206 0 0 1 256 462 L256 368 A112 112 0 0 0 256 144 Z"/>
+        <path fill="#e2803c" d="M256 462 A206 206 0 0 1 52 284.67 L145.09 271.59 A112 112 0 0 0 256 368 Z"/>
+        <path fill="#3f9e6a" d="M52 284.67 A206 206 0 0 1 123.59 98.19 L184.01 170.2 A112 112 0 0 0 145.09 271.59 Z"/>
+        <path fill="#d6dbe1" d="M123.59 98.19 A206 206 0 0 1 256 50 L256 144 A112 112 0 0 0 184.01 170.2 Z"/>
+    </g>
+    <g stroke="#ffffff" stroke-width="10" stroke-linecap="butt">
+        <line x1="256" y1="146" x2="256" y2="48"/>
+        <line x1="256" y1="366" x2="256" y2="464"/>
+        <line x1="147.07" y1="271.31" x2="50.02" y2="284.95"/>
+        <line x1="185.29" y1="171.74" x2="122.3" y2="96.66"/>
+    </g>
+</svg>

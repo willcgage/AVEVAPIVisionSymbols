@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxProfile — a measurement plotted against physical position.
+         Faint baseline = the position axis, faint rule above = a limit,
+         and the blue line rising then falling across five positions is the
+         profile shape the symbol exists to make readable. -->
+    <line x1="64" y1="424" x2="448" y2="424" stroke="#d6dbe1" stroke-width="10" stroke-linecap="round"/>
+    <line x1="64" y1="118" x2="448" y2="118" stroke="#d6dbe1" stroke-width="10" stroke-linecap="round" stroke-dasharray="26 22"/>
+    <polyline points="80,344 176,238 256,166 336,250 432,308"
+              stroke="#3b82c4" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="80" cy="344" r="26" fill="#3b82c4"/>
+    <circle cx="176" cy="238" r="26" fill="#3b82c4"/>
+    <circle cx="256" cy="166" r="26" fill="#3b82c4"/>
+    <circle cx="336" cy="250" r="26" fill="#3b82c4"/>
+    <circle cx="432" cy="308" r="26" fill="#3b82c4"/>
+</svg>

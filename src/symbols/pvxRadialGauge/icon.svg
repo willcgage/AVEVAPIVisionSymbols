@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Radial gauge">
+  <!-- track -->
+  <path d="M 120 366 A 175 175 0 1 1 392 366"
+        fill="none" stroke="#d6dbe1" stroke-width="46" stroke-linecap="round"/>
+  <!-- threshold band (high) -->
+  <path d="M 340 130 A 175 175 0 0 1 392 366"
+        fill="none" stroke="#c8452f" stroke-width="46" stroke-linecap="butt" opacity="0.30"/>
+  <!-- value arc -->
+  <path d="M 120 366 A 175 175 0 0 1 262 81"
+        fill="none" stroke="#3b82c4" stroke-width="46" stroke-linecap="round"/>
+  <!-- needle -->
+  <path d="M 244 300 L 256 108 L 268 300 Z" fill="#1d2126"/>
+  <circle cx="256" cy="298" r="22" fill="#ffffff" stroke="#1d2126" stroke-width="12"/>
+  <!-- ticks -->
+  <g stroke="#8a8f96" stroke-width="10" stroke-linecap="round">
+    <line x1="150" y1="330" x2="163" y2="317"/>
+    <line x1="362" y1="330" x2="349" y2="317"/>
+    <line x1="256" y1="126" x2="256" y2="144"/>
+  </g>
+</svg>

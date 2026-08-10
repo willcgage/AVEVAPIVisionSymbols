@@ -1,0 +1,108 @@
+/* pvxRadar — "PVX Fingerprint"
+ * Only the chrome (header, footer, SVG host) is styled here. Web, polygon and
+ * marker colours all come from the runtime theme tokens, never from CSS, so the
+ * same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-radar {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-radar .pvx-radar-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-radar .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-radar .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-radar .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the web never
+   resizes downwards. */
+.pvx-radar .pvx-radar-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-radar .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-radar .pvx-radar-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-radar .pvx-radar-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+/* The web is reference furniture, not data: it must never compete with the
+   polygons drawn on top of it. */
+.pvx-radar .pvx-radar-web {
+    pointer-events: none;
+}
+
+/* Only the markers are interactive — they carry the <title> with the numbers
+   the radar deliberately does not print. */
+.pvx-radar .pvx-radar-poly path {
+    pointer-events: none;
+}
+
+.pvx-radar .pvx-radar-point {
+    pointer-events: all;
+}
+
+/* Lift the whole profile on hover rather than recolouring it: the colour may be
+   carrying a threshold band, and changing it would change the meaning. */
+.pvx-radar .pvx-radar-poly:hover path {
+    filter: brightness(1.06);
+}
+
+.pvx-radar .pvx-radar-value,
+.pvx-radar .pvx-radar-scale,
+.pvx-radar .pvx-radar-legend-text {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+/* Axis labels stay hittable: they are truncated to fit, so their <title> is the
+   only place the full attribute name survives. */
+.pvx-radar .pvx-radar-axis-label {
+    pointer-events: all;
+    letter-spacing: 0.01em;
+    cursor: default;
+}
+
+.pvx-radar .pvx-radar-scale {
+    opacity: 0.8;
+}
+
+.pvx-radar .pvx-radar-msg {
+    opacity: 0.75;
+}

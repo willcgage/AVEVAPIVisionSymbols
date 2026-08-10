@@ -1,0 +1,36 @@
+<!--
+    pvxDeviation — deliberately thin.
+
+    Everything inside .pvx-dev-body is drawn imperatively as one SVG by
+    symbol.js. Only the header title, the target caption, the footer note and
+    the bad-quality badge are Angular bindings, because those are the four
+    things a user may want to select, read with a screen reader, or see
+    ellipsised by the browser.
+
+    Theme colours arrive as CSS custom properties written on the root by
+    symbol.js, so the template needs no scope binding for light/dark. The root
+    may safely paint its own surface: PVX.theme.isDark starts probing at the
+    root's parent, so a symbol can never sample its own output.
+-->
+<div class="pvx pvx-dev"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px',
+                'background': config.Transparent ? 'transparent' : 'var(--pvx-surface)'}">
+    <div class="pvx-surface pvx-dev-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-dev-target pvx-num" ng-if="pvx.target">{{pvx.target}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-dev-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.note">
+            <span class="pvx-truncate pvx-dev-note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

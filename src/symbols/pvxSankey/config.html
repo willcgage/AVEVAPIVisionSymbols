@@ -1,0 +1,226 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Flow</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsk-title">Title</label>
+            <input id="pvxsk-title" type="text" ng-model="config.Title" placeholder="Flow" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-stat">Statistic</label>
+            <select id="pvxsk-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Ribbon <em>thickness</em> is proportional to this number. Everything except <em>Current value</em> is calculated by PI Vision over the display's time range. For a balance over a shift or a day, <em>Total</em> is usually the honest choice; <em>Current value</em> shows the flow right now.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Topology</div>
+
+        <div class="pvx-cfg-hint"><strong>Read this first.</strong> The PI System has no graph structure to read. A tag knows its own value; it does not know what it flows into. Nothing on the server records that the boiler feeds the turbine. So the topology has to be written here, by somebody who knows the process. That makes this symbol excellent for a fixed, well-understood plant area — and the wrong tool for an ad-hoc set of tags.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsk-links">Links</label>
+            <textarea id="pvxsk-links" ng-model="config.Links" rows="4"
+                      placeholder="Feed &gt; Reactor : 1 | Reactor &gt; Product : 2 | Reactor &gt; Vent : 3"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One link per entry, entries separated by <code>|</code>:<br />
+            <code>From &gt; To : sourceIndex</code><br />
+            <em>sourceIndex</em> is the 1-based position of the data source in the list above that supplies the magnitude — data source 1 is the first attribute dropped on the symbol. Spaces around every token are ignored.
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Worked example.</strong> A reactor fed by one stream, producing product and venting the rest. Drop three attributes on the symbol: <em>1</em> feed flow, <em>2</em> product flow, <em>3</em> vent flow. Then write:<br />
+            <code>Feed &gt; Reactor : 1 | Reactor &gt; Product : 2 | Reactor &gt; Vent : 3</code><br />
+            <em>Feed</em> appears only as a source, so it is drawn as a source node on the left. <em>Product</em> and <em>Vent</em> appear only as targets, so they are sinks on the right. <em>Reactor</em> is in the middle, and its inflow and outflow are compared — see <em>Balance</em> below. Add <code>Vent</code> to <em>Loss / vent nodes</em> to draw it in the alarm colour.
+        </div>
+        <div class="pvx-cfg-hint">Node names are free text and are matched exactly, so <code>Reactor</code> and <code>reactor </code> are two different nodes. A cycle (a node that ends up feeding itself, directly or through others) has no left-to-right order, so the link that closes it is dropped and named in the footer. Malformed entries, missing data sources and zero or negative flows are all reported there too, never silently discarded.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-auto">Automatic layout when blank</label>
+            <input id="pvxsk-auto" type="checkbox" ng-model="config.AutoTopology" />
+        </div>
+        <div class="pvx-cfg-hint">With <em>Links</em> empty, the first data source is drawn flowing into a hub and every other source branches off it. It is a placeholder so a freshly dropped symbol is not born blank — it is <em>not</em> your process, and the footer says so on every frame until you write real links. Balance is not checked under the automatic layout: "these two numbers should have been equal" is a claim about the plant, and only you can make it. Anything you type in <em>Links</em>, even a typo, switches the automatic layout off so a mistake is never hidden behind a picture that looks fine.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-minlink">Minimum flow drawn</label>
+            <input id="pvxsk-minlink" type="number" ng-model="config.MinLinkValue" min="0" />
+        </div>
+        <div class="pvx-cfg-hint">Links below this are dropped and counted in the footer. Useful for hiding sub-percent streams that would otherwise be a hairline nobody can read.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Balance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-balance">Flag unbalanced nodes</label>
+            <input id="pvxsk-balance" type="checkbox" ng-model="config.ShowBalance" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-tol">Tolerance (%)</label>
+            <input id="pvxsk-tol" type="number" ng-model="config.BalanceTolerance" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-hint">A node whose inflow and outflow differ by more than this is outlined in the alarm colour, flagged with a dot and named in the footer. That difference is real information: a leak, a mis-scaled meter, or a stream nobody has tagged yet. Only nodes with both an inflow and an outflow are checked — a source has nothing coming in and a sink has nothing going out, so neither can be out of balance.</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsk-loss">Loss / vent nodes</label>
+            <input id="pvxsk-loss" type="text" ng-model="config.HighlightLoss" placeholder="Vent, Flare, Reject" />
+        </div>
+        <div class="pvx-cfg-hint">Comma separated node names, drawn in the alarm colour. Use it for the streams that represent throughput you are paying for and not keeping.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-colormode">Colour ribbons by</label>
+            <select id="pvxsk-colormode" ng-model="config.ColorMode">
+                <option value="node">Source node</option>
+                <option value="link">Gradient, source to target</option>
+                <option value="single">One colour</option>
+                <option value="threshold">Threshold band</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint"><em>Source node</em> lets you follow one stream with your eye from where it came from to where it ends up. <em>Gradient</em> shows a stream visibly becoming what it turns into. <em>Threshold band</em> colours each ribbon by its own value, which reads as a rate rather than as a route.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-single">Ribbon colour</label>
+            <input id="pvxsk-single" type="color" ng-model="config.SingleColor" />
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxsk-nodecolors">Fixed node colours</label>
+            <input id="pvxsk-nodecolors" type="text" ng-model="config.NodeColors"
+                   placeholder="Vent:#c8452f, Product:#3f9e6a" />
+        </div>
+        <div class="pvx-cfg-hint"><code>NodeName:#colour</code>, comma separated. For the handful of nodes that need to be a specific colour — a loss stream in red, the saleable product in green. Everything else takes a palette colour.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-opacity">Ribbon opacity</label>
+            <input id="pvxsk-opacity" type="number" ng-model="config.LinkOpacity" min="0.05" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-hint">Ribbons overlap where streams cross. Below about 0.6 the overlaps read as shading rather than as a solid block, which is what makes a busy diagram legible. Flows whose source reports bad quality are always drawn hatched, whatever the colour mode.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Labels</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-shownodelabels">Show node names</label>
+            <input id="pvxsk-shownodelabels" type="checkbox" ng-model="config.ShowNodeLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-shownodevalues">Show node values</label>
+            <input id="pvxsk-shownodevalues" type="checkbox" ng-model="config.ShowNodeValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-showlinkvalues">Show value on each ribbon</label>
+            <input id="pvxsk-showlinkvalues" type="checkbox" ng-model="config.ShowLinkValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-labelpos">Name position</label>
+            <select id="pvxsk-labelpos" ng-model="config.LabelPosition">
+                <option value="outside">Outside the diagram</option>
+                <option value="inside">Against the node</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint"><em>Outside</em> puts the first rank's names before the diagram and the last rank's after it, which reads like the headings of a table but costs margin. <em>Against the node</em> keeps every pixel for the ribbons. Names in the middle of the diagram always sit just above their node — there is no margin there to use.</div>
+        <div class="pvx-cfg-hint">Every name is measured against the room it actually has and truncated with an ellipsis; the full string is always in the tooltip. Below roughly 240&times;160 pixels the names and values are dropped, and below 140&times;100 only the ribbons are drawn.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-units">Show units</label>
+            <input id="pvxsk-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-hint">Units are shown only where every flow touching that node agrees on them — a node fed in kg/h and drained in MW has no single unit to print.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-decimals">Decimals</label>
+            <select id="pvxsk-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-compact">Compact numbers (1.2k)</label>
+            <input id="pvxsk-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-showlabel">Show header</label>
+            <input id="pvxsk-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Geometry</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-orient">Direction of flow</label>
+            <select id="pvxsk-orient" ng-model="config.Orientation">
+                <option value="horizontal">Left to right</option>
+                <option value="vertical">Top to bottom</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-nodewidth">Node bar width</label>
+            <input id="pvxsk-nodewidth" type="number" ng-model="config.NodeWidth" min="1" max="80" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-nodepad">Gap between nodes</label>
+            <input id="pvxsk-nodepad" type="number" ng-model="config.NodePadding" min="0" max="200" />
+        </div>
+        <div class="pvx-cfg-hint">The gap is a nicety and the ribbons are the message, so it is capped automatically when a rank has too many nodes to fit it.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-curve">Ribbon curvature</label>
+            <input id="pvxsk-curve" type="number" ng-model="config.LinkCurvature" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-hint">0 draws straight ribbons, 0.5 is the usual S-curve, 1 leaves each end horizontal for as long as possible.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-theme">Theme</label>
+            <select id="pvxsk-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-transparent">Transparent background</label>
+            <input id="pvxsk-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-radius">Corner radius</label>
+            <input id="pvxsk-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-accent">Accent colour</label>
+            <input id="pvxsk-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsk-enthresh">Enable thresholds</label>
+            <input id="pvxsk-enthresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxsk-thresh">Threshold bands</label>
+            <textarea id="pvxsk-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used when <em>Colour ribbons by</em> is set to <em>Threshold band</em>.</div>
+    </div>
+
+</div>

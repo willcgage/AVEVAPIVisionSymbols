@@ -1,0 +1,244 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Where the tree starts</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-db">AF database path</label>
+            <input id="pvxat-db" type="text" ng-model="config.DatabasePath"
+                   placeholder="\\AFSERVER01\Production" />
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol reads the AF hierarchy from <strong>PI Web API</strong>, not from PI Vision's
+            own data pipeline, so it has no attribute drop target. If it says PI Web API is not
+            configured, set <code>baseUrl</code> in <code>libraries/pvx-config.js</code> on this PI
+            Vision server and confirm it with <code>ext/piwebapi-check.html</code>.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-root">Root element path (optional)</label>
+            <input id="pvxat-root" type="text" ng-model="config.RootElementPath"
+                   placeholder="\\AFSERVER01\Production\Site A\Area 2" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Start below one element instead of at the database root — one navigator per area, without
+            making the operator walk down through everything else first. When this is set the database
+            path is not used.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-depth">Levels open on load</label>
+            <input id="pvxat-depth" type="number" ng-model="config.ExpandDepth" min="0" max="6" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>1</strong> means the root is open and its children are listed. Every extra level is
+            one request per branch at the level above it, so raising this on a wide hierarchy is the one
+            setting here that can make the display slow to open. Deeper levels load when they are opened.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">What the tree shows</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-tpl">Only this element template</label>
+            <input id="pvxat-tpl" type="text" ng-model="config.TemplateFilter"
+                   placeholder="Leave blank for every template" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Applied by PI Web API at <em>every</em> level as it loads, so an intermediate element that
+            does not use the template hides its whole subtree. Use it where the elements you want share
+            a level (all the Units under an Area), not to pick one type out of a mixed hierarchy.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-name">Name filter</label>
+            <input id="pvxat-name" type="text" ng-model="config.NameFilter" placeholder="Mill*" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>*</code> and <code>?</code> wildcards, as in PI Web API. Same caveat as the template
+            filter: it hides non-matching branches along with everything beneath them.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-maxchildren">Max children per level</label>
+            <input id="pvxat-maxchildren" type="number" ng-model="config.MaxChildren" min="1" max="5000" />
+        </div>
+        <div class="pvx-cfg-hint">
+            If a level holds more, the footer says which one was cut and how many are shown. It never
+            silently truncates.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Search</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-search">Show search box</label>
+            <input id="pvxat-search" type="checkbox" ng-model="config.ShowSearch" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-searchmin">Search after</label>
+            <input id="pvxat-searchmin" type="number" ng-model="config.SearchMinChars" min="1" max="10" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Characters. Search runs on the AF server across the whole hierarchy below the root — it does
+            not walk the tree in the browser, so it finds elements in branches that have never been
+            opened. Down and Enter move from the box straight into the results.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Selecting an asset</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-select">Clicking a row</label>
+            <select id="pvxat-select" ng-model="config.SelectAction">
+                <option value="asset">Sets this display's asset</option>
+                <option value="navigate">Opens another display</option>
+                <option value="both">Opens another display, or sets the asset</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Sets this display's asset</strong> rewrites the <code>?asset=</code> parameter, which
+            is the PI Vision contract every other symbol on the display already follows — one click here
+            re-points the whole display. <strong>Both</strong> navigates when a target display is set and
+            falls back to setting the asset when one is not, so a half-configured symbol still does
+            something rather than nothing.
+        </div>
+
+        <div class="pvx-cfg-stack" ng-if="config.SelectAction !== 'asset'">
+            <label for="pvxat-target">Target display</label>
+            <input id="pvxat-target" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or id/slug" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.SelectAction !== 'asset'">
+            The selected element's AF path is passed along as the target display's asset.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Following the display</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-highlight">Highlight the current asset</label>
+            <input id="pvxat-highlight" type="checkbox" ng-model="config.HighlightCurrent" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Marks the row matching the display's <code>?asset=</code>, however it was set — by this
+            symbol, by another symbol, or by the link the operator arrived on.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-autoexpand">Open down to the current asset</label>
+            <input id="pvxat-autoexpand" type="checkbox" ng-model="config.AutoExpandToCurrent" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Without this, reopening a display shows a collapsed tree with the current selection
+            invisible somewhere inside it. If the asset is not under this root the footer says so and
+            nothing is expanded.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-remember">Remember open branches</label>
+            <input id="pvxat-remember" type="checkbox" ng-model="config.RememberExpanded" />
+        </div>
+        <div class="pvx-cfg-hint">
+            For the life of the browser session only — nothing is written to the display or to the
+            server.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-icons">Show icons</label>
+            <input id="pvxat-icons" type="checkbox" ng-model="config.ShowIcons" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-showtpl">Show template name</label>
+            <input id="pvxat-showtpl" type="checkbox" ng-model="config.ShowTemplate" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-showpath">Show full path</label>
+            <input id="pvxat-showpath" type="checkbox" ng-model="config.ShowPath" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Both are dropped automatically once the symbol is too narrow to hold them. The full path is
+            always on the row's tooltip regardless.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-compact">Compact rows</label>
+            <input id="pvxat-compact" type="checkbox" ng-model="config.CompactRows" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-rowh">Row height (px)</label>
+            <input id="pvxat-rowh" type="number" ng-model="config.RowHeight" min="14" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-indent">Indent per level (px)</label>
+            <input id="pvxat-indent" type="number" ng-model="config.IndentPx" min="0" max="48" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chrome</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-showheader">Show header</label>
+            <input id="pvxat-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-title">Title</label>
+            <input id="pvxat-title" type="text" ng-model="config.Title" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-theme">Theme</label>
+            <select id="pvxat-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-accent">Accent colour</label>
+            <input id="pvxat-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-hint">Used for the selection highlight and the keyboard focus ring.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-transparent">Transparent background</label>
+            <input id="pvxat-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-radius">Corner radius</label>
+            <input id="pvxat-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Advanced</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-baseurl">PI Web API base URL override</label>
+            <input id="pvxat-baseurl" type="text" ng-model="config.BaseUrlOverride"
+                   placeholder="Leave blank — use libraries/pvx-config.js" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A testing escape hatch, exactly as in the Event Timeline symbol, and it belongs blank in
+            production. The base URL lives in <code>libraries/pvx-config.js</code>, where one site
+            setting serves every symbol and survives an upgrade. Use this only to point at a
+            <em>second</em> PI Web API — a test instance, or another plant's server.
+            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
+            <code>PVX.api</code> is deliberately one shared client so that authentication is configured
+            once per site. Two symbols with two different overrides on one display will fight.
+        </div>
+    </div>
+
+</div>

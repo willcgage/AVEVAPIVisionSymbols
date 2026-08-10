@@ -1,0 +1,71 @@
+/* pvxComboChart */
+
+.pvx-combo {
+    /* Fallbacks only; symbol.js overwrites these from the resolved theme, so
+       every colour decision lives in one place and the template never needs a
+       scope binding to know whether the display is light or dark. */
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    color: var(--pvx-text);
+}
+
+.pvx-combo .pvx-combo-surface {
+    background: transparent;          /* the root paints the surface */
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+/* The single SVG host. It must be able to shrink inside the flex body,
+   otherwise clientHeight reports the content height and the plot never fits. */
+.pvx-combo .pvx-combo-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Bars are axis-aligned rectangles, so let the renderer snap them to the pixel
+   grid — anti-aliased bar edges read as gaps between adjacent bars. */
+.pvx-combo .pvx-combo-bar {
+    shape-rendering: crispEdges;
+    stroke: none;
+}
+
+/* Everything curved or diagonal wants the opposite treatment. */
+.pvx-combo .pvx-combo-line,
+.pvx-combo .pvx-combo-area,
+.pvx-combo .pvx-combo-dot,
+.pvx-combo .pvx-combo-key {
+    shape-rendering: geometricPrecision;
+}
+
+/* Decoration must never steal the hover from the trace underneath it. */
+.pvx-combo .pvx-combo-area,
+.pvx-combo .pvx-combo-band,
+.pvx-combo .pvx-combo-limit,
+.pvx-combo .pvx-combo-band-label,
+.pvx-combo .pvx-combo-legend-text,
+.pvx-combo .pvx-combo-key {
+    pointer-events: none;
+}
+
+.pvx-combo .pvx-combo-axis-title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* The footer carries only the decimation / slot note, which is advisory: it
+   should never compete with the plot for attention. */
+.pvx-combo .pvx-footer {
+    color: var(--pvx-muted);
+    padding-top: 0;
+}
+
+.pvx-combo .pvx-combo-note {
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.85;
+}
