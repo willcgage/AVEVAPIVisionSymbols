@@ -21,7 +21,7 @@
     "node": ">=14"
   },
   "devDependencies": {
-    "playwright": "^1.49.1"
+    "playwright": "^1.55.1"
   },
   "repository": {
     "type": "git",
