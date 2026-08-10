@@ -112,27 +112,43 @@ jobs:
       # Reads the shipping MSI's tables and fails the release if the site
       # settings component has lost its protection. Without these bits an
       # upgrade silently overwrites a site's PI Web API configuration.
+      #
+      # The component is found by GUID, not by file name. Windows Installer
+      # SQL has no LIKE operator — OpenView rejects the whole statement with
+      # "OpenView,Sql" rather than returning nothing, so a name pattern cannot
+      # be used. Nor would an equality test on the name work: the File table
+      # stores "SHORTNAME|Long Name", not the plain name. components.json is
+      # written by the same tools/wix.js run that emitted the .wxs, so its
+      # GUID is exactly the component whose attributes are meant to be checked.
       - name: Assert site settings are protected
         shell: pwsh
         run: |
+          $manifest = Get-Content dist/installer/components.json | ConvertFrom-Json
+          $entry = $manifest.components | Where-Object { $_.path -eq $manifest.siteConfig }
+          if (-not $entry) {
+            throw "$($manifest.siteConfig) is missing from components.json. Check SITE_CONFIG in tools/wix.js"
+          }
+          if (-not $entry.permanent) {
+            throw "$($manifest.siteConfig) is not marked permanent in components.json. tools/wix.js never applied the protection"
+          }
+
           $msi = (Get-ChildItem dist/installer/*.msi | Select-Object -First 1).FullName
           $installer = New-Object -ComObject WindowsInstaller.Installer
           $db = $installer.GetType().InvokeMember('OpenDatabase','InvokeMethod',$null,
                   $installer,@($msi,0))
-          $manifest = Get-Content dist/installer/components.json | ConvertFrom-Json
-          $site = $manifest.siteConfig.Replace('\','/')
-          $q = "SELECT ``Component``.``Attributes`` FROM ``Component``,``File`` " +
-               "WHERE ``File``.``Component_`` = ``Component``.``Component`` " +
-               "AND ``File``.``FileName`` LIKE '%pvx-config.js'"
+          $q = 'SELECT `Attributes` FROM `Component` WHERE `ComponentId` = ''{0}''' -f
+               "{$($entry.guid.ToUpper())}"
           $view = $db.GetType().InvokeMember('OpenView','InvokeMethod',$null,$db,@($q))
           $view.GetType().InvokeMember('Execute','InvokeMethod',$null,$view,$null)
           $rec = $view.GetType().InvokeMember('Fetch','InvokeMethod',$null,$view,$null)
-          if ($null -eq $rec) { throw "pvx-config.js not found in the MSI ($site)" }
+          if ($null -eq $rec) {
+            throw "Component $($entry.guid) ($($manifest.siteConfig)) is not in the MSI"
+          }
           $attrs = $rec.GetType().InvokeMember('IntegerData','GetProperty',$null,$rec,@(1))
           $PERMANENT = 16; $NEVER_OVERWRITE = 128
-          Write-Host "Component attributes = $attrs"
-          if (-not ($attrs -band $PERMANENT))       { throw "pvx-config.js is not Permanent" }
-          if (-not ($attrs -band $NEVER_OVERWRITE)) { throw "pvx-config.js is not NeverOverwrite" }
+          Write-Host "$($manifest.siteConfig) component attributes = $attrs"
+          if (-not ($attrs -band $PERMANENT))       { throw "$($manifest.siteConfig) is not Permanent" }
+          if (-not ($attrs -band $NEVER_OVERWRITE)) { throw "$($manifest.siteConfig) is not NeverOverwrite" }
           Write-Host "Site settings are Permanent + NeverOverwrite."
 
       # --- Optional code signing -------------------------------------------
