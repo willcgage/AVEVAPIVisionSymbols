@@ -98,8 +98,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install msitools
-        run: sudo apt-get update && sudo apt-get install -y msitools
+      # Two packages, not one. Ubuntu 24.04 ships the wixl compiler separately
+      # from msitools, which now provides only msiinfo/msibuild — the tools
+      # verify-msi.js reads the built MSI's tables with. Installing msitools
+      # alone leaves wixl missing, and the compile step then fails with
+      # "wixl: command not found", which reads like a typo in the workflow
+      # rather than a package that has to be asked for by name.
+      - name: Install msitools and wixl
+        run: sudo apt-get update && sudo apt-get install -y msitools wixl
 
       # No `npm ci` on purpose: this proves the build tooling stays
       # zero-dependency, which is what makes an air-gapped build machine viable.
