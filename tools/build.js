@@ -373,18 +373,63 @@ function countFiles(dir) {
 
 /* --------------------------------------------------------------- packaging */
 
+const ZIP_ENTRIES = ['ext', 'manifest.json', 'Deploy-PvxSymbols.ps1'];
+
+/* `zip` is not on Windows and `Compress-Archive` is not on Linux, so try both
+   and start with the one native to the platform. The release job builds the
+   MSI on a Windows runner, which is exactly where the old `zip`-only version
+   found nothing. */
+function zipViaZipCommand(zipPath) {
+    execFileSync('zip', ['-r', '-q', zipPath].concat(ZIP_ENTRIES),
+                 { cwd: DIST, stdio: 'pipe' });
+}
+
+function zipViaPowerShell(zipPath) {
+    execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+        'Compress-Archive -Path ' + ZIP_ENTRIES.join(',') +
+        ' -DestinationPath "' + zipPath + '" -Force'],
+        { cwd: DIST, stdio: 'pipe' });
+}
+
+/**
+ * Produce dist/pvx-symbols-<version>.zip.
+ *
+ * Failing to build it is an error, not a warning. This used to warn and return
+ * false, which left the build green: `--package` succeeded while producing no
+ * package. The release workflow then copied the zip with a wildcard, and a
+ * wildcard matching nothing is silent in PowerShell even under
+ * ErrorActionPreference = Stop, so v1.5.0 published without the zip while
+ * RELEASING.md and the release notes both told sites to use it. Those are the
+ * sites that cannot run an MSI yet, so the missing file was the one thing they
+ * needed.
+ */
 function packageZip() {
     const zipName = 'pvx-symbols-' + VERSION + '.zip';
     const zipPath = path.join(DIST, zipName);
     rmrf(zipPath);
-    try {
-        execFileSync('zip', ['-r', '-q', zipPath, 'ext', 'manifest.json', 'Deploy-PvxSymbols.ps1'], { cwd: DIST });
-        ok('packaged ' + zipName + ' ' + kb(fs.readFileSync(zipPath)));
-        return true;
-    } catch (e) {
-        warn('zip not available — copy the dist/ext folder manually');
-        return false;
+
+    const attempts = process.platform === 'win32'
+        ? [zipViaPowerShell, zipViaZipCommand]
+        : [zipViaZipCommand, zipViaPowerShell];
+    const tried = [];
+
+    for (let i = 0; i < attempts.length; i++) {
+        try {
+            attempts[i](zipPath);
+            if (fs.existsSync(zipPath)) {
+                ok('packaged ' + zipName + ' ' + kb(fs.readFileSync(zipPath)));
+                return true;
+            }
+            tried.push(attempts[i].name + ' wrote no file');
+        } catch (e) {
+            tried.push(attempts[i].name + ': ' +
+                       String(e.message).split('\n')[0].trim());
+        }
     }
+
+    fail('could not create ' + zipName + ' (' + tried.join('; ') + '). ' +
+         'Install `zip`, or build where PowerShell Compress-Archive exists.');
+    return false;
 }
 
 /* ------------------------------------------------------------------ deploy */
@@ -503,7 +548,10 @@ Write-Host ''
 
 function main() {
     const clean = build();
-    if (clean && FLAG('--package')) { packageZip(); }
+    /* A failed --package fails the build. It is an explicit request for an
+       artifact, and a green build that quietly produced nothing is how the
+       zip went missing from the v1.5.0 release. */
+    const packaged = clean && FLAG('--package') ? packageZip() : true;
 
     if (FLAG('--watch')) {
         say(C.dim + '\nwatching src/ — Ctrl+C to stop' + C.reset);
@@ -514,7 +562,7 @@ function main() {
         });
         return;
     }
-    process.exit(clean ? 0 : 1);
+    process.exit(clean && packaged ? 0 : 1);
 }
 
 main();

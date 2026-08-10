@@ -170,14 +170,27 @@ jobs:
               (Get-ChildItem dist/installer/*.msi).FullName dist/Deploy-PvxSymbols.ps1
           Remove-Item $pfx -Force
 
+      # Every artifact is resolved before it is copied, and a pattern that
+      # matches nothing fails the release. Copy-Item with a wildcard is silent
+      # when nothing matches -- not an error even under ErrorActionPreference
+      # Stop -- which is how v1.5.0 published without its zip: the file was
+      # never built, the copy said nothing, and SHA256SUMS.txt listed the three
+      # files that did arrive and looked entirely consistent.
       - name: Package artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          Copy-Item dist/installer/*.msi                artifacts/
-          Copy-Item dist/pvx-symbols-*.zip              artifacts/
-          Copy-Item dist/installer/PvxSymbols.wxs       artifacts/
-          Copy-Item dist/installer/components.json      artifacts/
+          $wanted = @(
+            @{ Pattern = 'dist/installer/*.msi';           What = 'the installer' },
+            @{ Pattern = 'dist/pvx-symbols-*.zip';         What = 'the manual-copy package (build.js --package)' },
+            @{ Pattern = 'dist/installer/PvxSymbols.wxs';  What = 'the installer source' },
+            @{ Pattern = 'dist/installer/components.json'; What = 'the component GUID map' }
+          )
+          foreach ($w in $wanted) {
+            $hit = Get-ChildItem $w.Pattern -ErrorAction SilentlyContinue
+            if (-not $hit) { throw "$($w.Pattern) matched nothing - $($w.What) is missing from dist/" }
+            $hit | ForEach-Object { Copy-Item $_.FullName artifacts/ }
+          }
           Get-FileHash artifacts/* -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
             Set-Content artifacts/SHA256SUMS.txt -Encoding ascii
