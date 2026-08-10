@@ -1,9 +1,11 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 30 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. Currently **v1.5.0**, all
-gates green, repo published to
-<https://github.com/willcgage/AVEVAPIVisionSymbols>.
+and an MSI installer generated from the build output. **v1.5.0**, released from
+the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
+MSI and a manual-copy zip attached. CI and the release workflow are green, and
+both have actually run — that sentence was here for a while before it was
+true.
 
 Read `docs/CONTRIBUTING.md` for the human-facing version. This file is the
 short, sharp list of things that will waste your time if you do not know them.
@@ -14,7 +16,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 540 render checks — the gate, ~3 min
+node tools/verify.js                 # 540 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
@@ -23,7 +25,10 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 30 symbols 18 ways.
+**Use the probe while iterating, not verify.** Verify renders 30 symbols 18
+ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
+it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
+file used to claim.
 
 ```bash
 node tools/probe.js pvxHistogram --w 900 --h 480 --config "LSL=100;USL=140"
@@ -33,13 +38,21 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 
 Config pairs split on **`;`**, not `,` — values contain commas.
 
-**Playwright needs a browser path in most sandboxes:**
+**Playwright usually needs a browser path.** Not only in sandboxes: it is
+needed anywhere the Chromium build the pinned Playwright asks for is not the
+one sitting in the cache, which is the normal case on a workstation that has
+accumulated builds from other projects.
+
 ```bash
-PVX_CHROMIUM=/opt/pw-browsers/chromium-<ver>/chrome-linux/chrome node tools/verify.js
+# Linux
+PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/verify.js
+# Windows — note chrome-win64, and .exe
+$env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
+
 Honoured by `verify.js`, `probe.js` and `test-api.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
-just set the variable.
+just point the variable at a build you already have.
 
 `tools/verify-msi.js` needs `msiinfo` and the `.wxs` is compiled on Linux by
 `wixl`. These are **two packages** on Ubuntu 24.04 — it split them, and
@@ -131,6 +144,23 @@ Each of these cost real debugging time. Do not rediscover them.
   POSIX paths and only uses backslashes for display.
 - **`msiinfo export` emits CRLF.** Split on `/\r?\n/` or every string comparison
   silently fails.
+- **Windows Installer SQL has no `LIKE`.** `OpenView` rejects the whole
+  statement with `OpenView,Sql` rather than matching nothing, so a query that
+  uses it never runs at all. Nor can you match a file by its plain name: the
+  `File` table stores `SHORTNAME|Long Name`. Find a component by the GUID in
+  `dist/installer/components.json`, which `wix.js` writes beside the `.wxs`.
+- **`secrets` is not a context a step's `if:` can see.** Naming it there does
+  not evaluate to empty — it makes the workflow file invalid, and every run
+  fails at startup in 0s with no jobs and the file path where the workflow name
+  should be. Lift the secret to the job's `env:`, which a step `if:` *can* see;
+  a step's own `env:` does not exist yet when its `if:` is evaluated.
+- **Windows has no `zip`.** The release builds the MSI on a Windows runner, so
+  anything shelling out to `zip` there produces nothing. `build.js` tries
+  `Compress-Archive` first on win32.
+- **A PowerShell wildcard that matches nothing is silent.** `Copy-Item foo*.zip`
+  raises no error even under `ErrorActionPreference = Stop`; only a literal path
+  throws. This is how v1.5.0 first published without its zip while every step
+  reported success. Resolve with `Get-ChildItem` and fail on an empty result.
 - **The validator's comment-stripper does not understand regex literals.** Known
   limitation, false negatives only. Libraries are exempted structurally with
   `{isLibrary:true}`, not by post-hoc string splicing.
@@ -147,6 +177,13 @@ The roadmap is **closed by decision**, not abandoned: tiers 1 and 2 shipped,
 declined with reasons recorded on each card in `docs/roadmap.html`
 (`pvxTimePicker`, `pvxWebView`, `pvxAlarmSound`, `pvxMap`). Do not "finish
 tier 3" — that is a resolved question, not an open task.
+
+**The release pipeline is proven.** Tagging works end to end: the gate re-runs
+the full verification on the tagged commit, the MSI is built with the official
+WiX toolset on Windows, and the `Permanent` + `NeverOverwrite` bits protecting
+a site's `pvx-config.js` are asserted against the shipping MSI — the one check
+the Linux `wixl` job structurally cannot make. `docs/RELEASING.md` is accurate;
+follow it exactly, and note the tag must be annotated.
 
 **The next step is deployment, not development.** Nothing has run against a real
 PI Web API yet; it is verified against mocks deliberately misconfigured six
