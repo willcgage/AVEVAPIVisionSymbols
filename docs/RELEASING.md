@@ -18,11 +18,16 @@ node tools/docgen.js
 npm run verify                        # 540 render checks
 npm run test:api
 
-# 3. Commit, tag, push.
+# 3. Commit, tag, push. The tag must be annotated (-a): --follow-tags pushes
+#    annotated tags only, so a lightweight `git tag v1.6.0` is created locally
+#    and silently never leaves the machine. No tag, no release, no error.
 git commit -am "Release 1.6.0"
-git tag v1.6.0
+git tag -a v1.6.0 -m "PVX v1.6.0"
 git push origin main --follow-tags
 ```
+
+Expect `main -> main` and `[new tag] v1.6.0 -> v1.6.0` in the push output. If
+only the branch line appears, the tag was lightweight and nothing was released.
 
 The tag triggers `.github/workflows/release.yml`. The `gate` job re-runs the
 full verification on the tagged commit and **refuses to continue if the tag and
