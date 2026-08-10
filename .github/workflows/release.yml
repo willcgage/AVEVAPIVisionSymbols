@@ -70,6 +70,15 @@ jobs:
     needs: gate
     runs-on: windows-latest
     timeout-minutes: 20
+    # The signing secrets are lifted to the job so the signing step can test
+    # whether they are set. `secrets` is not an available context in a step's
+    # `if:` — naming it there does not evaluate to empty, it makes the whole
+    # workflow file invalid, and every run then fails at startup in 0s with no
+    # jobs and the file path in place of the workflow name. Job-level `env`
+    # *is* in scope for a step `if:`, which a step's own `env:` is not.
+    env:
+      CERT_PFX_BASE64: ${{ secrets.CODE_SIGN_PFX_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.CODE_SIGN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -130,13 +139,9 @@ jobs:
       # Unsigned, Windows shows "Unknown Publisher" on the MSI and execution
       # policy may block Deploy-PvxSymbols.ps1. Add the two secrets to enable;
       # without them the release still builds, just unsigned.
-      # `if` is evaluated before the step's own env block exists, so this has
-      # to test the secret directly rather than CERT_PFX_BASE64.
+      # Tests the job-level env var, not `secrets` — see the note on the job.
       - name: Sign MSI and PowerShell script
-        if: ${{ secrets.CODE_SIGN_PFX_BASE64 != '' }}
-        env:
-          CERT_PFX_BASE64: ${{ secrets.CODE_SIGN_PFX_BASE64 }}
-          CERT_PASSWORD: ${{ secrets.CODE_SIGN_PASSWORD }}
+        if: env.CERT_PFX_BASE64 != ''
         shell: pwsh
         run: |
           $pfx = "${{ runner.temp }}\cert.pfx"

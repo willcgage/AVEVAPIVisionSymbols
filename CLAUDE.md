@@ -41,8 +41,13 @@ Honoured by `verify.js`, `probe.js` and `test-api.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just set the variable.
 
-`tools/verify-msi.js` needs `msiinfo` (`apt-get install -y msitools`), and
-`wixl` from the same package compiles the `.wxs` on Linux.
+`tools/verify-msi.js` needs `msiinfo` and the `.wxs` is compiled on Linux by
+`wixl`. These are **two packages** on Ubuntu 24.04 — it split them, and
+msitools no longer carries wixl:
+
+```bash
+apt-get install -y msitools wixl
+```
 
 ---
 
