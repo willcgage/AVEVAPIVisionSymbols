@@ -25,7 +25,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       # `npm ci` not `npm install` — installs exactly what package-lock.json
@@ -96,7 +96,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # Two packages, not one. Ubuntu 24.04 ships the wixl compiler separately
       # from msitools, which now provides only msiinfo/msibuild — the tools
