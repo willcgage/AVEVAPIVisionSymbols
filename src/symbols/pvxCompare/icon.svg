@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Condition Compare">
+    <title>PVX Condition Compare</title>
+    <!-- Three rows, each a pale blue "otherwise" silhouette with an amber
+         "when true" outline over it, and a difference bar on the right that
+         shrinks row by row: the ranking is the point of the symbol, so the
+         icon shows it. Transparent background by design. -->
+    <g>
+        <!-- row 1: distributions far apart, long bar -->
+        <path d="M40 150 V128 H80 V96 H120 V112 H160 V150 Z" fill="#3b82c4" fill-opacity="0.45"/>
+        <path d="M200 150 V120 H240 V70 H280 V104 H320 V150" fill="none" stroke="#d99024" stroke-width="14" stroke-linejoin="round"/>
+        <rect x="360" y="104" width="120" height="30" rx="8" fill="#d99024"/>
+
+        <!-- row 2: partly overlapping, medium bar -->
+        <path d="M40 300 V270 H90 V232 H140 V258 H190 V300 Z" fill="#3b82c4" fill-opacity="0.45"/>
+        <path d="M110 300 V262 H160 V226 H210 V270 H250 V300" fill="none" stroke="#d99024" stroke-width="14" stroke-linejoin="round"/>
+        <rect x="360" y="254" width="120" height="30" rx="8" fill="#3b82c4" fill-opacity="0.25"/>
+        <rect x="360" y="254" width="70" height="30" rx="8" fill="#d99024"/>
+
+        <!-- row 3: the same shape twice, short bar -->
+        <path d="M60 450 V418 H110 V380 H160 V408 H210 V450 Z" fill="#3b82c4" fill-opacity="0.45"/>
+        <path d="M60 450 V414 H110 V376 H160 V410 H210 V450" fill="none" stroke="#d99024" stroke-width="14" stroke-linejoin="round"/>
+        <rect x="360" y="404" width="120" height="30" rx="8" fill="#3b82c4" fill-opacity="0.25"/>
+        <rect x="360" y="404" width="22" height="30" rx="8" fill="#d99024"/>
+    </g>
+</svg>

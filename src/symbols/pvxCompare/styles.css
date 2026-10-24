@@ -1,0 +1,91 @@
+/* pvxCompare — "PVX Condition Compare"
+ * Only the chrome (header, footer, SVG host) is styled here. Histogram and
+ * score colours all come from the runtime theme tokens, never from
+ * CSS, so the same stylesheet works on light and dark displays.
+ * The custom properties below are fallbacks; symbol.js overwrites them on the
+ * root element every render. */
+
+.pvx-cmp {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-accent: #3b82c4;
+    color: var(--pvx-text);
+}
+
+.pvx-cmp .pvx-cmp-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-cmp .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-cmp .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-cmp .pvx-subtitle {
+    color: var(--pvx-muted);
+    letter-spacing: 0.02em;
+}
+
+/* The SVG host. It must be allowed to shrink below its content, otherwise the
+   flex parent keeps reporting a stale clientWidth/Height and the chart never
+   resizes downwards. */
+.pvx-cmp .pvx-cmp-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-cmp .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-cmp .pvx-cmp-note {
+    flex: 1 1 auto;
+    opacity: 0.85;
+}
+
+.pvx-cmp .pvx-cmp-count {
+    flex: 0 0 auto;
+    opacity: 0.75;
+    letter-spacing: 0.02em;
+}
+
+/* --- chart ---------------------------------------------------------------- */
+
+/* Baselines, median ticks and score bars are axis-aligned; crisp edges keep a
+   1px median from being antialiased into a 2px smear. */
+.pvx-cmp .pvx-cmp-axis,
+.pvx-cmp .pvx-cmp-med,
+.pvx-cmp .pvx-cmp-track,
+.pvx-cmp .pvx-cmp-score {
+    shape-rendering: crispEdges;
+}
+
+.pvx-cmp .pvx-cmp-name,
+.pvx-cmp .pvx-cmp-medians,
+.pvx-cmp .pvx-cmp-scoretext,
+.pvx-cmp .pvx-cmp-colhead {
+    pointer-events: none;
+    letter-spacing: 0.01em;
+}
+
+/* Hover thickens the selection outline rather than recolouring, so the two
+   distributions keep their meaning while the row is under the pointer. */
+.pvx-cmp .pvx-cmp-row:hover .pvx-cmp-sel {
+    stroke-width: 2.5;
+}
+
+.pvx-cmp .pvx-cmp-msg,
+.pvx-cmp .pvx-cmp-msgdetail {
+    opacity: 0.85;
+}

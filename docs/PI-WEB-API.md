@@ -1,6 +1,6 @@
 # Connecting PVX to PI Web API
 
-Most of the library needs none of this. Twenty-five of the thirty symbols run
+Most of the library needs none of this. Twenty-six of the thirty-one symbols run
 entirely on PI Vision's own data pipeline. Only the five that reach things PI
 Vision cannot hand a display — Event Frames, the AF hierarchy, writing values
 back — come through here, plus `pvxAnnunciator` if you turn on shared

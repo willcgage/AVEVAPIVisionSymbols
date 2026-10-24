@@ -1,0 +1,132 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Condition</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-src">Condition source (#)</label>
+            <input id="pvxcmp-src" type="number" ng-model="config.ConditionSource" min="1" max="999" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Position of the condition tag in this symbol's data source list, starting at 1.
+            Its rule splits the time range in two; every other data source is compared across that split.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-op">Rule</label>
+            <select id="pvxcmp-op" ng-model="config.ConditionOp">
+                <option value="gt">Greater than</option>
+                <option value="lt">Less than</option>
+                <option value="between">Between</option>
+                <option value="outside">Outside</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-v1">Value</label>
+            <input id="pvxcmp-v1" type="text" ng-model="config.ConditionValue" placeholder="Auto (top or bottom 10%)" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ConditionOp === 'between' || config.ConditionOp === 'outside'">
+            <label for="pvxcmp-v2">Upper value</label>
+            <input id="pvxcmp-v2" type="text" ng-model="config.ConditionValue2" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Blank compares the condition tag's top 10% of the time (bottom 10% for "less than") against the rest.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Comparison</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-sort">Order</label>
+            <select id="pvxcmp-sort" ng-model="config.SortBy">
+                <option value="difference">Biggest difference first</option>
+                <option value="display">Data source order</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-rows">Maximum rows</label>
+            <input id="pvxcmp-rows" type="number" ng-model="config.MaxRows" min="1" max="100" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-bins">Histogram bins</label>
+            <input id="pvxcmp-bins" type="number" ng-model="config.Bins" min="4" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-samples">Aligned instants</label>
+            <input id="pvxcmp-samples" type="number" ng-model="config.SampleCount" min="50" max="5000" step="50" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Every tag is read at this many evenly spaced instants, so the comparison is weighted by time,
+            not by how many values PI happened to store.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-points">Resolution (points)</label>
+            <input id="pvxcmp-points" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-med">Show medians</label>
+            <input id="pvxcmp-med" type="checkbox" ng-model="config.ShowMedians" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The difference score is the largest gap between the two cumulative distributions:
+            0% means identical, 100% means no overlap at all. It shows correlation, not cause.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxcmp-title">Title override</label>
+            <input id="pvxcmp-title" type="text" ng-model="config.Title" placeholder="Leave blank for a generic heading" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-showtitle">Show title</label>
+            <input id="pvxcmp-showtitle" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-selcolor">"When true" colour</label>
+            <input id="pvxcmp-selcolor" type="color" ng-model="config.SelectionColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-basecolor">"Otherwise" colour</label>
+            <input id="pvxcmp-basecolor" type="text" ng-model="config.BaselineColor" placeholder="Accent colour" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-units">Show units</label>
+            <input id="pvxcmp-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-decimals">Decimals</label>
+            <select id="pvxcmp-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-theme">Theme</label>
+            <select id="pvxcmp-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-accent">Accent colour</label>
+            <input id="pvxcmp-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-transparent">Transparent background</label>
+            <input id="pvxcmp-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcmp-radius">Corner radius</label>
+            <input id="pvxcmp-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

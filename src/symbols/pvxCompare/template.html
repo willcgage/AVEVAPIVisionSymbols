@@ -1,0 +1,25 @@
+<div class="pvx pvx-cmp"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-cmp-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && (pvx.title || pvx.subtitle)">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle" title="{{pvx.subtitle}}">{{pvx.subtitle}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- Rows, histograms and difference bars are drawn as SVG by
+                 symbol.js; keep this div empty. -->
+            <div class="pvx-cmp-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.note || pvx.count">
+            <span class="pvx-cmp-note pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+            <span class="pvx-cmp-count pvx-num pvx-truncate" ng-if="pvx.count">{{pvx.count}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

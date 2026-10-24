@@ -13,6 +13,14 @@
  *              across the display range. The "which unit is running hot, and
  *              when" view.
  *
+ *   density  — one data source. Columns are equal time slices, rows are bins
+ *              of the tag's OWN value, and a cell's colour is the share of
+ *              that slice the tag spent in that bin. A trend shows a line; this
+ *              shows where the line lives. A valve hunting between two
+ *              positions is two bands, a pressure that moved after a change
+ *              is a band stepping up — both easy to miss on a trend, and
+ *              invisible in an average.
+ *
  * The pipeline is deliberately split into pure steps so the output is a
  * function of (data, config) alone and never of render order:
  *
@@ -62,9 +70,12 @@
                 Width: 420,
 
                 // --- shape -----------------------------------------------
-                Mode: 'calendar',            // calendar | matrix
+                Mode: 'calendar',            // calendar | matrix | density
                 Aggregate: 'avg',            // avg | max | min | last | range | count
-                BucketCount: 24,             // matrix mode: number of time columns
+                BucketCount: 24,             // matrix + density: number of time columns
+                ValueBins: 20,               // density: number of value rows
+                ValueMin: '',                // density: blank => data minimum
+                ValueMax: '',                // density: blank => data maximum
                 Title: '',                   // blank => attribute label
 
                 // --- colour ----------------------------------------------
@@ -322,13 +333,158 @@
             return grid;
         }
 
+        /**
+         * density: rows = bins of the tag's value (highest at the top, the way
+         * a trend's y axis reads), columns = BucketCount equal time slices, and
+         * each cell = the percentage of its slice the tag spent in that bin.
+         *
+         * Counting POINTS per cell would be wrong, and not subtly. Plot values
+         * are chosen to preserve a trend's shape, so they crowd into upsets and
+         * thin out in steady running; PI's own compression does the same to
+         * the archive underneath. A point count therefore paints the upset as
+         * where the tag "usually" was. Weighting by TIME is the fix: every
+         * segment between consecutive points is walked as a straight line —
+         * PI interpolates analog values linearly between events, so that is
+         * what the tag was doing — split at slice boundaries, and its duration
+         * shared out across the value bins it passes through.
+         *
+         * Time spent outside ValueMin..ValueMax is not folded into the edge
+         * rows, which would invent a pile-up at the limit. It is counted and
+         * reported in the footer instead.
+         */
+        function buildDensity(series, cfg) {
+            var grid = { rows: [], cols: [], buckets: [], note: '', units: '', density: true };
+            var pts = series ? series.points : [];
+            var i;
+            if (pts.length < 2) { return grid; }
+
+            var dMin = pts[0].v, dMax = pts[0].v;
+            for (i = 1; i < pts.length; i++) {
+                if (pts[i].v < dMin) { dMin = pts[i].v; }
+                if (pts[i].v > dMax) { dMax = pts[i].v; }
+            }
+            var vMin = PVX.util.num(cfg.ValueMin);
+            var vMax = PVX.util.num(cfg.ValueMax);
+            if (vMin === null) { vMin = dMin; }
+            if (vMax === null) { vMax = dMax; }
+            if (!(vMax > vMin)) {
+                // A flat tag still has a distribution — all of it in one bin.
+                // Give that bin a real width so the label means something.
+                var halfW = Math.abs(vMin) * 0.05 || 0.5;
+                vMin -= halfW; vMax += halfW;
+            }
+
+            var nBins = PVX.util.clamp(intOr(cfg.ValueBins, 20), 2, 100);
+            var nCols = PVX.util.clamp(intOr(cfg.BucketCount, 24), 1, 1000);
+            var maxCols = Math.max(1, Math.floor(MAX_CELLS / nBins));
+            if (nCols > maxCols) {
+                grid.note = 'Time buckets reduced from ' + nCols + ' to ' + maxCols +
+                            ' to stay under the ' + MAX_CELLS + '-cell limit.';
+                nCols = maxCols;
+            }
+
+            var t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+            if (!(t1 > t0)) { return grid; }
+            var colW = (t1 - t0) / nCols;
+            var binW = (vMax - vMin) / nBins;
+            var units = series.units || '';
+            grid.units = units;
+
+            // Rows run top-down, so row 0 is the HIGHEST bin.
+            for (i = 0; i < nBins; i++) {
+                var lo = vMax - (i + 1) * binW;
+                var hi = lo + binW;
+                grid.rows.push({
+                    key: i,
+                    label: PVX.fmt.tick(lo),
+                    tip: PVX.fmt.tick(lo) + ' – ' + PVX.fmt.tick(hi) + (units ? ' ' + units : ''),
+                    units: '',
+                    lo: lo, hi: hi
+                });
+            }
+            for (i = 0; i < nCols; i++) {
+                var start = t0 + i * colW;
+                grid.cols.push({
+                    key: start,
+                    label: PVX.fmt.time(start, 'short'),
+                    tip: PVX.fmt.time(start, 'datetime')
+                });
+            }
+            grid.buckets = makeBuckets(grid.rows, grid.cols);
+            for (i = 0; i < grid.buckets.length; i++) { grid.buckets[i].ms = 0; }
+
+            var colTotal = [];
+            for (i = 0; i < nCols; i++) { colTotal.push(0); }
+            var outside = 0, total = 0;
+
+            /* Share one straight piece (value va -> vb over dt ms) out across
+             * the bins of column c. A flat piece lands in one bin; a sloped
+             * one gives each bin the fraction of the rise that crosses it. */
+            function spread(c, va, vb, dt) {
+                if (!(dt > 0)) { return; }
+                colTotal[c] += dt;
+                total += dt;
+                var lo = Math.min(va, vb), hi = Math.max(va, vb);
+                var rise = hi - lo;
+                if (rise < binW * 1e-6) {
+                    if (va < vMin || va > vMax) { outside += dt; return; }
+                    // The top edge belongs to the top bin, not to a bin past it.
+                    var k = Math.min(nBins - 1, Math.floor((vMax - va) / binW));
+                    grid.buckets[k * nCols + c].ms += dt;
+                    return;
+                }
+                var inLo = Math.max(lo, vMin), inHi = Math.min(hi, vMax);
+                var inside = inHi > inLo ? inHi - inLo : 0;
+                outside += dt * (1 - inside / rise);
+                if (!inside) { return; }
+                var kTop = Math.max(0, Math.floor((vMax - inHi) / binW));
+                var kBot = Math.min(nBins - 1, Math.floor((vMax - inLo) / binW));
+                for (var k2 = kTop; k2 <= kBot; k2++) {
+                    var bHi = vMax - k2 * binW, bLo = bHi - binW;
+                    var ov = Math.min(bHi, inHi) - Math.max(bLo, inLo);
+                    if (ov > 0) { grid.buckets[k2 * nCols + c].ms += dt * ov / rise; }
+                }
+            }
+
+            for (i = 0; i + 1 < pts.length; i++) {
+                var a = pts[i], b = pts[i + 1];
+                var span = b.t - a.t;
+                if (!(span > 0)) { continue; }
+                var slope = (b.v - a.v) / span;
+                var ta = a.t;
+                // Split at every column boundary the segment crosses.
+                while (ta < b.t) {
+                    var c = PVX.util.clamp(Math.floor((ta - t0) / colW), 0, nCols - 1);
+                    var edge = c === nCols - 1 ? b.t : Math.min(b.t, t0 + (c + 1) * colW);
+                    if (!(edge > ta)) { edge = b.t; }
+                    spread(c, a.v + slope * (ta - a.t), a.v + slope * (edge - a.t), edge - ta);
+                    ta = edge;
+                }
+            }
+
+            for (i = 0; i < grid.buckets.length; i++) {
+                var bk = grid.buckets[i];
+                var ct = colTotal[bk.c];
+                bk.value = (ct > 0 && bk.ms > 0) ? 100 * bk.ms / ct : null;
+            }
+
+            if (total > 0 && outside / total >= 0.0005) {
+                grid.note = (grid.note ? grid.note + ' ' : '') +
+                    PVX.fmt.number(100 * outside / total, { decimals: 1 }) + '% of the time was outside ' +
+                    PVX.fmt.tick(vMin) + ' – ' + PVX.fmt.tick(vMax) + ' and is not shown.';
+            }
+            return grid;
+        }
+
         /** Reduce every bucket, and report the value domain that came out. */
         function reduceGrid(grid, cfg) {
             var kind = cfg.Aggregate || 'avg';
             var lo = null, hi = null;
             for (var i = 0; i < grid.buckets.length; i++) {
                 var b = grid.buckets[i];
-                var v = aggregate(b.values, kind);
+                // density cells are a time share computed by buildDensity, not
+                // an aggregate of values that landed in them.
+                var v = grid.density ? b.value : aggregate(b.values, kind);
                 b.value = v;
                 b.count = b.values.length;
                 if (v === null) { continue; }
@@ -354,6 +510,31 @@
         }
 
         /**
+         * Density colour domain: 0 % up to the busiest cell, unless the
+         * operator fixed it. Starting at zero matters — a scale that starts at
+         * the quietest cell would paint "almost never" as if it were "never".
+         */
+        function densityDomain(grid, cfg) {
+            var lo = PVX.util.num(cfg.ScaleMin);
+            var hi = PVX.util.num(cfg.ScaleMax);
+            if (lo === null) { lo = 0; }
+            if (hi === null) { hi = grid.dataMax === null ? 100 : grid.dataMax; }
+            if (!(hi > lo)) { hi = lo + 1; }
+            return [lo, hi];
+        }
+
+        /** The config as the colour code should see it in density mode. */
+        function densityCfg(cfg) {
+            var out = {};
+            for (var k in cfg) {
+                if (Object.prototype.hasOwnProperty.call(cfg, k)) { out[k] = cfg[k]; }
+            }
+            out.__density = true;
+            if (out.ColorScale === 'thresholds') { out.ColorScale = 'sequential'; }
+            return out;
+        }
+
+        /**
          * value -> colour. Returns a plain function so the legend can sample
          * exactly the same mapping the cells use.
          */
@@ -363,7 +544,10 @@
             var reverse = !!cfg.ReverseScale;
             var kind = cfg.ColorScale || 'sequential';
 
-            if (kind === 'thresholds') {
+            // In density mode the cell value is a percentage of time, and a
+            // threshold band is a statement about the tag's value — applying
+            // one to the other would colour by a meaningless number.
+            if (kind === 'thresholds' && !cfg.__density) {
                 // Discrete by definition: no interpolation, the band colour is
                 // the cell colour.
                 return function (v) {
@@ -432,13 +616,15 @@
 
             // Template bindings first — they are valid even when there is no
             // host element yet (first frame before Angular has linked).
-            var mode = cfg.Mode === 'matrix' ? 'matrix' : 'calendar';
-            var aggName = AGG_LABEL[cfg.Aggregate] || 'Avg';
+            var mode = cfg.Mode === 'matrix' || cfg.Mode === 'density' ? cfg.Mode : 'calendar';
+            var aggName = mode === 'density' ? 'Time share' : (AGG_LABEL[cfg.Aggregate] || 'Avg');
             var primary = seriesList.length ? seriesList[0] : null;
 
             scope.pvx.background = cfg.Transparent ? 'transparent' : (cfg.BackgroundColor || t.surface);
-            scope.pvx.title = cfg.Title || (mode === 'calendar' && primary ? primary.label : '');
-            scope.pvx.subtitle = aggName + (mode === 'calendar' ? ' · hour × day' : ' · tag × time');
+            scope.pvx.title = cfg.Title || (mode !== 'matrix' && primary ? primary.label : '');
+            scope.pvx.subtitle = mode === 'density'
+                ? '% of time' + (primary && primary.units ? ' · ' + primary.units : '')
+                : aggName + (mode === 'calendar' ? ' · hour × day' : ' · tag × time');
             scope.pvx.error = (primary && !primary.good) ? (primary.errorDescription || 'Bad data') : '';
 
             applyThemeVars(c, t);
@@ -478,8 +664,14 @@
             // ---- model ---------------------------------------------------
             var grid = mode === 'matrix'
                 ? buildMatrix(seriesList, cfg)
-                : buildCalendar(seriesList.length ? seriesList[0] : null, cfg);
+                : (mode === 'density'
+                    ? buildDensity(seriesList.length ? seriesList[0] : null, cfg)
+                    : buildCalendar(seriesList.length ? seriesList[0] : null, cfg));
             reduceGrid(grid, cfg);
+            if (mode === 'density' && seriesList.length > 1) {
+                grid.note = (grid.note ? grid.note + ' ' : '') + 'Density mode shows the first data source only; ' +
+                    (seriesList.length - 1) + ' more ' + (seriesList.length === 2 ? 'is' : 'are') + ' ignored.';
+            }
 
             scope.pvx.note = grid.note || '';
 
@@ -495,17 +687,18 @@
                 return;
             }
 
-            var domain = colorDomain(grid, cfg);
-            var colorFn = makeColorFn(cfg, t, domain);
+            var domain = grid.density ? densityDomain(grid, cfg) : colorDomain(grid, cfg);
+            var colorFn = makeColorFn(grid.density ? densityCfg(cfg) : cfg, t, domain);
             var emptyColor = cfg.EmptyCellColor || t.track;
             // 'count' is a tally of samples, not a measurement: it has no
             // decimals and it does not inherit the tag's engineering units.
-            var isCount = cfg.Aggregate === 'count';
-            var numOpts = isCount
-                ? { decimals: 0, compact: !!cfg.CompactNumbers }
-                : PVX.config.numberOpts(cfg);
+            var isCount = cfg.Aggregate === 'count' || grid.density;
+            var numOpts = grid.density
+                ? { decimals: 1 }
+                : (isCount ? { decimals: 0, compact: !!cfg.CompactNumbers } : PVX.config.numberOpts(cfg));
+            var unitSuffix = grid.density ? '%' : '';
 
-            scope.pvx.range = PVX.fmt.tick(domain[0]) + ' → ' + PVX.fmt.tick(domain[1]);
+            scope.pvx.range = PVX.fmt.tick(domain[0]) + unitSuffix + ' → ' + PVX.fmt.tick(domain[1]) + unitSuffix;
 
             // ---- layout --------------------------------------------------
             var pad = 4;
@@ -574,14 +767,21 @@
                 var row = grid.rows[b.r], col = grid.cols[b.c];
                 var tip = PVX.svg.el('title', null, rect);
                 tip.textContent = row.tip + ' · ' + col.tip + '\n' +
-                    (has
-                        ? aggName + ': ' + PVX.fmt.number(b.value, numOpts) +
-                          ((row.units && !isCount) ? ' ' + row.units : '') +
-                          ' (' + b.count + (b.count === 1 ? ' point)' : ' points)')
-                        : 'No data');
+                    (grid.density
+                        ? (has ? PVX.fmt.number(b.value, numOpts) + '% of this slice (' +
+                                 PVX.fmt.duration(b.ms) + ')' : 'No time spent here')
+                        : (has
+                            ? aggName + ': ' + PVX.fmt.number(b.value, numOpts) +
+                              ((row.units && !isCount) ? ' ' + row.units : '') +
+                              ' (' + b.count + (b.count === 1 ? ' point)' : ' points)')
+                            : 'No data'));
 
                 if (showValues && has) {
-                    var txt = PVX.fmt.number(b.value, numOpts);
+                    // A sliver of time rounds to "0.0%", which reads as "never"
+                    // on a cell that is coloured precisely because it was not.
+                    var txt = (grid.density && b.value < 0.05)
+                        ? '<0.1%'
+                        : PVX.fmt.number(b.value, numOpts) + unitSuffix;
                     // Fall back to a compact form before giving up entirely.
                     if (txt.length * valueFont * 0.6 > rectW - 4) {
                         txt = PVX.fmt.compact(b.value, 1);
@@ -604,11 +804,15 @@
                 var rowFont = PVX.util.clamp(cellH * 0.66, 7, 11);
                 var rStep = labelStep(nRows, gridH, rowFont * 1.45);
                 if (mode === 'calendar') { rStep = niceHourStep(rStep); }
+                // Density rows are labelled at their lower edge, and the
+                // bottom row is the one that anchors the axis — so count the
+                // step up from the bottom, not down from the top.
+                var rBase = mode === 'density' ? (nRows - 1) % rStep : 0;
                 for (var r = 0; r < nRows; r++) {
-                    if (r % rStep !== 0) { continue; }
+                    if ((r - rBase) % rStep !== 0) { continue; }
                     PVX.svg.text(svgRoot,
                         (gridX - 4).toFixed(2),
-                        (gridY + (r + 0.5) * cellH).toFixed(2),
+                        (gridY + (mode === 'density' ? r + 1 : r + 0.5) * cellH).toFixed(2),
                         grid.rows[r].label, {
                             'class': 'pvx-svg-label pvx-heat-rowlabel',
                             'text-anchor': 'end',
@@ -646,7 +850,7 @@
             if (legend) {
                 // Align a bottom legend with the grid, not the card.
                 if (!legend.vertical) { legend.x = gridX; legend.w = gridW; }
-                drawLegend(svgRoot, cfg, t, legend, colorFn, domain);
+                drawLegend(svgRoot, grid.density ? densityCfg(cfg) : cfg, t, legend, colorFn, domain, unitSuffix);
             }
         }
 
@@ -665,9 +869,10 @@
          * function the cells use — no <linearGradient>, hence no defs id to
          * collide with other instances of the symbol on the same display.
          */
-        function drawLegend(svgRoot, cfg, t, box, colorFn, domain) {
+        function drawLegend(svgRoot, cfg, t, box, colorFn, domain, suffix) {
             var g = PVX.svg.el('g', { 'class': 'pvx-heat-legend' }, svgRoot);
             var font = 9;
+            var sfx = suffix || '';
 
             if (cfg.ColorScale === 'thresholds') {
                 var bands = PVX.thresholds.parse(cfg.Thresholds);
@@ -729,11 +934,11 @@
                     }, g);
                 }
                 var tx = barX + barW + 4;
-                PVX.svg.text(g, tx, (box.y + 6).toFixed(1), PVX.fmt.tick(hi),
+                PVX.svg.text(g, tx, (box.y + 6).toFixed(1), PVX.fmt.tick(hi) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted });
-                PVX.svg.text(g, tx, (box.y + 2 + barH / 2).toFixed(1), PVX.fmt.tick(mid),
+                PVX.svg.text(g, tx, (box.y + 2 + barH / 2).toFixed(1), PVX.fmt.tick(mid) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted });
-                PVX.svg.text(g, tx, (box.y + barH - 2).toFixed(1), PVX.fmt.tick(lo),
+                PVX.svg.text(g, tx, (box.y + barH - 2).toFixed(1), PVX.fmt.tick(lo) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted });
             } else {
                 var bH = 8, bY = box.y + 2, bW = Math.max(20, box.w);
@@ -749,11 +954,11 @@
                     }, g);
                 }
                 var ly = bY + bH + 7;
-                PVX.svg.text(g, box.x.toFixed(1), ly.toFixed(1), PVX.fmt.tick(lo),
+                PVX.svg.text(g, box.x.toFixed(1), ly.toFixed(1), PVX.fmt.tick(lo) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, 'text-anchor': 'start', fill: t.textMuted });
-                PVX.svg.text(g, (box.x + bW / 2).toFixed(1), ly.toFixed(1), PVX.fmt.tick(mid),
+                PVX.svg.text(g, (box.x + bW / 2).toFixed(1), ly.toFixed(1), PVX.fmt.tick(mid) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, 'text-anchor': 'middle', fill: t.textMuted });
-                PVX.svg.text(g, (box.x + bW).toFixed(1), ly.toFixed(1), PVX.fmt.tick(hi),
+                PVX.svg.text(g, (box.x + bW).toFixed(1), ly.toFixed(1), PVX.fmt.tick(hi) + sfx,
                     { 'class': 'pvx-svg-label', 'font-size': font, 'text-anchor': 'end', fill: t.textMuted });
             }
         }
