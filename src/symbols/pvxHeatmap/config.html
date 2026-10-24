@@ -8,15 +8,18 @@
             <select id="pvxheat-mode" ng-model="config.Mode">
                 <option value="calendar">Calendar (hour × day)</option>
                 <option value="matrix">Matrix (tag × time)</option>
+                <option value="density">Density (value × time)</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
             <b>Calendar</b> uses the first data source only: rows are the hour of day, columns are
             calendar days. <b>Matrix</b> gives every data source a row and splits the display's time
-            range into equal columns.
+            range into equal columns. <b>Density</b> uses the first data source: rows are bins of its
+            value, and each cell is the share of that time slice the tag spent there, weighted by
+            time rather than by sample count.
         </div>
 
-        <div class="pvx-cfg-row">
+        <div class="pvx-cfg-row" ng-if="config.Mode !== 'density'">
             <label for="pvxheat-agg">Cell value</label>
             <select id="pvxheat-agg" ng-model="config.Aggregate">
                 <option value="avg">Average</option>
@@ -32,7 +35,26 @@
             <label for="pvxheat-buckets">Time buckets</label>
             <input id="pvxheat-buckets" type="number" ng-model="config.BucketCount" min="2" max="500" />
         </div>
-        <div class="pvx-cfg-hint">Matrix mode only. Reduced automatically if rows × buckets would exceed 2000 cells.</div>
+        <div class="pvx-cfg-hint">Matrix and density modes. Reduced automatically if rows × buckets would exceed 2000 cells.</div>
+
+        <div ng-if="config.Mode === 'density'">
+            <div class="pvx-cfg-row">
+                <label for="pvxheat-bins">Value bins</label>
+                <input id="pvxheat-bins" type="number" ng-model="config.ValueBins" min="2" max="100" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxheat-vmin">Value axis minimum</label>
+                <input id="pvxheat-vmin" type="text" ng-model="config.ValueMin" placeholder="Auto" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxheat-vmax">Value axis maximum</label>
+                <input id="pvxheat-vmax" type="text" ng-model="config.ValueMax" placeholder="Auto" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Fix the value axis to the instrument range or the operating limits so two periods are
+                comparable. Time spent outside it is reported in the footer, not piled into the edge rows.
+            </div>
+        </div>
 
         <div class="pvx-cfg-row">
             <label for="pvxheat-points">Resolution (points)</label>
@@ -54,7 +76,7 @@
             <select id="pvxheat-scale" ng-model="config.ColorScale">
                 <option value="sequential">Sequential</option>
                 <option value="diverging">Diverging</option>
-                <option value="thresholds">Threshold bands</option>
+                <option value="thresholds" ng-if="config.Mode !== 'density'">Threshold bands</option>
                 <option value="custom">Custom two-colour</option>
             </select>
         </div>

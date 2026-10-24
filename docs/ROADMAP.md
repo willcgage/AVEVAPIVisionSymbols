@@ -5,7 +5,10 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 > **Tiers 1 and 2 are complete, and tier 3 is closed by decision.** Fourteen
 > tier-1 symbols (v1.1, v1.2), the PI Web API layer and the first symbol on it
 > (v1.3), the remaining five PI Web API symbols plus shared acknowledgement
-> (v1.4), and `pvxSlideshow` (v1.5). The library is at **30 symbols**.
+> (v1.4), and `pvxSlideshow` (v1.5). The library is at **31 symbols**: after
+> v1.5, a comparison against Grafana's and Honeycomb's chart types added
+> `pvxCompare` and two modes on existing symbols (density on `pvxHeatmap`,
+> parent/child hierarchy on `pvxEventGantt`).
 >
 > The other four tier-3 candidates were deliberately not built — see the
 > reasoning in the tier 3 table. Nothing on this plan is outstanding.
