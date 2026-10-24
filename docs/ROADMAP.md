@@ -5,13 +5,17 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 > **Tiers 1 and 2 are complete, and tier 3 is closed by decision.** Fourteen
 > tier-1 symbols (v1.1, v1.2), the PI Web API layer and the first symbol on it
 > (v1.3), the remaining five PI Web API symbols plus shared acknowledgement
-> (v1.4), and `pvxSlideshow` (v1.5). The library is at **31 symbols**: after
-> v1.5, a comparison against Grafana's and Honeycomb's chart types added
+> (v1.4), and `pvxSlideshow` (v1.5). After v1.5, a comparison against
+> Grafana's and Honeycomb's chart types added
 > `pvxCompare` and two modes on existing symbols (density on `pvxHeatmap`,
 > parent/child hierarchy on `pvxEventGantt`).
 >
 > The other four tier-3 candidates were deliberately not built — see the
 > reasoning in the tier 3 table. Nothing on this plan is outstanding.
+>
+> **Two symbols were added after the plan closed**, from a gap analysis rather
+> than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
+> [After the plan](#after-the-plan). The library is at **33 symbols**.
 
 ## On originality
 
@@ -428,6 +432,33 @@ is more dangerous than an outright failure, because it looks like success.
 Configuring `auth: 'anonymous'` on the strength of it would stop PI Web API
 identifying users, making every symbol one identity and manual data entry
 unattributable. The diagnostic now names that case explicitly.
+
+## After the plan
+
+In October 2026 the owner asked what the library was still missing, and the
+answer was not more analytics. The thirty symbols cover reporting and analysis
+well; what they lacked was the operator layer of an ISA-101 style display, and
+any way of telling a dead tag from a quiet one. Two symbols were built from that
+review, on the owner's explicit go-ahead — the "let usage decide" rule below was
+weighed and set aside for these two, not forgotten.
+
+| Symbol | Data shape | Why it earns its place |
+|---|---|---|
+| **pvxOperatingMap** | TimeSeries, X + Y + optional curve string | A compressor map lives in a vendor PDF, so surge margin gets checked by eye. Draws surge, control, speed and stonewall lines from a curve spec and puts the live point on it with a trail. The spec can be an AF string attribute, so the map follows asset swapping. |
+| **pvxDataHealth** | TimeSeries, many, `ModeEvents` | The commonest way a display lies is a dead tag. Lists only the bad, out-of-range, stale and flatlined ones. Helps the PI Web API deployment too, by showing which tags are actually reporting. |
+
+Both are pure DataShape and need no PI Web API. Two things they cannot do from
+PI Vision's data pipeline, recorded so nobody rediscovers them:
+
+- **Questionable and Substituted** are not passed to symbols, only good/bad, so
+  `pvxDataHealth` cannot show them without going through `PVX.api`.
+- **Stale versus steady** cannot be told apart from archived events alone. A
+  healthy tag holding steady archives once per CompMax, so the stale limit has
+  to sit above it, or the tag needs an entry in `UpdateOverrides`. This should
+  be checked against a real server before the distinction is trusted.
+
+Other candidates from the same review — a read-only loop faceplate, ISA-101
+normalized analog bars, an SPC control chart — were left for usage to decide.
 
 ## What next
 

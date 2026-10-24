@@ -159,6 +159,15 @@ verifier feed the symbol the right shape of test data:
 Without that tag both tools send a numeric signal, and a time-in-state symbol
 would be "verified" against data it can never receive in the field.
 
+The same tag selects the other profiles in `dev/pv-mock.js`. `@mock health`
+breaks some tags in the ways `pvxDataHealth` catches (a feed that stops, a
+value that freezes, an "I/O Timeout" in place of a number) — on healthy data
+that symbol would only ever be verified against its empty state.
+`@mock compressor` sends flow and head on compressor scales plus a curve spec
+as a string third source. A symbol that needs data of a particular shape to
+draw anything meaningful should get a profile of its own rather than be
+verified against a generic signal.
+
 ## Table symbols that let the operator pick a statistic
 
 PI Vision returns `Summary` cells **positionally**, matching `config.Columns`.

@@ -1,0 +1,177 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Data sources</div>
+        <div class="pvx-cfg-hint">
+            <strong>First</strong> is the X axis (usually inlet flow), <strong>second</strong> the Y
+            axis (usually polytropic head, as an AF analysis). An optional <strong>third</strong> is a
+            string attribute holding the curve spec, so each compressor's map follows the asset
+            when the display is switched to another machine.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-intervals">Resolution (points per tag)</label>
+            <input id="pvxom-intervals" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-gap">Max pairing gap (s)</label>
+            <input id="pvxom-gap" type="number" ng-model="config.MaxPairGapSeconds" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Each Y sample is paired with the X value in force at that instant; older than this and
+            the pair is dropped. <code>0</code> means no limit.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Curves</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-src">Curves from</label>
+            <select id="pvxom-src" ng-model="config.CurveSource">
+                <option value="auto">Third data source, else below</option>
+                <option value="config">Always below</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxom-curves">Curve spec</label>
+            <textarea id="pvxom-curves" ng-model="config.Curves" rows="6"
+                      placeholder="surge: 3000:8000 4100:14600 4700:19000&#10;90%: 4100:14600 6200:13900 8000:12000&#10;stonewall: 7000:5200 9400:9200"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One curve per line (or separated by <code>|</code>): <code>name: x:y x:y ...</code>,
+            copied off the vendor map in the same units as the data sources.
+            <code>surge</code>, <code>control</code> and <code>stonewall</code> are reserved; any other
+            name is a speed line labelled with that name.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-ctl">Control line margin (%)</label>
+            <input id="pvxom-ctl" type="number" ng-model="config.ControlMarginPct" min="0" max="50" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Draws a control line this far right of the surge line when the spec has no
+            <code>control</code> curve. Use your anti-surge controller's setting. <code>0</code> draws none.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Surge margin</div>
+        <div class="pvx-cfg-hint">
+            Margin = (flow &minus; surge-line flow at the current head) &divide; surge-line flow. If your
+            anti-surge controller publishes its own margin, that is the authoritative number.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-usethresh">Colour by margin bands</label>
+            <input id="pvxom-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxom-thresh">Margin bands (%)</label>
+            <textarea id="pvxom-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>lowerLimit:colour:label</code>, comma separated, applied to the margin in percent.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-marker">Show margin marker</label>
+            <input id="pvxom-marker" type="checkbox" ng-model="config.ShowMarginMarker" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Points</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-trail">Trail (minutes)</label>
+            <input id="pvxom-trail" type="number" ng-model="config.TrailMinutes" min="0" step="5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-hist">Show rest of time range</label>
+            <input id="pvxom-hist" type="checkbox" ng-model="config.ShowHistory" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The trail fades from old to new so the direction of travel shows. Points outside the map
+            are drawn at its edge and counted in the footer.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxom-xlabel">X axis title</label>
+            <input id="pvxom-xlabel" type="text" ng-model="config.XLabel" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxom-ylabel">Y axis title</label>
+            <input id="pvxom-ylabel" type="text" ng-model="config.YLabel" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-xmin">X minimum</label>
+            <input id="pvxom-xmin" type="text" ng-model="config.XMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-xmax">X maximum</label>
+            <input id="pvxom-xmax" type="text" ng-model="config.XMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-ymin">Y minimum</label>
+            <input id="pvxom-ymin" type="text" ng-model="config.YMin" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-ymax">Y maximum</label>
+            <input id="pvxom-ymax" type="text" ng-model="config.YMax" placeholder="auto" />
+        </div>
+        <div class="pvx-cfg-hint">Blank bounds frame the map, or the data when there is no map.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-grid">Show grid</label>
+            <input id="pvxom-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-speedlbl">Label speed lines</label>
+            <input id="pvxom-speedlbl" type="checkbox" ng-model="config.ShowSpeedLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-ticks">Tick count</label>
+            <input id="pvxom-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxom-title">Title</label>
+            <input id="pvxom-title" type="text" ng-model="config.Title" placeholder="Leave blank for Y vs X" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-theme">Theme</label>
+            <select id="pvxom-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-showlabel">Show title</label>
+            <input id="pvxom-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-accent">Point colour</label>
+            <input id="pvxom-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-transparent">Transparent background</label>
+            <input id="pvxom-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-radius">Corner radius</label>
+            <input id="pvxom-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxom-decimals">Decimals</label>
+            <select id="pvxom-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+</div>

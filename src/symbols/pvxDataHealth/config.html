@@ -1,0 +1,134 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Checks</div>
+
+        <div class="pvx-cfg-hint">
+            Each attribute gets one verdict, the worst that applies:
+            <b>Bad</b>, <b>Out of range</b>, <b>Stale</b>, <b>Flatlined</b>. Only the
+            attributes with a problem are listed; the rest are counted in the footer.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-stale">Stale after (minutes)</label>
+            <input id="pvxdh-stale" type="number" ng-model="config.StaleMinutes" min="0" step="5" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Measured from the newest archived event. A healthy tag that holds steady only
+            archives once per compression maximum (eight hours by default), so set this
+            above CompMax for the tags you watch, or list slow tags under
+            <em>Update overrides</em>. <code>0</code> turns the stale check off.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-flath">Flatlined after (hours)</label>
+            <input id="pvxdh-flath" type="number" ng-model="config.FlatlineHours" min="0" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-tol">Flatline tolerance</label>
+            <input id="pvxdh-tol" type="number" ng-model="config.FlatlineTolerance" min="0" step="0.01" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A value that moves less than the tolerance counts as unchanged. The display's
+            time range must be at least this long for the check to see a flat line.
+            <code>0</code> hours turns the check off.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxdh-ranges">Instrument ranges</label>
+            <textarea id="pvxdh-ranges" ng-model="config.Ranges" rows="3"
+                      placeholder="K-301 Vibration 1X: 0..20"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>Attribute label: low..high</code>, one per line or comma separated.
+            PI Vision does not pass an attribute's Zero/Span to symbols, so spans are entered
+            here. Labels must match exactly; an entry that matches nothing is reported in the
+            footer.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxdh-over">Update overrides</label>
+            <textarea id="pvxdh-over" ng-model="config.UpdateOverrides" rows="3"
+                      placeholder="Lab Density: 1440"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>Attribute label: minutes</code> replaces the stale limit for one tag.
+            <code>0</code> excludes the tag from the stale and flatline checks (lab results,
+            daily totals); excluded tags are still counted in the footer.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">List</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxdh-title">Title</label>
+            <input id="pvxdh-title" type="text" ng-model="config.Title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-counts">Show count pills</label>
+            <input id="pvxdh-counts" type="checkbox" ng-model="config.ShowCounts" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-value">Show last value</label>
+            <input id="pvxdh-value" type="checkbox" ng-model="config.ShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-spark">Show sparkline</label>
+            <input id="pvxdh-spark" type="checkbox" ng-model="config.ShowSparkline" />
+        </div>
+        <div class="pvx-cfg-hint">Columns drop out as the symbol narrows: sparkline first, then value, then detail.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-max">Maximum rows</label>
+            <input id="pvxdh-max" type="number" ng-model="config.MaxRows" min="1" max="500" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-rowh">Row height (px)</label>
+            <input id="pvxdh-rowh" type="number" ng-model="config.RowHeight" min="16" max="60" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxdh-empty">Text when all healthy</label>
+            <input id="pvxdh-empty" type="text" ng-model="config.EmptyText" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-theme">Theme</label>
+            <select id="pvxdh-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-showlabel">Show title</label>
+            <input id="pvxdh-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-units">Show units</label>
+            <input id="pvxdh-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-transparent">Transparent background</label>
+            <input id="pvxdh-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-radius">Corner radius</label>
+            <input id="pvxdh-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdh-decimals">Decimals</label>
+            <select id="pvxdh-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+</div>

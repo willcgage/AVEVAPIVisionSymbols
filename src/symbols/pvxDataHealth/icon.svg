@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxDataHealth — a trend that stops short, with a clock: the stale tag -->
+
+    <!-- list rows, faint, so the trend reads first at small sizes -->
+    <g stroke="#d6dbe1" stroke-width="20" stroke-linecap="round">
+        <path d="M72 120 L300 120" />
+        <path d="M72 200 L240 200" />
+    </g>
+
+    <!-- the live part of the trend -->
+    <path d="M64 372 L118 318 L170 350 L224 286 L270 304" stroke="#3b82c4" stroke-width="22"
+          stroke-linecap="round" stroke-linejoin="round" />
+    <!-- and where it stopped -->
+    <path d="M270 304 L330 304" stroke="#8a8f96" stroke-width="18" stroke-linecap="round"
+          stroke-dasharray="2 34" />
+
+    <!-- the clock -->
+    <circle cx="390" cy="352" r="80" stroke="#c8452f" stroke-width="24" />
+    <path d="M390 306 L390 356 L424 378" stroke="#c8452f" stroke-width="24"
+          stroke-linecap="round" stroke-linejoin="round" />
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxOperatingMap — surge line, two speed lines and the operating point -->
+
+    <!-- axes -->
+    <g stroke="#d6dbe1" stroke-width="14" stroke-linecap="round">
+        <path d="M84 68 L84 428" />
+        <path d="M84 428 L444 428" />
+    </g>
+
+    <!-- speed lines -->
+    <g stroke="#8a8f96" stroke-width="14" stroke-linecap="round" fill="none">
+        <path d="M150 330 C220 336 300 350 360 390" />
+        <path d="M196 214 C270 222 350 244 420 300" />
+    </g>
+
+    <!-- surge line -->
+    <path d="M120 400 C150 330 190 230 236 110" stroke="#c8452f" stroke-width="22" stroke-linecap="round" />
+
+    <!-- operating point -->
+    <circle cx="282" cy="262" r="40" stroke="#3b82c4" stroke-width="16" />
+    <circle cx="282" cy="262" r="18" fill="#3b82c4" />
+</svg>

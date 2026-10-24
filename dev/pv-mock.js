@@ -206,6 +206,91 @@
             return { Data: sData };
         }
 
+        // A data-health panel shows nothing on healthy data, so a plain numeric
+        // feed would "verify" it against its empty state only. This profile
+        // breaks some tags in the specific ways the symbol is meant to catch.
+        if (shape === 'TimeSeries' && opts.profile === 'health') {
+            var hData = [];
+            for (var hs = 0; hs < count; hs++) {
+                var ht = tags[hs];
+                var kind = hs % 6;          // 0 healthy, 1 stale, 2 flat, 3 bad value, 4-5 healthy
+                var hv = [];
+                var flatFrom = now - 5 * 3600000;
+                var flatVal = null;
+                for (var hp = 0; hp < points; hp++) {
+                    var htm = now - span + (span * hp) / (points - 1);
+                    if (kind === 1 && htm > now - 95 * 60000) { break; }
+                    var val = round(signal(ht, htm, hs * 0.9, rand), 3);
+                    if (kind === 2 && htm >= flatFrom) {
+                        if (flatVal === null) { flatVal = val; }
+                        val = flatVal;
+                    }
+                    hv.push({ Time: new Date(htm).toISOString(), Value: val });
+                }
+                if (kind === 3 && hv.length) {
+                    // PI reports a failed read as a system digital state in
+                    // place of the number, not as a missing sample.
+                    hv[hv.length - 1] = { Time: hv[hv.length - 1].Time, Value: 'I/O Timeout', IsGood: false };
+                }
+                hData.push({
+                    Label: ht.name,
+                    Units: ht.units,
+                    Path: '\\\\PISRV01\\' + ht.name.replace(/\s+/g, '_'),
+                    IsGood: opts.badIndex === hs ? false : true,
+                    ErrorDescription: opts.badIndex === hs ? 'Pt Created' : '',
+                    Value: hv
+                });
+            }
+            return { Data: hData };
+        }
+
+        // A compressor map needs flow and head on compressor scales, and a curve
+        // spec arriving as a string attribute — the way a site would keep each
+        // machine's map on its AF element so asset swapping changes the map too.
+        if (shape === 'TimeSeries' && opts.profile === 'compressor') {
+            var cData = [];
+            var flowV = [], headV = [];
+            var trailFrom = now - 30 * 60000;
+            for (var cp = 0; cp < points; cp++) {
+                var ctm = now - span + (span * cp) / (points - 1);
+                var flow, head;
+                if (ctm < trailFrom) {
+                    var ph = (ctm - (now - span)) / span;
+                    flow = 6100 + Math.sin(ph * 9) * 380;
+                    head = 13900 + Math.sin(ph * 9 + 0.6) * 420;
+                } else {
+                    // The last half hour walks toward the surge line.
+                    var f = (ctm - trailFrom) / (now - trailFrom);
+                    flow = 5900 - f * 900;
+                    head = 14200 + f * 1000;
+                }
+                flowV.push({ Time: new Date(ctm).toISOString(), Value: round(flow + (rand() - 0.5) * 60, 1) });
+                headV.push({ Time: new Date(ctm).toISOString(), Value: round(head + (rand() - 0.5) * 80, 1) });
+            }
+            cData.push({ Label: 'K-301 Inlet Flow', Units: 'ACFM', Path: '\\\\AF\\K-301|Inlet Flow',
+                IsGood: opts.badIndex === 0 ? false : true, Value: flowV });
+            cData.push({ Label: 'K-301 Polytropic Head', Units: 'ft', Path: '\\\\AF\\K-301|Polytropic Head',
+                IsGood: opts.badIndex === 1 ? false : true,
+                ErrorDescription: opts.badIndex === 1 ? 'Calculation failed' : '', Value: headV });
+            if (count > 2) {
+                cData.push({ Label: 'K-301 Map Curves', Units: '', Path: '\\\\AF\\K-301|Map Curves', IsGood: true,
+                    Value: [{ Time: new Date(now - span).toISOString(), Value:
+                        'surge: 2400:5000 3000:8000 3500:10800 4100:14600 4700:19000 5000:21500 5400:24500 | ' +
+                        '70%: 3000:8000 4500:7600 6000:6600 7000:5200 | ' +
+                        '80%: 3500:10800 5500:10200 7000:8800 8200:6800 | ' +
+                        '90%: 4100:14600 6200:13900 8000:12000 9400:9200 | ' +
+                        '100%: 4700:19000 7000:18100 9000:15800 10500:12200 | ' +
+                        '105%: 5000:21500 7400:20500 9500:18000 11000:14200 | ' +
+                        'stonewall: 7000:5200 8200:6800 9400:9200 10500:12200 11000:14200' }] });
+            }
+            for (var cx = 3; cx < count; cx++) {
+                var xt = tags[cx];
+                cData.push({ Label: xt.name, Units: xt.units, Path: '', IsGood: true,
+                    Value: [{ Time: new Date(now).toISOString(), Value: round(xt.base, 2) }] });
+            }
+            return { Data: cData };
+        }
+
         if (shape === 'TimeSeries') {
             var data = [];
             for (var s = 0; s < count; s++) {

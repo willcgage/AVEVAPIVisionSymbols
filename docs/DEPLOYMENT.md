@@ -13,7 +13,7 @@ installations only need the first two:
 | **2 · Confirm** | Check the symbols appear and draw | Everyone |
 | **3 · Configure PI Web API** | Edit one file, per server | Only if you use the five PI Web API symbols |
 
-Twenty-six of the thirty-one symbols work the moment phase 1 finishes. Phase 3
+Twenty-eight of the thirty-three symbols work the moment phase 1 finishes. Phase 3
 exists only for `pvxEventGantt`, `pvxEventAnalytics`, `pvxAssetTree`,
 `pvxManualEntry` and `pvxEntryTable` — and for `pvxAnnunciator` if you turn on
 shared acknowledgement. Skip it otherwise; nothing else in the library reads
@@ -30,7 +30,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (558 render checks)
+[ ] npm run verify passes on the build machine        (594 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] msiexec /i PvxSymbols-<ver>.msi /qn /l*v pvx-install.log
@@ -64,7 +64,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
     sym-pvxRadialGauge.css
-    …one set of four per symbol, 31 symbols…
+    …one set of four per symbol, 33 symbols…
 
     piwebapi-check.html          the connectivity diagnostic (phase 3)
 
@@ -277,7 +277,7 @@ Then recycle the app pool and hard-refresh, exactly as below.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 558 render checks must pass
+npm run verify        # gate: 594 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 
@@ -332,7 +332,7 @@ after what looked like a routine upgrade.
 Do not stop at "the files are there". Two checks, in this order:
 
 **The palette.** Open any display, switch to edit mode, scroll to the bottom of
-the symbol palette. Thirty PVX symbols, each with its own icon. If they are
+the symbol palette. Thirty-three PVX symbols, each with its own icon. If they are
 absent, go to *Troubleshooting* — do not proceed.
 
 **One real symbol.** On a scratch display, drop a **PVX Radial Gauge** onto the
@@ -341,7 +341,7 @@ value within one refresh. This proves the whole path — registration, template
 resolution, the shared runtime, the data pipeline — in about fifteen seconds,
 and it fails loudly rather than subtly if any part of it is wrong.
 
-That is the entire installation for twenty-six of the thirty-one symbols.
+That is the entire installation for twenty-eight of the thirty-three symbols.
 
 ---
 
@@ -607,7 +607,7 @@ rotation needs its own copy — see *Configuration notes* above.
 
 ## Security notes
 
-- **Twenty-six of the thirty-one symbols make no network calls of their own.** They
+- **Twenty-eight of the thirty-three symbols make no network calls of their own.** They
   render only the data PI Vision hands them and have no server-side
   prerequisites beyond the file copy.
 - **Five symbols call PI Web API**, and only after `pvx-config.js` gives them a

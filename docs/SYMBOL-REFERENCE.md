@@ -15,6 +15,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
 | [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
 | [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
+| [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | — | None |
@@ -25,6 +26,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Single |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | — | None |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | — | None |
+| [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
 | [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | Table | Multiple |
 | [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Single |
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
@@ -357,6 +359,41 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `SelectionColor` | `"#d99024"` |  |
 | `BaselineColor` | `""` | blank => AccentColor |
 | `ShowMedians` | `true` |  |
+
+---
+
+## pvxDataHealth
+
+**PVX Data Health** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock health
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `Title` | `"Data health"` |  |
+| `StaleMinutes` | `60` |  |
+| `FlatlineHours` | `4` |  |
+| `FlatlineTolerance` | `0` |  |
+| `Ranges` | `""` | "Label: lo..hi, Label: lo..hi" |
+| `UpdateOverrides` | `""` | "Label: minutes" — 0 excludes the tag |
+| `ShowCounts` | `true` |  |
+| `ShowSparkline` | `true` |  |
+| `ShowValue` | `true` |  |
+| `MaxRows` | `50` |  |
+| `RowHeight` | `26` |  |
+| `EmptyText` | `"All tags healthy"` |  |
 
 ---
 
@@ -818,6 +855,47 @@ not a visualization. Operators use it to do the three things PI Vision otherwise
 | `ConfirmText` | `"Leave this display?"` |  |
 | `ShowTitle` | `false` |  |
 | `Title` | `""` |  |
+
+---
+
+## pvxOperatingMap
+
+**PVX Operating Map** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+1st  X — usually actual inlet flow 2nd  Y — usually polytropic head (an AF analysis; this symbol plots it, it does not calculate it) 3rd  optional — a STRING attribute holding the curve spec (see below) @mock compressor
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `-1000000:#8f1f14:Past surge line, 0:#c8452f:…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `300` |  |
+| `Title` | `""` |  |
+| `CurveSource` | `"auto"` | auto \| config |
+| `Curves` | `""` |  |
+| `ControlMarginPct` | `10` | derives a control line when none is given; 0 = none |
+| `TrailMinutes` | `30` |  |
+| `ShowHistory` | `true` |  |
+| `MaxPairGapSeconds` | `60` |  |
+| `XLabel` | `""` |  |
+| `YLabel` | `""` |  |
+| `XMin` | `""` |  |
+| `XMax` | `""` |  |
+| `YMin` | `""` |  |
+| `YMax` | `""` |  |
+| `TickCount` | `5` |  |
+| `ShowGrid` | `true` |  |
+| `ShowSpeedLabels` | `true` |  |
+| `ShowMarginMarker` | `true` |  |
 
 ---
 
