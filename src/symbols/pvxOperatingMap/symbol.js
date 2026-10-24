@@ -275,7 +275,7 @@
             if (!xs || !ys) {
                 scope.pvx.note = '';
                 emptyState(svgRoot, W, H, t, 'Two data sources required',
-                    'Drop flow first, then head; the curve attribute third.');
+                    'Flow first, then head; curves third.');
                 digest();
                 return;
             }
@@ -612,6 +612,8 @@
                 'class': 'pvx-svg-label', 'text-anchor': 'middle',
                 'font-size': font, 'font-weight': '600', fill: t.textMuted
             });
+            // The hint is optional; at mosaic sizes it would only be clipped.
+            if (detail.length * font * 0.9 * 0.58 > W - 12) { return; }
             PVX.svg.text(svgRoot, (W / 2).toFixed(2), (H / 2 + font * 0.7).toFixed(2), detail, {
                 'class': 'pvx-svg-label', 'text-anchor': 'middle',
                 'font-size': font * 0.9, fill: t.textMuted, opacity: '0.8'
