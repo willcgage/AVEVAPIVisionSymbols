@@ -1,0 +1,33 @@
+<div class="pvx pvx-health"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+    <div class="pvx-surface pvx-health-surface"
+         ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+
+        <div class="pvx-header pvx-health-header" ng-if="pvx.showHeader">
+            <div class="pvx-title pvx-truncate"
+                 ng-if="config.ShowLabel && pvx.title"
+                 title="{{pvx.title}}">{{pvx.title}}</div>
+
+            <div class="pvx-health-pills" ng-if="pvx.counts.length">
+                <span class="pvx-health-pill"
+                      ng-repeat="p in pvx.counts track by p.key"
+                      ng-style="{'color': p.color, 'background': p.bg}">
+                    <b class="pvx-num">{{p.count}}</b><span>{{p.label}}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Rows are built imperatively by symbol.js, for the same reason as
+             pvxAlarmBanner: an ng-repeat over live values re-runs a watcher per
+             row on every digest. -->
+        <div class="pvx-body pvx-health-bodywrap">
+            <div class="pvx-health-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-health-footer" ng-if="pvx.footer">
+            <span class="pvx-truncate" title="{{pvx.footer}}">{{pvx.footer}}</span>
+        </div>
+
+    </div>
+</div>

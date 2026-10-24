@@ -238,6 +238,7 @@ function inspect() {
                         const mockOpts = {
                             count: count, points: 120, hours: 8, seed: 7,
                             digital: mockProfile === 'digital',
+                            profile: mockProfile,
                             badIndex: bad && count > 1 ? 1 : -1
                         };
                         const payload = empty ? null : window.PVMock.generate(shape,

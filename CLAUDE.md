@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 30 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 32 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.5.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached. CI and the release workflow are green, and
@@ -16,7 +16,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 540 render checks — the gate, and slow
+node tools/verify.js                 # 576 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
@@ -25,7 +25,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 30 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 32 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -175,7 +175,9 @@ Each of these cost real debugging time. Do not rediscover them.
 The roadmap is **closed by decision**, not abandoned: tiers 1 and 2 shipped,
 `pvxSlideshow` was the one tier-3 item worth building, and four candidates were
 declined with reasons recorded on each card in `docs/roadmap.html`
-(`pvxTimePicker`, `pvxWebView`, `pvxAlarmSound`, `pvxMap`). Do not "finish
+(`pvxTimePicker`, `pvxWebView`, `pvxAlarmSound`, `pvxMap`). Two symbols were
+added afterwards from a gap analysis, on the owner's request: `pvxOperatingMap`
+and `pvxDataHealth` (`docs/ROADMAP.md`, *After the plan*). Do not "finish
 tier 3" — that is a resolved question, not an open task.
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs

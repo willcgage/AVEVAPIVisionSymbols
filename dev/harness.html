@@ -449,6 +449,7 @@
                 count: count, points: opts.points, hours: opts.hours,
                 tick: opts.tick, seed: opts.seed,
                 digital: inst.mockProfile === 'digital',
+                profile: inst.mockProfile,
                 badIndex: count > 1 ? opts.badIndex : -1
             });
             try { inst.vis.onDataUpdate(payload); }

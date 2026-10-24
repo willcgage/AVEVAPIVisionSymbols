@@ -193,6 +193,7 @@ server.on('listening', async () => {
         const mk = (tick) => a.empty || shape === 'None' ? null : window.PVMock.generate(shape, {
             count: count, points: a.points, hours: a.hours, tick: tick, seed: 7,
             digital: a.mockProfile === 'digital',
+            profile: a.mockProfile,
             badIndex: a.bad && count > 1 ? 1 : -1
         });
 

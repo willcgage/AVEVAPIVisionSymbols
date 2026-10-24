@@ -3,12 +3,12 @@
 [![CI](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml/badge.svg)](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-Thirty production-ready custom symbols that fill the gaps in PI Vision's stock
+Thirty-two production-ready custom symbols that fill the gaps in PI Vision's stock
 palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
-Twenty-five of them run entirely on PI Vision's own data pipeline — no PI Web
+Twenty-seven of them run entirely on PI Vision's own data pipeline — no PI Web
 API, no server-side prerequisites beyond copying a folder. Five reach further
 (Event Frames, the AF hierarchy, writing values back) and need PI Web API; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
@@ -37,6 +37,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxRadar/icon.svg) | **PVX Fingerprint** | Normalised multi-axis polygon over a reference profile. Shape recognition: does this asset still look like it used to. |
 | ![](src/symbols/pvxDonut/icon.svg) | **PVX Contribution** | Share of a total with the total in the hole. The config pane is honest that a ranked bar reads better for magnitude. |
 | ![](src/symbols/pvxProfile/icon.svg) | **PVX Spatial Profile** | Values along a *physical* axis — kiln zones, column trays, cell voltages — with a limit envelope and a faded "shadow" profile so drift shows as a change of shape. |
+| ![](src/symbols/pvxOperatingMap/icon.svg) | **PVX Operating Map** | The live operating point on a compressor or pump map: surge line, control line, speed lines and stonewall, a fading trail showing direction of travel, and surge margin as a number. The curves can live on the AF element, so the map follows asset swapping. |
 | ![](src/symbols/pvxRadialGauge/icon.svg) | **PVX Radial Gauge** | Threshold-banded dial. Configurable sweep from a shallow arc to a full ring, needle or progress arc, target marker. |
 | ![](src/symbols/pvxBarIndicator/icon.svg) | **PVX Bar Indicator** | Horizontal or vertical level bar. Solid, gradient or segmented; threshold bands on the track; target marker. |
 | ![](src/symbols/pvxSparkline/icon.svg) | **PVX Multi Sparkline** | One dense row per tag — name, micro-trend, current value. Twenty tags at a glance, which the stock trend cannot do. |
@@ -54,6 +55,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number, period-over-period delta with a good/bad direction, inline sparkline, footer statistics. |
 | ![](src/symbols/pvxStatusGrid/icon.svg) | **PVX Status Grid** | Responsive tile grid coloured by thresholds or by a digital state map. Four tile styles, optional drill-down. |
 | ![](src/symbols/pvxAlarmBanner/icon.svg) | **PVX Exception Banner** | Shows only the tags currently outside limits, worst first, with dwell time. List, ticker or summary mode. |
+| ![](src/symbols/pvxDataHealth/icon.svg) | **PVX Data Health** | Lists only the tags that can't be trusted right now: bad, out of instrument range, stale, or flatlined. The healthy rest are a count in the footer, so nothing is silently dropped. |
 
 ### Event Frames, AF and data entry · needs PI Web API
 
@@ -98,7 +100,7 @@ npm run installer    # additionally generates the WiX installer source
 Copy `dist/ext` onto the PI Vision server (or run the generated
 `dist/Deploy-PvxSymbols.ps1` there), recycle the app pool, hard-refresh the
 browser. The PVX symbols appear at the bottom of the symbol palette in display
-edit mode. That is the whole installation for twenty-five of the thirty.
+edit mode. That is the whole installation for twenty-seven of the thirty-two.
 
 The other five need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
@@ -216,7 +218,7 @@ with one predictable structure.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 540 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 576 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, and content clipped out of reach. That is the gate to
 run before any deployment.
