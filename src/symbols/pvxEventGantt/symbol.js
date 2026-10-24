@@ -48,6 +48,22 @@
  *     failures are counted and reported in the footer rather than silently
  *     dropping the assets that failed.
  *
+ * HIERARCHY MODE (LaneBy: 'hierarchy')
+ *   Batch processes and anything else modelled as parent and child Event
+ *   Frames (batch -> unit procedure -> operation -> phase) have a second
+ *   question a swimlane cannot answer: WHICH STEP of this batch ran long. Here
+ *   every frame gets its own row, children indented under their parent in
+ *   start order, the way a trace waterfall draws spans. Colour by 'typical'
+ *   compares each frame against the median of its siblings-in-kind across the
+ *   window (same template and, below the root, the same name), and a tick on
+ *   the bar marks where the typical duration would have ended — so "the heat
+ *   phase of 1042 ran 40% long" is visible without reading a number.
+ *
+ *   The tree is fetched a LEVEL at a time: the database search returns roots
+ *   only, then one PVX.api.batch() per level asks each frame that HasChildren
+ *   for its direct children. MaxDepth bounds the round trips, MaxEvents bounds
+ *   the total, and both cuts are reported rather than silently applied.
+ *
  * RENDERING
  *   One imperative SVG into `.pvx-egantt-body`. An ng-repeat over lanes x events
  *   would put thousands of watchers into the digest loop of a display that
@@ -120,12 +136,14 @@
                 EndTime: '*',
 
                 /* -- shape ---------------------------------------------------- */
-                LaneBy: 'element',         // element | template | none
+                LaneBy: 'element',         // element | template | none | hierarchy
                 MaxLanes: 20,
+                MaxDepth: 3,               // hierarchy: levels fetched, roots included
 
                 /* -- colour --------------------------------------------------- */
-                ColorBy: 'template',       // template | duration | attribute | single
+                ColorBy: 'template',       // template | duration | attribute | single | typical
                 ColorAttribute: '',
+                TypicalTolerancePct: 20,   // typical: longer than median by this much = long
                 SingleColor: '#3b82c4',
 
                 /* -- chrome --------------------------------------------------- */
@@ -176,7 +194,8 @@
             capped: false,        // more events matched than MaxEvents
             maxEvents: 0,
             failedBatch: 0,       // failed sub-requests in the enrichment batch
-            win: null             // the window the current events were fetched for
+            win: null,            // the window the current events were fetched for
+            tree: null            // hierarchy mode: expansion outcome (see expandChildren)
         };
 
         var liveCfg = scope.config || {};
@@ -436,6 +455,34 @@
             return cfg.LaneBy === 'element';
         }
 
+        function isHierarchy(cfg) {
+            return cfg.LaneBy === 'hierarchy';
+        }
+
+        /** The selectedFields every frame query in this configuration needs. */
+        function frameFields(cfg) {
+            var fields = [
+                'Items.Name',
+                'Items.StartTime',
+                'Items.EndTime',
+                'Items.TemplateName',
+                'Items.Links.Self'
+            ];
+            if (needsElement(cfg)) {
+                // Only when swimlanes are per-asset. The search endpoint returns
+                // a LINK to the referenced element, not its name, so this field
+                // is the cheapest thing that leads to one — it carries the WebId
+                // the enrichment batch resolves (once per element, then cached).
+                fields.push('Items.Links.PrimaryReferencedElement');
+            }
+            if (isHierarchy(cfg)) {
+                // Lets the expansion skip leaf frames instead of asking each one
+                // for children it does not have.
+                fields.push('Items.HasChildren');
+            }
+            return fields.join(';');
+        }
+
         function colorAttribute(cfg) {
             return cfg.ColorBy === 'attribute' ? trim(cfg.ColorAttribute) : '';
         }
@@ -453,20 +500,6 @@
          */
         function queryEvents(dbWebId, cfg, win) {
             var max = intIn(cfg.MaxEvents, 1, 5000, 500);
-            var fields = [
-                'Items.Name',
-                'Items.StartTime',
-                'Items.EndTime',
-                'Items.TemplateName',
-                'Items.Links.Self'
-            ];
-            if (needsElement(cfg)) {
-                // Only when swimlanes are per-asset. The search endpoint returns
-                // a LINK to the referenced element, not its name, so this field
-                // is the cheapest thing that leads to one — it carries the WebId
-                // the enrichment batch resolves (once per element, then cached).
-                fields.push('Items.Links.PrimaryReferencedElement');
-            }
 
             return PVX.api.eventFrames({
                 databaseWebId: dbWebId,
@@ -480,7 +513,7 @@
                 // matters, and every stricter mode drops it.
                 searchMode: trim(cfg.SearchMode) || 'Overlapped',
                 maxCount: max + 1,
-                selectedFields: fields.join(';')
+                selectedFields: frameFields(cfg)
             }, {
                 // Never served from the shared GET cache. This symbol owns its
                 // own refresh cadence, and a RefreshSeconds shorter than the
@@ -522,8 +555,92 @@
                 webId: webIdFromLink(links.Self),
                 elWebId: needsElement(cfg) ? webIdFromLink(links.PrimaryReferencedElement) : '',
                 elName: '',
-                attrValue: null
+                attrValue: null,
+                hasChildren: item.HasChildren === true,
+                depth: 0,
+                children: []
             };
+        }
+
+        /**
+         * Fill in the tree under the roots, one level per round trip.
+         *
+         * Each level is ONE batch: a sub-request per frame that HasChildren,
+         * asking for its direct children over the same window. Twenty batches
+         * of five phases each are therefore one request per level, not a
+         * hundred. The window and search mode are the roots' own, so a child
+         * that lies wholly outside the display's range is not fetched — it
+         * would not be drawn anyway.
+         *
+         * Resolves with { failed, capped, depthCut }: failed sub-requests,
+         * whether MaxEvents stopped the expansion, and how many frames still
+         * had children when MaxDepth was reached. All three reach the footer.
+         */
+        function expandChildren(roots, cfg, win, budget) {
+            var maxDepth = intIn(cfg.MaxDepth, 1, 8, 3);
+            var out = { failed: 0, capped: false, depthCut: 0, count: roots.length };
+            var params = '?startTime=' + encodeURIComponent(win.useRaw ? win.startExpr : isoOf(win.from)) +
+                '&endTime=' + encodeURIComponent(win.useRaw ? win.endExpr : isoOf(win.to)) +
+                '&searchMode=' + encodeURIComponent(trim(cfg.SearchMode) || 'Overlapped') +
+                '&selectedFields=' + encodeURIComponent(frameFields(cfg));
+
+            function level(parents, depth) {
+                var asks = [];
+                for (var i = 0; i < parents.length; i++) {
+                    if (parents[i].hasChildren && parents[i].webId) { asks.push(parents[i]); }
+                }
+                if (!asks.length) { return Promise.resolve(out); }
+                if (depth >= maxDepth) { out.depthCut += asks.length; return Promise.resolve(out); }
+                if (out.count >= budget) { out.capped = true; return Promise.resolve(out); }
+
+                var reqs = {};
+                for (var k = 0; k < asks.length; k++) {
+                    reqs['c' + k] = {
+                        Method: 'GET',
+                        Resource: apiUrl('eventframes/' + encodeURIComponent(asks[k].webId) + '/eventframes' +
+                            params + '&maxCount=' + (budget - out.count + 1))
+                    };
+                }
+                return PVX.api.batch(reqs, { cache: false }).then(function (res) {
+                    var r = PVX.api.batchResults(res);
+                    out.failed += r.failedCount;
+                    var next = [];
+                    for (var a = 0; a < asks.length; a++) {
+                        var body = r.ok['c' + a];
+                        var items = (body && body.Items) || [];
+                        for (var j = 0; j < items.length; j++) {
+                            if (out.count >= budget) { out.capped = true; break; }
+                            var ch = toEvent(items[j], cfg);
+                            if (!ch) { continue; }
+                            ch.depth = depth;
+                            ch.parent = asks[a];
+                            asks[a].children.push(ch);
+                            next.push(ch);
+                            out.count += 1;
+                        }
+                    }
+                    return level(next, depth + 1);
+                });
+            }
+
+            return level(roots, 1)['catch'](function () {
+                // A failed level keeps the frames already fetched; a partial
+                // tree is still a correct picture of what it shows.
+                out.failed = out.failed || -1;
+                return out;
+            });
+        }
+
+        /** Depth-first, children in start order: the waterfall's row order. */
+        function flattenTree(roots) {
+            var rows = [];
+            function walk(ev) {
+                rows.push(ev);
+                ev.children.sort(function (a, b) { return a.start - b.start; });
+                for (var i = 0; i < ev.children.length; i++) { walk(ev.children[i]); }
+            }
+            for (var i = 0; i < roots.length; i++) { walk(roots[i]); }
+            return rows;
         }
 
         /**
@@ -692,7 +809,14 @@
                     // axis has to come from what it returned.
                     if (win.useRaw) { adoptWindowFromEvents(win, events); }
 
-                    return enrich(events, cfg);
+                    state.tree = null;
+                    if (!isHierarchy(cfg)) { return enrich(events, cfg); }
+                    return expandChildren(events, cfg, win, maxEvents).then(function (tree) {
+                        if (stale(gen)) { return null; }
+                        state.tree = tree;
+                        state.events = flattenTree(events);
+                        return enrich(state.events, cfg);
+                    });
                 })
                 .then(function (failed) {
                     if (stale(gen) || failed === null) { return; }
@@ -811,6 +935,8 @@
             var byKey = {};
             var i, ev;
 
+            if (isHierarchy(cfg)) { return buildTreeModel(m, cfg, showOpen); }
+
             for (i = 0; i < state.events.length; i++) {
                 ev = state.events[i];
                 if (ev.open && !showOpen) { m.hiddenOpen += 1; continue; }
@@ -906,6 +1032,136 @@
         }
 
         /**
+         * Hierarchy mode: one row per frame, in the depth-first order the
+         * refresh already produced. Rows are never re-sorted by name — the
+         * order IS the tree — and the MaxLanes cut keeps the first rows, so
+         * what is cut is always a tail, never a hole in the middle of a batch.
+         */
+        function buildTreeModel(m, cfg, showOpen) {
+            var i, ev;
+            var hiddenOpenIds = {};
+            for (i = 0; i < state.events.length; i++) {
+                ev = state.events[i];
+                // A hidden open parent hides its subtree too: indented rows
+                // under a parent that is not there read as the wrong parent's.
+                if ((ev.open && !showOpen) || (ev.parent && hiddenOpenIds[ev.parent.webId])) {
+                    m.hiddenOpen += 1;
+                    if (ev.webId) { hiddenOpenIds[ev.webId] = true; }
+                    continue;
+                }
+                var from = Math.max(ev.start, m.from);
+                var to = Math.min(ev.open ? m.to : ev.end, m.to);
+                if (!(to >= from)) { continue; }
+                var item = {
+                    ev: ev, from: from, to: to,
+                    duration: to - from,
+                    trueDuration: ev.open ? null : (ev.end - ev.start),
+                    clippedStart: ev.start < m.from,
+                    open: ev.open
+                };
+                m.lanes.push({
+                    key: 'f' + i, label: ev.name, depth: ev.depth,
+                    items: [item], total: item.duration, subRows: 1
+                });
+                m.count += 1;
+                if (ev.depth === 0) {
+                    m.roots = (m.roots || 0) + 1;
+                    m.total += item.duration;
+                    if (item.duration > m.longest) { m.longest = item.duration; }
+                }
+                if (ev.open) { m.openCount += 1; }
+                if (m.count === 1 || item.duration < m.durMin) { m.durMin = item.duration; }
+                if (item.duration > m.durMax) { m.durMax = item.duration; }
+            }
+            m.mean = m.roots ? m.total / m.roots : 0;
+            m.tree = true;
+
+            assignTypical(m, cfg);
+
+            var maxLanes = intIn(cfg.MaxLanes, 1, 200, 20);
+            if (m.lanes.length > maxLanes) {
+                m.hiddenLanes = m.lanes.length - maxLanes;
+                m.hiddenLaneEvents = m.hiddenLanes;
+                m.lanes = m.lanes.slice(0, maxLanes);
+            }
+            m.laneCount = m.lanes.length;
+            assignColors(m, cfg);
+
+            if (state.capped) {
+                m.notes.push('more than ' + state.maxEvents + ' top-level frames match \u2014 showing ' + state.maxEvents);
+            }
+            if (m.hiddenLanes) {
+                m.notes.push('+' + m.hiddenLanes + (m.hiddenLanes === 1 ? ' frame' : ' frames') + ' below the last row');
+            }
+            if (m.hiddenOpen) {
+                m.notes.push(m.hiddenOpen + ' open ' + (m.hiddenOpen === 1 ? 'frame' : 'frames') + ' hidden');
+            }
+            var tr = state.tree;
+            if (tr) {
+                if (tr.capped) { m.notes.push('child frames stopped at ' + state.maxEvents + ' in total'); }
+                if (tr.depthCut) {
+                    m.notes.push(tr.depthCut + (tr.depthCut === 1 ? ' frame has' : ' frames have') +
+                        ' children below the depth limit');
+                }
+                if (tr.failed > 0) { m.notes.push(tr.failed + ' child lookups failed'); }
+                else if (tr.failed === -1) { m.notes.push('child lookup failed \u2014 the tree may be incomplete'); }
+            }
+            if (state.failedBatch > 0) {
+                m.notes.push(state.failedBatch + ' of the follow-up requests failed');
+            } else if (state.failedBatch === -1) {
+                m.notes.push('follow-up request failed \u2014 colours may be incomplete');
+            }
+            if (state.win && state.win.useRaw) { m.notes.push('time range resolved by PI Web API'); }
+            return m;
+        }
+
+        /**
+         * Typical duration per kind of frame: the median true duration of the
+         * finished frames that share a template and, below the root, a name.
+         *
+         * The median, not the mean: one batch that sat on hold over a weekend
+         * would drag a mean far enough to make every normal batch look short.
+         * A kind needs three finished frames before it has a "typical" at all
+         * — with two, "long" just means "the longer of the two".
+         */
+        function kindKey(ev) {
+            return (ev.template || '') + '|' + (ev.depth ? ev.name : '');
+        }
+
+        function assignTypical(m, cfg) {
+            var groups = {}, i, k, it;
+            for (i = 0; i < m.lanes.length; i++) {
+                it = m.lanes[i].items[0];
+                if (it.open) { continue; }
+                k = kindKey(it.ev);
+                (groups[k] = groups[k] || []).push(it.trueDuration);
+            }
+            var med = {};
+            for (k in groups) {
+                if (!Object.prototype.hasOwnProperty.call(groups, k) || groups[k].length < 3) { continue; }
+                med[k] = PVX.stats.percentile(groups[k], 0.5);
+            }
+            var tol = numIn(cfg.TypicalTolerancePct, 0, 1000, 20) / 100;
+            m.typicalKinds = 0;
+            for (k in med) { if (Object.prototype.hasOwnProperty.call(med, k)) { m.typicalKinds += 1; } }
+            for (i = 0; i < m.lanes.length; i++) {
+                it = m.lanes[i].items[0];
+                var typ = med[kindKey(it.ev)];
+                if (!(typ > 0)) { continue; }
+                it.typical = typ;
+                // An open frame is compared on its elapsed time: it is already
+                // at least this long, which is enough to say "running long".
+                var dur = it.open ? (state.win.now - it.ev.start) : it.trueDuration;
+                it.ratio = dur / typ;
+                it.long = it.ratio > 1 + tol;
+                it.veryLong = it.ratio > 1 + 2 * tol;
+            }
+            if (cfg.ColorBy === 'typical' && !m.typicalKinds) {
+                m.notes.push('no kind of frame has 3 finished examples yet \u2014 nothing to call typical');
+            }
+        }
+
+        /**
          * One colour per event.
          *
          * 'template' and 'attribute' are categorical: colours are claimed in
@@ -918,7 +1174,7 @@
             var single = trim(cfg.SingleColor) || '#3b82c4';
             var i, j, keys;
 
-            if (mode === 'single' || mode === 'duration') {
+            if (mode === 'single' || mode === 'duration' || mode === 'typical') {
                 m.colorMode = mode;
                 m.single = single;
                 return;
@@ -954,6 +1210,15 @@
 
         function colorFor(item, m, cfg, t) {
             if (m.colorMode === 'single') { return m.single; }
+            if (m.colorMode === 'typical') {
+                // Status colours, because "ran long" IS a status. A frame
+                // with no typical to compare against stays neutral rather than
+                // borrowing "normal", which it has not earned.
+                if (item.veryLong) { return PVX.color.status.alarm; }
+                if (item.long) { return PVX.color.status.warning; }
+                if (item.typical) { return PVX.color.status.normal; }
+                return t ? t.textMuted : PVX.color.status.unknown;
+            }
             if (m.colorMode === 'duration') {
                 // Long events heavy, short events light. The sequential ramp runs
                 // dark-to-light, so the fraction is inverted.
@@ -1061,6 +1326,14 @@
         }
 
         function summaryText(m) {
+            if (m.tree) {
+                // Parents contain their children, so summing every row would
+                // count the same hour three times. Totals are over roots.
+                return (m.roots || 0) + ((m.roots === 1) ? ' top-level frame' : ' top-level frames') +
+                    ' \u00b7 ' + m.count + ' frames' +
+                    ' \u00b7 longest ' + PVX.fmt.duration(m.longest) +
+                    (m.openCount ? ' \u00b7 ' + m.openCount + ' still open' : '');
+            }
             return m.count + (m.count === 1 ? ' event' : ' events') +
                 ' \u00b7 ' + PVX.fmt.duration(m.total) + ' total' +
                 ' \u00b7 longest ' + PVX.fmt.duration(m.longest) +
@@ -1123,6 +1396,7 @@
 
             var axisH = minimal ? 0 : AXIS_H;
             var laneLabels = !minimal && cfg.LaneBy !== 'none';
+            var INDENT = 9;
 
             // The lane gutter is sized to the widest label it actually has to
             // hold, capped, so a chart of short asset names does not give a
@@ -1132,9 +1406,12 @@
             if (laneLabels) {
                 var widest = 0;
                 for (i = 0; i < m.lanes.length; i++) {
-                    widest = Math.max(widest, textW(m.lanes[i].label, laneFont));
+                    widest = Math.max(widest, textW(m.lanes[i].label, laneFont) +
+                        (m.tree ? m.lanes[i].depth * INDENT : 0));
                 }
-                laneLabelW = PVX.util.clamp(widest + 6, 30, W * 0.3);
+                // A tree's labels carry their indentation, so they get a
+                // little more of the width before they start to truncate.
+                laneLabelW = PVX.util.clamp(widest + 6, 30, W * (m.tree ? 0.38 : 0.3));
             }
 
             var plot = {
@@ -1184,12 +1461,17 @@
                     }, laneG);
                 }
                 if (laneLabelW > 2) {
-                    var lt = PVX.svg.text(laneG, (plot.x0 - 5).toFixed(1), (ly + laneH / 2).toFixed(1),
-                        fitText(lanes[i].label, laneLabelW - 4, laneFont), {
+                    // Tree rows are left-aligned and indented: a right-aligned
+                    // column cannot show nesting, which is the whole layout.
+                    var indent = m.tree ? Math.min(lanes[i].depth * INDENT, laneLabelW * 0.4) : 0;
+                    var lt = PVX.svg.text(laneG,
+                        (m.tree ? padX + indent : plot.x0 - 5).toFixed(1), (ly + laneH / 2).toFixed(1),
+                        fitText(lanes[i].label, laneLabelW - 4 - indent, laneFont), {
                             'class': 'pvx-svg-label pvx-egantt-lane',
-                            'text-anchor': 'end',
+                            'text-anchor': m.tree ? 'start' : 'end',
                             'font-size': laneFont.toFixed(1),
-                            fill: t.text
+                            'font-weight': m.tree && !lanes[i].depth ? '600' : null,
+                            fill: m.tree && lanes[i].depth ? t.textMuted : t.text
                         });
                     PVX.svg.el('title', null, lt).textContent =
                         lanes[i].label + ' \u2014 ' + lanes[i].items.length +
@@ -1348,6 +1630,20 @@
 
                 PVX.svg.el('title', null, g).textContent = tipFor(bar.item, lane);
 
+                // Where a typical frame of this kind would have ended. Only
+                // inside the bar's own row and the plot; past the window edge
+                // it would point at nothing.
+                if (m.tree && bar.item.typical && cfg.ColorBy === 'typical') {
+                    var tx = L.xs(bar.item.ev.start + bar.item.typical);
+                    if (tx > L.x0 && tx < L.x1) {
+                        PVX.svg.el('line', {
+                            x1: tx.toFixed(1), y1: (y - 1.5).toFixed(1),
+                            x2: tx.toFixed(1), y2: (y + barH + 1.5).toFixed(1),
+                            stroke: t.text, 'stroke-width': 1.5, 'class': 'pvx-egantt-typical'
+                        }, g);
+                    }
+                }
+
                 if (L.showText && barH >= 8) {
                     drawBarLabel(g, bar, y, w, barH, col, t, cfg, L, nextInRow[i]);
                 }
@@ -1395,6 +1691,9 @@
             if (cfg.ShowLabels !== false) { parts.push(item.ev.name); }
             if (cfg.ShowDurations !== false) {
                 parts.push(PVX.fmt.duration(item.duration) + (item.open ? '+' : ''));
+                if (item.long && cfg.ColorBy === 'typical') {
+                    parts.push('+' + Math.round(100 * (item.ratio - 1)) + '% vs typical');
+                }
             }
             return parts.join(' \u00b7 ');
         }
@@ -1450,6 +1749,11 @@
                 ? 'Duration so far: ' + PVX.fmt.duration(item.duration)
                 : 'Duration: ' + PVX.fmt.duration(item.trueDuration) +
                   (item.trueDuration !== item.duration ? '  (' + PVX.fmt.duration(item.duration) + ' in window)' : ''));
+            if (item.typical) {
+                lines.push('Typical for this kind: ' + PVX.fmt.duration(item.typical) +
+                    ' (' + (item.ratio >= 1 ? '+' : '') + Math.round(100 * (item.ratio - 1)) + '%)');
+            }
+            if (ev.parent) { lines.push('Part of: ' + ev.parent.name); }
             if (ev.attrValue !== null && ev.attrValue !== undefined) {
                 lines.push(trim(liveCfg.ColorAttribute) + ': ' + ev.attrValue);
             }

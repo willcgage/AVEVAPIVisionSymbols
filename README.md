@@ -3,12 +3,12 @@
 [![CI](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml/badge.svg)](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-Thirty-two production-ready custom symbols that fill the gaps in PI Vision's stock
+Thirty-three production-ready custom symbols that fill the gaps in PI Vision's stock
 palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
-Twenty-seven of them run entirely on PI Vision's own data pipeline — no PI Web
+Twenty-eight of them run entirely on PI Vision's own data pipeline — no PI Web
 API, no server-side prerequisites beyond copying a folder. Five reach further
 (Event Frames, the AF hierarchy, writing values back) and need PI Web API; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
@@ -41,8 +41,9 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxRadialGauge/icon.svg) | **PVX Radial Gauge** | Threshold-banded dial. Configurable sweep from a shallow arc to a full ring, needle or progress arc, target marker. |
 | ![](src/symbols/pvxBarIndicator/icon.svg) | **PVX Bar Indicator** | Horizontal or vertical level bar. Solid, gradient or segmented; threshold bands on the track; target marker. |
 | ![](src/symbols/pvxSparkline/icon.svg) | **PVX Multi Sparkline** | One dense row per tag — name, micro-trend, current value. Twenty tags at a glance, which the stock trend cannot do. |
+| ![](src/symbols/pvxCompare/icon.svg) | **PVX Condition Compare** | Splits the time range by a rule on one tag ("yield < 92%") and ranks every other tag by how differently it behaves while the rule holds, with paired histograms per tag. What is different about the bad hours, without the trip to Excel. |
 | ![](src/symbols/pvxXYScatter/icon.svg) | **PVX XY Scatter** | Correlation of one tag against another with least-squares regression, R², time-coloured points and an operating-envelope box. |
-| ![](src/symbols/pvxHeatmap/icon.svg) | **PVX Heatmap** | Hour-of-day × day calendar, or tag × time-bucket matrix. Makes diurnal and shift patterns obvious. |
+| ![](src/symbols/pvxHeatmap/icon.svg) | **PVX Heatmap** | Hour-of-day × day calendar, tag × time-bucket matrix, or value × time density weighted by time spent. Makes diurnal and shift patterns obvious, and shows a hunting valve as two bands where a trend shows a smear. |
 | ![](src/symbols/pvxPareto/icon.svg) | **PVX Ranked Bar** | Sorted bars with an optional cumulative Pareto line. "Which five assets drive 80% of the loss." |
 
 ### KPI and status
@@ -61,7 +62,7 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxEventGantt/icon.svg) | **PVX Event Timeline** | Event Frames as swimlanes per asset, stacked where they overlap, with open events drawn to the edge rather than faked as finished. The native Events Table is a list; this shows pattern and clustering. |
+| ![](src/symbols/pvxEventGantt/icon.svg) | **PVX Event Timeline** | Event Frames as swimlanes per asset, stacked where they overlap, with open events drawn to the edge rather than faked as finished. The native Events Table is a list; this shows pattern and clustering. A hierarchy mode nests child frames under their parents (batch, unit procedure, phase) and flags the steps that ran longer than typical. |
 | ![](src/symbols/pvxEventAnalytics/icon.svg) | **PVX Event Analytics** | Which reason code costs the most hours. Durations are clipped to the window and overlapping events merged before summing — and the footer says when merging changed the total, because a downtime figure that double-counts ends up in a report. |
 | ![](src/symbols/pvxAssetTree/icon.svg) | **PVX Asset Navigator** | Browses the live AF hierarchy and sets the display's asset context, so a unit added in AF appears without editing a display. Lazy-loaded, keyboard navigable. |
 | ![](src/symbols/pvxManualEntry/icon.svg) | **PVX Manual Entry** | Writes one value to an attribute or PI point, with range validation before sending and a confirm step before committing. |
@@ -100,7 +101,7 @@ npm run installer    # additionally generates the WiX installer source
 Copy `dist/ext` onto the PI Vision server (or run the generated
 `dist/Deploy-PvxSymbols.ps1` there), recycle the app pool, hard-refresh the
 browser. The PVX symbols appear at the bottom of the symbol palette in display
-edit mode. That is the whole installation for twenty-seven of the thirty-two.
+edit mode. That is the whole installation for twenty-eight of the thirty-three.
 
 The other five need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
@@ -218,7 +219,7 @@ with one predictable structure.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 576 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 594 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, and content clipped out of reach. That is the gate to
 run before any deployment.

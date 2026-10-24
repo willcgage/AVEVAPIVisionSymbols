@@ -58,7 +58,7 @@ with a maintained framework would make the harness *less* faithful, not safer.
 | Used by | `tools/verify.js`, `tools/probe.js`, `tools/test-api.js` |
 | Deployed? | **No** |
 
-Drives headless Chromium for the 540-check render gate, the single-symbol probe,
+Drives headless Chromium for the 594-check render gate, the single-symbol probe,
 and the PI Web API test suite. The only entry in `package-lock.json` apart from
 its own transitive `playwright-core` and the optional `fsevents`.
 

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-and-verify:
-    name: Build · 540 render checks · PI Web API suite
+    name: Build · 594 render checks · PI Web API suite
     runs-on: ubuntu-latest
     timeout-minutes: 25
 

@@ -14,6 +14,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
 | [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
+| [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
@@ -325,6 +326,42 @@ PI Vision's native trend draws every trace the same way on one scale, so the mom
 
 ---
 
+## pvxCompare
+
+**PVX Condition Compare** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+The question this symbol answers is "what is DIFFERENT about the bad hours". Yield dropped, the compressor tripped, the kiln ran hot: an engineer's next move is to pull twenty related tags into Excel, split the rows by "was the condition true", and compare. This does that on the display.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `400` |  |
+| `Title` | `""` |  |
+| `ConditionSource` | `1` | 1-based position in the data source list |
+| `ConditionOp` | `"gt"` | gt \| lt \| between \| outside |
+| `ConditionValue` | `""` | blank => the condition tag's 90th percentile |
+| `ConditionValue2` | `""` | upper bound for between / outside |
+| `SampleCount` | `400` | aligned instants across the range |
+| `Bins` | `16` |  |
+| `SortBy` | `"difference"` | difference \| display |
+| `MaxRows` | `12` |  |
+| `SelectionColor` | `"#d99024"` |  |
+| `BaselineColor` | `""` | blank => AccentColor |
+| `ShowMedians` | `true` |  |
+
+---
+
 ## pvxDataHealth
 
 **PVX Data Health** · data shape `TimeSeries` · multiple data sources · collections not supported
@@ -577,10 +614,12 @@ come from PI Vision's data pipeline at all — it comes from PI Web API, through
 | `RefreshSeconds` | `60` |  |
 | `StartTime` | `"*-8h"` |  |
 | `EndTime` | `"*"` |  |
-| `LaneBy` | `"element"` | element \| template \| none |
+| `LaneBy` | `"element"` | element \| template \| none \| hierarchy |
 | `MaxLanes` | `20` |  |
-| `ColorBy` | `"template"` | template \| duration \| attribute \| single |
+| `MaxDepth` | `3` | hierarchy: levels fetched, roots included |
+| `ColorBy` | `"template"` | template \| duration \| attribute \| single \| typical |
 | `ColorAttribute` | `""` |  |
+| `TypicalTolerancePct` | `20` | typical: longer than median by this much = long |
 | `SingleColor` | `"#3b82c4"` |  |
 | `ShowNowLine` | `true` |  |
 | `ShowGrid` | `true` |  |
@@ -617,9 +656,12 @@ Two ways of folding time into a grid:
 | `CornerRadius` | `6` | *(shared)* |
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `400` |  |
-| `Mode` | `"calendar"` | calendar \| matrix |
+| `Mode` | `"calendar"` | calendar \| matrix \| density |
 | `Aggregate` | `"avg"` | avg \| max \| min \| last \| range \| count |
-| `BucketCount` | `24` | matrix mode: number of time columns |
+| `BucketCount` | `24` | matrix + density: number of time columns |
+| `ValueBins` | `20` | density: number of value rows |
+| `ValueMin` | `""` | density: blank => data minimum |
+| `ValueMax` | `""` | density: blank => data maximum |
 | `Title` | `""` | blank => attribute label |
 | `ColorScale` | `"sequential"` | sequential \| diverging \| thresholds \| custom |
 | `CustomLowColor` | `"#e8f0f7"` |  |

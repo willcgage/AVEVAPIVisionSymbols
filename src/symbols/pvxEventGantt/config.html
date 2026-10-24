@@ -96,7 +96,17 @@
                 <option value="element">Asset (referenced element)</option>
                 <option value="template">Event Frame template</option>
                 <option value="none">Everything on one lane</option>
+                <option value="hierarchy">One row per frame, children nested</option>
             </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.LaneBy === 'hierarchy'">
+            For batches and other parent/child Event Frames: each frame gets its own row, its children
+            indented beneath it. The filters above pick the top-level frames; their children are fetched
+            one level per batched request.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.LaneBy === 'hierarchy'">
+            <label for="pvxeg-depth">Levels to show</label>
+            <input id="pvxeg-depth" type="number" ng-model="config.MaxDepth" min="1" max="8" />
         </div>
         <div class="pvx-cfg-hint">
             Per-asset lanes need one extra lookup to turn each referenced element into a name. It is
@@ -124,7 +134,18 @@
                 <option value="duration">Duration</option>
                 <option value="attribute">Event attribute</option>
                 <option value="single">One colour</option>
+                <option value="typical" ng-if="config.LaneBy === 'hierarchy'">Longer than typical</option>
             </select>
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.ColorBy === 'typical'">
+            <label for="pvxeg-tol">Long when over typical by (%)</label>
+            <input id="pvxeg-tol" type="number" ng-model="config.TypicalTolerancePct" min="0" max="1000" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ColorBy === 'typical'">
+            Typical is the median duration of finished frames of the same kind in this window: same template,
+            and below the top level, the same name. Amber past the tolerance, red past twice it; a tick on each
+            bar marks where a typical frame would have ended. A kind needs three finished frames to have a typical.
         </div>
 
         <div class="pvx-cfg-stack" ng-if="config.ColorBy === 'attribute'">
