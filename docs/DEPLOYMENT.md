@@ -233,10 +233,10 @@ From an **elevated** PowerShell on each PI Vision web server:
 
 ```powershell
 # Default install location, with a log
-msiexec /i PvxSymbols-1.5.0.msi /qn /l*v pvx-install.log
+msiexec /i PvxSymbols-1.6.0.msi /qn /l*v pvx-install.log
 
 # PI Vision installed somewhere else
-msiexec /i PvxSymbols-1.5.0.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
+msiexec /i PvxSymbols-1.6.0.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
 ```
 
 `PIVISIONPATH` is the only property. It defaults to
@@ -258,13 +258,13 @@ replaces the `Scripts` tree and takes the `ext` folder with it. Windows
 Installer still believes the product is installed, so:
 
 ```powershell
-msiexec /fa PvxSymbols-1.5.0.msi /qn      # /fa = reinstall all files regardless of version
+msiexec /fa PvxSymbols-1.6.0.msi /qn      # /fa = reinstall all files regardless of version
 ```
 
 Uninstall:
 
 ```powershell
-msiexec /x PvxSymbols-1.5.0.msi /qn
+msiexec /x PvxSymbols-1.6.0.msi /qn
 # or by name:
 Get-Package 'PVX Symbol Library for PI Vision' | Uninstall-Package
 ```

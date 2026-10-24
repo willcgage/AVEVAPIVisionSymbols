@@ -87,7 +87,7 @@ Grab the latest [release](https://github.com/willcgage/AVEVAPIVisionSymbols/rele
 `SHA256SUMS.txt`, then on each PI Vision web server, elevated:
 
 ```powershell
-msiexec /i PvxSymbols-1.5.0.msi /qn /l*v pvx-install.log
+msiexec /i PvxSymbols-1.6.0.msi /qn /l*v pvx-install.log
 ```
 
 Or build it yourself:
@@ -242,7 +242,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 shipped symbols, 3 foundation pieces, and 4 candidates that were declined with the reason on each.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb.
 
 ---
 
