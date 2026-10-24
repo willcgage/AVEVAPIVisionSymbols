@@ -213,6 +213,13 @@ jobs:
           name: release-artifacts
           path: artifacts
 
+      # The tag is v1.6.0 but the MSI is PvxSymbols-1.6.0.msi, so the install
+      # commands in the notes cannot use github.ref_name directly: v1.5.0's
+      # notes told people to run an msiexec on a file that did not exist.
+      - name: Version without the tag's v
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -224,9 +231,9 @@ jobs:
             **MSI** — elevated PowerShell on each PI Vision web server:
 
             ```powershell
-            msiexec /i PvxSymbols-${{ github.ref_name }}.msi /qn /l*v pvx-install.log
+            msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi /qn /l*v pvx-install.log
             # non-default install location:
-            msiexec /i PvxSymbols-${{ github.ref_name }}.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
+            msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
             ```
 
             Then recycle the PI Vision app pool and hard-refresh the browser (Ctrl+F5).
