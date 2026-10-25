@@ -247,9 +247,9 @@ jobs:
             `C:\Program Files\PIPC\PIVision`; run it interactively to pick the
             folder in a dialog.
 
-            PVX puts its `sym-pvx*.js` and `.css` directly in `ext\`, where
-            PI Vision loads symbols from, and everything else in `ext\pvx\`
-            and `ext\libraries\pvx\`. Upgrading removes what earlier versions
+            PVX puts its `sym-pvx*.js` and `.css` directly in `ext\` and its
+            icons in `ext\icons\`, where PI Vision loads them from, and
+            everything else in `ext\pvx\` and `ext\libraries\pvx\`. Upgrading removes what earlier versions
             left elsewhere, and from 1.6.0 or earlier moves your
             `ext\libraries\pvx-config.js` into `ext\libraries\pvx\`. The
             settings file is never overwritten by an upgrade and never removed

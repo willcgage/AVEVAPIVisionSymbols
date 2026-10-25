@@ -62,13 +62,15 @@ var SITE_DIR = 'libraries/pvx';
  * name patterns. An MSI upgrade removes them through the old product, but a
  * server deployed by hand or with the PowerShell script has no old product.
  *
- *   1.6.0 and earlier: templates, the diagnostic, icons and the runtime loose
- *   in ext\, ext\icons\ and ext\libraries\.
- *   1.7.0: sym-pvx*.js and .css in ext\pvx\, where they did not load.
+ *   1.6.0 and earlier: templates, the diagnostic and the runtime loose in
+ *   ext\ and ext\libraries\.
+ *   1.7.0: sym-pvx*.js and .css in ext\pvx\, where they did not load, and
+ *   icons in ext\pvx\icons\, which the palette did not show.
  *
- * ext\sym-pvx*.js and .css are listed although this version installs them
- * there too. RemoveFiles runs before InstallFiles, so the current ones are laid
- * down again, and a symbol dropped from the library cannot linger and register.
+ * ext\sym-pvx*.js, .css and ext\icons\pvx*.svg are listed although this
+ * version installs them there too. RemoveFiles runs before InstallFiles, so
+ * the current ones are laid down again, and a symbol dropped from the library
+ * cannot linger and register.
  * pvx-config.js is not here: it is moved into SITE_DIR, never deleted. */
 var LEGACY_FILES = [
     { dir: '',          name: 'sym-pvx*.js' },
@@ -78,8 +80,11 @@ var LEGACY_FILES = [
     { dir: 'icons',     name: 'pvx*.svg' },
     { dir: 'libraries', name: 'pvx-core.js' },
     { dir: 'pvx',       name: 'sym-pvx*.js' },
-    { dir: 'pvx',       name: 'sym-pvx*.css' }
+    { dir: 'pvx',       name: 'sym-pvx*.css' },
+    { dir: 'pvx/icons', name: 'pvx*.svg' }
 ];
+/* 1.7.0's icon folder, emptied by the entry above and then removed. */
+var LEGACY_DIRS = ['pvx/icons'];
 
 /* Two components that carry behaviour rather than a file. Their GUIDs come from
  * the same frozen namespace under names no file path can produce, so they stay
@@ -240,6 +245,9 @@ function build() {
         var d = parentOf(f);
         if (d !== '') { dirId(d); }
     });
+    // Folders this version ships nothing into but must still name, so the
+    // clean-up can empty and remove them. Emitted as empty Directory rows.
+    LEGACY_DIRS.forEach(function (d) { dirId(d); });
 
     var components = files.map(function (rel) {
         return {
@@ -315,7 +323,7 @@ function build() {
         indent += '  ';
     });
 
-    // Sub-directories of ext (pvx, pvx\icons, libraries, libraries\pvx), depth-first.
+    // Sub-directories of ext (icons, pvx, libraries, libraries\pvx), depth-first.
     var relDirs = Object.keys(dirs).sort();
     var byParent = {};
     relDirs.forEach(function (r) {
@@ -391,21 +399,23 @@ function build() {
         // only ever matches PVX's own name prefixes.
         L.push('<?if $(var.PvxFull) = 1 ?>');
         L.push(pad + '<!-- Files earlier versions left where this one does not put them: 1.6.0');
-        L.push(pad + '     and earlier installed flat into ext\\, ext\\icons\\ and ext\\libraries\\, and');
-        L.push(pad + '     1.7.0 put the symbol scripts in ext\\pvx\\. An MSI upgrade removes those');
-        L.push(pad + '     through the old product, but a server deployed by hand or with the');
-        L.push(pad + '     PowerShell script has no old product to remove. The current');
-        L.push(pad + '     ext\\sym-pvx*.js and .css are removed too and laid down again by');
-        L.push(pad + '     InstallFiles, so a symbol dropped from the library cannot linger. The');
-        L.push(pad + '     site\'s ext\\libraries\\pvx-config.js is moved, not removed. -->');
-        L.push(pad + '<Directory Id="PVXLEGACYICONS" Name="icons" />');
+        L.push(pad + '     and earlier installed flat into ext\\ and ext\\libraries\\, and 1.7.0 put');
+        L.push(pad + '     the symbol scripts in ext\\pvx\\ and the icons in ext\\pvx\\icons\\. An MSI');
+        L.push(pad + '     upgrade removes those through the old product, but a server deployed');
+        L.push(pad + '     by hand or with the PowerShell script has no old product to remove.');
+        L.push(pad + '     The current ext\\sym-pvx*.js, .css and ext\\icons\\pvx*.svg are removed');
+        L.push(pad + '     too and laid down again by InstallFiles, so a symbol dropped from the');
+        L.push(pad + '     library cannot linger. The site\'s ext\\libraries\\pvx-config.js is moved,');
+        L.push(pad + '     not removed. -->');
         L.push(pad + '<Component Id="' + CLEANUP_ID + '" Guid="' + CLEANUP_GUID + '" Win64="yes">');
         L.push(pad + '  <CreateFolder Directory="' + dirId('pvx') + '" />');
         LEGACY_FILES.forEach(function (lf, i) {
-            var dir = lf.dir === 'icons' ? 'PVXLEGACYICONS'
-                : lf.dir === '' ? 'PVXEXTDIR' : dirId(lf.dir);
+            var dir = lf.dir === '' ? 'PVXEXTDIR' : dirId(lf.dir);
             L.push(pad + '  <RemoveFile Id="PvxLegacy' + i + '" Directory="' + dir + '" Name="' +
                    xml(lf.name) + '" On="install" />');
+        });
+        LEGACY_DIRS.forEach(function (d, i) {
+            L.push(pad + '  <RemoveFolder Id="PvxLegacyDir' + i + '" Directory="' + dirId(d) + '" On="install" />');
         });
         L.push(pad + '</Component>');
         L.push('<?endif?>');

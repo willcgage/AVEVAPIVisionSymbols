@@ -158,15 +158,21 @@ function main() {
     // exact bug this catches, and it is invisible in a build log.
     // Two ways to get the layout wrong, and 1.6.0 and 1.7.0 each shipped one.
     // PI Vision only scans ext itself for symbol scripts and stylesheets, so
-    // those must be there (1.7.0 put them in ext/pvx/ and they did not load).
-    // Everything else stays out of the folders other symbol packs share
-    // (1.6.0 put 150 files loose in them).
+    // those must be there (1.7.0 put them in ext/pvx/ and they did not load),
+    // and the palette only showed icons from ext/icons/. Everything else stays
+    // out of the folders other symbol packs share (1.6.0 put 150 files loose
+    // in them).
     var atRoot = function (p) { return /^sym-pvx\w+\.(js|css)$/.test(p); };
+    var isIcon = function (p) { return /^icons\/pvx\w+\.svg$/.test(p); };
     var loose = expected.filter(function (p) {
-        return !atRoot(p) && p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
+        return !atRoot(p) && !isIcon(p) && p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
     });
-    check('only sym-pvx*.js and .css are directly in ext; the rest is in ext/pvx/ or ext/libraries/pvx/',
+    check('only sym-pvx*.js, .css and icons/pvx*.svg are in shared folders; the rest is in ext/pvx/ or ext/libraries/pvx/',
         loose.length === 0, loose.slice(0, 6).join(', '));
+    var strayIcons = expected.filter(function (p) { return /\.svg$/.test(p) && !isIcon(p); });
+    var icons = expected.filter(isIcon);
+    check(icons.length + ' palette icons are in ext/icons/, where PI Vision shows them',
+        strayIcons.length === 0 && icons.length > 0, strayIcons.slice(0, 6).join(', '));
     var buried = expected.filter(function (p) { return /(^|\/)sym-[^/]+\.(js|css)$/.test(p) && !atRoot(p); });
     var scripts = expected.filter(atRoot);
     check(scripts.length + ' symbol scripts and stylesheets are directly in ext, where PI Vision loads them',
@@ -279,7 +285,7 @@ function main() {
             'MoveFile rows: ' + JSON.stringify(moves));
         var removes = table('RemoveFile').map(function (r) { return r[2]; });
         check('the 1.6.0 flat files are removed on install',
-            ['sym-pvx*.js', 'pvx*.svg', 'pvx-core.js'].every(function (n) {
+            ['sym-pvx*.html', 'pvx-core.js'].every(function (n) {
                 return removes.some(function (x) { return x.split('|').pop() === n; });
             }),
             'RemoveFile names: ' + removes.join(', '));

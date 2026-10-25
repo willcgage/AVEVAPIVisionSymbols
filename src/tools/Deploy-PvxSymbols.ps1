@@ -8,18 +8,18 @@
     PowerShell session on the PI Vision web server.
 
     PVX keeps to folders of its own inside ext, except for the files PI Vision
-    only loads from ext itself:
+    only loads from its own folders:
 
         ext\                  sym-pvx*.js and sym-pvx*.css
+        ext\icons\            palette icons, pvx*.svg
         ext\pvx\              templates, config panes, the diagnostic page
-        ext\pvx\icons\        palette icons
         ext\libraries\pvx\    the shared runtime and the site's pvx-config.js
 
     Upgrading from 1.6.0 or earlier, which installed flat into ext\, the script
     moves the site's pvx-config.js into ext\libraries\pvx\ and removes the old
-    PVX files from ext\, ext\icons\ and ext\libraries\. Upgrading from 1.7.0,
-    it removes the sym-pvx*.js and .css that version put in ext\pvx\. Only
-    files with PVX names are removed; nothing else in ext is touched.
+    PVX files from ext\ and ext\libraries\. Upgrading from 1.7.0, it removes
+    the sym-pvx*.js, .css and icons that version put in ext\pvx\. Only files
+    with PVX names are removed; nothing else in ext is touched.
 
 .PARAMETER Drive
     The drive PI Vision is installed on, such as D or D:. Combined with
@@ -111,7 +111,7 @@ $extRoot = Join-Path $symbolsRoot 'ext'
 
 Write-Host ''
 Write-Host "PI Vision : $PIVisionPath  ($how)"
-Write-Host "Target    : $extRoot  (sym-pvx*.js, .css),  $extRoot\pvx  and  $extRoot\libraries\pvx"
+Write-Host "Target    : $extRoot  (sym-pvx*.js, .css),  $extRoot\icons,  $extRoot\pvx  and  $extRoot\libraries\pvx"
 Write-Host ''
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -159,22 +159,30 @@ if (Test-Path -LiteralPath $legacyConfig) {
 }
 
 # --- remove what earlier versions left -------------------------------------
-# 1.6.0 and earlier put templates, icons and the runtime loose in ext\,
-# ext\icons\ and ext\libraries\; 1.7.0 put the symbol scripts in ext\pvx\,
-# where they did not load. In ext itself only files this package does not
-# ship are removed (1.6.0's templates, a symbol since dropped): the rest are
-# about to be overwritten. Matched by PVX's own name prefixes only, so another
-# vendor's symbols in the same folders are safe.
-$shippedAtRoot = @(Get-ChildItem -LiteralPath $source -File | ForEach-Object { $_.Name })
+# 1.6.0 and earlier put templates and the runtime loose in ext\ and
+# ext\libraries\; 1.7.0 put the symbol scripts in ext\pvx\, where they did
+# not load, and the icons in ext\pvx\icons\, which the palette did not show.
+# In the shared ext\ and ext\icons\ only files this package does not ship are
+# removed (1.6.0's templates, a symbol since dropped): the rest are about to
+# be overwritten. Matched by PVX's own name prefixes only, so another vendor's
+# symbols in the same folders are safe.
 $legacy = @()
-if (Test-Path -LiteralPath $extRoot) {
-    $legacy += @(Get-ChildItem -LiteralPath $extRoot -File -Filter 'sym-pvx*' |
-        Where-Object { $shippedAtRoot -notcontains $_.Name })
+foreach ($spec in @(
+        @{ From = $source;                       To = $extRoot;                       Filter = 'sym-pvx*' },
+        @{ From = (Join-Path $source 'icons');   To = (Join-Path $extRoot 'icons');   Filter = 'pvx*.svg' })) {
+    $from = $spec.From
+    $to   = $spec.To
+    $shipped = @()
+    if (Test-Path -LiteralPath $from) { $shipped = @(Get-ChildItem -LiteralPath $from -File | ForEach-Object { $_.Name }) }
+    if (Test-Path -LiteralPath $to) {
+        $legacy += @(Get-ChildItem -LiteralPath $to -File -Filter $spec.Filter |
+            Where-Object { $shipped -notcontains $_.Name })
+    }
 }
 foreach ($spec in @(
         @{ Dir = (Join-Path $extRoot 'pvx');             Filter = 'sym-pvx*.js' },
         @{ Dir = (Join-Path $extRoot 'pvx');             Filter = 'sym-pvx*.css' },
-        @{ Dir = (Join-Path $extRoot 'icons');           Filter = 'pvx*.svg' },
+        @{ Dir = (Join-Path $extRoot 'pvx\icons');       Filter = 'pvx*.svg' },
         @{ Dir = (Join-Path $extRoot 'libraries');       Filter = 'pvx-core.js' },
         @{ Dir = $extRoot;                               Filter = 'piwebapi-check.html' })) {
     if (Test-Path -LiteralPath $spec.Dir) {
@@ -188,6 +196,13 @@ foreach ($f in $legacy) {
 }
 if ($legacy.Count -gt 0) {
     Write-Host "Removed $($legacy.Count) file(s) left by an earlier PVX version." -ForegroundColor Yellow
+}
+# 1.7.0's icon folder, now empty unless something else was put in it.
+$oldIcons = Join-Path $extRoot 'pvx\icons'
+if ((Test-Path -LiteralPath $oldIcons) -and -not (Get-ChildItem -LiteralPath $oldIcons -Force)) {
+    if ($PSCmdlet.ShouldProcess($oldIcons, 'Remove empty folder left by 1.7.0')) {
+        Remove-Item -LiteralPath $oldIcons -Force
+    }
 }
 
 # --- copy -----------------------------------------------------------------
@@ -218,7 +233,7 @@ foreach ($f in $files) {
 }
 
 Write-Host ''
-Write-Host "Deployed $($files.Count - $skipped) file(s) to $extRoot, $extRoot\pvx and $extRoot\libraries\pvx." -ForegroundColor Green
+Write-Host "Deployed $($files.Count - $skipped) file(s) to $extRoot, $extRoot\icons, $extRoot\pvx and $extRoot\libraries\pvx." -ForegroundColor Green
 if ($skipped -gt 0) {
     Write-Host "Preserved $skipped existing site settings file(s)." -ForegroundColor Yellow
 }

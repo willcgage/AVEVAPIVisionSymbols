@@ -2259,12 +2259,14 @@
      * and a guard so one broken symbol cannot stop the rest of the library
      * from loading.
      */
-    // Where templates and icons live: the library's own folder inside ext.
-    // The sym-*.js files cannot follow them there (PI Vision only scans ext
-    // itself for symbols), but anything fetched by URL can, so every URL is
-    // spelled out rather than left to PI Vision's "current directory" default,
-    // which would point at ext.
+    // Where templates and config panes live: the library's own folder inside
+    // ext. The sym-*.js files cannot follow them there (PI Vision only scans
+    // ext itself for symbols), but a URL can point anywhere, so it is spelled
+    // out rather than left to PI Vision's "current directory" default, which
+    // would mean ext. Icons are the exception: the palette showed none from
+    // ext/pvx/icons, so they are in ext/icons, where AVEVA's guide puts them.
     PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/pvx/';
+    PVX.ICON_PATH = 'scripts/app/editor/symbols/ext/icons/';
 
     // typeNames that reached PI Vision's catalog. Lets a deployment be checked
     // from the browser console in two halves: PVX.version answers "did
@@ -2279,7 +2281,7 @@
                 return;
             }
             if (!def.iconUrl) {
-                def.iconUrl = PVX.EXT_PATH + 'icons/' + def.typeName + '.svg';
+                def.iconUrl = PVX.ICON_PATH + def.typeName + '.svg';
             }
             if (!def.templateUrl) {
                 def.templateUrl = PVX.EXT_PATH + 'sym-' + def.typeName + '-template.html';

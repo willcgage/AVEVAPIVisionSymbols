@@ -27,9 +27,9 @@ const EXT = path.join(DIST, 'ext');
  * (the MSI generator, the zip, the deploy script, the harnesses) sees the same
  * layout a PI Vision server does.
  *
- *   ext\                  sym-pvx*.js and sym-pvx*.css, and nothing else of ours
+ *   ext\                  sym-pvx*.js and sym-pvx*.css
+ *   ext\icons\            palette icons, pvx*.svg
  *   ext\pvx\              templates, config panes, the diagnostic page
- *   ext\pvx\icons\        palette icons
  *   ext\libraries\pvx\    the shared runtime and the site's settings
  *
  * The scripts and stylesheets have to sit in ext itself. PI Vision finds them
@@ -37,15 +37,18 @@ const EXT = path.join(DIST, 'ext');
  * ext\libraries. 1.7.0 moved them into ext\pvx\, and on the first live server
  * none of the symbols appeared in the palette.
  *
- * Everything else is fetched by URL, and PVX.register spells every URL out
- * (PVX.EXT_PATH), so templates and icons can live in a folder of our own and
- * keep the shared folders down to the 66 files PI Vision insists on.
+ * The icons go in ext\icons, where the guide puts them. 1.7.0 had them in
+ * ext\pvx\icons with an explicit iconUrl, and the palette on a live server
+ * showed none of them even once the symbols loaded.
+ *
+ * Templates and config panes are fetched by the URL PVX.register spells out
+ * (PVX.EXT_PATH), so they stay in a folder of our own.
  *
  * The runtime is under ext\libraries because that is the only folder PI Vision
  * documents as loading BEFORE the symbols, and its guide explicitly allows
  * subfolders of it. */
 const PVX_DIR = path.join(EXT, 'pvx');
-const ICON_DIR = path.join(PVX_DIR, 'icons');
+const ICON_DIR = path.join(EXT, 'icons');
 const LIB_DIR = path.join(EXT, 'libraries', 'pvx');
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
@@ -358,7 +361,7 @@ function build() {
         extPath: 'Scripts/app/editor/symbols/ext',
         // Where inside extPath each kind of file lands. Tools read these rather
         // than hard-coding the layout a second time.
-        layout: { scripts: '', templates: 'pvx', icons: 'pvx/icons', libraries: 'libraries/pvx' },
+        layout: { scripts: '', templates: 'pvx', icons: 'icons', libraries: 'libraries/pvx' },
         symbols: manifest
     }, null, 2));
 

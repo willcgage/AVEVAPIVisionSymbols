@@ -65,16 +65,16 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     …one pair per symbol, 33 symbols…
 
+    icons\
+        pvxRadialGauge.svg
+        …one per symbol…
+
     pvx\
         sym-pvxRadialGauge-template.html
         sym-pvxRadialGauge-config.html
         …one pair per symbol…
 
         piwebapi-check.html          the connectivity diagnostic (phase 3)
-
-        icons\
-            pvxRadialGauge.svg
-            …one per symbol…
 
     libraries\
         pvx\
@@ -85,11 +85,12 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
 The symbol scripts and stylesheets sit directly in `ext` because that is the
 only place PI Vision looks for them: its extensibility guide puts symbol files
 *in* `ext` and allows subfolders only under `libraries`. 1.7.0 moved them into
-`ext\pvx`, and on the first live server none of the symbols appeared. Everything
-else PVX ships is fetched by URL, and PVX spells every URL out, so templates,
-config panes, icons and the diagnostic stay in `ext\pvx` and the shared `ext`
-folder holds only the 66 files PI Vision insists on. Nothing of PVX's is in
-`ext\icons` or directly in `ext\libraries`.
+`ext\pvx`, and on the first live server none of the symbols appeared. The icons
+are in `ext\icons` for the same kind of reason: the guide puts them there, and
+1.7.0's `ext\pvx\icons` showed none in the palette even once the symbols
+loaded. Templates, config panes and the diagnostic are fetched by URL, and PVX
+spells every URL out, so they stay in `ext\pvx`. Nothing of PVX's is directly
+in `ext\libraries`.
 
 The runtime is in a subfolder of `libraries` because `libraries` is the only
 folder PI Vision's extensibility guide says loads *before* the symbols, and the
@@ -382,16 +383,16 @@ Then:
 #### Copying by hand instead
 
 If execution policy blocks the script, merge `dist\ext` into
-`…\Scripts\app\editor\symbols\ext`, preserving the `pvx`, `pvx\icons` and
+`…\Scripts\app\editor\symbols\ext`, preserving the `icons`, `pvx` and
 `libraries\pvx` subfolders. The `sym-pvx*.js` and `.css` files at the top of
 `dist\ext` must land at the top of the server's `ext`, not inside `ext\pvx`.
 Then do by hand what the script would:
 
-- From 1.7.0: delete `ext\pvx\sym-pvx*.js` and `ext\pvx\sym-pvx*.css`.
+- From 1.7.0: delete `ext\pvx\sym-pvx*.js`, `ext\pvx\sym-pvx*.css` and the
+  `ext\pvx\icons` folder.
 - From 1.6.0: move `ext\libraries\pvx-config.js` to
   `ext\libraries\pvx\pvx-config.js`, and delete `ext\sym-pvx*.html`,
-  `ext\icons\pvx*.svg`, `ext\libraries\pvx-core.js` and
-  `ext\piwebapi-check.html`.
+  `ext\libraries\pvx-core.js` and `ext\piwebapi-check.html`.
 
 **If you copy by hand onto a server that already has PVX, exclude
 `libraries\pvx\pvx-config.js`** — a blanket copy overwrites your site settings with
@@ -600,21 +601,22 @@ Same procedure as phase 1. Notes:
 ### Upgrading from 1.7.0
 
 1.7.0 put the symbol scripts and stylesheets in `ext\pvx`, where PI Vision did
-not load them, so its palette was empty. Either route removes
-`ext\pvx\sym-pvx*.js` and `.css` and lays the current ones down in `ext`.
-Templates, icons, the runtime and your `pvx-config.js` stay where 1.7.0 put
-them; the settings file is untouched.
+not load them, so its palette was empty, and the icons in `ext\pvx\icons`,
+which the palette did not show. Either route removes those and lays the
+current ones down in `ext` and `ext\icons`. Templates, the runtime and your
+`pvx-config.js` stay where 1.7.0 put them; the settings file is untouched.
 
 ### Upgrading from 1.6.0 or earlier
 
 1.6.0 installed flat: about 170 files loose in `ext`, `ext\icons` and
 `ext\libraries`, beside anything else there. Now only the symbol scripts and
-stylesheets are in `ext`, and the rest is in `ext\pvx` and `ext\libraries\pvx`.
+stylesheets are in `ext` and the icons in `ext\icons`; the rest is in `ext\pvx`
+and `ext\libraries\pvx`.
 Either route makes the move:
 
 | | MSI | Script |
 |---|---|---|
-| Old `sym-pvx*.html`, `icons\pvx*.svg`, `libraries\pvx-core.js`, `piwebapi-check.html` | Removed — by the 1.6.0 product's own uninstall, and again by name in case it was deployed by script | Removed by name |
+| Old `sym-pvx*.html`, `libraries\pvx-core.js`, `piwebapi-check.html` | Removed — by the 1.6.0 product's own uninstall, and again by name in case it was deployed by script | Removed by name |
 | `ext\libraries\pvx-config.js` (your settings) | Moved to `ext\libraries\pvx\` | Moved to `ext\libraries\pvx\` |
 | Settings already in *both* places | Both left; the old one still loads — delete it by hand | New one kept; old one renamed to `pvx-config.js.<timestamp>.bak` |
 | Anything without a PVX name | Untouched | Untouched |
@@ -667,7 +669,7 @@ lost — restoring the folder restores the symbols.
 ## Removing a single symbol
 
 Delete `sym-<name>.js` and `sym-<name>.css` from `ext`, `sym-<name>-template.html`
-and `sym-<name>-config.html` from `ext\pvx`, and `ext\pvx\icons\<name>.svg`, and
+and `sym-<name>-config.html` from `ext\pvx`, and `ext\icons\<name>.svg`, and
 recycle the app pool. Leave both files in `libraries\pvx` in place as long as any PVX symbol
 remains.
 
@@ -691,7 +693,8 @@ its template in `ext\pvx`; a missing template gives an empty box with no
 console error.
 
 **Icons are missing from the palette.**
-The `pvx\icons` subfolder was not copied, or the web server is not configured to
+The icons are not in `ext\icons` (1.7.0 put them in `ext\pvx\icons`, where
+the palette does not show them), or the web server is not configured to
 serve `.svg`. PI Vision falls back to a generic icon — cosmetic only.
 
 **The configuration pane is empty.**
