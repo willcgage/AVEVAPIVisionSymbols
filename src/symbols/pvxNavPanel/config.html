@@ -17,6 +17,7 @@
             <label for="pvxnav-items">Items &mdash; one button per line</label>
             <textarea id="pvxnav-items" ng-model="config.Items" rows="7"
                       placeholder="Label | target | extra"></textarea>
+            <div ng-if="config.Mode === 'asset' || config.Mode === 'custom'"><!-- pvx:afpicker key=Items kind=element append=navItem --></div>
         </div>
 
         <div class="pvx-cfg-hint">

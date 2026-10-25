@@ -7,6 +7,7 @@
             <label for="pvxat-db">AF database path</label>
             <input id="pvxat-db" type="text" ng-model="config.DatabasePath"
                    placeholder="\\AFSERVER01\Production" />
+            <!-- pvx:afpicker key=DatabasePath kind=database -->
         </div>
         <div class="pvx-cfg-hint">
             This symbol reads the AF hierarchy from <strong>PI Web API</strong>, not from PI Vision's
@@ -19,6 +20,7 @@
             <label for="pvxat-root">Root element path (optional)</label>
             <input id="pvxat-root" type="text" ng-model="config.RootElementPath"
                    placeholder="\\AFSERVER01\Production\Site A\Area 2" />
+            <!-- pvx:afpicker key=RootElementPath kind=element start=DatabasePath -->
         </div>
         <div class="pvx-cfg-hint">
             Start below one element instead of at the database root — one navigator per area, without

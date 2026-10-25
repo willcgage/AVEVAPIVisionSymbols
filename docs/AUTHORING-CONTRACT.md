@@ -194,6 +194,30 @@ A grammar none of these covers needs a new rule in `PVX.sources.rules` and a
 case in `tools/test-sources.js`. An unknown rule name is reported in the pane
 as "NOT renumbered", never skipped silently.
 
+## AF path fields
+
+A config field that takes an AF path must not be type-only. Put a marker on
+the line after its input, inside the same `pvx-cfg-stack`, and the build
+expands it into a **Browse** panel that walks PI Web API:
+
+```html
+<input id="pvxat-db" type="text" ng-model="config.DatabasePath" />
+<!-- pvx:afpicker key=DatabasePath kind=database -->
+```
+
+| Attribute | Meaning |
+|---|---|
+| `key` | the config key the pick is written to; must be an `ng-model="config.<key>"` in the same pane |
+| `kind` | `database`, `element`, or `attribute` (which also accepts a PI point) |
+| `start` | optional: another key whose path the browser opens inside when this field is empty, e.g. `start=DatabasePath` |
+| `append` | optional: the field is a list and a pick adds a line in its grammar instead of replacing it: `entryRow` (EntryTable `Rows`), `navItem` (NavPanel `Items`) |
+
+The stored value is a plain path string, exactly what typing it would have
+produced, and the text box stays editable for a path PI Web API cannot see.
+The build fails on a marker whose key the pane does not bind, an unknown
+kind or grammar, or a malformed marker. A new list grammar needs a case in
+`PVX.afpick.compose` and in `tools/test-afpick.js`.
+
 ## Digital-state symbols
 
 A symbol that reasons about digital states (time-in-state, latching alarms)
