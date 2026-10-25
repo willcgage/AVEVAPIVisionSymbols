@@ -15,13 +15,11 @@ styles.css      # symbol-specific CSS
 icon.svg        # 512x512 viewBox, transparent background
 ```
 
-The build copies `symbol.js` and `styles.css` to `dist/ext/sym-<typeName>.js`
-and `.css`, directly in `ext`, because PI Vision only loads symbol scripts and
-stylesheets from there, and `icon.svg` to `dist/ext/icons/<typeName>.svg`, the
-only place the palette showed icons from. The templates go to the library's
-own folder, `dist/ext/pvx/sym-<typeName>-template.html` and `-config.html`.
-`PVX.register` fills in `templateUrl`, `configTemplateUrl` and `iconUrl`; leave
-them unset rather than spelling out a path.
+The build copies these to `dist/ext/sym-<typeName>.js`, `-template.html`,
+`-config.html`, `.css` and `dist/ext/icons/<typeName>.svg`: the layout AVEVA's
+guide describes. 1.7.0 tried a subfolder of `ext` and PI Vision served nothing
+from it. `PVX.register` fills in `templateUrl`, `configTemplateUrl` and
+`iconUrl`; leave them unset rather than spelling out a path.
 
 ## Hard rules
 
@@ -230,7 +228,7 @@ Every rejection carries `err.pvxError.message` and `err.pvxError.check`. Show
 both. "Failed to fetch" tells an operator nothing and sends an engineer to the
 wrong place. Handle each of these distinctly:
 
-- not configured — name `ext/libraries/pvx/pvx-config.js` **and** `ext/pvx/piwebapi-check.html`
+- not configured — name `ext/libraries/pvx/pvx-config.js` **and** `ext/piwebapi-check.html`
 - request failed — the message and the check line
 - authenticated but forbidden — PI/AF security, not the symbol
 - query succeeded, no results — say so; it is not an error

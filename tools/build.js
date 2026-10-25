@@ -27,27 +27,22 @@ const EXT = path.join(DIST, 'ext');
  * (the MSI generator, the zip, the deploy script, the harnesses) sees the same
  * layout a PI Vision server does.
  *
- *   ext\                  sym-pvx*.js and sym-pvx*.css
+ *   ext\                  sym-pvx*.js, .css, -template.html, -config.html,
+ *                         and piwebapi-check.html
  *   ext\icons\            palette icons, pvx*.svg
- *   ext\pvx\              templates, config panes, the diagnostic page
  *   ext\libraries\pvx\    the shared runtime and the site's settings
  *
- * The scripts and stylesheets have to sit in ext itself. PI Vision finds them
- * by scanning that folder, and its guide allows subfolders only under
- * ext\libraries. 1.7.0 moved them into ext\pvx\, and on the first live server
- * none of the symbols appeared in the palette.
+ * This is the layout AVEVA's extensibility guide describes, and the only one
+ * proven on a live server. 1.7.0 moved everything but the runtime into
+ * ext\pvx\ to keep out of the folders other symbol packs share, and nothing
+ * there worked: the scripts did not load, and once they were moved up, the
+ * icons and templates still did not, though every URL pointed at them
+ * explicitly. Do not move files into a subfolder of ext again without
+ * proving it on a server first.
  *
- * The icons go in ext\icons, where the guide puts them. 1.7.0 had them in
- * ext\pvx\icons with an explicit iconUrl, and the palette on a live server
- * showed none of them even once the symbols loaded.
- *
- * Templates and config panes are fetched by the URL PVX.register spells out
- * (PVX.EXT_PATH), so they stay in a folder of our own.
- *
- * The runtime is under ext\libraries because that is the only folder PI Vision
- * documents as loading BEFORE the symbols, and its guide explicitly allows
- * subfolders of it. */
-const PVX_DIR = path.join(EXT, 'pvx');
+ * The runtime is the exception, under ext\libraries\pvx: libraries is the only
+ * folder PI Vision documents as loading BEFORE the symbols, and its guide
+ * explicitly allows subfolders of it. */
 const ICON_DIR = path.join(EXT, 'icons');
 const LIB_DIR = path.join(EXT, 'libraries', 'pvx');
 
@@ -266,7 +261,7 @@ const REQUIRED = ['symbol.js', 'template.html', 'config.html', 'styles.css', 'ic
 function build() {
     const started = Date.now();
     if (FLAG('--clean')) { rmrf(DIST); }
-    mkdirp(PVX_DIR);
+    mkdirp(EXT);
     mkdirp(ICON_DIR);
     mkdirp(LIB_DIR);
 
@@ -300,8 +295,8 @@ function build() {
     // something else entirely and give a confidently wrong answer.
     const checkPage = path.join(SRC, 'tools', 'piwebapi-check.html');
     if (fs.existsSync(checkPage)) {
-        write(path.join(PVX_DIR, 'piwebapi-check.html'), read(checkPage));
-        ok('pvx/piwebapi-check.html  ' + C.dim + 'PI Web API diagnostic' + C.reset);
+        write(path.join(EXT, 'piwebapi-check.html'), read(checkPage));
+        ok('piwebapi-check.html  ' + C.dim + 'PI Web API diagnostic' + C.reset);
     }
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
@@ -330,8 +325,8 @@ function build() {
         validateIcon(typeName, icon);
 
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
-        write(path.join(PVX_DIR, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(PVX_DIR, 'sym-' + typeName + '-config.html'), config);
+        write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), config);
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -361,7 +356,7 @@ function build() {
         extPath: 'Scripts/app/editor/symbols/ext',
         // Where inside extPath each kind of file lands. Tools read these rather
         // than hard-coding the layout a second time.
-        layout: { scripts: '', templates: 'pvx', icons: 'icons', libraries: 'libraries/pvx' },
+        layout: { symbols: '', icons: 'icons', libraries: 'libraries/pvx' },
         symbols: manifest
     }, null, 2));
 

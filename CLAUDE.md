@@ -3,8 +3,8 @@
 PVX: 33 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.7.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
-MSI and a manual-copy zip attached (1.7.0 moved the install into `ext\pvx` and
-`ext\libraries\pvx`; a release only exists once Will pushes its tag). CI and the release workflow are green, and
+MSI and a manual-copy zip attached (a release only exists once Will pushes its
+tag). CI and the release workflow are green, and
 both have actually run — that sentence was here for a while before it was
 true.
 
@@ -112,10 +112,9 @@ silently destroys a site's PI Web API settings on upgrade.
 
 ## Architecture in five lines
 
-- Install layout: `sym-pvx*.js` and `.css` directly in `ext/` (the only
-  place PI Vision loads them from), icons in `ext/icons/`, templates, config
-  panes and the diagnostic in `ext/pvx/`, runtime and site settings in
-  `ext/libraries/pvx/`. `verify-msi.js` fails the build if a file
+- Install layout: symbol files and the diagnostic directly in `ext/`, icons
+  in `ext/icons/`, runtime and site settings in `ext/libraries/pvx/`. The
+  layout AVEVA's guide describes, and the only one proven on a server. `verify-msi.js` fails the build if a file
   drifts either way.
 - `src/shared/pvx-core.js` → `ext/libraries/pvx/pvx-core.js`. Namespaces: `util`,
   `fmt`, `color`, `theme`, `thresholds`, `scale`, `svg`, `data`, `stats`, `nav`,
@@ -188,12 +187,12 @@ Each of these cost real debugging time. Do not rediscover them.
   `C:\Program Files` to `Program Files (x86)` while AppSearch still probes the
   real path — 1.6.0's default install silently landed where PI Vision never
   looks.
-- **PI Vision does not load `sym-*.js` from a subfolder of `ext`.** 1.7.0 put
-  them in `ext/pvx/` and the first live server showed an empty palette. Only
-  `ext/libraries` may have subfolders (AVEVA's extensibility guide says so,
-  and only for libraries). Icons did not show from `ext/pvx/icons/` either,
-  even with an explicit `iconUrl`, so they are back in `ext/icons/`, where the
-  guide puts them.
+- **PI Vision serves nothing of ours from a subfolder of `ext`.** 1.7.0 put
+  everything but the runtime in `ext/pvx/`. On the first live server the
+  symbols did not register; with the scripts moved up, the icons and templates
+  still did not appear, though `iconUrl` and `templateUrl` pointed at them
+  explicitly. Only `ext/libraries` may have subfolders (AVEVA's guide says so,
+  for libraries only). Prove any layout change on a real server first.
 - **`pvx-config` sorts before `pvx-core`.** 1.6.0's config assumed the opposite
   and dropped its settings when loaded first. The template now queues its
   settings on `PVX.pendingSiteSettings` and the core applies them; keep both

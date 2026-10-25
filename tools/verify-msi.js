@@ -156,27 +156,21 @@ function main() {
 
     // The icons landing beside the symbols instead of inside icons/ is the
     // exact bug this catches, and it is invisible in a build log.
-    // Two ways to get the layout wrong, and 1.6.0 and 1.7.0 each shipped one.
-    // PI Vision only scans ext itself for symbol scripts and stylesheets, so
-    // those must be there (1.7.0 put them in ext/pvx/ and they did not load),
-    // and the palette only showed icons from ext/icons/. Everything else stays
-    // out of the folders other symbol packs share (1.6.0 put 150 files loose
-    // in them).
-    var atRoot = function (p) { return /^sym-pvx\w+\.(js|css)$/.test(p); };
+    // The layout AVEVA's guide describes, and the only one proven on a live
+    // server: symbol files directly in ext, icons in ext/icons, the runtime
+    // in ext/libraries/pvx. 1.7.0 put everything else in ext/pvx/ and PI
+    // Vision served none of it — not the scripts, not the templates, not the
+    // icons. A file drifting into any other subfolder fails here.
+    var isSymbolFile = function (p) { return /^(sym-pvx\w+(-template|-config)?\.(js|css|html)|piwebapi-check\.html)$/.test(p); };
     var isIcon = function (p) { return /^icons\/pvx\w+\.svg$/.test(p); };
-    var loose = expected.filter(function (p) {
-        return !atRoot(p) && !isIcon(p) && p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
+    var misfiled = expected.filter(function (p) {
+        return !isSymbolFile(p) && !isIcon(p) && p.indexOf('libraries/pvx/') !== 0;
     });
-    check('only sym-pvx*.js, .css and icons/pvx*.svg are in shared folders; the rest is in ext/pvx/ or ext/libraries/pvx/',
-        loose.length === 0, loose.slice(0, 6).join(', '));
-    var strayIcons = expected.filter(function (p) { return /\.svg$/.test(p) && !isIcon(p); });
-    var icons = expected.filter(isIcon);
-    check(icons.length + ' palette icons are in ext/icons/, where PI Vision shows them',
-        strayIcons.length === 0 && icons.length > 0, strayIcons.slice(0, 6).join(', '));
-    var buried = expected.filter(function (p) { return /(^|\/)sym-[^/]+\.(js|css)$/.test(p) && !atRoot(p); });
-    var scripts = expected.filter(atRoot);
-    check(scripts.length + ' symbol scripts and stylesheets are directly in ext, where PI Vision loads them',
-        buried.length === 0 && scripts.length > 0, buried.slice(0, 6).join(', '));
+    check('symbol files directly in ext, icons in ext/icons/, runtime in ext/libraries/pvx/, nothing elsewhere',
+        misfiled.length === 0, misfiled.slice(0, 6).join(', '));
+    check(expected.filter(isSymbolFile).length + ' symbol files and ' + expected.filter(isIcon).length +
+        ' icons where PI Vision loads them',
+        expected.filter(isSymbolFile).length > 0 && expected.filter(isIcon).length > 0);
 
     var nested = expected.filter(function (p) { return p.indexOf('/') !== -1; });
     var misplaced = nested.filter(function (p) {
@@ -290,11 +284,11 @@ function main() {
             }),
             'RemoveFile names: ' + removes.join(', '));
         // RemoveFile columns: FileKey, Component_, FileName, DirProperty, InstallMode.
-        check('the 1.7.0 symbol scripts in ext\\pvx are removed on install',
+        check('1.7.0\'s ext\\pvx is emptied and removed on install',
             table('RemoveFile').some(function (r) {
-                return r[2].split('|').pop() === 'sym-pvx*.js' && r[3] !== 'PVXEXTDIR';
-            }),
-            'no sym-pvx*.js removal outside PVXEXTDIR');
+                return r[2].split('|').pop() === 'sym-pvx*' && r[3] !== 'PVXEXTDIR';
+            }) && table('RemoveFile').filter(function (r) { return !r[2]; }).length >= 2,
+            'expected a sym-pvx* removal outside PVXEXTDIR and two folder removals');
         check('the folder dialog is wired to PIVISIONPATH',
             props.WIXUI_INSTALLDIR === 'PIVISIONPATH', 'got: ' + props.WIXUI_INSTALLDIR);
     }

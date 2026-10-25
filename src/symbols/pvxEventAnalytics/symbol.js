@@ -1328,7 +1328,7 @@
                 drawMessage(svgRoot, W, H, t, 'PI Web API is not configured',
                     minimal ? '' :
                     'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
-                    'with ext/pvx/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
+                    'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
             }

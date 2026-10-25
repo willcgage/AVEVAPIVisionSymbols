@@ -115,17 +115,12 @@ function Test-NewLayout([string] $ext, [string] $what) {
         ($missing.Count -eq 0) ("missing: " + (($missing | Select-Object -First 5) -join ', '))
 }
 
-# What 1.6.0 left loose in the shared folders, and the symbol scripts and
-# icons 1.7.0 put in ext\pvx. ext\sym-pvx*.js, .css and ext\icons\pvx*.svg
-# are this version's own, so only a 1.6.0 template counts there.
+# What 1.6.0 left loose in ext\libraries, and 1.7.0's ext\pvx, which must be
+# gone entirely: PI Vision served nothing from it.
 function Test-NoStaleFiles([string] $ext, [string] $what) {
     $stale = @()
-    $stale += @(Get-ChildItem -LiteralPath $ext -File -Filter 'sym-pvx*.html' -ErrorAction SilentlyContinue)
     $stale += @(Get-ChildItem -LiteralPath "$ext\libraries" -File -Filter 'pvx-*' -ErrorAction SilentlyContinue)
-    $stale += @(Get-ChildItem -LiteralPath $ext -File -Filter 'piwebapi-check.html' -ErrorAction SilentlyContinue)
-    $stale += @(Get-ChildItem -LiteralPath "$ext\pvx" -File -Filter 'sym-pvx*.js' -ErrorAction SilentlyContinue)
-    $stale += @(Get-ChildItem -LiteralPath "$ext\pvx" -File -Filter 'sym-pvx*.css' -ErrorAction SilentlyContinue)
-    $stale += @(Get-Item -LiteralPath "$ext\pvx\icons" -ErrorAction SilentlyContinue)
+    $stale += @(Get-Item -LiteralPath "$ext\pvx" -ErrorAction SilentlyContinue)
     Check "$what`: nothing left where an earlier version put it" `
         ($stale.Count -eq 0) (($stale | Select-Object -First 5 | ForEach-Object { $_.FullName }) -join ', ')
 }
@@ -219,13 +214,14 @@ Test-VendorIntact $ext 's3'
 Test-Marker (Join-Path $ext $siteRel) 's3'
 Check 's3: a backup of ext was taken' (@(Get-ChildItem (Split-Path $ext -Parent) -Directory -Filter 'ext-backup-*').Count -eq 1)
 
-# Run again over what a 1.7.0 copy leaves: symbol scripts and icons in
-# ext\pvx, which must go, and a dropped symbol in ext, which must not linger
-# and register. The settings must stay in place.
+# Run again over what a 1.7.0 copy leaves: ext\pvx, which must go, and a
+# dropped symbol in ext, which must not linger and register. The settings
+# must stay in place.
 New-Item -ItemType Directory -Force -Path "$ext\pvx\icons" | Out-Null
-Set-Content -LiteralPath "$ext\pvx\sym-pvxKpiCard.js" -Value '// 1.7.0 copy' -Encoding ascii
-Set-Content -LiteralPath "$ext\pvx\sym-pvxKpiCard.css" -Value '/* 1.7.0 copy */' -Encoding ascii
-Set-Content -LiteralPath "$ext\pvx\icons\pvxKpiCard.svg" -Value '<svg/>' -Encoding ascii
+foreach ($n in @('sym-pvxKpiCard.js', 'sym-pvxKpiCard.css', 'sym-pvxKpiCard-template.html',
+                 'sym-pvxKpiCard-config.html', 'piwebapi-check.html', 'icons\pvxKpiCard.svg')) {
+    Set-Content -LiteralPath "$ext\pvx\$n" -Value '1.7.0 copy' -Encoding ascii
+}
 Set-Content -LiteralPath "$ext\sym-pvxRetired.js" -Value '// dropped symbol' -Encoding ascii
 Set-Content -LiteralPath "$ext\icons\pvxRetired.svg" -Value '<svg/>' -Encoding ascii
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $DeployScript -PIVisionPath $root -SkipBackup | Out-Null
@@ -275,7 +271,7 @@ else {
     $root = 'C:\pvx-ci-from17\PIVision'
     $ext = New-FakePIVision $root
     Invoke-Msi 's6-install-1.7.0' @('/i', "`"$PreviousMsi`"", "PIVISIONPATH=`"$root`"") | Out-Null
-    Check 's6: 1.7.0 put its symbol scripts and icons in ext\pvx' ((Test-Path "$ext\pvx\sym-pvxKpiCard.js") -and
+    Check 's6: 1.7.0 put its files in ext\pvx' ((Test-Path "$ext\pvx\sym-pvxKpiCard.js") -and
         (Test-Path "$ext\pvx\icons\pvxKpiCard.svg"))
     Add-Marker (Join-Path $ext $siteRel)
     # No PIVISIONPATH: the remembered location has to carry the upgrade.

@@ -45,7 +45,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 const visionServer = http.createServer((req, res) => {
     let rel = decodeURIComponent(req.url.split('?')[0]);
-    if (rel === '/') { rel = '/pvx/piwebapi-check.html'; }
+    if (rel === '/') { rel = '/piwebapi-check.html'; }
     const target = path.normalize(path.join(EXT, rel));
     if (!target.startsWith(EXT) || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
         res.writeHead(404).end('not found');
@@ -183,8 +183,8 @@ const SCENARIOS = [
 ];
 
 (async function main() {
-    if (!fs.existsSync(path.join(EXT, 'pvx', 'piwebapi-check.html'))) {
-        console.error('dist/ext/pvx/piwebapi-check.html missing — run `npm run build` first.');
+    if (!fs.existsSync(path.join(EXT, 'piwebapi-check.html'))) {
+        console.error('dist/ext/piwebapi-check.html missing — run `npm run build` first.');
         process.exit(1);
     }
 
@@ -206,7 +206,7 @@ const SCENARIOS = [
         const pageErrors = [];
         page.on('pageerror', (e) => pageErrors.push(e.message));
 
-        await page.goto(ORIGIN + '/pvx/piwebapi-check.html', { waitUntil: 'networkidle' });
+        await page.goto(ORIGIN + '/piwebapi-check.html', { waitUntil: 'networkidle' });
 
         // 'auth-required' and 'forbidden' need SOMETHING that looks like a
         // credential; withCredentials alone sends no cookie in a fresh context,
@@ -249,7 +249,7 @@ const SCENARIOS = [
     /* -- batch + write paths, exercised directly rather than through the UI -- */
     scenario = 'healthy';
     const page = await browser.newPage();
-    await page.goto(ORIGIN + '/pvx/piwebapi-check.html', { waitUntil: 'networkidle' });
+    await page.goto(ORIGIN + '/piwebapi-check.html', { waitUntil: 'networkidle' });
     const unit = await page.evaluate(async (apiPort) => {
         const PVX = window.PVX;
         PVX.api.configure({ baseUrl: 'http://127.0.0.1:' + apiPort + '/piwebapi', auth: 'anonymous', maxBatchSize: 3, cacheTtlMs: 5000 });

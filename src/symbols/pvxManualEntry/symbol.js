@@ -894,7 +894,7 @@
             if (state.phase === 'unconfigured') {
                 showState('PI Web API is not configured',
                     'This symbol writes through PI Web API. Set baseUrl in ext/libraries/pvx/pvx-config.js on ' +
-                    'this PI Vision server, then confirm it with ext/pvx/piwebapi-check.html.', 'warn');
+                    'this PI Vision server, then confirm it with ext/piwebapi-check.html.', 'warn');
                 digest();
                 return;
             }

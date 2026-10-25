@@ -367,8 +367,8 @@
         });
 
         return Promise.all([
-            text('../dist/ext/pvx/sym-' + typeName + '-template.html'),
-            text('../dist/ext/pvx/sym-' + typeName + '-config.html').catch(function () { return ''; })
+            text('../dist/ext/sym-' + typeName + '-template.html'),
+            text('../dist/ext/sym-' + typeName + '-config.html').catch(function () { return ''; })
         ]).then(function (parts) {
             var $compile = injector.get('$compile');
             var $rootScope = injector.get('$rootScope');

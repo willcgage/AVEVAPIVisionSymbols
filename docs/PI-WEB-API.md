@@ -52,7 +52,7 @@ Deploy the library, then open this on the PI Vision server, in a browser,
 signed in as a normal user:
 
 ```
-https://<pivision-server>/Scripts/app/editor/symbols/ext/pvx/piwebapi-check.html
+https://<pivision-server>/Scripts/app/editor/symbols/ext/piwebapi-check.html
 ```
 
 It runs exactly what a symbol runs, from exactly where a symbol runs, and tells
