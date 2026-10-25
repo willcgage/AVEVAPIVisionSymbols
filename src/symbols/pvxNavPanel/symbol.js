@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxNavPanel — configurable navigation / control button bar
  * ----------------------------------------------------------------------------
- * DataShape: none. This symbol has no data sources at all; it is a *control*,
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). This symbol has no data sources at all; it is a *control*,
  * not a visualization. Operators use it to do the three things PI Vision
  * otherwise buries in menus: jump to another display, swap the asset context,
  * and change the time range.
@@ -31,19 +32,21 @@
         typeName: 'pvxNavPanel',
         displayName: 'PVX Navigation Panel',
 
-        // No data sources. PI Vision will not offer this symbol a tag/attribute
-        // drop target, and onDataUpdate will never fire.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         supportsCollections: false,
         configTitle: 'Format Navigation Panel',
 
         getDefaultConfig: function () {
-            // NOTE: deliberately no DataShape key — declaring one on a
-            // DatasourceBehaviors.None symbol makes PI Vision ask the server for
-            // data that will never arrive.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 44,
                 Width: 380,
 

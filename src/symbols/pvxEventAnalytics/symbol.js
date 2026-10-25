@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxEventAnalytics — "PVX Event Analytics"
  * ----------------------------------------------------------------------------
- * DataShape: NONE. Like pvxEventGantt, every number here comes from PI Web API
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). Like pvxEventGantt, every number here comes from PI Web API
  * through PVX.api, never from PI Vision's data pipeline.
  *
  * WHY THIS EXISTS
@@ -105,9 +106,12 @@
         typeName: 'pvxEventAnalytics',
         displayName: 'PVX Event Analytics',
 
-        // No data sources: PI Vision offers no attribute drop target for this
-        // symbol and never calls onDataUpdate.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         // A collection would repeat the whole ranking once per asset, which
@@ -116,10 +120,9 @@
         configTitle: 'Format Event Analytics',
 
         getDefaultConfig: function () {
-            // NOTE: deliberately no DataShape and no DataQueryMode. Declaring
-            // either on a DatasourceBehaviors.None symbol makes PI Vision ask
-            // its own backend for data that will never arrive.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 300,
                 Width: 620,
 

@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxManualEntry — "PVX Manual Entry"
  * ----------------------------------------------------------------------------
- * DataShape: NONE. This symbol does not read PI Vision's data pipeline and it
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). This symbol does not read PI Vision's data pipeline and it
  * does not draw a chart. It puts ONE number (or state, or string) into ONE AF
  * attribute or PI point, from a display, on purpose, by a human.
  *
@@ -66,10 +67,12 @@
         typeName: 'pvxManualEntry',
         displayName: 'PVX Manual Entry',
 
-        // No data sources: PI Vision offers no attribute drop target and never
-        // calls onDataUpdate. The attribute is named in the config pane and
-        // reached through PI Web API.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         // A collection would repeat one input box per element, and each copy
@@ -79,10 +82,9 @@
         configTitle: 'Format Manual Entry',
 
         getDefaultConfig: function () {
-            // Deliberately no DataShape and no DataQueryMode: declaring either
-            // on a DatasourceBehaviors.None symbol makes PI Vision fetch data
-            // that will never arrive.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 240,
                 Width: 400,
 

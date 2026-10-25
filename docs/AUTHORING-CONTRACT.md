@@ -199,10 +199,20 @@ var v = PVX.data.statValue(row, cfg);
 ## Symbols that talk to PI Web API
 
 Only for what PI Vision's DataShape mechanism cannot reach: Event Frames, the
-AF hierarchy, writing values back. Set `datasourceBehavior: None` and no
-`DataShape` — such a symbol never receives `onDataUpdate`, so it drives its own
-refresh timer and must clear it in `onDestroy`. A leaked poller on a kiosk
-display runs for weeks.
+AF hierarchy, writing values back. Set
+`datasourceBehavior: DatasourceBehaviors.Single` with `DataShape: 'Value'` and
+ignore the data: the operator drops any attribute to place the symbol. **Never
+`DatasourceBehaviors.None`.** PI Vision treats those as static symbols and
+leaves them out of the symbol selector, so they cannot be placed at all; seven
+PVX symbols shipped that way and were invisible on the first live server.
+`onDataUpdate` carries nothing useful, so such a symbol drives its own refresh
+timer and must clear it in `onDestroy`. A leaked poller on a kiosk display runs
+for weeks.
+
+Every symbol also offers **Background colour** (`config.BackgroundColor`, empty
+means follow the theme) beside **Transparent background** in its format pane.
+`PVX.theme.resolve` applies it; a new symbol only needs the two rows, copied
+from any existing `config.html`.
 
 Never use `XMLHttpRequest` or `$http` directly. Everything goes through
 `PVX.api`, because authentication is a property of the deployment and no symbol

@@ -1398,6 +1398,10 @@
         var base = {
             Theme: 'auto',              // auto | light | dark
             Transparent: false,
+            // Empty means "follow the theme". theme.resolve always honoured it,
+            // but no pane offered it until operators on a live server asked for
+            // it first: matching a display's look is not optional for them.
+            BackgroundColor: '',
             ShowLabel: true,
             ShowUnits: true,
             ShowTime: false,

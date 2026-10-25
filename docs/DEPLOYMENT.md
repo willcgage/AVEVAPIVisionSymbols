@@ -401,6 +401,14 @@ Do not stop at "the files are there". Two checks, in this order:
 the symbol palette. Thirty-three PVX symbols, each with its own icon. If they are
 absent, go to *Troubleshooting* — do not proceed.
 
+Every PVX symbol is placed the same way: pick it in the palette, then drag an
+attribute onto the display. Seven of them never read that attribute, because
+everything they show comes from their format pane: Navigation Panel, Display
+Slideshow, Asset Navigator, Event Timeline, Event Analytics, Manual Entry and
+Shift Log. Drop any attribute to create them. They need one only because PI
+Vision leaves symbols without a data source out of the palette altogether;
+before 1.7.1 those seven could not be placed at all.
+
 **One real symbol.** On a scratch display, drop a **PVX Radial Gauge** onto the
 canvas and attach any analog attribute. It should draw a dial with the current
 value within one refresh. This proves the whole path — registration, template

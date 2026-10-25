@@ -191,6 +191,14 @@ function validateSymbolJs(typeName, js, opts) {
         if (/PV\.symbolCatalog\.register/.test(bare)) {
             problem(typeName, 'calls PV.symbolCatalog.register directly; use window.PVX.register instead');
         }
+        // PI Vision leaves None symbols (and ones that omit the key, which
+        // defaults to None) out of the symbol selector: they cannot be placed.
+        // Seven shipped that way and were invisible on the first live server.
+        const behavior = /datasourceBehavior\s*:\s*[\w.]*DatasourceBehaviors\.(\w+)/.exec(bare);
+        if (!behavior || behavior[1] === 'None') {
+            problem(typeName, 'datasourceBehavior is None or missing, so PI Vision hides the symbol ' +
+                'from the palette; use Single with DataShape \'Value\' and ignore the data');
+        }
         if (bare.indexOf('PVX.bootstrap(') === -1) {
             warning(typeName, 'does not use PVX.bootstrap — lifecycle wiring may be inconsistent');
         }

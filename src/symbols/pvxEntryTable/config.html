@@ -202,6 +202,11 @@
             <input id="pvxet-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxet-bgcolor">Background colour</label>
+            <input id="pvxet-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxet-radius">Corner radius</label>
             <input id="pvxet-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>

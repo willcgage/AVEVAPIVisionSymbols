@@ -105,7 +105,8 @@ describes: symbol files directly in `ext`, icons in `ext\icons`, and the shared
 runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
-edit mode. That is the whole installation for twenty-eight of the thirty-three.
+edit mode; pick one and drag an attribute onto the display to place it (any
+attribute for the seven that take their settings from the format pane alone). That is the whole installation for twenty-eight of the thirty-three.
 
 The other five need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then

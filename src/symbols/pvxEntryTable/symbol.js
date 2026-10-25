@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxEntryTable — "PVX Shift Log"
  * ----------------------------------------------------------------------------
- * DataShape: NONE. Everything here goes through PI Web API via PVX.api.
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). Everything here goes through PI Web API via PVX.api.
  *
  * WHAT THIS IS
  *   pvxManualEntry at operator-rounds scale. One form, several attributes, one
@@ -56,9 +57,12 @@
         typeName: 'pvxEntryTable',
         displayName: 'PVX Shift Log',
 
-        // No data sources: the rows are named in the config pane and reached
-        // through PI Web API. onDataUpdate never fires.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         // A collection would repeat the whole sheet per element while every
@@ -67,8 +71,9 @@
         configTitle: 'Format Shift Log',
 
         getDefaultConfig: function () {
-            // Deliberately no DataShape and no DataQueryMode.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 320,
                 Width: 460,
 

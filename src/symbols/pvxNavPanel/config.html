@@ -141,6 +141,11 @@ Reset time here      |      | start=*-24h;end=*</pre>
             <input id="pvxnav-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxnav-bgcolor">Background colour</label>
+            <input id="pvxnav-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxnav-panelradius">Panel corner radius</label>
             <input id="pvxnav-panelradius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>

@@ -10,7 +10,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 |---|---|---|---|
 | [`pvxAlarmBanner`](#pvxalarmbanner) | PVX Exception Banner | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
-| [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | — | None |
+| [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
 | [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
@@ -18,14 +18,14 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
-| [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | — | None |
-| [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | — | None |
-| [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | — | None |
+| [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
+| [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
+| [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Single |
-| [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | — | None |
-| [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | — | None |
+| [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
+| [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
 | [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
 | [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | Table | Multiple |
 | [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Single |
@@ -34,7 +34,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
 | [`pvxSankey`](#pvxsankey) | PVX Flow | Table | Multiple |
 | [`pvxSitePlan`](#pvxsiteplan) | PVX Site Plan | Table | Multiple |
-| [`pvxSlideshow`](#pvxslideshow) | PVX Display Slideshow | — | None |
+| [`pvxSlideshow`](#pvxslideshow) | PVX Display Slideshow | Value | Single |
 | [`pvxSparkline`](#pvxsparkline) | PVX Multi Sparkline | TimeSeries | Multiple |
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
@@ -141,9 +141,9 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 
 ## pvxAssetTree
 
-**PVX Asset Navigator** · data shape `—` · none data source · collections not supported
+**PVX Asset Navigator** · data shape `Value` · single data source · collections not supported
 
-pipeline at all: everything it shows comes from PI Web API through PVX.api.
+symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI Vision data pipeline at all: everything it shows comes from PI Web API through PVX.api.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -501,9 +501,9 @@ The question this symbol answers is "how is my total split between these sources
 
 ## pvxEntryTable
 
-**PVX Shift Log** · data shape `—` · none data source · collections not supported
+**PVX Shift Log** · data shape `Value` · single data source · collections not supported
 
-WHAT THIS IS pvxManualEntry at operator-rounds scale. One form, several attributes, one submit. The operator walks the unit with a clipboard, comes back, types twelve readings and presses one button — which is how rounds actually work. Twelve separate entry symbols would be twelve confirmations and twelve chances to forget one.
+symbol selector (see the definition). Everything here goes through PI Web API via PVX.api.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -537,9 +537,9 @@ WHAT THIS IS pvxManualEntry at operator-rounds scale. One form, several attribut
 
 ## pvxEventAnalytics
 
-**PVX Event Analytics** · data shape `—` · none data source · collections not supported
+**PVX Event Analytics** · data shape `Value` · single data source · collections not supported
 
-through PVX.api, never from PI Vision's data pipeline.
+symbol selector (see the definition). Like pvxEventGantt, every number here comes from PI Web API through PVX.api, never from PI Vision's data pipeline.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -587,9 +587,9 @@ through PVX.api, never from PI Vision's data pipeline.
 
 ## pvxEventGantt
 
-**PVX Event Timeline** · data shape `—` · none data source · collections not supported
+**PVX Event Timeline** · data shape `Value` · single data source · collections not supported
 
-come from PI Vision's data pipeline at all — it comes from PI Web API, through PVX.api, and everything about the symbol follows from that one fact.
+symbol selector (see the definition). This is the first symbol in the library whose data does not come from PI Vision's data pipeline at all — it comes from PI Web API, through PVX.api, and everything about the symbol follows from that one fact.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -775,9 +775,9 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 
 ## pvxManualEntry
 
-**PVX Manual Entry** · data shape `—` · none data source · collections not supported
+**PVX Manual Entry** · data shape `Value` · single data source · collections not supported
 
-does not draw a chart. It puts ONE number (or state, or string) into ONE AF attribute or PI point, from a display, on purpose, by a human.
+symbol selector (see the definition). This symbol does not read PI Vision's data pipeline and it does not draw a chart. It puts ONE number (or state, or string) into ONE AF attribute or PI point, from a display, on purpose, by a human.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -817,9 +817,9 @@ does not draw a chart. It puts ONE number (or state, or string) into ONE AF attr
 
 ## pvxNavPanel
 
-**PVX Navigation Panel** · data shape `—` · none data source · collections not supported
+**PVX Navigation Panel** · data shape `Value` · single data source · collections not supported
 
-not a visualization. Operators use it to do the three things PI Vision otherwise buries in menus: jump to another display, swap the asset context, and change the time range.
+symbol selector (see the definition). This symbol has no data sources at all; it is a *control*, not a visualization. Operators use it to do the three things PI Vision otherwise buries in menus: jump to another display, swap the asset context, and change the time range.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1235,9 +1235,9 @@ data-bound hotspots
 
 ## pvxSlideshow
 
-**PVX Display Slideshow** · data shape `—` · none data source · collections not supported
+**PVX Display Slideshow** · data shape `Value` · single data source · collections not supported
 
-Rotates a control-room screen through a list of PI Vision displays on a timer. No data sources, no DataShape, no PI Web API: everything is URL navigation through PVX.nav, the same mechanism pvxNavPanel uses.
+Rotates a control-room screen through a list of PI Vision displays on a timer. Its one data source is never read (it only gets the symbol into the selector), and there is no PI Web API: everything is URL navigation through PVX.nav, the same mechanism pvxNavPanel uses.
 
 | Option | Default | Notes |
 |---|---|---|

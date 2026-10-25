@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxEventGantt — "PVX Event Timeline"
  * ----------------------------------------------------------------------------
- * DataShape: NONE. This is the first symbol in the library whose data does not
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). This is the first symbol in the library whose data does not
  * come from PI Vision's data pipeline at all — it comes from PI Web API, through
  * PVX.api, and everything about the symbol follows from that one fact.
  *
@@ -14,7 +15,8 @@
  *   entire reason to look at events rather than read them.
  *
  * CONSEQUENCES OF HAVING NO DATA PIPELINE
- *   1. onDataUpdate never fires. PI Vision will not tell this symbol when to
+ *   1. onDataUpdate only carries the placeholder data source, which says
+ *      nothing about events. PI Vision will not tell this symbol when to
  *      refresh, so the symbol runs its own timer (see REFRESH below).
  *   2. Nothing tells the symbol the display's time range either. The operator
  *      still expects the chart to follow the display's time controls, and the
@@ -98,9 +100,12 @@
         typeName: 'pvxEventGantt',
         displayName: 'PVX Event Timeline',
 
-        // No data sources: PI Vision offers no attribute drop target for this
-        // symbol and never calls onDataUpdate. Everything comes from PI Web API.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         // A collection would repeat the whole timeline once per element, which
@@ -110,10 +115,9 @@
         configTitle: 'Format Event Timeline',
 
         getDefaultConfig: function () {
-            // NOTE: deliberately no DataShape and no DataQueryMode key. Declaring
-            // either on a DatasourceBehaviors.None symbol makes PI Vision ask its
-            // own backend for data that will never arrive.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 300,
                 Width: 620,
 

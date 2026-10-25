@@ -60,6 +60,11 @@
             <input id="pvxrg-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxrg-bgcolor">Background colour</label>
+            <input id="pvxrg-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxrg-radius">Corner radius</label>
             <input id="pvxrg-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>

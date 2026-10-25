@@ -193,6 +193,10 @@ Each of these cost real debugging time. Do not rediscover them.
   still did not appear, though `iconUrl` and `templateUrl` pointed at them
   explicitly. Only `ext/libraries` may have subfolders (AVEVA's guide says so,
   for libraries only). Prove any layout change on a real server first.
+- **`DatasourceBehaviors.None` hides a symbol from the palette.** AVEVA's
+  guide calls those static symbols and PI Vision leaves them out of the
+  selector, so seven PVX symbols were unplaceable until they took one ignored
+  `Single` data source with `DataShape: 'Value'`. Never declare `None`.
 - **`pvx-config` sorts before `pvx-core`.** 1.6.0's config assumed the opposite
   and dropped its settings when loaded first. The template now queues its
   settings on `PVX.pendingSiteSettings` and the core applies them; keep both
