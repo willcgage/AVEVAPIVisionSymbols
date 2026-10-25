@@ -41,6 +41,15 @@
             <!-- pvx:bands -->
         </div>
 
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Digital states</div>
+            <!-- pvx:states key=StateBands kind=bands -->
+        </div>
+        <div class="pvx-cfg-hint">
+            For digital tags: put each state in a threshold band, and it alarms and latches exactly as a
+            value in that band would. A state not listed here is never in alarm.
+        </div>
+
         <div class="pvx-cfg-row">
             <label for="pvxann-minband">Alarm from band</label>
             <input id="pvxann-minband" type="number" ng-model="config.MinSeverityBand" min="0" max="10" />

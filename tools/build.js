@@ -438,10 +438,11 @@ const STATES_MARKER = /^[ \t]*<!--\s*pvx:states\b([^>]*?)-->[ \t]*\n/gm;
 const STATES_KINDS = {
     map: { grammar: 'State:colour:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
     colors: { grammar: 'State:colour', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
-    list: { grammar: 'State', example: 'Running, On, Open' }
+    list: { grammar: 'State', example: 'Running, On, Open' },
+    bands: { grammar: 'State:band label', example: 'ALARM:Critical, WARN:High, NORMAL:Normal' }
 };
 
-const STATE_KEYS = ['StateMap', 'StateColors', 'UptimeStates'];
+const STATE_KEYS = ['StateMap', 'StateColors', 'UptimeStates', 'StateBands'];
 
 function withStatesEditors(typeName, config, snippet) {
     const keys = [];

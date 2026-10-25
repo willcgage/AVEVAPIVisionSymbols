@@ -716,6 +716,12 @@
      *   map     State:colour[:label]   pvxStatusGrid, pvxSitePlan StateMap
      *   colors  State:colour           pvxStateDuration StateColors
      *   list    State                  pvxStateDuration UptimeStates
+     *   bands   State:band             pvxAlarmBanner, pvxAnnunciator StateBands
+     *
+     * `bands` puts a digital state into one of the symbol's threshold bands,
+     * named by label (or by 0-based index for a band with none), so a state
+     * alarms, latches, sorts and colours exactly as a number in that band
+     * would, and nothing downstream needs a second notion of severity.
      *
      * Typed by hand, a state map is wrong in the quiet way: "Runing" or
      * "Fault " matches nothing, and the tile falls back to another colour
@@ -742,7 +748,7 @@
      */
     var states = PVX.states = {};
 
-    states.KINDS = { map: true, colors: true, list: true };
+    states.KINDS = { map: true, colors: true, list: true, bands: true };
     states.MAX_OPTIONS = 300;
 
     // Severity names over the shared status palette. A severity is only a
@@ -783,6 +789,10 @@
             var p = s.split(':');
             var key = stTrim(p[0]);
             if (!key) { return; }
+            if (kind === 'bands') {
+                out.push({ state: key, color: '', label: '', band: stTrim(p.slice(1).join(':')) });
+                return;
+            }
             out.push({
                 state: key,
                 // colors keeps everything after the first colon as the colour,
@@ -797,9 +807,43 @@
     states.stringify = function (list, kind) {
         return (list || []).map(function (e) {
             if (kind === 'list') { return e.state; }
+            if (kind === 'bands') { return e.state + ':' + e.band; }
             var s = e.state + ':' + e.color;
             return kind === 'map' && e.label ? s + ':' + e.label : s;
         }).join(', ');
+    };
+
+    /**
+     * Which band a `bands` entry names: a band label (case-insensitive),
+     * else a 0-based index. -1 when it names neither, which the format pane
+     * flags; a symbol treats that state as unmapped.
+     * @param {String} name  the part after the colon
+     * @param {Array} bands  PVX.thresholds.parse() output
+     */
+    states.bandOf = function (name, bands) {
+        var n = stTrim(name).toLowerCase();
+        if (!n || !bands) { return -1; }
+        for (var i = 0; i < bands.length; i++) {
+            if (stTrim(bands[i].label).toLowerCase() === n) { return i; }
+        }
+        return /^\d+$/.test(n) && +n < bands.length ? +n : -1;
+    };
+
+    /** StateBands string -> {state lower-cased: band index}, unresolved left out. */
+    states.bandMap = function (spec, bands) {
+        var out = {};
+        var list = states.parse(spec, 'bands');
+        for (var i = 0; i < list.length; i++) {
+            var b = states.bandOf(list[i].band, bands);
+            if (b >= 0) { out[list[i].state.toLowerCase()] = b; }
+        }
+        return out;
+    };
+
+    /** A raw value as the state text it would be matched by, or ''. */
+    states.text = function (raw) {
+        if (raw && typeof raw === 'object') { raw = raw.Name !== undefined ? raw.Name : raw.name; }
+        return raw === null || raw === undefined ? '' : stTrim(raw);
     };
 
     /**
@@ -1044,6 +1088,7 @@
                 color: e.color,
                 hex: rgb ? color.toHex(rgb) : '#000000',
                 label: e.label,
+                band: e.band || '',
                 severity: states.severityOf(e.color),
                 typed: false
             };
@@ -1086,7 +1131,7 @@
                 if (st) { seen[st.toLowerCase()] = true; }
                 // A row with no state is kept, flagged, rather than lost.
                 if (!r.invalid) {
-                    out.push({ state: st, color: r.color || color.status.info, label: stTrim(r.label) });
+                    out.push({ state: st, color: r.color || color.status.info, label: stTrim(r.label), band: stTrim(r.band) });
                 }
             }
             ed.written = states.stringify(out, kind);
@@ -1120,10 +1165,64 @@
             for (var j = 0; j < ch.length; j++) {
                 if (!used[ch[j].name.toLowerCase()]) { next = ch[j].name; break; }
             }
-            var c = kind === 'list' ? '' : color.status.normal;
+            var c = kind === 'list' || kind === 'bands' ? '' : color.status.normal;
+            // A state is mapped to raise it, so a new one starts in the worst band.
+            var bo = kind === 'bands' ? ed.bandOptions(cfg && cfg.Thresholds) : [];
             ed.rows.push({ state: next, color: c, hex: c || '#000000', label: '',
+                           band: bo.length ? bo[bo.length - 1].value : '',
                            severity: c ? states.severityOf(c) : '', typed: !ch.length });
             return ed.commit(cfg);
+        };
+
+        var bandCache = { spec: null, list: [] };
+
+        /**
+         * The bands a `bands` row can name, from the pane's own Thresholds.
+         * A band is stored by its label so inserting a band does not move a
+         * state into its neighbour; by index only when it has no label or
+         * shares one. Same array until Thresholds changes.
+         */
+        ed.bandOptions = function (spec) {
+            var s = spec === undefined || spec === null ? '' : String(spec);
+            if (bandCache.spec === s) { return bandCache.list; }
+            var bands = thresholds.parse(s);
+            var count = {};
+            var i;
+            for (i = 0; i < bands.length; i++) {
+                var l = stTrim(bands[i].label).toLowerCase();
+                count[l] = (count[l] || 0) + 1;
+            }
+            var list = [];
+            for (i = 0; i < bands.length; i++) {
+                var lab = stTrim(bands[i].label);
+                var byLabel = lab && count[lab.toLowerCase()] === 1;
+                list.push({
+                    value: byLabel ? lab : String(i),
+                    text: lab || 'Band ' + (i + 1) + ' (from ' + bands[i].value + ')',
+                    color: bands[i].color
+                });
+            }
+            bandCache.spec = s;
+            bandCache.list = list;
+            return list;
+        };
+
+        /** True when some row names a band the Thresholds do not have. */
+        ed.unknownBand = function (spec) {
+            if (kind !== 'bands') { return false; }
+            var bands = thresholds.parse(spec);
+            for (var i = 0; i < ed.rows.length; i++) {
+                var r = ed.rows[i];
+                if (stTrim(r.state) && states.bandOf(r.band, bands) < 0) { return true; }
+            }
+            return false;
+        };
+
+        /** Colour of the band a row names, for the swatch beside it. */
+        ed.bandColor = function (r, spec) {
+            var bands = thresholds.parse(spec);
+            var b = states.bandOf(r.band, bands);
+            return b >= 0 ? bands[b].color : 'transparent';
         };
 
         ed.remove = function (i, cfg) {

@@ -65,6 +65,7 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `CornerRadius` | `6` | *(shared)* |
 | `Columns` | `["Value"]` |  |
 | `Title` | `"Exceptions"` |  |
+| `StateBands` | `""` |  |
 | `Mode` | `"list"` | list \| ticker \| summary |
 | `DenseMode` | `false` |  |
 | `MaxRows` | `12` |  |
@@ -108,6 +109,7 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `CornerRadius` | `6` | *(shared)* |
 | `Columns` | `["Value"]` |  |
 | `Title` | `"Annunciator"` |  |
+| `StateBands` | `""` |  |
 | `TileMinWidth` | `150` |  |
 | `TileHeight` | `0` | 0 => share the available height evenly |
 | `ColumnsCount` | `0` | 0 => auto from TileMinWidth |

@@ -5,7 +5,8 @@
 
         <div class="pvx-cfg-hint">
             Rows are scored by comparing each attribute's <b>live value</b> against the
-            threshold bands configured below. This is not a PI Notifications or AF Event
+            threshold bands configured below, and a digital tag by the band its state is
+            put in under <em>Digital states</em>. This is not a PI Notifications or AF Event
             Frames client &mdash; there is no acknowledgement, no priority and no event
             history behind it.
         </div>
@@ -232,6 +233,15 @@
             <!-- pvx:bands -->
         </div>
         <div class="pvx-cfg-hint">Band order <em>is</em> the severity &mdash; the band with the highest limit is the worst.</div>
+
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Digital states</div>
+            <!-- pvx:states key=StateBands kind=bands -->
+        </div>
+        <div class="pvx-cfg-hint">
+            For digital tags: put each state in a threshold band, and it is listed and sorted exactly as a
+            value in that band would. A state not listed here is never an exception.
+        </div>
     </div>
 
 </div>
