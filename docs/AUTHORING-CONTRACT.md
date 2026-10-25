@@ -288,6 +288,12 @@ own line where the control goes, naming the key and the grammar it holds:
 | `map` | `State:colour[:label]` | state, severity, colour, label |
 | `colors` | `State:colour` | state, severity, colour |
 | `list` | `State` | state |
+| `bands` | `State:band` | state, threshold band (by label, or 0-based index for an unlabelled band) |
+
+`bands` is for symbols whose severity is a threshold band index (the
+Exception Banner and Annunciator): a mapped state takes that band's index, so
+it filters, sorts, colours and latches like a number in the band. Resolve it
+with `PVX.states.bandMap(cfg.StateBands, bands)` and match `PVX.states.text(raw)`.
 
 The state is chosen from a list: the data sources' digital state sets read
 through `PVX.api` when the site has configured PI Web API, states seen in the
@@ -295,7 +301,7 @@ symbol's live data, and states already in the map, with a button to type one
 that is not listed. Severity is a name over `PVX.color.status`; only the colour
 is stored. The key keeps its grammar string, so saved displays load unchanged
 and the symbol's own parser is untouched. The build fails a pane that binds
-`StateMap`, `StateColors`, `UptimeStates` or a marked key to a control of its
+`StateMap`, `StateColors`, `UptimeStates`, `StateBands` or a marked key to a control of its
 own, and a marker with an unknown kind. A new grammar needs a kind in
 `PVX.states` and `tools/build.js`, and a case in `tools/test-states.js`.
 

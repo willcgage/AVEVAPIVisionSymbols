@@ -94,6 +94,8 @@
                 // (0 / 70 / 90) latched every point above 70 on a live
                 // server, whatever its units, for points with no limits.
                 Thresholds: '',
+                // Digital state -> threshold band, e.g. 'ALARM:Critical'.
+                StateBands: '',
                 ShowLabel: true,
 
                 // Layout
@@ -274,7 +276,17 @@
             return cfg.UseThresholds === false ? [] : PVX.thresholds.parse(cfg.Thresholds);
         }
 
-        function severityOf(row, bands) {
+        /**
+         * A digital state mapped in StateBands takes that band's index, so it
+         * alarms, sorts and colours exactly as a number in the band would.
+         * Checked before the numeric test: a state name never parses as a
+         * number, and a mapped state should not depend on whether it does.
+         */
+        function severityOf(row, bands, stateBands) {
+            if (stateBands) {
+                var hit0 = stateBands[PVX.states.text(row.raw).toLowerCase()];
+                if (hit0 !== undefined) { return hit0; }
+            }
             if (row.value === null) { return -1; }
             var hit = -1;
             for (var i = 0; i < bands.length; i++) {
@@ -694,6 +706,7 @@
 
         function buildModel(cfg, now) {
             var bands = bandsFor(cfg);
+            var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
             var byQuality = cfg.SeverityFrom === 'quality';
             var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
 
@@ -726,7 +739,7 @@
                     inAlarm = !r.good;
                     sev = inAlarm ? 0 : -1;
                 } else {
-                    sev = severityOf(r, bands);
+                    sev = severityOf(r, bands, stateBands);
                     inAlarm = sev >= minBand;
                     // A bad-quality reading in threshold mode is not evidence of
                     // anything: the last known value may sit anywhere. Freeze the

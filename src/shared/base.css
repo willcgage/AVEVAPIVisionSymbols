@@ -452,6 +452,15 @@
 
 .pvx-cfg-st-state { flex: 1 1 60px; min-width: 0; }
 .pvx-cfg-st-sev { flex: 0 0 84px; width: 84px; }
+.pvx-cfg-st-band { flex: 0 1 110px; min-width: 0; }
+
+.pvx-cfg-st-swatch {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+}
 .pvx-cfg-st-label { flex: 1 1 100%; margin-left: 0; }
 
 .pvx-cfg-st-color {

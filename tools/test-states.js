@@ -150,6 +150,35 @@ function rules() {
         'Running/Seen in live data,Idle/Seen in live data,A/Already in this list', ed.options());
     check('options are the same array until something changes', ed.options() === ed.options());
 
+    // bands: a digital state placed in a threshold band.
+    const T = PVX.thresholds.parse('0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical');
+    check('bands round-trips', S.stringify(S.parse('ALARM:Critical, WARN:1', 'bands'), 'bands') === 'ALARM:Critical, WARN:1');
+    check('bandOf: by label, case-insensitive', S.bandOf('critical', T) === 2);
+    check('bandOf: by index when no label matches', S.bandOf('1', T) === 1);
+    check('bandOf: neither is -1', S.bandOf('Severe', T) === -1 && S.bandOf('7', T) === -1);
+    const bm = S.bandMap('ALARM:Critical, Warn:High, Odd:Nope', T);
+    check('bandMap: lower-cased states, unresolved left out',
+        bm.alarm === 2 && bm.warn === 1 && bm.odd === undefined, bm);
+    check('text: a {Name} state reads as its name', S.text({ Name: 'ALARM', Value: 1 }) === 'ALARM' && S.text(null) === '');
+
+    const scope3 = { config: { Thresholds: '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical', StateBands: 'ALARM:Critical' },
+                     symbol: { DataSources: [] } };
+    const ed3 = S.bind(scope3).use('StateBands', 'bands');
+    ed3.sync(scope3.config.StateBands);
+    const bo = ed3.bandOptions(scope3.config.Thresholds);
+    check('band options come from Thresholds, stored by label',
+        bo.map((b) => b.value).join() === 'Normal,High,Critical' && bo[2].text === 'Critical', bo);
+    check('band options are the same array until Thresholds changes', ed3.bandOptions(scope3.config.Thresholds) === bo);
+    ed3.add(scope3.config);
+    check('a new state starts in the worst band', /, :Critical$|^ALARM:Critical$/.test(scope3.config.StateBands) &&
+        ed3.rows[1].band === 'Critical', ed3.rows[1]);
+    ed3.rows[1].state = 'TRIP';
+    ed3.rows[1].band = 'High';
+    ed3.commit(scope3.config);
+    check('rows write State:band', scope3.config.StateBands === 'ALARM:Critical, TRIP:High', scope3.config.StateBands);
+    check('a band that exists is not flagged', !ed3.unknownBand(scope3.config.Thresholds));
+    check('a band removed from Thresholds is flagged', ed3.unknownBand('0:#2f9e5f:Normal, 90:#c8452f:Critical'));
+
 }
 
 /** Runs in the browser: the digital set lookup against the mock. */
@@ -349,6 +378,36 @@ async function pane() {
         await page.locator('.pvx-cfg-states-colors').locator('..').locator('.pvx-cfg-band-add').click();
         check('Add on the colours editor writes StateColors', await colorsRows.count() === 3 &&
             /, Tripped:#2f9e5f$/.test(await cfg('StateColors')), await cfg('StateColors'));
+
+        // --- Exception Banner: digital states placed in threshold bands ---
+        const TH = '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical';
+        await open('pvxAlarmBanner', { Thresholds: TH, StateBands: 'ALARM:Critical' },
+            ['pi:\\\\PISRV\\PUMP1.STATE?1'],
+            { Rows: [{ Label: 'Pump 1', Path: 'p1', Value: 'ALARM' }, { Label: 'Pump 2', Path: 'p2', Value: 'NORMAL' },
+                     { Label: 'Temp', Path: 't', Value: 95 }] });
+        const bandRows = page.locator('.pvx-cfg-states-bands .pvx-cfg-st-row');
+        check('banner: one row per mapped state', await bandRows.count() === 1, await bandRows.count());
+        const bandSel = bandRows.nth(0).locator('.pvx-cfg-st-band');
+        check('banner: the band list is the threshold bands',
+            (await bandSel.evaluate((s) => Array.prototype.map.call(s.options, (o) => o.text).join('|'))) ===
+            'Choose a band|Normal|High|Critical');
+        check('banner: no colour or severity on a band row',
+            await page.locator('.pvx-cfg-states-bands .pvx-cfg-st-sev, .pvx-cfg-states-bands input[type="color"]').count() === 0);
+        await bandSel.selectOption({ label: 'High' });
+        check('banner: choosing a band rewrites StateBands', await cfg('StateBands') === 'ALARM:High', await cfg('StateBands'));
+        await page.waitForTimeout(80);
+        const listed = await page.evaluate(() => Array.prototype.map.call(
+            document.querySelectorAll('#box .pvx-alarm-row'), (r) => r.textContent.replace(/\s+/g, ' ').trim()));
+        check('banner: a mapped digital state is listed as an exception',
+            listed.some((t) => /Pump 1/.test(t) && /ALARM/.test(t)), listed);
+        check('banner: an unmapped state is not', !listed.some((t) => /Pump 2/.test(t)), listed);
+        await page.locator('.pvx-cfg-states-bands').locator('..').locator('.pvx-cfg-band-add').click();
+        check('banner: Add state takes the next listed state, in the worst band',
+            await cfg('StateBands') === 'ALARM:High, Running:Critical', await cfg('StateBands'));
+
+        await open('pvxAnnunciator', { Thresholds: '', StateBands: '' }, ['pi:\\\\PISRV\\PUMP1.STATE?1'], null);
+        check('annunciator: with no bands the editor says to add them first',
+            /Add threshold bands above first/.test(await page.locator('.pvx-cfg-states-bands').textContent()));
 
         // --- Site Plan with no PI Web API: live states, and typing still works ---
         await open('pvxSitePlan', { ColorMode: 'state', StateMap: '' }, ['pi:\\\\PISRV\\PUMP1.STATE?1'], null, false);

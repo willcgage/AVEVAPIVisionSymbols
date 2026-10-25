@@ -54,6 +54,8 @@
                 // (0 / 70 / 90) flagged every point above 70 on a live server,
                 // whatever its units, for points that had no limits at all.
                 Thresholds: '',
+                // Digital state -> threshold band, e.g. 'ALARM:Critical'.
+                StateBands: '',
 
                 // Presentation
                 Mode: 'list',                 // list | ticker | summary
@@ -171,7 +173,17 @@
             return cfg.UseThresholds === false ? [] : PVX.thresholds.parse(cfg.Thresholds);
         }
 
-        function severityOf(row, bands) {
+        /**
+         * A digital state mapped in StateBands takes that band's index, so it
+         * alarms, sorts and colours exactly as a number in the band would.
+         * Checked before the numeric test: a state name never parses as a
+         * number, and a mapped state should not depend on whether it does.
+         */
+        function severityOf(row, bands, stateBands) {
+            if (stateBands) {
+                var hit0 = stateBands[PVX.states.text(row.raw).toLowerCase()];
+                if (hit0 !== undefined) { return hit0; }
+            }
             if (row.value === null) { return -1; }
             var hit = -1;
             for (var i = 0; i < bands.length; i++) {
@@ -246,6 +258,7 @@
 
         function buildModel(cfg) {
             var bands = bandsFor(cfg);
+            var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
             var now = Date.now();
             var byQuality = cfg.SeverityFrom === 'quality';
             var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
@@ -264,7 +277,7 @@
                 // A bad-quality row is its own tier, ranked above every band:
                 // "I cannot tell you the value" outranks any known deviation.
                 var isBad = byQuality && !r.good;
-                var sev = isBad ? bands.length : severityOf(r, bands);
+                var sev = isBad ? bands.length : severityOf(r, bands, stateBands);
                 if (sev < 0) { continue; }
 
                 var e = durationOf(r, sev, now);
@@ -502,7 +515,7 @@
             if (cols.value) {
                 var val = div('pvx-alarm-value pvx-num');
                 val.textContent = r.value === null
-                    ? (r.raw === null || r.raw === undefined ? '--' : String(r.raw))
+                    ? (PVX.states.text(r.raw) || '--')
                     : PVX.fmt.number(r.raw, PVX.config.numberOpts(cfg));
                 val.style.color = r.color;
                 row.appendChild(val);
@@ -618,7 +631,9 @@
 
             if (cols.value) {
                 var val = div('pvx-alarm-value pvx-num');
-                val.textContent = r.value === null ? '--' : PVX.fmt.number(r.raw, PVX.config.numberOpts(cfg));
+                val.textContent = r.value === null
+                    ? (PVX.states.text(r.raw) || '--')
+                    : PVX.fmt.number(r.raw, PVX.config.numberOpts(cfg));
                 val.style.color = r.color;
                 item.appendChild(val);
                 if (cols.units && r.units) {

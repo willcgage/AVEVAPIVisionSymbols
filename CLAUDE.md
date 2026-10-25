@@ -149,8 +149,9 @@ silently destroys a site's PI Web API settings on upgrade.
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
   `scope.runtimeData.pvxBands`); the stored value is still that string.
-- Digital state maps (`StateMap`, `StateColors`, `UptimeStates`) are rows too:
-  `<!-- pvx:states key=StateMap kind=map|colors|list -->` →
+- Digital state maps (`StateMap`, `StateColors`, `UptimeStates`, and the
+  alarm symbols' `StateBands`, which puts a state in a threshold band) are rows too:
+  `<!-- pvx:states key=StateMap kind=map|colors|list|bands -->` →
   `src/shared/config-states.html`, state on `scope.runtimeData.pvxStates`.
   The state list comes from each source's digital set via `PVX.api` (proven
   against a mock only), live data, and the map itself; the stored value keeps
