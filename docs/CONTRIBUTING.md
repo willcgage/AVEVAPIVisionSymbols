@@ -78,7 +78,7 @@ the installer's identity across every version ever shipped. `docs/RELEASING.md`
 explains what breaks — briefly, every installed copy in the field becomes
 unupgradeable.
 
-**`libraries/pvx-config.js` is a site's file, not ours.** Both the deploy script
+**`ext/libraries/pvx/pvx-config.js` is a site's file, not ours.** Both the deploy script
 and the MSI refuse to overwrite it. If you rename it, `tools/wix.js` fails the
 build on purpose rather than shipping an installer that silently destroys a
 site's PI Web API settings on upgrade.

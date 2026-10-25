@@ -155,8 +155,8 @@
 
 </div>
 
-<script src="libraries/pvx-core.js"></script>
-<script src="libraries/pvx-config.js"></script>
+<script src="../libraries/pvx/pvx-core.js"></script>
+<script src="../libraries/pvx/pvx-config.js"></script>
 <script>
 (function () {
     'use strict';
@@ -391,7 +391,7 @@
             box.className = 'verdict ok';
             var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
             box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
-                '<p>Put this into <code>libraries\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
+                '<p>Put this into <code>ext\\libraries\\pvx\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
                 'server — the ext folder is not replicated between them:</p>' +
                 '<div class="detail" style="margin-top:8px">root.PVX.api.configure({\n' +
                 '    baseUrl: \'' + baseUrl + '\',\n' +

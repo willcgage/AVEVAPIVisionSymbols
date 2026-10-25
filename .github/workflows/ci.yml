@@ -116,7 +116,10 @@ jobs:
 
       - name: Compile installer source
         working-directory: dist/installer
-        run: wixl -D PayloadDir=../ext -o PvxSymbols.msi PvxSymbols.wxs
+        # PvxFull=0: wixl cannot compile the searches, conditions, file moves
+        # and dialogs, so this is the structure without the behaviour. The
+        # installer-windows job compiles and exercises the whole thing.
+        run: wixl -a x64 -D PayloadDir=../ext -D PvxFull=0 -o PvxSymbols.msi PvxSymbols.wxs
 
       - name: Verify installer structure
         run: node tools/verify-msi.js
@@ -129,3 +132,104 @@ jobs:
             dist/installer/PvxSymbols.wxs
             dist/installer/components.json
           retention-days: 14
+
+  installer-windows:
+    name: Install · upgrade from 1.6.0 · uninstall (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    # The table checks above prove the package is assembled right; they cannot
+    # prove what Windows Installer does with it. Moving a 1.6.0 site's
+    # pvx-config.js, removing the old flat files and resolving the drive and
+    # PIPC folder are all runtime behaviour, so this job builds the real MSI
+    # with the official toolset and installs it for real, against fake PI
+    # Vision trees, including an upgrade over the published 1.6.0 MSI and zip.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build payload and installer source
+        run: |
+          node tools/build.js --clean
+          node tools/wix.js
+
+      - name: Install WiX Toolset v3
+        shell: pwsh
+        run: |
+          nuget install WiX -Version 3.14.1 -OutputDirectory ${{ runner.temp }}\wix
+          $candle = Get-ChildItem -Path ${{ runner.temp }}\wix -Recurse -Filter candle.exe |
+                    Select-Object -First 1
+          "WIX_BIN=$($candle.DirectoryName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Compile MSI
+        working-directory: dist/installer
+        shell: pwsh
+        run: |
+          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -arch x64 -ext WixUIExtension `
+              -out PvxSymbols.wixobj PvxSymbols.wxs
+          if ($LASTEXITCODE -ne 0) { throw "candle failed ($LASTEXITCODE)" }
+          & "$env:WIX_BIN\light.exe" -nologo -sval -ext WixUIExtension `
+              -out PvxSymbols-ci.msi PvxSymbols.wixobj
+          if ($LASTEXITCODE -ne 0) { throw "light failed ($LASTEXITCODE)" }
+
+      # The release this one upgrades from. Fetched rather than committed: it
+      # is the published artifact sites actually have installed.
+      - name: Download the 1.6.0 MSI and zip
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.6.0 --repo ${{ github.repository }} --dir legacy `
+              --pattern 'PvxSymbols-1.6.0.msi' --pattern 'pvx-symbols-1.6.0.zip'
+          Get-ChildItem legacy
+
+      - name: Install, upgrade and uninstall for real
+        shell: pwsh
+        run: |
+          ./tools/test-installer.ps1 -Msi dist/installer/PvxSymbols-ci.msi `
+              -LegacyMsi legacy/PvxSymbols-1.6.0.msi -LegacyZip legacy/pvx-symbols-1.6.0.zip `
+              -WorkDir "${{ runner.temp }}\pvx-installer-test"
+
+      - name: Upload msiexec logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-logs
+          path: ${{ runner.temp }}/pvx-installer-test/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload the official-toolset MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-official
+          path: |
+            dist/installer/PvxSymbols-ci.msi
+            dist/installer/components.json
+          retention-days: 7
+
+  installer-tables-strict:
+    name: Installer tables (official toolset build)
+    needs: installer-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # msiinfo exists only on Linux and the official toolset only on Windows,
+    # so the strict table checks (Permanent + NeverOverwrite, the searches,
+    # the move, the clean-up, the dialog) read the Windows job's MSI here.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install msitools
+        run: sudo apt-get update && sudo apt-get install -y msitools
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-official
+          path: dist/installer
+      - name: Verify installer tables strictly
+        run: node tools/verify-msi.js dist/installer/PvxSymbols-ci.msi --strict-attributes

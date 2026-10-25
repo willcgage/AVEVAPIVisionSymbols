@@ -31,7 +31,7 @@
  * DATA ACCESS
  *   All requests go through PVX.api — never a raw XMLHttpRequest. The site's
  *   authentication strategy (Kerberos, bearer, basic, anonymous) is a property
- *   of the DEPLOYMENT, configured once in libraries/pvx-config.js, and this
+ *   of the DEPLOYMENT, configured once in ext/libraries/pvx/pvx-config.js, and this
  *   symbol neither knows nor cares which one is live.
  *
  *   - The AF database is resolved once per database path and cached for the life
@@ -161,7 +161,7 @@
                 NavigateTarget: '',
 
                 /* -- deployment ------------------------------------------------ *
-                 * Normally blank: the base URL belongs in libraries/pvx-config.js
+                 * Normally blank: the base URL belongs in ext/libraries/pvx/pvx-config.js
                  * where one site setting serves every symbol. Set it here only to
                  * point this symbol at a SECOND PI Web API (a test instance, a
                  * different plant's server). See the config pane hint — it moves
@@ -1360,8 +1360,8 @@
             if (state.phase === 'unconfigured') {
                 drawMessage(svgRoot, W, H, t, 'PI Web API is not configured',
                     minimal ? '' :
-                    'Set baseUrl in libraries/pvx-config.js on this PI Vision server, then confirm it ' +
-                    'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
+                    'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
+                    'with ext/pvx/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
             }

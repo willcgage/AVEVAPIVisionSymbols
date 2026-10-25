@@ -135,7 +135,7 @@
                 ReadOnlyPreview: false,
 
                 /* -- deployment ---------------------------------------------------- *
-                 * Normally blank; the base URL belongs in libraries/pvx-config.js.
+                 * Normally blank; the base URL belongs in ext/libraries/pvx/pvx-config.js.
                  * See the config pane: this moves the base URL for every PVX
                  * symbol on the page, because PVX.api is one shared client. */
                 BaseUrlOverride: ''
@@ -893,8 +893,8 @@
             }
             if (state.phase === 'unconfigured') {
                 showState('PI Web API is not configured',
-                    'This symbol writes through PI Web API. Set baseUrl in libraries/pvx-config.js on ' +
-                    'this PI Vision server, then confirm it with ext/piwebapi-check.html.', 'warn');
+                    'This symbol writes through PI Web API. Set baseUrl in ext/libraries/pvx/pvx-config.js on ' +
+                    'this PI Vision server, then confirm it with ext/pvx/piwebapi-check.html.', 'warn');
                 digest();
                 return;
             }

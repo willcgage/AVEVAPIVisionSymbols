@@ -141,7 +141,7 @@
                 DimNormal: true,
 
                 /* -- deployment ------------------------------------------------ *
-                 * Normally blank: the base URL belongs in libraries/pvx-config.js
+                 * Normally blank: the base URL belongs in ext/libraries/pvx/pvx-config.js
                  * where one site setting serves every symbol. Same testing escape
                  * hatch as pvxEventGantt, and the same caveat — PVX.api is one
                  * shared client, so this moves the base URL for the whole page. */

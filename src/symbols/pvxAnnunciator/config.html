@@ -353,12 +353,12 @@
         <div class="pvx-cfg-stack">
             <label for="pvxann-baseurl">PI Web API base URL override</label>
             <input id="pvxann-baseurl" type="text" ng-model="config.BaseUrlOverride"
-                   placeholder="Leave blank — use libraries/pvx-config.js" />
+                   placeholder="Leave blank — use ext/libraries/pvx/pvx-config.js" />
         </div>
         <div class="pvx-cfg-hint">
             Only used when shared acknowledgement is on, and only a <b>testing escape
             hatch</b> &mdash; leave it blank in production. The base URL belongs in
-            <code>libraries/pvx-config.js</code>, where one site setting serves every
+            <code>ext/libraries/pvx/pvx-config.js</code>, where one site setting serves every
             symbol and survives an upgrade. Use this to point at a <em>second</em> PI Web
             API: a test instance, or another plant's server.
             <strong>It moves the base URL for every PVX symbol on the page</strong>,

@@ -23,6 +23,26 @@ const SHARED_DIR = path.join(SRC, 'shared');
 const DIST = path.join(ROOT, 'dist');
 const EXT = path.join(DIST, 'ext');
 
+/* dist/ext mirrors the server's ext folder exactly, so every tool that reads it
+ * (the MSI generator, the zip, the deploy script, the harnesses) sees the same
+ * layout a PI Vision server does.
+ *
+ * Nothing of ours sits directly in ext\, ext\icons\ or ext\libraries\ any
+ * more. Those folders are shared with AVEVA's samples and every other symbol
+ * pack on the server; 1.6.0 and earlier put 150 files loose in them.
+ *
+ *   ext\pvx\              symbols, templates, styles, the diagnostic page
+ *   ext\pvx\icons\        palette icons
+ *   ext\libraries\pvx\    the shared runtime and the site's settings
+ *
+ * The runtime cannot live in ext\pvx\ with everything else. ext\libraries is
+ * the only folder PI Vision documents as loading BEFORE the symbols, and its
+ * guide explicitly allows subfolders of it — so a subfolder of libraries is the
+ * one place the runtime can go without depending on undocumented behaviour. */
+const PVX_DIR = path.join(EXT, 'pvx');
+const ICON_DIR = path.join(PVX_DIR, 'icons');
+const LIB_DIR = path.join(EXT, 'libraries', 'pvx');
+
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const VERSION = pkg.version;
 
@@ -238,9 +258,9 @@ const REQUIRED = ['symbol.js', 'template.html', 'config.html', 'styles.css', 'ic
 function build() {
     const started = Date.now();
     if (FLAG('--clean')) { rmrf(DIST); }
-    mkdirp(EXT);
-    mkdirp(path.join(EXT, 'icons'));
-    mkdirp(path.join(EXT, 'libraries'));
+    mkdirp(PVX_DIR);
+    mkdirp(ICON_DIR);
+    mkdirp(LIB_DIR);
 
     problems.length = 0;
     warnings.length = 0;
@@ -254,8 +274,8 @@ function build() {
     const core = read(path.join(SHARED_DIR, 'pvx-core.js'));
     validateSymbolJs('pvx-core', core, { isLibrary: true });
 
-    write(path.join(EXT, 'libraries', 'pvx-core.js'), banner('PVX Core runtime') + core);
-    ok('libraries/pvx-core.js  ' + kb(core));
+    write(path.join(LIB_DIR, 'pvx-core.js'), banner('PVX Core runtime') + core);
+    ok('libraries/pvx/pvx-core.js  ' + kb(core));
 
     // Per-site deployment settings. Emitted with an inert default so a fresh
     // build is safe to deploy, and explicitly NOT stamped with the generated-file
@@ -263,8 +283,8 @@ function build() {
     // script preserves an existing copy on the server rather than clobbering it.
     const siteConfig = read(path.join(SHARED_DIR, 'pvx-config.js'));
     validateSymbolJs('pvx-config', siteConfig, { isLibrary: true });
-    write(path.join(EXT, 'libraries', 'pvx-config.js'), siteConfig);
-    ok('libraries/pvx-config.js  ' + C.dim + 'site settings — preserved on redeploy' + C.reset);
+    write(path.join(LIB_DIR, 'pvx-config.js'), siteConfig);
+    ok('libraries/pvx/pvx-config.js  ' + C.dim + 'site settings — preserved on redeploy' + C.reset);
 
     // The connectivity diagnostic ships INSIDE the ext folder on purpose: it has
     // to be served from the PI Vision origin to reproduce the conditions a real
@@ -272,8 +292,8 @@ function build() {
     // something else entirely and give a confidently wrong answer.
     const checkPage = path.join(SRC, 'tools', 'piwebapi-check.html');
     if (fs.existsSync(checkPage)) {
-        write(path.join(EXT, 'piwebapi-check.html'), read(checkPage));
-        ok('piwebapi-check.html  ' + C.dim + 'PI Web API diagnostic' + C.reset);
+        write(path.join(PVX_DIR, 'piwebapi-check.html'), read(checkPage));
+        ok('pvx/piwebapi-check.html  ' + C.dim + 'PI Web API diagnostic' + C.reset);
     }
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
@@ -301,16 +321,16 @@ function build() {
         validateCss(typeName, css);
         validateIcon(typeName, icon);
 
-        write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
-        write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'), config);
+        write(path.join(PVX_DIR, 'sym-' + typeName + '.js'), banner(typeName) + js);
+        write(path.join(PVX_DIR, 'sym-' + typeName + '-template.html'), template);
+        write(path.join(PVX_DIR, 'sym-' + typeName + '-config.html'), config);
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
-        // only auto-loads sym-<name>.css from ext/, so there is nowhere else to
-        // put them; the duplication is a few KB and keeps deployment to a
-        // single flat folder.
-        write(path.join(EXT, 'sym-' + typeName + '.css'),
+        // loads a symbol's CSS by the sym-<name>.css naming convention only, so
+        // there is nowhere else to put them; the duplication is a few KB and
+        // keeps each symbol self-contained.
+        write(path.join(PVX_DIR, 'sym-' + typeName + '.css'),
             banner(typeName + ' styles') + baseCss + '\n\n' + css);
-        write(path.join(EXT, 'icons', typeName + '.svg'), icon);
+        write(path.join(ICON_DIR, typeName + '.svg'), icon);
 
         const displayName = (/displayName:\s*['"]([^'"]+)['"]/.exec(js) || [])[1] || typeName;
         const shape = (/DataShape:\s*['"]([^'"]+)['"]/.exec(js) || [])[1] || 'None';
@@ -331,6 +351,9 @@ function build() {
         version: VERSION,
         builtOn: new Date().toISOString(),
         extPath: 'Scripts/app/editor/symbols/ext',
+        // Where inside extPath each kind of file lands. Tools read these rather
+        // than hard-coding the layout a second time.
+        layout: { symbols: 'pvx', icons: 'pvx/icons', libraries: 'libraries/pvx' },
         symbols: manifest
     }, null, 2));
 
@@ -434,114 +457,23 @@ function packageZip() {
 
 /* ------------------------------------------------------------------ deploy */
 
+/* The deploy script lives as a real .ps1 under src/tools rather than as a
+   string in this file: it is now long enough to need reviewing as PowerShell,
+   and a template literal doubles every backslash in a language made of them.
+   It must stay ASCII — Windows PowerShell 5.1 reads a BOM-less script as the
+   ANSI code page, so one em dash in a message turns into mojibake or a parse
+   error on exactly the servers that cannot run the MSI. */
 function deployScript() {
-    return `<#
-.SYNOPSIS
-    Deploys the PVX custom symbol library to a PI Vision server.
-
-.DESCRIPTION
-    Copies the contents of .\\ext into the PI Vision extensibility folder,
-    taking a timestamped backup of anything it replaces. Run from an elevated
-    PowerShell session on the PI Vision web server.
-
-.PARAMETER PIVisionPath
-    PI Vision installation root. Defaults to the standard install location.
-
-.PARAMETER WhatIf
-    Show what would be copied without changing anything.
-
-.EXAMPLE
-    .\\Deploy-PvxSymbols.ps1
-    .\\Deploy-PvxSymbols.ps1 -PIVisionPath 'D:\\Program Files\\PIPC\\PIVision'
-    .\\Deploy-PvxSymbols.ps1 -WhatIf
-#>
-[CmdletBinding(SupportsShouldProcess = $true)]
-param(
-    [string] $PIVisionPath = 'C:\\Program Files\\PIPC\\PIVision',
-    [switch] $SkipBackup
-)
-
-$ErrorActionPreference = 'Stop'
-
-$source = Join-Path $PSScriptRoot 'ext'
-if (-not (Test-Path $source)) {
-    throw "Cannot find '$source'. Run this script from the folder that contains the ext directory."
-}
-
-$extRoot = Join-Path $PIVisionPath 'Scripts\\app\\editor\\symbols\\ext'
-if (-not (Test-Path $PIVisionPath)) {
-    throw "PI Vision not found at '$PIVisionPath'. Pass -PIVisionPath with the correct location."
-}
-
-Write-Host ''
-Write-Host "PI Vision : $PIVisionPath"
-Write-Host "Target    : $extRoot"
-Write-Host ''
-
-# --- backup ---------------------------------------------------------------
-if ((Test-Path $extRoot) -and -not $SkipBackup) {
-    $stamp  = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backup = Join-Path $PIVisionPath "Scripts\\app\\editor\\symbols\\ext-backup-$stamp"
-    if ($PSCmdlet.ShouldProcess($backup, 'Create backup')) {
-        Copy-Item -Path $extRoot -Destination $backup -Recurse -Force
-        Write-Host "Backed up existing ext folder to: $backup" -ForegroundColor Yellow
-    }
-}
-
-# --- copy -----------------------------------------------------------------
-foreach ($dir in @($extRoot, (Join-Path $extRoot 'icons'), (Join-Path $extRoot 'libraries'))) {
-    if (-not (Test-Path $dir)) {
-        if ($PSCmdlet.ShouldProcess($dir, 'Create directory')) {
-            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    const ps = read(path.join(SRC, 'tools', 'Deploy-PvxSymbols.ps1'));
+    for (let i = 0; i < ps.length; i++) {
+        if (ps.charCodeAt(i) > 0x7e) {
+            const line = ps.slice(0, i).split('\n').length;
+            problem('Deploy-PvxSymbols.ps1', 'non-ASCII character on line ' + line +
+                    ' — Windows PowerShell 5.1 misreads it. Use plain ASCII.');
+            break;
         }
     }
-}
-
-# pvx-config.js holds the site's PI Web API settings. It is the one file an
-# administrator edits, so an upgrade must never overwrite it.
-$preserve = @('libraries\\pvx-config.js')
-
-$files = Get-ChildItem -Path $source -Recurse -File
-$skipped = 0
-foreach ($f in $files) {
-    $relative = $f.FullName.Substring($source.Length).TrimStart('\\')
-    $dest     = Join-Path $extRoot $relative
-    $destDir  = Split-Path $dest -Parent
-    if (-not (Test-Path $destDir)) {
-        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
-    }
-
-    if (($preserve -contains $relative) -and (Test-Path $dest)) {
-        Write-Host "  $relative " -NoNewline
-        Write-Host "(kept existing site settings)" -ForegroundColor Yellow
-        $skipped++
-        continue
-    }
-
-    if ($PSCmdlet.ShouldProcess($dest, 'Copy')) {
-        Copy-Item -Path $f.FullName -Destination $dest -Force
-    }
-    Write-Host "  $relative"
-}
-
-Write-Host ''
-Write-Host "Deployed $($files.Count - $skipped) file(s)." -ForegroundColor Green
-if ($skipped -gt 0) {
-    Write-Host "Preserved $skipped existing site settings file(s)." -ForegroundColor Yellow
-}
-Write-Host ''
-Write-Host 'Next steps:' -ForegroundColor Cyan
-Write-Host '  1. Recycle the PI Vision application pool, or run: iisreset'
-Write-Host '  2. Hard-refresh the browser (Ctrl+F5) - symbol files are cached aggressively.'
-Write-Host '  3. The PVX symbols appear at the bottom of the symbol palette in display edit mode.'
-Write-Host ''
-Write-Host 'PI Web API symbols (Event Frames, AF browsing, manual entry) additionally need' -ForegroundColor Cyan
-Write-Host 'libraries\\pvx-config.js edited with your base URL and authentication method.'
-Write-Host 'Open ext\\piwebapi-check.html in a browser on this server to test the settings.'
-Write-Host ''
-Write-Host 'To roll back, delete the ext folder and rename the ext-backup-* folder back to ext.'
-Write-Host ''
-`;
+    return ps;
 }
 
 /* --------------------------------------------------------------------- run */
