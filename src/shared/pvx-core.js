@@ -3091,6 +3091,18 @@
             return { value: n - 1, note: key + ' renumbered from ' + n + ' to ' + (n - 1) + '.' };
         },
 
+        // A 1-based position where 0 means "automatic" (Deviation
+        // TargetSource / ValueSource). Pointing at the removed source goes
+        // back to automatic: falling back to 1 would silently make the first
+        // process value the setpoint. Stored as a string, because the pane
+        // picks it with a plain <select> whose option values are strings.
+        indexAuto: function (v, k, key) {
+            var n = parseInt(v, 10);
+            if (!isFinite(n) || n < 1 || n < k) { return null; }
+            if (n === k) { return { value: '0', note: key + ' pointed at the removed source; it is automatic again.' }; }
+            return { value: String(n - 1), note: key + ' renumbered from ' + n + ' to ' + (n - 1) + '.' };
+        },
+
         // One entry per source in order, comma separated (Radar AxisLimits,
         // Profile Positions). The removed source's entry goes with it.
         listComma: function (v, k, key) {

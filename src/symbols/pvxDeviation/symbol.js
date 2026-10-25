@@ -12,9 +12,13 @@
  *
  * Two ways to say what the target IS:
  *   TargetMode 'fixed'  — one constant (config.TargetValue) for every series.
- *   TargetMode 'series' — the LAST data source is the setpoint and every
- *                         earlier source is a process value measured against
- *                         it. PI stores PV and SP on their own timestamps, so
+ *   TargetMode 'series' — one data source is the setpoint (TargetSource, the
+ *                         LAST source when left automatic) and the others are
+ *                         process values measured against it, or just the one
+ *                         chosen as ValueSource. Picking them by name in the
+ *                         pane beats relying on the order they were dropped
+ *                         in, which is invisible on the display. PI stores PV
+ *                         and SP on their own timestamps, so
  *                         they are paired by a forward two-pointer walk taking
  *                         the last setpoint at or before each PV sample
  *                         (last-known-value, which is what a setpoint actually
@@ -53,6 +57,7 @@
         visObjectType: symbolVis,
         supportsCollections: true,
         configTitle: 'Format Deviation from Target',
+        sourceRemap: { TargetSource: 'indexAuto', ValueSource: 'indexAuto' },
 
         getDefaultConfig: function () {
             return window.PVX.config.base({
@@ -65,6 +70,8 @@
                 // Target
                 TargetMode: 'fixed',            // fixed | series
                 TargetValue: 100,
+                TargetSource: '0',              // series: 1-based setpoint source, 0 = the last
+                ValueSource: '0',               // 1-based process value, 0 = every other source
                 DeviationMode: 'percent',       // percent | absolute
                 Mode: 'band',                   // band | bars | trend
 
@@ -152,21 +159,39 @@
             model.fallback = [];
             model.sp = null;
             model.needSetpoint = false;
+            model.picks = [];
 
             var all = model.raw || [];
             var pvList = all;
             var seriesTarget = (cfg.TargetMode === 'series');
+            var spIdx = -1;
 
             if (seriesTarget) {
-                // The setpoint is the LAST source by convention: users drop the
-                // process values first and add the setpoint once, so "last"
-                // survives adding another PV in a way that "first" would not.
                 if (all.length < 2) {
                     model.needSetpoint = true;
                     return;
                 }
-                model.sp = all[all.length - 1];
-                pvList = all.slice(0, all.length - 1);
+                // Automatic is the LAST source: users drop the process values
+                // first and add the setpoint once, so "last" survives adding
+                // another PV in a way that "first" would not.
+                spIdx = all.length - 1;
+                var want = parseInt(cfg.TargetSource, 10) || 0;
+                if (want >= 1 && want <= all.length) { spIdx = want - 1; }
+                else if (want > all.length) {
+                    model.picks.push('setpoint source ' + want + ' does not exist; using the last');
+                }
+                model.sp = all[spIdx];
+                pvList = [];
+                for (i = 0; i < all.length; i++) { if (i !== spIdx) { pvList.push(all[i]); } }
+            }
+
+            var pvWant = parseInt(cfg.ValueSource, 10) || 0;
+            if (pvWant >= 1 && pvWant <= all.length && pvWant - 1 !== spIdx) {
+                pvList = [all[pvWant - 1]];
+            } else if (pvWant >= 1) {
+                model.picks.push(pvWant - 1 === spIdx
+                    ? 'value source is the setpoint; showing every other source'
+                    : 'value source ' + pvWant + ' does not exist; showing every source');
             }
 
             // Past a handful of traces the excursions overlap into a single
@@ -653,7 +678,7 @@
             if (model.needSetpoint) {
                 scope.pvx.note = '';
                 emptyState(svgRoot, W, H, t, 'Setpoint source required',
-                    'Add the setpoint as the LAST data source.');
+                    'Add the setpoint as a second data source.');
                 digest();
                 return;
             }
@@ -915,6 +940,7 @@
 
             // ---- footer notes ----------------------------------------------------------------
             var notes = [];
+            for (var pk = 0; pk < (model.picks || []).length; pk++) { notes.push(model.picks[pk]); }
             if (model.hidden) {
                 notes.push('showing ' + rows.length + ' of ' + (rows.length + model.hidden) +
                            ' sources (MaxSeries)');

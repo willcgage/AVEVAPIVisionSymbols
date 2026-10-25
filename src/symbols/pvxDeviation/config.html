@@ -13,11 +13,27 @@
         <div class="pvx-cfg-hint" ng-if="config.TargetMode !== 'series'">
             One constant target for every data source on the symbol.
         </div>
+        <div class="pvx-cfg-row" ng-if="config.TargetMode === 'series'">
+            <label for="pvxdev-targetsrc">Target (setpoint) source</label>
+            <select id="pvxdev-targetsrc" ng-model="config.TargetSource">
+                <option value="0">Automatic: the last data source</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-valuesrc">Current value source</label>
+            <select id="pvxdev-valuesrc" ng-model="config.ValueSource">
+                <option value="0">Every other data source</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
         <div class="pvx-cfg-hint" ng-if="config.TargetMode === 'series'">
-            <strong>The LAST data source is the setpoint.</strong> Every source above it is a
-            process value measured against it. Samples are paired by timestamp using the last
-            setpoint written at or before each process value, so the two tags do not have to
-            share timestamps.
+            Pick the setpoint and the value it is measured against by name. Samples are paired
+            by timestamp using the last setpoint written at or before each value, so the two
+            tags do not have to share timestamps. Removing a picked source sets it back to
+            automatic.
         </div>
 
         <div class="pvx-cfg-row" ng-if="config.TargetMode !== 'series'">

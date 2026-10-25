@@ -76,6 +76,9 @@ function rules() {
     check('index: later position moves up', run('index', 3, 2) === 2, run('index', 3, 2));
     check('index: removed position falls back to 1', run('index', 2, 2) === 1, run('index', 2, 2));
     check('index: earlier position untouched', run('index', 1, 2) === null, run('index', 1, 2));
+    check('indexAuto: later position moves up', run('indexAuto', 3, 2) === '2', run('indexAuto', 3, 2));
+    check('indexAuto: removed position goes back to automatic', run('indexAuto', 2, 2) === '0', run('indexAuto', 2, 2));
+    check('indexAuto: automatic untouched', run('indexAuto', 0, 2) === null, run('indexAuto', 0, 2));
 
     check('traceSpec: entry dropped, later renumbered',
         run('traceSpec', '1:bar, 2:line:right, 3:area', 2) === '1:bar, 2:area', run('traceSpec', '1:bar, 2:line:right, 3:area', 2));
