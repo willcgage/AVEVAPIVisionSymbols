@@ -1,0 +1,26 @@
+    <!-- Injected by tools/build.js at the top of every PVX format pane.
+         State and actions come from PVX.sources.bind, via runtimeData. -->
+    <div class="pvx-cfg-group pvx-cfg-src" ng-if="runtimeData.pvxSources.items.length">
+        <div class="pvx-cfg-legend">Data sources</div>
+
+        <div class="pvx-cfg-src-row" ng-repeat="s in runtimeData.pvxSources.items track by $index">
+            <span class="pvx-cfg-src-n">{{$index + 1}}</span>
+            <span class="pvx-cfg-src-name" title="{{s.path}}">{{s.name}}</span>
+            <button type="button" class="pvx-cfg-src-btn"
+                    ng-if="runtimeData.pvxSources.items.length > 1 && runtimeData.pvxSources.pending !== $index"
+                    ng-click="runtimeData.pvxSources.ask($index)"
+                    title="Remove this data source from the symbol">Remove</button>
+            <button type="button" class="pvx-cfg-src-btn pvx-cfg-src-confirm"
+                    ng-if="runtimeData.pvxSources.pending === $index"
+                    ng-click="runtimeData.pvxSources.remove($index)">Confirm</button>
+            <button type="button" class="pvx-cfg-src-btn"
+                    ng-if="runtimeData.pvxSources.pending === $index"
+                    ng-click="runtimeData.pvxSources.cancel()">Keep</button>
+        </div>
+
+        <div class="pvx-cfg-hint pvx-cfg-src-msg" ng-if="runtimeData.pvxSources.message">{{runtimeData.pvxSources.message}}</div>
+        <div class="pvx-cfg-hint" ng-if="runtimeData.pvxSources.items.length === 1">
+            A symbol keeps at least one data source, so the last one has no Remove button.
+        </div>
+    </div>
+

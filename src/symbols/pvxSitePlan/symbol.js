@@ -51,6 +51,8 @@
         typeName: 'pvxSitePlan',
         displayName: 'PVX Site Plan',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { Hotspots: 'listBar' },
         visObjectType: symbolVis,
         // A collection would repeat the whole drawing once per asset. The point
         // of this symbol is that ONE drawing carries many assets at once.

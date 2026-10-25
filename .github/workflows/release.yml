@@ -58,6 +58,7 @@ jobs:
       - run: node tools/build.js --clean
       - run: node tools/verify.js
       - run: node tools/test-api.js
+      - run: node tools/test-sources.js
 
   # --------------------------------------------------------------------------
   # Build the shipping MSI with the official WiX toolset, then assert against

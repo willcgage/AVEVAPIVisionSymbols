@@ -59,6 +59,12 @@ jobs:
       - name: Verify PI Web API layer
         run: node tools/test-api.js
 
+      # Removing a data source renumbers positional config (TraceSpec, Sankey
+      # links, hotspots). Wrong renumbering draws the wrong attribute with no
+      # error, so every rule and the built format pane are exercised here.
+      - name: Verify data source removal
+        run: node tools/test-sources.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current
