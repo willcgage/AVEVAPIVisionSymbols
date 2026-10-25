@@ -145,6 +145,8 @@
         typeName: 'pvxProfile',
         displayName: 'PVX Spatial Profile',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { Positions: 'numberList' },
         visObjectType: symbolVis,
         // A collection would repeat the whole profile per asset; the profile IS
         // the comparison across the positions of one asset.

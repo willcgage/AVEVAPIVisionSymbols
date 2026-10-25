@@ -128,6 +128,7 @@ Symbols that draw only into SVG (no scope bindings) do not need it.
 | `PVX.nav` | `url, go, parseHash, buildHash, setTimeRange, currentAsset` |
 | `PVX.layout` | `renderer, fitFont` |
 | `PVX.config` | `base, upgrade, numberOpts, TABLE_STATS, statKey, statLabel, statColumns, syncStatColumns` |
+| `PVX.sources` | `name, rules, remap, bind` (wired by `bootstrap`; symbols declare `sourceRemap`) |
 
 ## Config pane markup
 
@@ -135,6 +136,43 @@ Wrap in `<div class="c-config-content pvx-cfg">`. Group settings with
 `.pvx-cfg-group` + `.pvx-cfg-legend`. Rows use `.pvx-cfg-row` (label + control)
 or `.pvx-cfg-stack` (label above a full-width control). Explain non-obvious
 settings with `.pvx-cfg-hint`. Bind everything with `ng-model="config.X"`.
+
+Keep the root `<div class="c-config-content pvx-cfg">` on the first line, on
+its own. The build injects the shared **Data sources** list
+(`src/shared/config-sources.html`) straight after it, and fails a pane whose
+first line does not match rather than ship that symbol without it. Do not
+build a data source list of your own.
+
+## Removing a data source
+
+Every symbol's format pane lists its data sources with a Remove button on each
+row (two clicks: Remove, then Confirm). `PVX.bootstrap` publishes the list on
+`scope.runtimeData.pvxSources`; removal splices `symbol.DataSources` in place.
+The last source can never be removed.
+
+If your config addresses sources **by position**, removing source 2 moves
+every later source up one, and a config left alone now styles, places or
+routes the wrong attribute. Declare those keys on the definition and
+`PVX.sources` renumbers them in the same step and tells the operator what
+changed:
+
+```js
+sourceRemap: { TraceSpec: 'traceSpec' },
+```
+
+| Rule | Grammar | Used by |
+|---|---|---|
+| `index` | one 1-based position; pointing at the removed one falls back to 1 | Histogram `SeriesIndex`, Compare `ConditionSource` |
+| `traceSpec` | `"1:bar, 2:line:right"` — entries keyed by a leading index | ComboChart `TraceSpec` |
+| `listComma` | one comma-separated entry per source, blanks kept | Radar `AxisLimits` |
+| `listBar` | one `\|`-separated entry per source | SitePlan `Hotspots` |
+| `numberList` | numbers separated by commas, semicolons or spaces | Profile `Positions` |
+| `steps` | 1-based "after step N" set; a subtotal after the removed step stays in place | Waterfall `SubtotalAfter` |
+| `links` | `"From > To : N \| ..."`; a link fed by the removed source is removed and named | Sankey `Links` |
+
+A grammar none of these covers needs a new rule in `PVX.sources.rules` and a
+case in `tools/test-sources.js`. An unknown rule name is reported in the pane
+as "NOT renumbered", never skipped silently.
 
 ## Digital-state symbols
 

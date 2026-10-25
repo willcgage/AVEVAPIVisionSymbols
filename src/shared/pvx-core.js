@@ -2256,6 +2256,288 @@
         return store;
     };
 
+    /* ================================================================== *
+     * sources — removing one data source from a placed symbol
+     * ================================================================== *
+     * PI Vision lets an operator drop attributes onto a multi-source symbol
+     * but gives a custom symbol no way to take one off again, so a single
+     * wrong drop used to mean deleting the symbol and configuring it from
+     * scratch. Every PVX symbol gets a "Data sources" list at the top of its
+     * format pane (injected by tools/build.js) with a Remove button per row.
+     *
+     * The list lives on scope.runtimeData, which PI Vision shares between a
+     * symbol and its format pane without persisting it. What IS persisted is
+     * symbol.DataSources, the array PI Vision saves with the display and
+     * builds its data requests from; removal edits that array in place.
+     *
+     * WHY REMOVAL ALSO REWRITES CONFIG
+     *   Several symbols address their sources by position: ComboChart's
+     *   "3:line:right", Sankey's "Feed > Reactor : 2", SitePlan's hotspot
+     *   list. Remove source 2 and every later source moves up one, so a
+     *   config left alone would now style, place or route the WRONG
+     *   attribute — no error, just a convincing picture of the wrong plant.
+     *   A symbol declares those keys in `sourceRemap` on its definition and
+     *   they are renumbered in the same step, and the pane says what changed.
+     */
+    var sources = PVX.sources = {};
+
+    /**
+     * Short display name for a PI Vision data source path.
+     *   af:\\srv\db\Area\Pump 101|Flow?guid  -> "Pump 101|Flow"
+     *   pi:\\srv\SINUSOID?123                -> "SINUSOID"
+     * The full path stays available as a tooltip; this only has to tell two
+     * rows apart at a glance.
+     */
+    sources.name = function (path) {
+        var s = String(path === null || path === undefined ? '' : path);
+        var q = s.lastIndexOf('?');
+        if (q > 0) { s = s.slice(0, q); }
+        s = s.replace(/^[a-z]+:/i, '');
+        var bar = s.indexOf('|');
+        var head = bar === -1 ? s : s.slice(0, bar);
+        var tail = bar === -1 ? '' : s.slice(bar);
+        var slash = head.lastIndexOf('\\');
+        var name = (slash === -1 ? head : head.slice(slash + 1)) + tail;
+        return name || String(path || '');
+    };
+
+    function renumber(n, k) { return n > k ? n - 1 : n; }
+
+    /** Remove the k-th (1-based) sep-separated piece, or null if there is none. */
+    function dropPiece(text, sep, k) {
+        var parts = String(text).split(sep);
+        if (parts.length < k) { return null; }
+        parts.splice(k - 1, 1);
+        return parts.join(sep).replace(/^\s+|\s+$/g, '');
+    }
+
+    /**
+     * Rewrite rules, one per positional grammar. Each takes the current value
+     * and the 1-based position removed, and returns {value, note} — or null
+     * when the value does not refer to that position and is left alone.
+     */
+    sources.rules = {
+        // A single 1-based position (Histogram SeriesIndex, Compare
+        // ConditionSource). Pointing at the removed source falls back to 1,
+        // the default, rather than silently picking its neighbour.
+        index: function (v, k, key) {
+            var n = parseInt(v, 10);
+            if (!isFinite(n) || n < k) { return null; }
+            if (n === k) { return { value: 1, note: key + ' pointed at the removed source; it now uses source 1.' }; }
+            return { value: n - 1, note: key + ' renumbered from ' + n + ' to ' + (n - 1) + '.' };
+        },
+
+        // One entry per source in order, comma separated (Radar AxisLimits,
+        // Profile Positions). The removed source's entry goes with it.
+        listComma: function (v, k, key) {
+            if (!String(v === null || v === undefined ? '' : v).replace(/\s+/g, '')) { return null; }
+            var out = dropPiece(v, ',', k);
+            return out === null ? null : { value: out, note: key + ': entry ' + k + ' removed.' };
+        },
+
+        // Numbers only, separated by commas, semicolons or spaces, the way
+        // Profile reads its manual Positions. Rewritten as "0, 1.5, 7".
+        numberList: function (v, k, key) {
+            var nums = [];
+            var parts = String(v === null || v === undefined ? '' : v).split(/[,;\s]+/);
+            for (var i = 0; i < parts.length; i++) {
+                if (util.num(parts[i]) !== null) { nums.push(parts[i]); }
+            }
+            if (nums.length < k) { return null; }
+            nums.splice(k - 1, 1);
+            return { value: nums.join(', '), note: key + ': entry ' + k + ' removed.' };
+        },
+
+        // Same, '|' separated (SitePlan Hotspots).
+        listBar: function (v, k, key) {
+            if (!String(v === null || v === undefined ? '' : v).replace(/\s+/g, '')) { return null; }
+            var out = dropPiece(v, '|', k);
+            return out === null ? null : { value: out, note: key + ': entry ' + k + ' removed.' };
+        },
+
+        // "1:bar, 2:line:right" — entries keyed by a leading index, separated
+        // by , ; or newline exactly as ComboChart's parser accepts. Separators
+        // are kept so a spec typed one per line stays one per line.
+        traceSpec: function (v, k, key) {
+            var raw = String(v === null || v === undefined ? '' : v);
+            if (!raw.replace(/\s+/g, '')) { return null; }
+            var bits = raw.split(/([,\n;])/);
+            var kept = [];
+            var dropped = 0, moved = 0;
+            for (var i = 0; i < bits.length; i += 2) {
+                var chunk = bits[i];
+                var sep = i + 1 < bits.length ? bits[i + 1] : '';
+                var m = /^(\s*#?\s*)(\d+)/.exec(chunk);
+                if (m) {
+                    var n = parseInt(m[2], 10);
+                    if (n === k) { dropped += 1; continue; }
+                    if (n > k) {
+                        chunk = m[1] + (n - 1) + chunk.slice(m[0].length);
+                        moved += 1;
+                    }
+                }
+                kept.push(chunk, sep);
+            }
+            if (!dropped && !moved) { return null; }
+            var out = kept.join('').replace(/^[\s,;]+|[\s,;]+$/g, '');
+            var said = [];
+            if (dropped) { said.push('entry for source ' + k + ' removed'); }
+            if (moved) { said.push('later entries renumbered'); }
+            return { value: out, note: key + ': ' + said.join(', ') + '.' };
+        },
+
+        // Waterfall's "subtotal after step N". A subtotal after the removed
+        // step stays where it stood in the sequence, after the step before it.
+        steps: function (v, k, key) {
+            var raw = String(v === null || v === undefined ? '' : v);
+            var parts = raw.split(/[^0-9-]+/);
+            var out = [], seen = {}, changed = false;
+            for (var i = 0; i < parts.length; i++) {
+                var n = parseInt(parts[i], 10);
+                if (!isFinite(n)) { continue; }
+                var m = n >= k ? n - 1 : n;
+                if (m !== n) { changed = true; }
+                if (m >= 1 && !seen[m]) { seen[m] = true; out.push(m); }
+                else if (m < 1) { changed = true; }
+            }
+            return changed ? { value: out.join(', '), note: key + ' renumbered to "' + out.join(', ') + '".' } : null;
+        },
+
+        // Sankey "From > To : source | ...". A link whose magnitude came from
+        // the removed source has nothing left to measure, so it goes too and
+        // the note names it; later indices move up.
+        links: function (v, k, key) {
+            var raw = String(v === null || v === undefined ? '' : v);
+            if (!raw.replace(/\s+/g, '')) { return null; }
+            var parts = raw.split('|');
+            var kept = [], gone = [], moved = 0;
+            for (var i = 0; i < parts.length; i++) {
+                var s = parts[i].replace(/^\s+|\s+$/g, '');
+                if (!s) { continue; }
+                var colon = s.lastIndexOf(':');
+                var n = colon === -1 ? NaN : parseInt(s.slice(colon + 1), 10);
+                if (n === k) { gone.push(s.slice(0, colon).replace(/\s+$/, '')); continue; }
+                if (isFinite(n) && n > k) { s = s.slice(0, colon + 1) + ' ' + (n - 1); moved += 1; }
+                kept.push(s);
+            }
+            if (!gone.length && !moved) { return null; }
+            var said = [];
+            if (gone.length) { said.push('removed ' + gone.join(', ')); }
+            if (moved) { said.push('later sources renumbered'); }
+            return { value: kept.join(' | '), note: key + ': ' + said.join('; ') + '.' };
+        }
+    };
+
+    /**
+     * Apply a symbol's sourceRemap to its config for removed position k.
+     * @param {Object} cfg   the symbol's config (edited in place)
+     * @param {Object} remap {ConfigKey: ruleName}
+     * @returns {String[]} one note per key that changed
+     */
+    sources.remap = function (cfg, remap, k) {
+        var notes = [];
+        if (!cfg || !remap) { return notes; }
+        for (var key in remap) {
+            if (!Object.prototype.hasOwnProperty.call(remap, key)) { continue; }
+            var rule = sources.rules[remap[key]];
+            if (!rule) {
+                // A typo in a definition must not pass as "nothing to renumber".
+                notes.push(key + ' was NOT renumbered: unknown rule "' + remap[key] + '".');
+                continue;
+            }
+            var r = rule(cfg[key], k, key);
+            if (r) { cfg[key] = r.value; notes.push(r.note); }
+        }
+        return notes;
+    };
+
+    /**
+     * Publish the data source list for the format pane and the actions on it.
+     *
+     * @param {Object} scope the symbol's Angular scope
+     * @param {Object} info  {sourceRemap} from the symbol definition (may be null)
+     * @param {Function} onChange called after a removal so the symbol repaints
+     * @returns {Object} state, also at scope.runtimeData.pvxSources
+     */
+    sources.bind = function (scope, info, onChange) {
+        if (!scope) { return null; }
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+        info = info || {};
+
+        var state = {
+            items: [],
+            pending: -1,        // row awaiting confirmation
+            message: '',
+            unwatch: null
+        };
+
+        var list = function () {
+            var sym = scope.symbol;
+            return sym && sym.DataSources && typeof sym.DataSources.length === 'number' ? sym.DataSources : null;
+        };
+
+        state.refresh = function () {
+            var ds = list() || [];
+            var same = ds.length === state.items.length;
+            for (var j = 0; same && j < ds.length; j++) {
+                if (state.items[j].path !== String(ds[j])) { same = false; }
+            }
+            if (same) { return; }
+            var items = [];
+            for (var i = 0; i < ds.length; i++) {
+                items.push({ path: String(ds[i]), name: sources.name(ds[i]) });
+            }
+            state.items = items;
+            state.pending = -1;
+        };
+
+        // Two clicks, not one: the button sits in a narrow pane next to the
+        // row it removes, and a misclick would cost exactly the rework this
+        // feature exists to save.
+        state.ask = function (i) { state.pending = i; state.message = ''; };
+        state.cancel = function () { state.pending = -1; };
+
+        state.remove = function (i) {
+            var ds = list();
+            state.pending = -1;
+            if (!ds || i < 0 || i >= ds.length) { return false; }
+            if (ds.length < 2) {
+                state.message = 'A symbol needs at least one data source. Delete the symbol to remove the last one.';
+                return false;
+            }
+            var name = sources.name(ds[i]);
+            var cfg = scope.config || (scope.symbol && scope.symbol.Configuration);
+            var notes = sources.remap(cfg, info.sourceRemap, i + 1);
+            // In place: whatever in PI Vision already holds this array sees
+            // the change, and a $watchCollection on it fires.
+            ds.splice(i, 1);
+            state.refresh();
+            state.message = 'Removed ' + name + '.' + (notes.length ? ' ' + notes.join(' ') : '');
+            // Ask the data layer to rebuild its request for the shorter list.
+            // An event nobody listens to is a no-op, so this costs nothing on
+            // a release that refreshes by itself.
+            try {
+                var rs = scope.$root;
+                if (rs && rs.$broadcast) { rs.$broadcast('refreshDataForChangedSymbols'); }
+            } catch (e) { /* the removal itself already happened */ }
+            if (onChange) { onChange(); }
+            return true;
+        };
+
+        if (scope.$watchCollection) {
+            try {
+                state.unwatch = scope.$watchCollection(function () { return list(); }, state.refresh);
+            } catch (e) { state.unwatch = null; }
+        }
+        state.destroy = function () {
+            if (state.unwatch) { state.unwatch(); state.unwatch = null; }
+        };
+
+        state.refresh();
+        scope.runtimeData.pvxSources = state;
+        return state;
+    };
+
     /* ------------------------------------------------------------------ *
      * register — thin wrapper over PV.symbolCatalog.register
      * ------------------------------------------------------------------ *
@@ -2291,6 +2573,13 @@
             if (def.configTemplateUrl !== null && !def.configTemplateUrl) {
                 def.configTemplateUrl = PVX.EXT_PATH + 'sym-' + def.typeName + '-config.html';
             }
+            // What sources.bind needs, parked where bootstrap can reach it:
+            // init() receives the vis instance, never the definition. Taken
+            // off the definition so PI Vision's catalog sees only its own keys.
+            if (def.visObjectType && def.visObjectType.prototype) {
+                def.visObjectType.prototype.pvxSourceInfo = { sourceRemap: def.sourceRemap || null };
+            }
+            delete def.sourceRemap;
             if (!def.loadConfig && def.getDefaultConfig) {
                 def.loadConfig = function (saved) {
                     return config.upgrade(saved, def.getDefaultConfig());
@@ -2363,8 +2652,13 @@
         ctx.render = renderer.request;
         ctx.renderNow = renderer.flush;
 
+        ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
+
         vis.onDataUpdate = function (d) {
             ctx.data = d;
+            // Also catches a source added by drag and drop, on a release
+            // where nothing re-runs the collection watch in sources.bind.
+            if (ctx.sources) { ctx.sources.refresh(); }
             if (hooks.onData) {
                 try { hooks.onData(d, ctx); }
                 catch (e) { if (root.console) { root.console.error('[PVX] onData failed', e); } }
@@ -2393,6 +2687,7 @@
         vis.onDestroy = function () {
             ctx.destroyed = true;
             renderer.destroy();
+            if (ctx.sources) { ctx.sources.destroy(); }
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

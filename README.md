@@ -108,6 +108,12 @@ or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear a
 edit mode; pick one and drag an attribute onto the display to place it (any
 attribute for the seven that take their settings from the format pane alone). That is the whole installation for twenty-eight of the thirty-three.
 
+Dropped the wrong attribute on a symbol? Open its format pane: every PVX
+symbol lists its data sources at the top, with **Remove** on each row (click
+Remove, then Confirm). Settings that refer to sources by number, such as a
+Combo Chart trace spec or a Sankey link, are renumbered to match and the pane
+says what changed. A symbol always keeps at least one source.
+
 The other five need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
 put the answer in `ext/libraries/pvx/pvx-config.js`.

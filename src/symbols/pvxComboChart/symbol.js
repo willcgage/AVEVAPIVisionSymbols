@@ -67,6 +67,8 @@
         typeName: 'pvxComboChart',
         displayName: 'PVX Combo Chart',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { TraceSpec: 'traceSpec' },
         visObjectType: symbolVis,
         supportsCollections: false,
         configTitle: 'Format Combo Chart',

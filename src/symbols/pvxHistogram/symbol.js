@@ -41,6 +41,8 @@
         typeName: 'pvxHistogram',
         displayName: 'PVX Distribution',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { SeriesIndex: 'index' },
         visObjectType: symbolVis,
         supportsCollections: false,
         configTitle: 'Format Distribution',

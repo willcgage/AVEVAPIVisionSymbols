@@ -52,6 +52,8 @@
         typeName: 'pvxCompare',
         displayName: 'PVX Condition Compare',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { ConditionSource: 'index' },
         visObjectType: symbolVis,
         // A collection repeats the symbol per asset; the comparison is between
         // tags inside ONE symbol, so a collection of them would compare nothing

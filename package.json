@@ -13,6 +13,7 @@
     "verify": "node tools/build.js && node tools/verify.js",
     "verify:shots": "node tools/build.js && node tools/verify.js --shots",
     "test:api": "node tools/build.js && node tools/test-api.js",
+    "test:sources": "node tools/build.js && node tools/test-sources.js",
     "installer": "node tools/build.js --clean --package && node tools/wix.js",
     "verify:msi": "node tools/verify-msi.js",
     "check:text": "node tools/check-text.js"

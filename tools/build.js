@@ -308,6 +308,7 @@ function build() {
     }
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
+    const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html'));
 
     // --- symbols ----------------------------------------------------------
     const symbols = discoverSymbols();
@@ -334,7 +335,7 @@ function build() {
 
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'), config);
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), withSourcesPane(typeName, config, sourcesPane));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -387,6 +388,22 @@ function build() {
     say(C.green + C.bold + 'Build clean' + C.reset +
         (warnings.length ? C.dim + ' (' + warnings.length + ' warning(s))' + C.reset : ''));
     return true;
+}
+
+/* Every format pane opens with the shared "Data sources" list, so removing a
+   wrong attribute works the same way on all symbols. Injected here rather than
+   copied into 33 files that would drift. A pane without the expected root is
+   an error, not a skip: that symbol would silently ship without the list. */
+const PANE_ROOT = /^\s*<div class="c-config-content pvx-cfg[^"]*">\s*\n/;
+
+function withSourcesPane(typeName, config, pane) {
+    const m = PANE_ROOT.exec(config);
+    if (!m) {
+        problem(typeName, 'config.html must start with <div class="c-config-content pvx-cfg"> on its own line, ' +
+            'so the shared Data sources list can be injected');
+        return config;
+    }
+    return m[0] + pane + config.slice(m[0].length);
 }
 
 function banner(what) {

@@ -49,6 +49,8 @@
         typeName: 'pvxWaterfall',
         displayName: 'PVX Waterfall',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { SubtotalAfter: 'steps' },
         visObjectType: symbolVis,
         // A collection would repeat the whole bridge per asset, which defeats
         // the purpose: the bridge IS the accounting across the sources.

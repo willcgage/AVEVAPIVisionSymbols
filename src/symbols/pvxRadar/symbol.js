@@ -51,6 +51,8 @@
         typeName: 'pvxRadar',
         displayName: 'PVX Fingerprint',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { AxisLimits: 'listComma' },
         visObjectType: symbolVis,
         supportsCollections: true,
         configTitle: 'Format Fingerprint',

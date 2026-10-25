@@ -61,6 +61,8 @@
         typeName: 'pvxSankey',
         displayName: 'PVX Flow',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { Links: 'links' },
         visObjectType: symbolVis,
         // A collection would repeat the whole balance per asset. The topology is
         // authored against one specific set of data sources, so repeating it
