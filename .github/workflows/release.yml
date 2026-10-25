@@ -102,7 +102,7 @@ jobs:
         working-directory: dist/installer
         shell: pwsh
         run: |
-          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -ext WixUIExtension `
+          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -arch x64 -ext WixUIExtension `
               -out PvxSymbols.wixobj PvxSymbols.wxs
           if ($LASTEXITCODE -ne 0) { throw "candle failed ($LASTEXITCODE)" }
           & "$env:WIX_BIN\light.exe" -nologo -sval -ext WixUIExtension `

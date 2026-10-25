@@ -278,7 +278,7 @@ installing the library somewhere PI Vision never reads.
 Upgrading is the same command with the new MSI; Windows Installer removes the
 previous version first. A later upgrade, repair or uninstall finds the folder
 this one went to on its own — it is recorded under
-`HKLM\SOFTWARE\WOW6432Node\PVX\PI Vision Symbols` — so the drive only has to
+`HKLM\SOFTWARE\PVX\PI Vision Symbols` — so the drive only has to
 be given once. Rolling back is `msiexec /x` followed by installing the older
 MSI.
 
@@ -606,6 +606,14 @@ Only PVX's name patterns are matched, so another vendor's symbols in the same
 folders are safe. The settings are *moved*, not copied, because PI Vision
 loads every `.js` under `libraries`: a copy left behind would run too, and
 whichever loaded last would win.
+
+**A 1.6.0 MSI installed with no `PIVISIONPATH` never reached PI Vision.** It was
+a 32-bit package, and Windows Installer redirects a 32-bit package's files
+aimed at `C:\Program Files` into `C:\Program Files (x86)` — so the library
+landed in `C:\Program Files (x86)\PIPC\PIVision\…`, which PI Vision does not
+serve. From 1.7 the MSI is 64-bit. Upgrading removes the stray copy except its
+`pvx-config.js`, which is left in that `(x86)` folder; it was never read, so
+delete it, and edit the one in the real folder.
 
 A 1.6.0 MSI installed with a non-default `PIVISIONPATH` has to be upgraded with
 the same location given again, once; 1.6.0 did not record it. Every later

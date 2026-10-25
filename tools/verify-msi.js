@@ -101,6 +101,16 @@ function main() {
         return parts.join('/');
     }
 
+    // A 32-bit package has Windows Installer redirect C:\Program Files to
+    // Program Files (x86) — 1.6.0's default install went where PI Vision is not.
+    var suminfo = cp.execSync('msiinfo suminfo ' + JSON.stringify(msiPath), { encoding: 'utf8' });
+    var template = (/Template:\s*(\S+)/.exec(suminfo) || [])[1] || '';
+    check('package is x64 (no Program Files (x86) redirection)',
+        /^x64;/.test(template), 'Template: ' + template);
+    var comps64 = table('Component').filter(function (r) { return !((parseInt(r[3], 10) || 0) & 256); });
+    check('every component is 64-bit', comps64.length === 0,
+        comps64.slice(0, 4).map(function (r) { return r[0]; }).join(', '));
+
     check('installs under PIVISIONPATH, not a hardcoded path',
         !!dirById.PIVISIONPATH && dirById.PIVISIONPATH.parent === 'TARGETDIR',
         'PIVISIONPATH must be a Directory rooted at TARGETDIR for the path override to work');

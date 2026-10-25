@@ -119,7 +119,7 @@ jobs:
         # PvxFull=0: wixl cannot compile the searches, conditions, file moves
         # and dialogs, so this is the structure without the behaviour. The
         # installer-windows job compiles and exercises the whole thing.
-        run: wixl -D PayloadDir=../ext -D PvxFull=0 -o PvxSymbols.msi PvxSymbols.wxs
+        run: wixl -a x64 -D PayloadDir=../ext -D PvxFull=0 -o PvxSymbols.msi PvxSymbols.wxs
 
       - name: Verify installer structure
         run: node tools/verify-msi.js
@@ -168,7 +168,7 @@ jobs:
         working-directory: dist/installer
         shell: pwsh
         run: |
-          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -ext WixUIExtension `
+          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -arch x64 -ext WixUIExtension `
               -out PvxSymbols.wixobj PvxSymbols.wxs
           if ($LASTEXITCODE -ne 0) { throw "candle failed ($LASTEXITCODE)" }
           & "$env:WIX_BIN\light.exe" -nologo -sval -ext WixUIExtension `

@@ -152,7 +152,7 @@ Invoke-Msi 's1-install' @('/i', "`"$Msi`"", "INSTALLDRIVE=$Drive", 'PIPCFOLDER="
 Test-NewLayout $ext 's1'
 Test-NoFlatLayout $ext 's1'
 Test-VendorIntact $ext 's1'
-$remembered = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\WOW6432Node\PVX\PI Vision Symbols' -ErrorAction SilentlyContinue).InstallLocation
+$remembered = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\PVX\PI Vision Symbols' -ErrorAction SilentlyContinue).InstallLocation
 Check 's1: the install location is remembered' ($remembered -and $remembered.TrimEnd('\') -eq $root) "got: $remembered"
 Invoke-Msi 's1-uninstall' @('/x', "`"$Msi`"") | Out-Null
 Test-Removed $ext 's1'

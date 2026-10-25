@@ -179,8 +179,13 @@ Each of these cost real debugging time. Do not rediscover them.
 - **Windows Installer forgets command-line properties.** An uninstall, repair
   or upgrade re-resolves `PIVISIONPATH` from scratch, so a custom drive would
   silently revert to the default. The MSI records the folder in
-  `HKLM\SOFTWARE\WOW6432Node\PVX\PI Vision Symbols` and reads it back; do
+  `HKLM\SOFTWARE\PVX\PI Vision Symbols` and reads it back; do
   not remove that without replacing it.
+- **The MSI must stay x64 (`-a x64` / `-arch x64`, `Win64="yes"`).** In a
+  32-bit package Windows Installer redirects components aimed at
+  `C:\Program Files` to `Program Files (x86)` while AppSearch still probes the
+  real path — 1.6.0's default install silently landed where PI Vision never
+  looks.
 - **`pvx-config` sorts before `pvx-core`.** 1.6.0's config assumed the opposite
   and dropped its settings when loaded first. The template now queues its
   settings on `PVX.pendingSiteSettings` and the core applies them; keep both

@@ -256,7 +256,14 @@ function build() {
     L.push('           Manufacturer="' + xml(MANUFACTURER) + '"');
     L.push('           UpgradeCode="' + UPGRADE_CODE + '">');
     L.push('');
-    L.push('    <Package InstallerVersion="200" Compressed="yes"');
+    // x64, and every component Win64. PI Vision is 64-bit and lives under the
+    // real C:\Program Files. A 32-bit package — which 1.6.0 was — has Windows
+    // Installer silently redirect any component aimed there to
+    // C:\Program Files (x86), so a default install "succeeded" into a folder
+    // PI Vision never reads. The AppSearch probes are not redirected, which is
+    // why nothing complained: they found the real tree, the files went to the
+    // other one. tools/test-installer.ps1 scenario 5 is what caught it.
+    L.push('    <Package InstallerVersion="200" Compressed="yes" Platform="x64"');
     L.push('             InstallScope="perMachine" Manufacturer="' + xml(MANUFACTURER) + '"');
     L.push('             Description="' + xml(PRODUCT_NAME + ' ' + pkg.version) + '" />');
     L.push('');
@@ -314,7 +321,7 @@ function build() {
                 L.push(pad + '<!-- Site PI Web API settings. NeverOverwrite keeps an upgrade from');
                 L.push(pad + '     replacing them; Permanent keeps an uninstall from deleting them. -->');
             }
-            L.push(pad + '<Component Id="' + c.id + '" Guid="' + c.guid + '"' + attrs + '>');
+            L.push(pad + '<Component Id="' + c.id + '" Guid="' + c.guid + '" Win64="yes"' + attrs + '>');
             if (c.permanent) {
                 // Not installed while a 1.6.0-era copy is being moved into place:
                 // the move runs after costing, so a component costed for install
@@ -378,7 +385,7 @@ function build() {
         L.push(pad + '     left in place every flat sym-pvx*.js registers its symbol a second');
         L.push(pad + '     time. The site\'s ext\\libraries\\pvx-config.js is moved, not removed. -->');
         L.push(pad + '<Directory Id="PVXLEGACYICONS" Name="icons" />');
-        L.push(pad + '<Component Id="' + CLEANUP_ID + '" Guid="' + CLEANUP_GUID + '">');
+        L.push(pad + '<Component Id="' + CLEANUP_ID + '" Guid="' + CLEANUP_GUID + '" Win64="yes">');
         L.push(pad + '  <CreateFolder Directory="' + dirId('pvx') + '" />');
         LEGACY_FILES.forEach(function (lf, i) {
             var dir = lf.dir === 'icons' ? 'PVXLEGACYICONS' : lf.dir === 'libraries' ? dirId('libraries') : 'PVXEXTDIR';
@@ -391,7 +398,7 @@ function build() {
 
     function emitRemember(L, pad) {
         L.push(pad + '<!-- Read back by PvxFindRemembered: see LOCATION_RULES in tools/wix.js. -->');
-        L.push(pad + '<Component Id="' + REMEMBER_ID + '" Guid="' + REMEMBER_GUID + '">');
+        L.push(pad + '<Component Id="' + REMEMBER_ID + '" Guid="' + REMEMBER_GUID + '" Win64="yes">');
         L.push(pad + '  <RegistryValue Root="HKLM" Key="' + xml(REMEMBER_KEY) + '" Name="InstallLocation"');
         L.push(pad + '                 Type="string" Value="[PIVISIONPATH]" KeyPath="yes" />');
         L.push(pad + '</Component>');
@@ -404,7 +411,7 @@ function build() {
         L.push(pad + '     behind would run too, and whichever loaded last would win. A move on one');
         L.push(pad + '     volume also keeps the file\'s timestamps, which is what tells Windows');
         L.push(pad + '     Installer the site edited it. -->');
-        L.push(pad + '<Component Id="' + MOVE_ID + '" Guid="' + MOVE_GUID + '">');
+        L.push(pad + '<Component Id="' + MOVE_ID + '" Guid="' + MOVE_GUID + '" Win64="yes">');
         L.push(pad + '  <Condition>' + xml('PVXLEGACYCONFIG AND NOT PVXSITECONFIG AND NOT PVXREMEMBEREDUSED') + '</Condition>');
         L.push(pad + '  <CreateFolder />');
         L.push(pad + '  <CopyFile Id="PvxMoveSiteConfig" Delete="yes"');
@@ -449,7 +456,7 @@ function emitLocation(L) {
     L.push('    <Property Id="PIPCFOLDER" Secure="yes" />');
     L.push('    <Property Id="PVXREMEMBERED">');
     L.push('      <RegistrySearch Id="PvxFindRemembered" Root="HKLM" Key="' + xml(REMEMBER_KEY) + '"');
-    L.push('                      Name="InstallLocation" Type="raw" />');
+    L.push('                      Name="InstallLocation" Type="raw" Win64="yes" />');
     L.push('    </Property>');
     L.push('    <CustomAction Id="PvxNoteExplicit" Property="PVXEXPLICIT" Value="1" />');
     L.push('    <CustomAction Id="PvxUseRemembered" Property="PIVISIONPATH" Value="[PVXREMEMBERED]" />');
