@@ -120,7 +120,7 @@ Symbols that draw only into SVG (no scope bindings) do not need it.
 | `PVX.fmt` | `number, compact, percent, group, autoDecimals, time, ago, duration, tick, toDate` |
 | `PVX.color` | `categorical[], status{}, sequential[], diverging[], toRgb, toHex, rgba, mix, ramp, luminance, contrastRatio, readable` |
 | `PVX.theme` | `isDark(elem), tokens(config, elem)` → `{dark, surface, surfaceAlt, border, text, textMuted, grid, axis, track, shadow, status, categorical}` |
-| `PVX.thresholds` | `DEFAULT, parse, stringify, evaluate, colorFor, bands` |
+| `PVX.thresholds` | `DEFAULT, parse, stringify, evaluate, colorFor, bands, bind` (`bind` wired by `bootstrap`) |
 | `PVX.scale` | `linear(d0,d1,r0,r1), niceDomain, tickStep, ticks` |
 | `PVX.svg` | `el, clear, text, polar, arc, annulus, roundRect, line, stepLine, area` |
 | `PVX.data` | `single, series, stateSeries, stateRuns, rows, statValue, trend, stats` |
@@ -142,6 +142,22 @@ its own. The build injects the shared **Data sources** list
 (`src/shared/config-sources.html`) straight after it, and fails a pane whose
 first line does not match rather than ship that symbol without it. Do not
 build a data source list of your own.
+
+Threshold bands are edited with the shared band editor
+(`src/shared/config-bands.html`): one row per band with a limit, a colour
+picker and a label, plus Add band and an *Edit as text* fallback. Put the
+marker on its own line where the control goes, under a `.pvx-cfg-label`:
+
+```html
+<div class="pvx-cfg-stack">
+    <div class="pvx-cfg-label">Threshold bands</div>
+    <!-- pvx:bands -->
+</div>
+```
+
+The editor writes `config.Thresholds` as the usual grammar string, so saved
+displays and `PVX.thresholds.parse` are unaffected. The build fails a pane that
+binds `config.Thresholds` to a control of its own.
 
 ## Removing a data source
 

@@ -206,10 +206,10 @@
             <input id="pvxbox-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxbox-thresh">Threshold bands</label>
-            <textarea id="pvxbox-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint"><code>lowerLimit:colour:label</code>, comma separated. Used by the "by median" colour mode, always against the real engineering value even when the axis is normalised.</div>
+        <div class="pvx-cfg-hint">Used by the "by median" colour mode, always against the real engineering value even when the axis is normalised.</div>
     </div>
 
 </div>

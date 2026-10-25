@@ -551,6 +551,148 @@
         return out;
     };
 
+    /**
+     * Row editor for config.Thresholds, behind the "Threshold bands" fields
+     * build.js injects into a format pane (src/shared/config-bands.html).
+     *
+     * The stored value stays the grammar string: saved displays load
+     * unchanged, every symbol keeps reading it through parse(), and the
+     * operator edits a limit, a colour and a label per band instead of
+     * typing the grammar.
+     *
+     * Rows are NOT the parse() of the string while the operator is typing.
+     * parse() sorts and drops a band with no number, so reparsing every
+     * keystroke would reorder the row under the cursor and make a half-typed
+     * limit vanish. Rows write the string; the string is read back into rows
+     * only when something else changed it (the text box, an undo, a load).
+     *
+     * @param {Object} scope the symbol's Angular scope
+     * @returns {Object} state, also at scope.runtimeData.pvxBands
+     */
+    thresholds.bind = function (scope) {
+        if (!scope) { return null; }
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+
+        var state = {
+            rows: [],
+            textMode: false,
+            written: null,      // the last string this editor wrote
+            unwatch: null
+        };
+
+        var cfg = function () {
+            return scope.config || (scope.symbol && scope.symbol.Configuration) || null;
+        };
+
+        // The picker only takes #rrggbb. A colour it cannot show (a named
+        // colour typed into the text box, say) is kept as written until the
+        // operator picks a new one, rather than being replaced by black.
+        var rowFor = function (t) {
+            var rgb = color.toRgb(t.color);
+            return { value: t.value, color: t.color, hex: rgb ? color.toHex(rgb) : '#000000', label: t.label };
+        };
+
+        state.load = function (spec) {
+            var list = thresholds.parse(spec);
+            var rows = [];
+            for (var i = 0; i < list.length; i++) { rows.push(rowFor(list[i])); }
+            state.rows = rows;
+            state.written = spec === undefined || spec === null ? '' : String(spec);
+        };
+
+        /** Write the rows back as the grammar string. */
+        state.commit = function () {
+            var c = cfg();
+            var out = [];
+            for (var i = 0; i < state.rows.length; i++) {
+                var r = state.rows[i];
+                // The grammar separates bands with , ; and newlines, so any of
+                // those in a label would split it into a bogus extra band.
+                // Replaced where the operator can see it, in the field itself.
+                if (r.label && /[,;\r\n]/.test(r.label)) { r.label = r.label.replace(/\s*[,;\r\n]+\s*/g, ' '); }
+                r.invalid = util.num(r.value) === null;
+                // A band with no limit is left out of the string but kept as a
+                // row, flagged, so it is fixed rather than silently lost.
+                if (!r.invalid) {
+                    out.push({ value: util.num(r.value), color: r.color || color.status.info, label: (r.label || '').trim() });
+                }
+            }
+            state.written = thresholds.stringify(out);
+            if (c) { c.Thresholds = state.written; }
+        };
+
+        state.setColor = function (r) {
+            r.color = r.hex;
+            state.commit();
+        };
+
+        state.add = function () {
+            var top = null;
+            for (var i = 0; i < state.rows.length; i++) {
+                var v = util.num(state.rows[i].value);
+                if (v !== null && (top === null || v > top)) { top = v; }
+            }
+            var c = color.categorical[state.rows.length % color.categorical.length];
+            state.rows.push({ value: top === null ? 0 : top + 10, color: c, hex: c, label: '' });
+            state.commit();
+        };
+
+        state.remove = function (i) {
+            if (i < 0 || i >= state.rows.length) { return; }
+            state.rows.splice(i, 1);
+            state.commit();
+        };
+
+        /** Lowest limit first, which is the order the bands apply in. */
+        state.sort = function () {
+            state.rows.sort(function (a, b) {
+                var x = util.num(a.value), y = util.num(b.value);
+                if (x === null) { return y === null ? 0 : 1; }
+                if (y === null) { return -1; }
+                return x - y;
+            });
+            state.commit();
+        };
+
+        state.unsorted = function () {
+            var last = null;
+            for (var i = 0; i < state.rows.length; i++) {
+                var v = util.num(state.rows[i].value);
+                if (v === null) { continue; }
+                if (last !== null && v < last) { return true; }
+                last = v;
+            }
+            return false;
+        };
+
+        state.hasInvalid = function () {
+            for (var i = 0; i < state.rows.length; i++) { if (state.rows[i].invalid) { return true; } }
+            return false;
+        };
+
+        state.toggleText = function () { state.textMode = !state.textMode; };
+
+        if (scope.$watch) {
+            try {
+                state.unwatch = scope.$watch(function () {
+                    var c = cfg();
+                    return c ? c.Thresholds : undefined;
+                }, function (v) {
+                    var s = v === undefined || v === null ? '' : String(v);
+                    if (s !== state.written) { state.load(v); }
+                });
+            } catch (e) { state.unwatch = null; }
+        }
+        state.destroy = function () {
+            if (state.unwatch) { state.unwatch(); state.unwatch = null; }
+        };
+
+        var c0 = cfg();
+        state.load(c0 ? c0.Thresholds : '');
+        scope.runtimeData.pvxBands = state;
+        return state;
+    };
+
     /* ------------------------------------------------------------------ *
      * scale — linear mapping + nice ticks
      * ------------------------------------------------------------------ */
@@ -2653,6 +2795,7 @@
         ctx.renderNow = renderer.flush;
 
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
+        ctx.bands = thresholds.bind(scope);
 
         vis.onDataUpdate = function (d) {
             ctx.data = d;
@@ -2688,6 +2831,7 @@
             ctx.destroyed = true;
             renderer.destroy();
             if (ctx.sources) { ctx.sources.destroy(); }
+            if (ctx.bands) { ctx.bands.destroy(); }
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

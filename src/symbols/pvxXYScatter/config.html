@@ -205,13 +205,10 @@
             <input id="pvxxy-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxxy-thresh">Threshold bands</label>
-            <textarea id="pvxxy-thresh" ng-model="config.Thresholds" rows="2"></textarea>
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">
-            <code>lowerLimit:colour:label</code>, comma separated. Applied to the Y value when
-            "Colour by" is set to threshold and thresholds are enabled.
-        </div>
+        <div class="pvx-cfg-hint">Applied to the Y value when "Colour by" is set to threshold and thresholds are enabled.</div>
     </div>
 
 </div>

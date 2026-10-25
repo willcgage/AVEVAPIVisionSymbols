@@ -194,7 +194,9 @@ paints into a stale DOM node.
 
 **One threshold grammar.** `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`
 means the same thing in every symbol, so an engineering standard can be pasted
-across a whole display set. Digital state maps and combo-chart trace specs use
+across a whole display set. The format pane edits it as one row per band
+(limit, colour picker, label) and keeps the string underneath, with an *Edit
+as text* switch for pasting. Digital state maps and combo-chart trace specs use
 the same shape of string, for the same reason.
 
 **One statistics implementation.** Quartiles, histogram binning (Freedman-
