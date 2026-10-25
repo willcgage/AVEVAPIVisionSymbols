@@ -2065,6 +2065,44 @@
         return nav.parseHash().params.asset || '';
     };
 
+    /**
+     * The AF element a data source belongs to, as PI Vision's asset= wants it.
+     *   af:\\srv\db\Area\Pump 101|Flow?guid  -> \\srv\db\Area\Pump 101
+     *   \\PISRV01\SINUSOID                    -> '' (a PI point has no element)
+     * Drill-down used to pass the attribute's whole path as the asset. PI
+     * Vision's asset parameter names an element, and nothing has shown it
+     * tolerates an attribute path there, so callers pass the element.
+     */
+    nav.assetOf = function (path) {
+        var s = String(path === null || path === undefined ? '' : path);
+        var q = s.lastIndexOf('?');
+        if (q > 0) { s = s.slice(0, q); }
+        s = s.replace(/^[a-z]+:/i, '');
+        var bar = s.indexOf('|');
+        return bar === -1 ? '' : s.slice(0, bar);
+    };
+
+    /** Parent of an element path, or '' at the database root. */
+    nav.parentOf = function (elementPath) {
+        var s = String(elementPath || '').replace(/[\\]+$/, '');
+        var segs = nav.segments(s);
+        if (segs.elements.length < 2) { return ''; }
+        return segs.prefix + segs.elements.slice(0, -1).join('\\');
+    };
+
+    /**
+     * Split \\server\database\A\B\C into its parts. `prefix` is
+     * "\\server\database\", and `elements` are the element names from the
+     * top of the database down, so elements.slice(0, n) is the n-th ancestor.
+     */
+    nav.segments = function (elementPath) {
+        var s = String(elementPath || '').replace(/^[a-z]+:/i, '');
+        var m = /^(\\\\[^\\]+\\[^\\]+\\?)(.*)$/.exec(s);
+        if (!m) { return { prefix: '', elements: s ? s.split('\\').filter(function (x) { return !!x; }) : [] }; }
+        var prefix = m[1].charAt(m[1].length - 1) === '\\' ? m[1] : m[1] + '\\';
+        return { prefix: prefix, elements: m[2] ? m[2].split('\\').filter(function (x) { return !!x; }) : [] };
+    };
+
     /* ------------------------------------------------------------------ *
      * layout — resize plumbing shared by every symbol
      * ------------------------------------------------------------------ */

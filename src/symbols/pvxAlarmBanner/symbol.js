@@ -810,7 +810,10 @@
                     if (raw !== null) {
                         var r = visible[parseInt(raw, 10)];
                         if (r) {
-                            PVX.nav.go(PVX.nav.url({ display: cfg.NavigateTarget, asset: r.path }));
+                            // asset= names an element, so pass the row's element, not
+                            // its attribute; a PI point keeps the current asset.
+                            PVX.nav.go(PVX.nav.url({ display: cfg.NavigateTarget,
+                                asset: PVX.nav.assetOf(r.path) || undefined }));
                         }
                         return;
                     }

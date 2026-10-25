@@ -100,3 +100,7 @@
 .pvx-pareto .pvx-pareto-emptymsg {
     opacity: 0.75;
 }
+
+/* Bars that open a display. */
+.pvx-pareto .pvx-pareto-click { cursor: pointer; }
+.pvx-pareto .pvx-pareto-click:hover rect { filter: brightness(1.12); }

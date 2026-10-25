@@ -145,7 +145,20 @@
                 // --- axes --------------------------------------------
                 ShowAxis: true,
                 ShowGrid: true,
-                TickCount: 5
+                TickCount: 5,
+
+                // --- rows ------------------------------------------
+                // "element" names a bar after the AF element its attribute
+                // belongs to: one attribute per complex reads as a ranking of
+                // complexes, which "Greenwood|C2 Opportunity" does not.
+                NameFrom: 'label',           // label | element
+                // A $0 opportunity is a complex the ranking is not about
+                // (Recovery mode); hiding it is said in the footer.
+                HideZero: false,
+
+                // --- interaction ------------------------------------
+                ClickAction: 'none',         // none | navigate
+                NavigateTarget: ''
             });
         }
     };
@@ -164,9 +177,16 @@
         };
 
         var rows = [];
+        // Bars on screen, index-aligned with the data-pvx-i on each bar, so
+        // the delegated click handler can find the element it stands for.
+        var drawn = [];
+        var boundHost = null;
+        var liveCfg = {};
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-pareto-body',
+
+            onDestroy: function () { unbindHost(); drawn = []; },
 
             onData: function (d) {
                 var cfg = scope.config || {};
@@ -235,16 +255,21 @@
             var i;
             var items = [];
             var skipped = 0;     // rows whose chosen statistic is null
+            var zeros = 0;       // rows hidden by HideZero
             var badCount = 0;
 
             for (i = 0; i < rows.length; i++) {
                 var r = rows[i];
                 var v = statValue(r, cfg);
                 if (v === null) { skipped += 1; continue; }
+                if (cfg.HideZero && v === 0) { zeros += 1; continue; }
                 if (!r.good) { badCount += 1; }
+                var asset = PVX.nav.assetOf(r.path);
+                var elName = asset ? asset.slice(asset.lastIndexOf('\\') + 1) : '';
                 items.push({
-                    label: r.label || ('Row ' + (i + 1)),
+                    label: (cfg.NameFrom === 'element' && elName) ? elName : (r.label || ('Row ' + (i + 1))),
                     path: r.path || '',
+                    asset: asset,
                     units: r.units || '',
                     good: r.good !== false,
                     error: r.errorDescription || '',
@@ -338,6 +363,9 @@
             if (skipped) {
                 notes.push(skipped + (skipped === 1 ? ' source has no ' : ' sources have no ') +
                     statLabel(cfg).toLowerCase());
+            }
+            if (zeros) {
+                notes.push(zeros + (zeros === 1 ? ' zero value hidden' : ' zero values hidden'));
             }
             if (hidden) { notes.push('+' + hidden + ' more not shown'); }
             if (otherCount) { notes.push('Other = ' + otherCount + ' remaining combined'); }
@@ -515,6 +543,9 @@
 
             applyThemeVars(c, t);
             scope.pvx.background = cfg.Transparent ? 'transparent' : t.surface;
+            liveCfg = cfg;
+            bindHost(host);
+            drawn = [];
 
             var W = Math.max(40, c.width);
             var H = Math.max(30, c.height);
@@ -557,6 +588,44 @@
 
             drawChart(svgRoot, W, H, cfg, t, model);
             digest();
+        }
+
+        /* ================================================================ *
+         * Click-through: one delegated listener, so redrawing the SVG on every
+         * update never has to re-register per-bar handlers.
+         * ================================================================ */
+        function bindHost(host) {
+            if (boundHost === host) { return; }
+            unbindHost();
+            host.addEventListener('click', onClick, false);
+            boundHost = host;
+        }
+
+        function unbindHost() {
+            if (!boundHost) { return; }
+            boundHost.removeEventListener('click', onClick, false);
+            boundHost = null;
+        }
+
+        function onClick(ev) {
+            if (liveCfg.ClickAction !== 'navigate') { return; }
+            var node = ev.target, guard = 0;
+            while (node && node !== boundHost && guard < 8) {
+                var raw = node.getAttribute ? node.getAttribute('data-pvx-i') : null;
+                if (raw !== null && raw !== undefined) {
+                    var it = drawn[parseInt(raw, 10)];
+                    var target = String(liveCfg.NavigateTarget || '').trim();
+                    // "Other" stands for several elements, so it goes nowhere.
+                    if (!it || it.isOther || (!target && !it.asset)) { return; }
+                    PVX.nav.go(PVX.nav.url({
+                        display: target || undefined,
+                        asset: it.asset || undefined
+                    }), false);
+                    return;
+                }
+                node = node.parentNode;
+                guard += 1;
+            }
         }
 
         /** Units are only meaningful in the header when every row agrees. */
@@ -757,7 +826,13 @@
                     w = thick;
                 }
 
-                var grp = PVX.svg.el('g', { 'class': 'pvx-pareto-bar' }, barsG);
+                var clickable = cfg.ClickAction === 'navigate' && !it.isOther &&
+                    !!(it.asset || String(cfg.NavigateTarget || '').trim());
+                drawn[i] = it;
+                var grp = PVX.svg.el('g', {
+                    'class': 'pvx-pareto-bar' + (clickable ? ' pvx-pareto-click' : ''),
+                    'data-pvx-i': String(i)
+                }, barsG);
                 PVX.svg.el('rect', {
                     x: x.toFixed(2), y: y.toFixed(2),
                     width: w.toFixed(2), height: h.toFixed(2),
