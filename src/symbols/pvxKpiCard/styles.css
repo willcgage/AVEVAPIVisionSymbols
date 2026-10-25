@@ -125,3 +125,15 @@
     text-align: center;
     opacity: 0.75;
 }
+
+/* Status edge: only the left border changes, so the card keeps its size and
+   the edge reads as a flag beside the number, not a recoloured card. */
+.pvx-kpi .pvx-kpi-edged {
+    border-left-style: solid;
+}
+
+.pvx-kpi .pvx-kpi-note {
+    padding: 0 12px 2px 12px;
+    font-size: 10px;
+    color: var(--pvx-muted);
+}

@@ -1,12 +1,20 @@
 /* ============================================================================
  * pvxKpiCard — headline value, trend delta and inline sparkline
  * ----------------------------------------------------------------------------
- * DataShape: TimeSeries (single data source)
+ * DataShape: TimeSeries (data source 1 = the KPI, optional data source 2 = plan)
  *
  * The second reference implementation in the library. Where pvxRadialGauge
  * shows the single-value/Gauge pattern, this one shows the TimeSeries pattern:
  * PI Vision hands back the whole window of values, and the symbol derives the
  * headline number, the period-over-period delta and the sparkline from it.
+ *
+ * WHY A SECOND DATA SOURCE
+ *   A roll-up box asks "are we on plan", not "are we up on an hour ago". The
+ *   plan is an AF attribute beside the actual (Revenue Target, daily inlet
+ *   plan), so it arrives the way the actual does: drop it on the card as the
+ *   second source, and an asset swap re-binds both. The symbol used to be
+ *   Single; a display saved then has one source and behaves exactly as before.
+ *   Sources beyond the second are not used, and the card says so.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -17,7 +25,7 @@
     var definition = {
         typeName: 'pvxKpiCard',
         displayName: 'PVX KPI Card',
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
         supportsCollections: true,
         configTitle: 'Format KPI Card',
@@ -39,6 +47,7 @@
                 SmoothLine: true,
 
                 ShowDelta: true,
+                DeltaBasis: 'window',       // window | plan (plan = data source 2)
                 DeltaMode: 'percent',       // percent | absolute | both
                 DeltaLookback: 0.25,        // fraction of the window used as the baseline
                 DeltaGoodDirection: 'up',   // up | down | none
@@ -46,8 +55,15 @@
                 BadColor: '#c8452f',
 
                 ShowSecondary: true,
-                SecondaryLeft: 'min',       // none | min | max | avg | range | first | count
+                SecondaryLeft: 'min',       // none | min | max | avg | range | first | count | plan
                 SecondaryRight: 'max',
+                ShowPlanOnSpark: true,      // plan as a dashed line on the sparkline
+
+                // A coloured left edge for the headline's threshold band, the
+                // way a roll-up box flags itself without recolouring the
+                // number. The placeholder bands never colour it.
+                StatusEdge: false,
+                EdgeWidth: 4,
 
                 ValueColorFromThreshold: false,
                 UseThresholds: false,
@@ -76,10 +92,14 @@
             secRight: null,
             error: '',
             valueColor: '',
+            edgeColor: '',
+            note: '',
             align: 'left'
         };
 
         var series = null;
+        var plan = null;
+        var extraSources = 0;
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-kpi-spark',
@@ -87,6 +107,8 @@
             onData: function (d) {
                 var all = PVX.data.series(d);
                 series = all.length ? all[0] : null;
+                plan = all.length > 1 ? all[1] : null;
+                extraSources = Math.max(0, all.length - 2);
             },
 
             render: render
@@ -108,8 +130,33 @@
 
         var STAT_LABEL = {
             last: 'Last', avg: 'Avg', min: 'Min', max: 'Max',
-            first: 'First', range: 'Range', sum: 'Sum', count: 'Count'
+            first: 'First', range: 'Range', sum: 'Sum', count: 'Count', plan: 'Plan'
         };
+
+        /**
+         * The plan, reduced by the same statistic as the headline, so an
+         * average is compared with an average and a sum with a sum. A plan
+         * held as one daily value has a single point, and every statistic of
+         * one point is that point.
+         */
+        function planValue(cfg) {
+            if (!plan || !plan.points.length) { return null; }
+            var v = statValue(PVX.data.stats(plan.points), cfg.Statistic, plan.points);
+            return v === undefined ? null : v;
+        }
+
+        /** Actual vs plan, in the same shape PVX.stats.delta returns. */
+        function planDelta(actual, target) {
+            if (actual === null || actual === undefined || target === null) { return null; }
+            var abs = actual - target;
+            return {
+                absolute: abs,
+                percent: Math.abs(target) > 1e-12 ? (abs / Math.abs(target)) * 100 : null,
+                direction: abs > 0 ? 1 : (abs < 0 ? -1 : 0),
+                from: target,
+                to: actual
+            };
+        }
 
         function render(c) {
             var cfg = c.config || {};
@@ -142,15 +189,42 @@
                 scope.pvx.valueColor = t.text;
             }
 
+            // ---- status edge --------------------------------------------------
+            // Multistate wins, as it does for the value. Below the first band,
+            // or with only the placeholder bands, the edge stays the border.
+            scope.pvx.edgeColor = '';
+            if (cfg.StatusEdge) {
+                if (scope.MultistateColor) {
+                    scope.pvx.edgeColor = scope.MultistateColor;
+                } else if (headline !== null && headline !== undefined &&
+                        !PVX.thresholds.isPlaceholder(cfg.Thresholds)) {
+                    var band = PVX.thresholds.evaluate(cfg.Thresholds, headline);
+                    scope.pvx.edgeColor = band ? band.color : '';
+                }
+            }
+
             // ---- delta -------------------------------------------------------
-            var delta = cfg.ShowDelta ? PVX.stats.delta(points, PVX.util.num(cfg.DeltaLookback) || 0.25) : null;
+            var target = planValue(cfg);
+            var vsPlan = cfg.DeltaBasis === 'plan';
+            var notes = [];
+            if (vsPlan && !plan) { notes.push('No plan source: add the plan as data source 2'); }
+            else if (vsPlan && target === null) { notes.push('Plan has no value in this time range'); }
+            if (extraSources) {
+                notes.push(extraSources + (extraSources === 1 ? ' extra source' : ' extra sources') + ' not used');
+            }
+            scope.pvx.note = notes.join(' · ');
+
+            var delta = !cfg.ShowDelta ? null
+                : vsPlan ? planDelta(headline, target)
+                : PVX.stats.delta(points, PVX.util.num(cfg.DeltaLookback) || 0.25);
             scope.pvx.showDelta = !!delta;
             if (delta) {
                 var pctText = delta.percent === null ? '--' : (delta.percent >= 0 ? '+' : '') + delta.percent.toFixed(1) + '%';
                 var absText = (delta.absolute >= 0 ? '+' : '') + PVX.fmt.number(delta.absolute, PVX.config.numberOpts(cfg));
                 scope.pvx.deltaText =
-                    cfg.DeltaMode === 'absolute' ? absText :
-                    cfg.DeltaMode === 'both' ? (absText + '  (' + pctText + ')') : pctText;
+                    (cfg.DeltaMode === 'absolute' ? absText :
+                     cfg.DeltaMode === 'both' ? (absText + '  (' + pctText + ')') : pctText) +
+                    (vsPlan ? ' vs plan' : '');
 
                 scope.pvx.deltaArrow = delta.direction > 0 ? '▲' : (delta.direction < 0 ? '▼' : '▬');
 
@@ -166,7 +240,7 @@
             // ---- secondary stats ---------------------------------------------
             var mkSec = function (key) {
                 if (!key || key === 'none') { return null; }
-                var v = statValue(stats, key, points);
+                var v = key === 'plan' ? target : statValue(stats, key, points);
                 if (v === null || v === undefined) { return null; }
                 return {
                     label: STAT_LABEL[key] || key,
@@ -213,6 +287,13 @@
 
             var padY = 2;
             var lo = stats.min, hi = stats.max;
+            // The plan shares the scale, or a plan line above every actual
+            // would be drawn off the top of the card.
+            var planPts = (cfg.ShowPlanOnSpark && plan) ? plan.points : [];
+            if (planPts.length) {
+                var ps = PVX.data.stats(planPts);
+                if (ps.min !== null) { lo = Math.min(lo, ps.min); hi = Math.max(hi, ps.max); }
+            }
             if (lo === hi) { lo -= 0.5; hi += 0.5; }
             var x = PVX.scale.linear(points[0].t, points[points.length - 1].t, 0, W);
             var y = PVX.scale.linear(lo, hi, H - padY, padY);
@@ -261,6 +342,27 @@
                     'stroke-linecap': 'round',
                     'vector-effect': 'non-scaling-stroke'
                 }, svgRoot);
+            }
+
+            if (planPts.length) {
+                // A plan held as one daily value is a level, so it spans the
+                // card rather than sitting as a dot at its own timestamp.
+                var t0 = points[0].t, t1 = points[points.length - 1].t;
+                var pp = planPts.length === 1
+                    ? [{ x: 0, y: y(planPts[0].v) }, { x: W, y: y(planPts[0].v) }]
+                    : planPts.filter(function (p) { return p.t >= t0 && p.t <= t1; })
+                        .map(function (p) { return { x: x(p.t), y: y(p.v) }; });
+                if (pp.length > 1) {
+                    PVX.svg.el('path', {
+                        d: PVX.svg.stepLine(pp),
+                        fill: 'none',
+                        stroke: t.textMuted,
+                        'stroke-width': 1,
+                        'stroke-dasharray': '4 3',
+                        'vector-effect': 'non-scaling-stroke',
+                        'class': 'pvx-kpi-plan'
+                    }, svgRoot);
+                }
             }
 
             // Endpoint dot anchors the eye to "now".
