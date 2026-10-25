@@ -144,6 +144,13 @@ Each of these cost real debugging time. Do not rediscover them.
   first *element* node — use them, never `elem[0]`.
 - **Re-resolve the host every frame.** `ng-if` swaps the DOM node out; a host
   captured at init paints into a detached element at the wrong size.
+- **PI Vision's `elem` is a wrapper, not the template root.** Theme tokens
+  written as inline `--pvx-*` properties on it lost to the fallbacks each
+  `styles.css` declares on the `.pvx-*` root, so Transparent, dark theme and
+  BackgroundColor did nothing on a live server in 1.8.0 while the harness,
+  which passed the bare template, looked fine. `PVX.bootstrap` resolves
+  `ctx.node` to the `.pvx` root; the harnesses mount templates inside a
+  wrapper, and `verify.js` fails any `--pvx-*` written above the root.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were

@@ -216,8 +216,11 @@ async function mount(a) {
     scope.runtimeData = { isEditMode: true };
     scope.symbol = { Name: a.typeName, DataSources: a.sources };
     const tpl = await fetch('/dist/ext/sym-' + a.typeName + '-template.html').then((r) => r.text());
-    const el = $compile(tpl)(scope);
-    angular.element(document.getElementById('box')).append(el);
+    // A wrapper around the template, as PI Vision passes init().
+    const host = document.createElement('div');
+    host.style.cssText = 'width:100%;height:100%';
+    document.getElementById('box').appendChild(host);
+    const el = angular.element(host).append($compile(tpl)(scope));
     const cfg = await fetch('/dist/ext/sym-' + a.typeName + '-config.html').then((r) => r.text());
     angular.element(document.getElementById('pane')).append($compile(cfg)(scope));
     new def.visObjectType().init(scope, el, undefined);

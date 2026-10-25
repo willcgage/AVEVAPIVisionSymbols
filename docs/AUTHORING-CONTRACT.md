@@ -44,7 +44,11 @@ from it. `PVX.register` fills in `templateUrl`, `configTemplateUrl` and
    `CornerRadius`, etc.
 7. **Theme from `ctx.theme`** (light/dark auto-detected). Never hardcode
    `#fff` or `#000` in rendering code. `styles.css` may declare CSS custom
-   property fallbacks, which the symbol overwrites at runtime.
+   property fallbacks, which the symbol overwrites at runtime by writing
+   them on `ctx.node`. That is the template's `.pvx` root, never `elem`:
+   PI Vision's `elem` is a wrapper around the template, and a property set
+   there loses to the root's own fallback. Every template's outermost element
+   carries the `pvx` class for this reason.
 8. **All CSS selectors are namespaced** under the symbol's own root class
    (e.g. `.pvx-heatmap ...`). Shared `.pvx-*` base classes come from
    `src/shared/base.css`, which the build prepends automatically — do not
