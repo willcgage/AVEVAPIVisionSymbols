@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 33 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.7.0**, released from
+and an MSI installer generated from the build output. **v1.7.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -227,7 +227,7 @@ follow it exactly, and note the tag must be annotated.
 **The next step is deployment, not development.** Nothing has run against a real
 PI Web API yet; it is verified against mocks deliberately misconfigured six
 ways, which is a good proxy and not the same thing. The order is:
-`ext/pvx/piwebapi-check.html` on a PI Vision server → `ext/libraries/pvx/pvx-config.js` on
+`ext/piwebapi-check.html` on a PI Vision server → `ext/libraries/pvx/pvx-config.js` on
 *every* server → read-only `pvxEventGantt` on one display → only then anything
 that writes.
 
