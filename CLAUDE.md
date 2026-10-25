@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 33 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.8.0**, released from
+and an MSI installer generated from the build output. **v1.9.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -128,7 +128,8 @@ silently destroys a site's PI Web API settings on upgrade.
 - Every format pane opens with a **Data sources** list (`src/shared/config-sources.html`,
   injected by `build.js`) whose Remove splices `symbol.DataSources` and
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
-  through `scope.runtimeData`; proven against the harness, not yet on a server.
+  through `scope.runtimeData`; proven live on a server in 1.8.0 (list, Remove,
+  and the removal surviving save and reload).
 - A field that takes an AF path gets a **Browse** panel from a marker after its
   input, `<!-- pvx:afpicker key=DatabasePath kind=database -->` (optional
   `start=<key>`, `append=entryRow|navItem`), expanded by `build.js` from
