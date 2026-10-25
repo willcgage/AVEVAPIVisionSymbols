@@ -87,7 +87,7 @@ Grab the latest [release](https://github.com/willcgage/AVEVAPIVisionSymbols/rele
 `SHA256SUMS.txt`, then on each PI Vision web server, elevated:
 
 ```powershell
-msiexec /i PvxSymbols-1.6.0.msi /qn /l*v pvx-install.log
+msiexec /i PvxSymbols-1.7.0.msi /qn /l*v pvx-install.log
 ```
 
 Or build it yourself:
