@@ -247,3 +247,6 @@ if ($failures -gt 0) {
     exit 1
 }
 Write-Host 'All installer scenarios passed' -ForegroundColor Green
+# Explicitly: otherwise the script's exit code is the last native command's,
+# and scenario 4 ends on a deploy script that is supposed to fail.
+exit 0
