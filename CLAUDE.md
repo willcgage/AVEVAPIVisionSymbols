@@ -19,7 +19,7 @@ short, sharp list of things that will waste your time if you do not know them.
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal: rules + built pane
+node tools/test-sources.js           # data source removal + band editor: rules + built pane
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -129,7 +129,9 @@ silently destroys a site's PI Web API settings on upgrade.
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
   through `scope.runtimeData`; proven against the harness, not yet on a server.
 - One threshold grammar everywhere:
-  `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`.
+  `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
+  rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
+  `scope.runtimeData.pvxBands`); the stored value is still that string.
 
 ---
 
