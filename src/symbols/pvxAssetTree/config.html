@@ -11,8 +11,8 @@
         <div class="pvx-cfg-hint">
             This symbol reads the AF hierarchy from <strong>PI Web API</strong>, not from PI Vision's
             own data pipeline, so it has no attribute drop target. If it says PI Web API is not
-            configured, set <code>baseUrl</code> in <code>libraries/pvx-config.js</code> on this PI
-            Vision server and confirm it with <code>ext/piwebapi-check.html</code>.
+            configured, set <code>baseUrl</code> in <code>ext/libraries/pvx/pvx-config.js</code> on this PI
+            Vision server and confirm it with <code>ext/pvx/piwebapi-check.html</code>.
         </div>
 
         <div class="pvx-cfg-stack">
@@ -228,11 +228,11 @@
         <div class="pvx-cfg-stack">
             <label for="pvxat-baseurl">PI Web API base URL override</label>
             <input id="pvxat-baseurl" type="text" ng-model="config.BaseUrlOverride"
-                   placeholder="Leave blank — use libraries/pvx-config.js" />
+                   placeholder="Leave blank — use ext/libraries/pvx/pvx-config.js" />
         </div>
         <div class="pvx-cfg-hint">
             A testing escape hatch, exactly as in the Event Timeline symbol, and it belongs blank in
-            production. The base URL lives in <code>libraries/pvx-config.js</code>, where one site
+            production. The base URL lives in <code>ext/libraries/pvx/pvx-config.js</code>, where one site
             setting serves every symbol and survives an upgrade. Use this only to point at a
             <em>second</em> PI Web API — a test instance, or another plant's server.
             <strong>It moves the base URL for every PVX symbol on the page</strong>, because

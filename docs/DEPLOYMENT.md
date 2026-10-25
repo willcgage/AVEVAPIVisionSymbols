@@ -33,20 +33,21 @@ For the person doing this on the day. Each line is expanded below.
 [ ] npm run verify passes on the build machine        (594 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
-[ ] msiexec /i PvxSymbols-<ver>.msi /qn /l*v pvx-install.log
+[ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
+[ ] msiexec /i PvxSymbols-<ver>.msi /qn /l*v pvx-install.log   (+ INSTALLDRIVE / PIPCFOLDER)
 [ ] Log reviewed for "Installation success"
 [ ] --- or route B (zip) ---
 [ ] Zip copied to server 1 and extracted
-[ ] .\Deploy-PvxSymbols.ps1 -WhatIf reviewed
+[ ] .\Deploy-PvxSymbols.ps1 -WhatIf reviewed            (+ -Drive / -PIPCFolder)
 [ ] .\Deploy-PvxSymbols.ps1 run
 [ ] --- both routes ---
 [ ] App pool recycled  +  Ctrl+F5 in the browser
 [ ] PVX symbols visible at the bottom of the palette in edit mode
 [ ] One symbol placed on a scratch display and drawing real data
 [ ] --- only if using PI Web API symbols ---
-[ ] ext\piwebapi-check.html opened ON THE SERVER, in a browser, as a normal user
+[ ] ext\pvx\piwebapi-check.html opened ON THE SERVER, in a browser, as a normal user
 [ ] Result is a full pass, not a partial pass  (see the warning below)
-[ ] libraries\pvx-config.js edited with baseUrl and auth
+[ ] ext\libraries\pvx\pvx-config.js edited with baseUrl and auth
 [ ] Re-run the diagnostic; one PI Web API symbol placed and drawing
 [ ] --- repeat every step above on every other web server ---
 ```
@@ -60,32 +61,55 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
 
 ```
 <PI Vision install>\Scripts\app\editor\symbols\ext\
-    sym-pvxRadialGauge.js
-    sym-pvxRadialGauge-template.html
-    sym-pvxRadialGauge-config.html
-    sym-pvxRadialGauge.css
-    …one set of four per symbol, 33 symbols…
+    pvx\
+        sym-pvxRadialGauge.js
+        sym-pvxRadialGauge-template.html
+        sym-pvxRadialGauge-config.html
+        sym-pvxRadialGauge.css
+        …one set of four per symbol, 33 symbols…
 
-    piwebapi-check.html          the connectivity diagnostic (phase 3)
+        piwebapi-check.html          the connectivity diagnostic (phase 3)
 
-    icons\
-        pvxRadialGauge.svg
-        …one per symbol…
+        icons\
+            pvxRadialGauge.svg
+            …one per symbol…
 
     libraries\
-        pvx-core.js              shared runtime — NOT optional
-        pvx-config.js            YOUR site settings — never overwritten
+        pvx\
+            pvx-core.js              shared runtime — NOT optional
+            pvx-config.js            YOUR site settings — never overwritten
 ```
 
-The default PI Vision install path is `C:\Program Files\PIPC\PIVision`. On a
-machine where it was installed elsewhere, substitute that path everywhere below
-and pass `-PIVisionPath` to the script.
+Nothing of PVX's sits loose in `ext`, `ext\icons` or `ext\libraries`: those
+folders are shared with AVEVA's samples and any other symbol pack on the
+server. The runtime is in a subfolder of `libraries` rather than in `ext\pvx`
+with everything else because `libraries` is the only folder PI Vision's
+extensibility guide says loads *before* the symbols, and the guide explicitly
+allows subfolders of it.
 
-Two files in `libraries` deserve attention:
+> **Not yet proven on a live server.** AVEVA's guide documents `libraries`
+> subfolders but says nothing either way about symbols in a subfolder of `ext`.
+> Every URL PVX uses is spelled out rather than left to PI Vision's "current
+> directory" default, but whether PI Vision *discovers* `sym-*.js` in
+> `ext\pvx` is confirmed only by the first deployment of this layout. Phase 2
+> below is the check, and the browser console splits it in two on any display:
+> `PVX.version` answers whether `ext\libraries\pvx` loaded, and
+> `PVX.registered.length` — expect `33` — whether `ext\pvx` did. If the first
+> works and the second is `0`, the server does not load symbols from a
+> subfolder: roll back (below) and report it.
+
+Up to 1.6.0, PVX installed flat into `ext`. Both install routes move a 1.6.0
+server to this layout on their own; see [Upgrading from 1.6.0](#upgrading-from-160-or-earlier).
+
+The default PI Vision install path is `C:\Program Files\PIPC\PIVision`. On a
+machine where it was installed elsewhere, substitute that path everywhere below,
+and see [Choosing the drive and PIPC folder](#choosing-the-drive-and-pipc-folder).
+
+Two files in `libraries\pvx` deserve attention:
 
 - **`pvx-core.js` is not optional.** PI Vision loads every `.js` under
-  `libraries` before the symbol files, and every PVX symbol depends on it. A
-  deployment missing it produces an empty palette.
+  `libraries`, subfolders included, before the symbol files, and every PVX
+  symbol depends on it. A deployment missing it produces an empty palette.
 - **`pvx-config.js` is yours.** It ships blank and is the only file the deploy
   script refuses to overwrite. Everything else is generated from source and
   replaced on every deployment.
@@ -141,7 +165,7 @@ Get-ChildItem -Recurse -Include *.html |
     Select-String -Pattern '<script[^>]+src=|<link|<img|<iframe|<object|<embed'
 ```
 > Expect **3 lines**, all in `piwebapi-check.html`: two `<script src>` tags
-> pointing at `libraries/` in the same folder, and an inline `data:` favicon
+> pointing at `../libraries/pvx/` inside the same `ext` folder, and an inline `data:` favicon
 > that exists purely to stop the browser requesting one.
 
 ### The two things that can introduce an external dependency
@@ -232,22 +256,33 @@ an installer would not.
 From an **elevated** PowerShell on each PI Vision web server:
 
 ```powershell
-# Default install location, with a log
-msiexec /i PvxSymbols-1.6.0.msi /qn /l*v pvx-install.log
+# Default location (PIHOME64, else C:\Program Files\PIPC\PIVision), with a log
+msiexec /i PvxSymbols-<ver>.msi /qn /l*v pvx-install.log
 
-# PI Vision installed somewhere else
-msiexec /i PvxSymbols-1.6.0.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
+# PI on another drive, standard PIPC folder
+msiexec /i PvxSymbols-<ver>.msi INSTALLDRIVE=D: /qn /l*v pvx-install.log
+
+# Another drive and a non-standard PIPC folder
+msiexec /i PvxSymbols-<ver>.msi INSTALLDRIVE=E: PIPCFOLDER="Apps\PIPC" /qn /l*v pvx-install.log
 ```
 
-`PIVISIONPATH` is the only property. It defaults to
-`C:\Program Files\PIPC\PIVision` and is marked `Secure` so it survives
-elevation — pass it exactly as above, without a trailing backslash.
+Run it without `/qn` — double-click it — and it shows a licence page and then a
+folder page already filled in with where it worked out PI Vision is. **Change…**
+opens a folder browser with a drive list. The properties and how they combine
+are in [Choosing the drive and PIPC folder](#choosing-the-drive-and-pipc-folder).
+
+The MSI refuses to install, with a message naming the folder, if that folder has
+no `Scripts\app\editor\symbols` — a mistyped drive fails rather than quietly
+installing the library somewhere PI Vision never reads.
 
 Upgrading is the same command with the new MSI; Windows Installer removes the
-previous version first. Rolling back is `msiexec /x` followed by installing the
-older MSI.
+previous version first. A later upgrade, repair or uninstall finds the folder
+this one went to on its own — it is recorded under
+`HKLM\SOFTWARE\WOW6432Node\PVX\PI Vision Symbols` — so the drive only has to
+be given once. Rolling back is `msiexec /x` followed by installing the older
+MSI.
 
-**`libraries\pvx-config.js` is protected at the installer level.** Its component
+**`ext\libraries\pvx\pvx-config.js` is protected at the installer level.** Its component
 is marked `NeverOverwrite` so an upgrade cannot replace your PI Web API
 settings, and `Permanent` so an uninstall cannot delete them. The trade-off is
 that a full uninstall leaves that one file behind; remove it by hand if you
@@ -258,18 +293,38 @@ replaces the `Scripts` tree and takes the `ext` folder with it. Windows
 Installer still believes the product is installed, so:
 
 ```powershell
-msiexec /fa PvxSymbols-1.6.0.msi /qn      # /fa = reinstall all files regardless of version
+msiexec /fa PvxSymbols-<ver>.msi /qn      # /fa = reinstall all files regardless of version
 ```
 
 Uninstall:
 
 ```powershell
-msiexec /x PvxSymbols-1.6.0.msi /qn
+msiexec /x PvxSymbols-<ver>.msi /qn
 # or by name:
 Get-Package 'PVX Symbol Library for PI Vision' | Uninstall-Package
 ```
 
 Then recycle the app pool and hard-refresh, exactly as below.
+
+### Choosing the drive and PIPC folder
+
+Both routes take the same two choices, and the full folder as an escape hatch:
+
+| MSI property | Script parameter | Meaning | Default |
+|---|---|---|---|
+| `INSTALLDRIVE` | `-Drive` | Drive PI is on: `D`, `D:` or `D:\` | `C:` |
+| `PIPCFOLDER` | `-PIPCFolder` | PIPC folder on that drive, e.g. `Program Files\PIPC`. A full path such as `E:\Apps\PIPC` also works, without a drive. | `Program Files\PIPC` |
+| `PIVISIONPATH` | `-PIVisionPath` | The whole PI Vision folder, for a PI Vision that is not in `PIVision` under PIPC. Wins over the other two. | — |
+
+PVX goes into `<drive>\<PIPC folder>\PIVision\Scripts\app\editor\symbols\ext`.
+Give one of the first two and the other takes its default. Give none and both
+routes use the `PIHOME64` environment variable the PI installers set — which is
+where PIPC really is on a server that put it on another drive — and fall back to
+`C:\Program Files\PIPC\PIVision` only when it is unset. The MSI additionally
+prefers the folder it was last installed to over both.
+
+`PIVISIONPATH` from 1.6.0 still works unchanged, so existing deployment
+scripts keep running.
 
 ### Route B — Zip and PowerShell script
 
@@ -293,19 +348,25 @@ Copy the zip across, extract it somewhere temporary, then from an **elevated
 PowerShell** in the extracted folder:
 
 ```powershell
-.\Deploy-PvxSymbols.ps1 -WhatIf     # dry run: shows exactly what it would copy
+.\Deploy-PvxSymbols.ps1 -WhatIf     # dry run: shows what it would copy, move and remove
 .\Deploy-PvxSymbols.ps1             # do it
 ```
 
-Non-default install location:
+PI Vision on another drive, or PIPC somewhere non-standard:
 
 ```powershell
-.\Deploy-PvxSymbols.ps1 -PIVisionPath 'D:\Program Files\PIPC\PIVision'
+.\Deploy-PvxSymbols.ps1 -Drive D
+.\Deploy-PvxSymbols.ps1 -Drive E -PIPCFolder 'Apps\PIPC'
+.\Deploy-PvxSymbols.ps1 -PIVisionPath 'D:\Program Files\PIPC\PIVision'   # the whole folder, as before
 ```
 
-The script creates `ext`, `ext\icons` and `ext\libraries` if needed, backs up
-any existing `ext` folder to `ext-backup-<timestamp>`, copies the files, and
-prints what it preserved. It is safe to run repeatedly.
+The script checks PI Vision's `Scripts\app\editor\symbols` folder exists at
+the resolved location and stops with the path it tried if not. It then backs up
+any existing `ext` folder to `ext-backup-<timestamp>`, moves a 1.6.0-era
+`pvx-config.js` into `libraries\pvx`, removes the 1.6.0 flat files, copies the
+new ones into `ext\pvx` and `ext\libraries\pvx`, and prints what it preserved.
+It is safe to run repeatedly. It is plain ASCII, so Windows PowerShell 5.1 —
+what a PI Vision server has — reads it correctly without a byte-order mark.
 
 Then:
 
@@ -317,11 +378,15 @@ Then:
 #### Copying by hand instead
 
 If execution policy blocks the script, merge `dist\ext` into
-`…\Scripts\app\editor\symbols\ext`, preserving the `icons` and `libraries`
-subfolders.
+`…\Scripts\app\editor\symbols\ext`, preserving the `pvx`, `pvx\icons` and
+`libraries\pvx` subfolders. On a server that had 1.6.0, also do by hand what
+the script would: move `ext\libraries\pvx-config.js` to
+`ext\libraries\pvx\pvx-config.js`, and delete `ext\sym-pvx*`,
+`ext\icons\pvx*.svg`, `ext\libraries\pvx-core.js` and
+`ext\piwebapi-check.html` — left in place, every symbol registers twice.
 
 **If you copy by hand onto a server that already has PVX, exclude
-`libraries\pvx-config.js`** — a blanket copy overwrites your site settings with
+`libraries\pvx\pvx-config.js`** — a blanket copy overwrites your site settings with
 a blank file, and the PI Web API symbols will all revert to "not configured"
 after what looked like a routine upgrade.
 
@@ -358,7 +423,7 @@ Full background, including what AVEVA recommends and why, is in
 Open this **on the PI Vision server, in a browser, signed in as a normal user**:
 
 ```
-https://<pivision-server>/Scripts/app/editor/symbols/ext/piwebapi-check.html
+https://<pivision-server>/Scripts/app/editor/symbols/ext/pvx/piwebapi-check.html
 ```
 
 Enter your PI Web API base URL and run it. It executes exactly what a symbol
@@ -384,18 +449,22 @@ writes to PI.
 Edit, on the server:
 
 ```
-<PI Vision>\Scripts\app\editor\symbols\ext\libraries\pvx-config.js
+<PI Vision>\Scripts\app\editor\symbols\ext\libraries\pvx\pvx-config.js
 ```
 
-The shipped file is entirely comments around one call. The minimum is two
-lines:
+The shipped file is mostly comments around one settings block. The minimum is
+two lines in it:
 
 ```js
-root.PVX.api.configure({
+var siteSettings = {
     baseUrl: 'https://piwebapi01.corp.example/piwebapi',
-    auth: 'iwa'
-});
+    auth: 'iwa',
+    …
 ```
+
+Leave the hand-over block underneath it alone. It applies the settings whether
+PI Vision loads this file before or after `pvx-core.js` — by name it sorts
+first, and the 1.6.0 version of the file lost its settings when that happened.
 
 `iwa` is Kerberos/Negotiate and is AVEVA's recommended arrangement. `bearer`,
 `basic` and `anonymous` are the alternatives; each is documented inline in the
@@ -443,7 +512,8 @@ which server they land on. Behind a load balancer, a fault that looks
 intermittent is almost always one node with a stale or missing deployment.
 
 The safe way is to run the script on each node, because it preserves
-`pvx-config.js` and takes a backup:
+`pvx-config.js` and takes a backup (add `-Drive` / `-PIPCFolder` if the nodes
+do not set `PIHOME64`):
 
 ```powershell
 # Extract the package to the same local path on each node first — the script
@@ -505,6 +575,7 @@ their own and vanish when the browser session ends.
 
 Same procedure as phase 1. Notes:
 
+- Upgrading **from 1.6.0 or earlier** changes the layout; see the next section.
 - The script backs up the previous `ext` folder, so a bad upgrade is one folder
   rename away from being undone.
 - **`pvx-config.js` is preserved**, so phase 3 does not have to be repeated.
@@ -518,20 +589,49 @@ Same procedure as phase 1. Notes:
   overwrites them and the change is invisible to source control.
   `pvx-config.js` is the deliberate exception.
 
+### Upgrading from 1.6.0 or earlier
+
+1.6.0 installed flat: about 170 files loose in `ext`, `ext\icons` and
+`ext\libraries`, beside anything else there. From 1.7 PVX lives in `ext\pvx`
+and `ext\libraries\pvx`. Either route makes the move:
+
+| | MSI | Script |
+|---|---|---|
+| Old `sym-pvx*`, `icons\pvx*.svg`, `libraries\pvx-core.js`, `piwebapi-check.html` | Removed — by the 1.6.0 product's own uninstall, and again by name in case it was deployed by script | Removed by name |
+| `ext\libraries\pvx-config.js` (your settings) | Moved to `ext\libraries\pvx\` | Moved to `ext\libraries\pvx\` |
+| Settings already in *both* places | Both left; the old one still loads — delete it by hand | New one kept; old one renamed to `pvx-config.js.<timestamp>.bak` |
+| Anything without a PVX name | Untouched | Untouched |
+
+Only PVX's name patterns are matched, so another vendor's symbols in the same
+folders are safe. The settings are *moved*, not copied, because PI Vision
+loads every `.js` under `libraries`: a copy left behind would run too, and
+whichever loaded last would win.
+
+A 1.6.0 MSI installed with a non-default `PIVISIONPATH` has to be upgraded with
+the same location given again, once; 1.6.0 did not record it. Every later
+upgrade finds it on its own.
+
+If the migrated `pvx-config.js` held real settings, open it once and replace
+everything outside the `baseUrl: … maxBatchSize` block with the shipped version.
+The 1.6.0 wrapper around it dropped the settings whenever PI Vision loaded it
+before `pvx-core.js`.
+
 ---
 
 ## Rolling back
 
 ```powershell
 $ext = 'C:\Program Files\PIPC\PIVision\Scripts\app\editor\symbols\ext'
-Copy-Item "$ext\libraries\pvx-config.js" "$env:TEMP\pvx-config.js" -Force
+Copy-Item "$ext\libraries\pvx\pvx-config.js" "$env:TEMP\pvx-config.js" -Force
 Remove-Item $ext -Recurse -Force
 Rename-Item "$ext-backup-<timestamp>" $ext
 iisreset
 ```
 
 The first line is not decoration: if the backup predates your PI Web API
-configuration, restoring it reverts the settings too.
+configuration, restoring it reverts the settings too. Rolling back to 1.6.0
+specifically, put that copy back at `ext\libraries\pvx-config.js`, where 1.6.0
+reads it.
 
 Displays that used a symbol which no longer exists show an error placeholder in
 that symbol's position; the rest of the display renders normally. Nothing is
@@ -542,18 +642,22 @@ lost — restoring the folder restores the symbols.
 ## Removing a single symbol
 
 Delete its four files (`sym-<name>.js`, `-template.html`, `-config.html`,
-`.css`) plus `icons\<name>.svg`, and recycle the app pool. Leave both files in
-`libraries` in place as long as any PVX symbol remains.
+`.css`) from `ext\pvx` plus `ext\pvx\icons\<name>.svg`, and recycle the app
+pool. Leave both files in `libraries\pvx` in place as long as any PVX symbol
+remains.
 
 ---
 
 ## Troubleshooting
 
 **The symbols do not appear in the palette.**
-Check `libraries\pvx-core.js` exists. Open the browser console on a display and
+Check `ext\libraries\pvx\pvx-core.js` exists. Open the browser console on a display and
 look for `[PVX]` messages — the registration wrapper logs the symbol name when a
-definition fails to register. Then hard-refresh; a stale cached `sym-*.js` is by
-far the most common cause.
+definition fails to register. Then hard-refresh; a stale cached `sym-*.js` is
+by far the most common cause. Then type `PVX.version` and
+`PVX.registered.length` in the console: an error on the first means
+`ext\libraries\pvx` did not load; `0` from the second means `ext\pvx` did not
+— see the note under [What gets deployed](#what-gets-deployed).
 
 **A symbol appears but renders blank.**
 Confirm you copied the `-template.html` file alongside the `.js`. PI Vision
@@ -561,7 +665,7 @@ resolves the template by filename convention; a missing template gives an empty
 box with no console error.
 
 **Icons are missing from the palette.**
-The `icons` subfolder was not copied, or the web server is not configured to
+The `pvx\icons` subfolder was not copied, or the web server is not configured to
 serve `.svg`. PI Vision falls back to a generic icon — cosmetic only.
 
 **The configuration pane is empty.**
@@ -569,10 +673,11 @@ The `-config.html` file is missing. The symbol still works with its defaults.
 
 **A symbol says "PI Web API is not configured".**
 Expected until phase 3 is done, and expected *per server*. Check
-`libraries\pvx-config.js` on **the server that browser actually reached** —
+`ext\libraries\pvx\pvx-config.js` on **the server that browser actually reached** —
 behind a load balancer this is the usual cause of a fault that appears
-intermittent. If `baseUrl` is set there, run `ext\piwebapi-check.html` on that
-same server.
+intermittent. If `baseUrl` is set there, run `ext\pvx\piwebapi-check.html` on that
+same server. On a server upgraded from 1.6.0, also check no second
+`pvx-config.js` is left directly in `ext\libraries`.
 
 **A PI Web API symbol shows a specific error — cors-or-network, unauthorized,
 forbidden, bad-json, timeout.**
@@ -582,9 +687,10 @@ diagnostic first — it separates reachability from authentication from
 permission, and those three have different owners.
 
 **The console shows "pvx-config.js loaded before pvx-core.js".**
-PI Vision loads `libraries` alphabetically and `pvx-config` sorts after
-`pvx-core`, so this should not happen. If it does, something else in
-`libraries` is interfering with load order.
+That message only exists in the 1.6.0 version of `pvx-config.js`, which assumed
+`pvx-config` sorts after `pvx-core` — it sorts before. Replace everything
+outside the settings block with the shipped version, which works in either
+order; see [Upgrading from 1.6.0](#upgrading-from-160-or-earlier).
 
 **Everything worked, then stopped after a PI Vision upgrade.**
 A PI Vision upgrade replaces the `Scripts` tree, which removes `ext` —

@@ -52,7 +52,7 @@ Deploy the library, then open this on the PI Vision server, in a browser,
 signed in as a normal user:
 
 ```
-https://<pivision-server>/Scripts/app/editor/symbols/ext/piwebapi-check.html
+https://<pivision-server>/Scripts/app/editor/symbols/ext/pvx/piwebapi-check.html
 ```
 
 It runs exactly what a symbol runs, from exactly where a symbol runs, and tells
@@ -112,18 +112,19 @@ Also confirm:
 One file per PI Vision server:
 
 ```
-<PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx-config.js
+<PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx\pvx-config.js
 ```
 
 ```js
-root.PVX.api.configure({
+var siteSettings = {
     baseUrl: 'https://piwebapi01.corp.example/piwebapi',
-    auth: 'iwa'
-});
+    auth: 'iwa',
+    …
 ```
 
-**`Deploy-PvxSymbols.ps1` will not overwrite this file** if it already exists
-on the server. Everything else in the library is generated and replaced on every
+(Up to 1.6.0 it lived one folder up, in `ext\libraries`; both installers move
+it.) **Neither `Deploy-PvxSymbols.ps1` nor the MSI will overwrite this file**
+if it already exists on the server. Everything else in the library is generated and replaced on every
 deployment; this one is yours. Keep a copy in your own configuration management
 regardless.
 
@@ -191,7 +192,7 @@ than "failed to fetch". The codes map as follows.
 
 | What you see | Where to look |
 |---|---|
-| **not-configured** | `baseUrl` is blank in `libraries/pvx-config.js` on *this* PI Vision server |
+| **not-configured** | `baseUrl` is blank in `ext/libraries/pvx/pvx-config.js` on *this* PI Vision server |
 | **cors-or-network** | The preflight. `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
 | **network** (same-origin) | Base URL, the service, the certificate name |
 | **unauthorized** (401) | Browser willingness to send Windows credentials to that host; or for bearer, the token's audience and expiry |

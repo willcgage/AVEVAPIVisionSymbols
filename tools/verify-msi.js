@@ -14,9 +14,15 @@
  * just installed. None of that is visible without opening the tables.
  *
  * --strict-attributes additionally requires the site-settings component to
- * carry Permanent + NeverOverwrite. Leave it OFF for MSIs built with `wixl`,
- * which silently ignores both attributes; turn it ON for the official WiX
- * toolset build that actually ships.
+ * carry Permanent + NeverOverwrite, and the upgrade machinery (searches, the
+ * 1.6.0 clean-up, the settings move, the folder dialog) to be present. Leave it
+ * OFF for MSIs built with `wixl`, which ignores both attributes and cannot
+ * compile the rest (the .wxs is compiled with PvxFull=0 for it); turn it ON
+ * for the official WiX toolset build that actually ships.
+ *
+ * Tables prove the package is assembled right, not that Windows Installer
+ * does the right thing with it. The `installer-windows` CI job installs,
+ * upgrades from 1.6.0 and uninstalls for real; this is the fast half.
  * ==========================================================================*/
 'use strict';
 
@@ -132,6 +138,15 @@ function main() {
 
     // The icons landing beside the symbols instead of inside icons/ is the
     // exact bug this catches, and it is invisible in a build log.
+    // The point of the 1.7 layout: nothing of ours loose in the folders other
+    // symbol packs share. Every file must sit under ext/pvx/ or
+    // ext/libraries/pvx/, and the build must not have drifted back.
+    var loose = expected.filter(function (p) {
+        return p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
+    });
+    check('every file is inside ext/pvx/ or ext/libraries/pvx/',
+        loose.length === 0, loose.slice(0, 6).join(', '));
+
     var nested = expected.filter(function (p) { return p.indexOf('/') !== -1; });
     var misplaced = nested.filter(function (p) {
         var comp = compById[installedAt[p]];
@@ -168,8 +183,40 @@ function main() {
     /* --- properties -------------------------------------------------------- */
     var props = {};
     table('Property').forEach(function (r) { props[r[0]] = r[1]; });
-    check('PIVISIONPATH has a sane default',
-        /PIVision/i.test(props.PIVISIONPATH || ''), 'got: ' + props.PIVISIONPATH);
+    // The location is set by type-51 actions now, not a Property default, so
+    // that drive and PIPC folder can be chosen separately. Assert the chain.
+    var cas = {};
+    table('CustomAction').forEach(function (r) { cas[r[0]] = { type: r[1], target: r[2], value: r[3] }; });
+    check('PIVISIONPATH falls back to the standard PI Vision folder',
+        !!cas.PvxLocDefault && cas.PvxLocDefault.target === 'PIVISIONPATH' &&
+        /^C:\\Program Files\\PIPC\\PIVision\\?$/i.test(cas.PvxLocDefault.value),
+        'got: ' + JSON.stringify(cas.PvxLocDefault));
+    check('PIHOME64, INSTALLDRIVE and PIPCFOLDER all feed PIVISIONPATH',
+        !!cas.PvxLocFromPihome && /%PIHOME64/.test(cas.PvxLocFromPihome.value) &&
+        !!cas.PvxLocFromParts && /\[PVXDRIVEROOT\]\[PIPCFOLDER\]/.test(cas.PvxLocFromParts.value),
+        'location custom actions missing or rewritten');
+    ['InstallUISequence', 'InstallExecuteSequence'].forEach(function (seq) {
+        var rows = {};
+        table(seq).forEach(function (r) { rows[r[0]] = parseInt(r[2], 10); });
+        var rules = Object.keys(cas).filter(function (k) { return /^Pvx(Loc|Drive|Pipc)/.test(k); });
+        // wixl leaves AppSearch out when there is nothing to search for (the
+        // searches are PvxFull-only), so fall back to its standard number.
+        var appSearch = rows.AppSearch || 50;
+        var misplaced = rules.filter(function (k) {
+            return !(rows[k] > rows.FindRelatedProducts && rows[k] < appSearch);
+        });
+        check(seq + ': location rules run before AppSearch',
+            rules.length > 0 && misplaced.length === 0,
+            'the searches look in PIVISIONPATH, so it must be resolved first: ' + misplaced.join(', '));
+    });
+    // wixl drops Secure="yes", so this is only checkable on the real build.
+    if (STRICT) {
+        ['PIVISIONPATH', 'INSTALLDRIVE', 'PIPCFOLDER'].forEach(function (p) {
+            check(p + ' is Secure (survives elevation)',
+                (props.SecureCustomProperties || '').split(';').indexOf(p) !== -1,
+                'SecureCustomProperties = ' + props.SecureCustomProperties);
+        });
+    }
     check('ProductVersion matches package.json',
         props.ProductVersion === require(path.join(ROOT, 'package.json')).version,
         'got: ' + props.ProductVersion);
@@ -192,6 +239,27 @@ function main() {
                 C.dim + '(attrs=' + attrs + '; wixl ignores them — assert with ' +
                 '--strict-attributes on the official WiX build)' + C.reset);
         }
+    }
+
+    /* --- upgrade machinery: only the official toolset can compile it -------- */
+    if (STRICT) {
+        var sigs = {};
+        table('AppSearch').forEach(function (r) { sigs[r[0]] = r[1]; });
+        check('AppSearch looks for PI Vision, the old and the new pvx-config.js',
+            !!sigs.PVXSYMBOLSDIR && !!sigs.PVXLEGACYCONFIG && !!sigs.PVXSITECONFIG,
+            'got: ' + Object.keys(sigs).join(', '));
+        var moves = table('MoveFile');
+        check('a 1.6.0-era pvx-config.js is moved (not copied) into libraries/pvx',
+            moves.length === 1 && /pvx-config\.js/.test(moves[0][2]) && moves[0][6] === '1',
+            'MoveFile rows: ' + JSON.stringify(moves));
+        var removes = table('RemoveFile').map(function (r) { return r[2]; });
+        check('the 1.6.0 flat files are removed on install',
+            ['sym-pvx*.js', 'pvx*.svg', 'pvx-core.js'].every(function (n) {
+                return removes.some(function (x) { return x.split('|').pop() === n; });
+            }),
+            'RemoveFile names: ' + removes.join(', '));
+        check('the folder dialog is wired to PIVISIONPATH',
+            props.WIXUI_INSTALLDIR === 'PIVISIONPATH', 'got: ' + props.WIXUI_INSTALLDIR);
     }
 
     /* --- report ------------------------------------------------------------ */

@@ -98,14 +98,17 @@ npm run package      # builds dist/ext and zips it
 npm run installer    # additionally generates the WiX installer source
 ```
 
-Copy `dist/ext` onto the PI Vision server (or run the generated
-`dist/Deploy-PvxSymbols.ps1` there), recycle the app pool, hard-refresh the
-browser. The PVX symbols appear at the bottom of the symbol palette in display
+Install the MSI on the PI Vision server, or copy `dist/ext` there with the
+generated `dist/Deploy-PvxSymbols.ps1`, then recycle the app pool and
+hard-refresh the browser. Both put PVX in folders of its own, `ext\pvx` and
+`ext\libraries\pvx`, never loose among other symbol packs, and both take the
+drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
+or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode. That is the whole installation for twenty-eight of the thirty-three.
 
-The other five need one more step: run `ext/piwebapi-check.html` on the server
+The other five need one more step: run `ext/pvx/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
-put the answer in `libraries/pvx-config.js`.
+put the answer in `ext/libraries/pvx/pvx-config.js`.
 
 Full walkthrough — install, confirm, configure, upgrade, roll back, troubleshoot:
 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
@@ -129,10 +132,14 @@ fastest way to iterate before touching the server.
 ```
 src/
   shared/
-    pvx-core.js        shared runtime -> ext/libraries/pvx-core.js
+    pvx-core.js        shared runtime -> ext/libraries/pvx/pvx-core.js
+    pvx-config.js      site settings template -> ext/libraries/pvx/pvx-config.js
     base.css           base styles, prepended to every symbol stylesheet
   symbols/<typeName>/
     symbol.js  template.html  config.html  styles.css  icon.svg
+  tools/
+    Deploy-PvxSymbols.ps1   the manual-copy deploy script (copied to dist/)
+    piwebapi-check.html     the PI Web API diagnostic -> ext/pvx/
 tools/
   build.js             src -> dist/ext, with validation
   verify.js            renders every symbol in headless Chromium and checks it
@@ -161,13 +168,14 @@ docs/                  reference, deployment, authoring guide, roadmap
 | `node tools/docgen.js` | Regenerate `docs/SYMBOL-REFERENCE.md` from the sources |
 | `node tools/wix.js` | Generate the WiX installer source from `dist/ext`, with deterministic component GUIDs |
 | `node tools/verify-msi.js` | Read a built MSI's own tables and assert it installs what it claims |
+| `tools/test-installer.ps1` | On Windows, elevated: install, upgrade from 1.6.0 and uninstall the MSI and the deploy script for real against fake PI Vision trees — CI runs it on every pull request |
 
 ---
 
 ## How it holds together
 
-**One shared runtime.** `pvx-core.js` deploys to the `ext/libraries` folder,
-which PI Vision loads before the symbol files. It carries the formatting,
+**One shared runtime.** `pvx-core.js` deploys to `ext/libraries/pvx`, inside
+the folder PI Vision loads before the symbol files. It carries the formatting,
 colour, threshold, scale, SVG, data-normalisation, statistics and navigation
 helpers, so a symbol file contains only what makes that symbol different.
 
@@ -198,7 +206,7 @@ than one that refuses to draw.
 
 **Authentication is a property of the deployment, not of a chart.** `PVX.api`
 holds one PI Web API client with swappable auth — Kerberos, OIDC bearer, Basic
-— configured once per site in `libraries/pvx-config.js`. No symbol knows which
+— configured once per site in `ext/libraries/pvx/pvx-config.js`. No symbol knows which
 is in use, so changing it later touches one file. Failures carry a specific
 cause and a "what to check" line rather than "failed to fetch".
 

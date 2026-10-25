@@ -15,8 +15,11 @@ styles.css      # symbol-specific CSS
 icon.svg        # 512x512 viewBox, transparent background
 ```
 
-The build copies these to `dist/ext/sym-<typeName>.js`, `-template.html`,
-`-config.html`, `.css` and `dist/ext/icons/<typeName>.svg`.
+The build copies these to `dist/ext/pvx/sym-<typeName>.js`, `-template.html`,
+`-config.html`, `.css` and `dist/ext/pvx/icons/<typeName>.svg` — the library's
+own folder inside PI Vision's `ext`, never `ext` itself. `PVX.register` fills in
+`templateUrl`, `configTemplateUrl` and `iconUrl` for that folder; leave them
+unset rather than spelling out a path.
 
 ## Hard rules
 
@@ -225,7 +228,7 @@ Every rejection carries `err.pvxError.message` and `err.pvxError.check`. Show
 both. "Failed to fetch" tells an operator nothing and sends an engineer to the
 wrong place. Handle each of these distinctly:
 
-- not configured — name `libraries/pvx-config.js` **and** `ext/piwebapi-check.html`
+- not configured — name `ext/libraries/pvx/pvx-config.js` **and** `ext/pvx/piwebapi-check.html`
 - request failed — the message and the check line
 - authenticated but forbidden — PI/AF security, not the symbol
 - query succeeded, no results — say so; it is not an error

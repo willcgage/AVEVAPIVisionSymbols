@@ -136,7 +136,7 @@
 
                 /* -- deployment ------------------------------------------------ *
                  * Testing escape hatch only — same contract as pvxEventGantt.
-                 * The base URL belongs in libraries/pvx-config.js, where one
+                 * The base URL belongs in ext/libraries/pvx/pvx-config.js, where one
                  * site setting serves every symbol. See the config pane. */
                 BaseUrlOverride: ''
             });
@@ -1335,8 +1335,8 @@
         function buildStatus(host, cfg, t) {
             if (state.phase === 'unconfigured') {
                 buildMessage(host, 'PI Web API is not configured',
-                    'Set baseUrl in libraries/pvx-config.js on this PI Vision server, then confirm it ' +
-                    'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
+                    'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
+                    'with ext/pvx/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
             }

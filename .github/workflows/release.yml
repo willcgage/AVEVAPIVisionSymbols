@@ -102,9 +102,10 @@ jobs:
         working-directory: dist/installer
         shell: pwsh
         run: |
-          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" `
+          & "$env:WIX_BIN\candle.exe" -nologo -dPayloadDir="..\ext" -dPvxFull=1 -ext WixUIExtension `
               -out PvxSymbols.wixobj PvxSymbols.wxs
-          & "$env:WIX_BIN\light.exe" -nologo -sval `
+          if ($LASTEXITCODE -ne 0) { throw "candle failed ($LASTEXITCODE)" }
+          & "$env:WIX_BIN\light.exe" -nologo -sval -ext WixUIExtension `
               -out "PvxSymbols-$(node -p "require('../../package.json').version").msi" `
               PvxSymbols.wixobj
           Get-ChildItem *.msi
@@ -232,8 +233,9 @@ jobs:
 
             ```powershell
             msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi /qn /l*v pvx-install.log
-            # non-default install location:
-            msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi PIVISIONPATH="D:\Program Files\PIPC\PIVision" /qn
+            # PI on another drive, or PIPC in a non-standard folder:
+            msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi INSTALLDRIVE=D: /qn
+            msiexec /i PvxSymbols-${{ steps.ver.outputs.version }}.msi INSTALLDRIVE=E: PIPCFOLDER="Apps\PIPC" /qn
             ```
 
             Then recycle the PI Vision app pool and hard-refresh the browser (Ctrl+F5).
@@ -241,7 +243,14 @@ jobs:
             **Manual copy** — use `pvx-symbols-*.zip` and the included
             `Deploy-PvxSymbols.ps1` if an MSI has to clear change control first.
 
-            Your `libraries\pvx-config.js` is never overwritten by an upgrade
-            and never removed by an uninstall. See `docs/DEPLOYMENT.md`.
+            Without arguments the MSI uses `PIHOME64`, then
+            `C:\Program Files\PIPC\PIVision`; run it interactively to pick the
+            folder in a dialog.
+
+            PVX installs into `ext\pvx\` and `ext\libraries\pvx\`. Upgrading
+            from 1.6.0 or earlier moves your `ext\libraries\pvx-config.js`
+            there and removes the old files from `ext\`. The settings file is
+            never overwritten by an upgrade and never removed by an uninstall.
+            See `docs/DEPLOYMENT.md`.
 
             Verify downloads against `SHA256SUMS.txt`.

@@ -1,10 +1,10 @@
 /* ============================================================================
  * PVX Core — shared runtime for the PVX custom symbol library for AVEVA PI Vision
  * ----------------------------------------------------------------------------
- * Deployed to:  <PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx-core.js
+ * Deployed to:  <PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx\pvx-core.js
  *
- * PI Vision loads every .js file under the `libraries` folder BEFORE it loads
- * the sym-*.js symbol files, so window.PVX is guaranteed to exist by the time a
+ * PI Vision loads every .js file under the `libraries` folder, subfolders
+ * included, BEFORE it loads the sym-*.js symbol files, so window.PVX is guaranteed to exist by the time a
  * symbol's init()/onDataUpdate() runs. As a defensive convention, symbols in
  * this library never touch PVX at *definition* time — only at runtime.
  *
@@ -1514,7 +1514,7 @@
      *   Authentication is a property of the DEPLOYMENT, not of a chart. A site
      *   running Kerberos today and OIDC next year should not have to touch a
      *   single symbol. So the auth strategy lives in one place, configured once
-     *   per site in `libraries/pvx-config.js`, and symbols only ever call
+     *   per site in `ext/libraries/pvx/pvx-config.js`, and symbols only ever call
      *   PVX.api.get()/post(). None of them know or care which strategy is live.
      *
      * WHAT AVEVA RECOMMENDS, AND WHY THE DEFAULT IS WHAT IT IS
@@ -1540,7 +1540,7 @@
     var api = PVX.api = {};
 
     /**
-     * Deployment settings. Overwritten wholesale by libraries/pvx-config.js at
+     * Deployment settings. Overwritten wholesale by ext/libraries/pvx/pvx-config.js at
      * load time; the values here are only a safe inert default, so a library
      * deployed without a site config does nothing rather than guessing at a
      * hostname.
@@ -1567,6 +1567,16 @@
         }
         return api.settings;
     };
+
+    // pvx-config.js may have run first — PI Vision does not promise an order
+    // within a libraries folder, and by name it sorts ahead of this file. It
+    // queues its settings in that case rather than losing them; apply them now.
+    if (PVX.pendingSiteSettings) {
+        for (var pi = 0; pi < PVX.pendingSiteSettings.length; pi++) {
+            api.configure(PVX.pendingSiteSettings[pi]);
+        }
+        delete PVX.pendingSiteSettings;
+    }
 
     api.isConfigured = function () {
         return !!(api.settings.baseUrl && String(api.settings.baseUrl).trim());
@@ -1734,7 +1744,7 @@
             return Promise.reject({ pvxError: {
                 code: 'not-configured',
                 message: 'PI Web API is not configured for this PI Vision server. Set baseUrl in ' +
-                         'libraries/pvx-config.js on the PI Vision server.',
+                         'ext/libraries/pvx/pvx-config.js on the PI Vision server.',
                 check: 'pvx-config.js'
             } });
         }
@@ -2249,7 +2259,16 @@
      * and a guard so one broken symbol cannot stop the rest of the library
      * from loading.
      */
-    PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/';
+    // The library's own folder inside ext, not ext itself: PVX keeps its files
+    // out of the folder AVEVA's samples and other symbol packs share. Every
+    // URL is spelled out rather than left to PI Vision's "current directory"
+    // default, which its guide never pins to a subfolder.
+    PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/pvx/';
+
+    // typeNames that reached PI Vision's catalog. Lets a deployment be checked
+    // from the browser console in two halves: PVX.version answers "did
+    // ext/libraries/pvx load", PVX.registered.length "did ext/pvx load".
+    PVX.registered = PVX.registered || [];
 
     PVX.register = function (PV, def) {
         try {
@@ -2272,6 +2291,7 @@
                 };
             }
             PV.symbolCatalog.register(def);
+            PVX.registered.push(def.typeName);
         } catch (e) {
             if (root.console && root.console.error) {
                 root.console.error('[PVX] failed to register symbol ' + (def && def.typeName), e);

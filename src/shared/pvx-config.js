@@ -1,12 +1,19 @@
 /* ============================================================================
  * pvx-config.js — PER-SITE deployment settings
  * ----------------------------------------------------------------------------
- * Deployed to: <PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx-config.js
+ * Deployed to: <PIVision>\Scripts\app\editor\symbols\ext\libraries\pvx\pvx-config.js
  *
  * THIS FILE IS YOURS. Everything else in the library is generated from source
  * and overwritten on every deployment; this one is not. Deploy-PvxSymbols.ps1
- * skips it if it already exists on the server, so your settings survive an
- * upgrade. Keep a copy in your own configuration management anyway.
+ * skips it if it already exists on the server and the MSI never overwrites or
+ * removes it, so your settings survive an upgrade. Keep a copy in your own
+ * configuration management anyway.
+ *
+ * Upgrading from 1.6.0 or earlier, this file used to live one folder up, in
+ * ext\libraries\. Both installers move it here for you. If you are editing a
+ * copy carried over from then, replace everything outside the settings block
+ * with this version: the old wrapper ignored the settings whenever PI Vision
+ * happened to load this file before pvx-core.js.
  *
  * Only the five symbols that talk to PI Web API care about any of this — Event
  * Frames, AF browsing and manual data entry — plus pvxAnnunciator if SharedAck
@@ -20,17 +27,7 @@
 (function (root) {
     'use strict';
 
-    if (!root.PVX || !root.PVX.api) {
-        // pvx-core.js has not loaded. PI Vision loads libraries alphabetically,
-        // so pvx-config sorts after pvx-core and this should not happen — but if
-        // it ever does, say so loudly rather than failing silently at render.
-        if (root.console) {
-            root.console.error('[PVX] pvx-config.js loaded before pvx-core.js — PI Web API settings ignored.');
-        }
-        return;
-    }
-
-    root.PVX.api.configure({
+    var siteSettings = {
 
         /* -- Where PI Web API lives ---------------------------------------- *
          * The full base URL including /piwebapi, no trailing slash.
@@ -92,15 +89,33 @@
                                 // asking overlapping questions on one refresh
         maxBatchSize: 50        // sub-requests per /batch call
 
-    });
+    };
+
+    /* -- Hand the settings to pvx-core.js, whichever loads first ----------- *
+     * Leave this part alone. PI Vision does not promise an order for the files
+     * in a libraries folder, and if it goes by name, "pvx-config" sorts BEFORE
+     * "pvx-core". The version of this file shipped up to 1.6.0 assumed the
+     * opposite and silently dropped its settings when that assumption failed.
+     * Now the settings are applied at once if the core is already there, and
+     * queued for it to pick up when it loads otherwise.
+     */
+    var PVX = root.PVX = root.PVX || {};
+    if (PVX.api && PVX.api.configure) {
+        PVX.api.configure(siteSettings);
+    } else {
+        (PVX.pendingSiteSettings = PVX.pendingSiteSettings || []).push(siteSettings);
+    }
 
     /* -- Optional: default AF database for the Event Frame symbols ---------- *
      * Saves setting it on every symbol. A symbol's own config still wins.
      *
-     *   root.PVX.api.defaults = {
+     * Uncomment AFTER the hand-over block above, so it runs once PVX.api
+     * exists:
+     *
+     *   if (PVX.api) { PVX.api.defaults = {
      *       databasePath: '\\\\AFSERVER01\\Production',
      *       eventFrameTemplate: 'Downtime'
-     *   };
+     *   }; }
      */
 
 }(window));
