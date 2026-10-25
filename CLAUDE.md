@@ -21,6 +21,7 @@ node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal + band editor: rules + built pane
 node tools/test-afpick.js            # AF path browser: rules + built panes vs a mock AF tree
+node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
@@ -55,7 +56,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js` and `test-limits.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js` and `test-limits.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -141,6 +142,12 @@ silently destroys a site's PI Web API settings on upgrade.
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
   `scope.runtimeData.pvxBands`); the stored value is still that string.
+- Digital state maps (`StateMap`, `StateColors`, `UptimeStates`) are rows too:
+  `<!-- pvx:states key=StateMap kind=map|colors|list -->` →
+  `src/shared/config-states.html`, state on `scope.runtimeData.pvxStates`.
+  The state list comes from each source's digital set via `PVX.api` (proven
+  against a mock only), live data, and the map itself; the stored value keeps
+  its grammar.
 
 ---
 

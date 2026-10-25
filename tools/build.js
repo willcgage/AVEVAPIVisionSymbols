@@ -311,6 +311,7 @@ function build() {
     const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html'));
     const bandsEditor = read(path.join(SHARED_DIR, 'config-bands.html'));
     const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
+    const statesEditor = read(path.join(SHARED_DIR, 'config-states.html'));
 
     // --- symbols ----------------------------------------------------------
     const symbols = discoverSymbols();
@@ -338,7 +339,9 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
         write(path.join(EXT, 'sym-' + typeName + '-config.html'),
-            withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor));
+            withStatesEditors(typeName,
+                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor),
+                statesEditor));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -422,6 +425,58 @@ function withBandsEditor(typeName, config, editor) {
         return config;
     }
     return config.replace(BANDS_MARKER, () => editor);
+}
+
+// Digital state maps are edited as rows (state chosen from a list, severity
+// or colour, label), not by typing the grammar. A pane asks for the editor
+// with a marker on its own line where the control goes:
+//   <!-- pvx:states key=StateMap kind=map -->
+// kind says which grammar the key holds. As with the bands, a pane that also
+// binds the key to a control of its own is refused, so no state map quietly
+// keeps the old text box beside the new rows.
+const STATES_MARKER = /^[ \t]*<!--\s*pvx:states\b([^>]*?)-->[ \t]*\n/gm;
+const STATES_KINDS = {
+    map: { grammar: 'State:colour:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
+    colors: { grammar: 'State:colour', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
+    list: { grammar: 'State', example: 'Running, On, Open' }
+};
+
+const STATE_KEYS = ['StateMap', 'StateColors', 'UptimeStates'];
+
+function withStatesEditors(typeName, config, snippet) {
+    const keys = [];
+    const out = config.replace(STATES_MARKER, (whole, body) => {
+        const a = {};
+        body.trim().split(/\s+/).forEach((kv) => {
+            const eq = kv.indexOf('=');
+            if (eq > 0) { a[kv.slice(0, eq)] = kv.slice(eq + 1); }
+        });
+        const key = a.key || '';
+        const kind = STATES_KINDS[a.kind];
+        if (!/^\w+$/.test(key)) {
+            problem(typeName, 'pvx:states key "' + key + '" must be a config key name');
+            return whole;
+        }
+        if (!kind) {
+            problem(typeName, 'pvx:states kind "' + a.kind + '" must be one of ' + Object.keys(STATES_KINDS).join(', '));
+            return whole;
+        }
+        keys.push(key);
+        return snippet
+            .replace(/__KEY__/g, key)
+            .replace(/__KIND__/g, a.kind)
+            .replace(/__GRAMMAR__/g, kind.grammar)
+            .replace(/__EXAMPLE__/g, kind.example);
+    });
+    // The keys every shipped state map uses are held to the editor even
+    // without a marker, so a new symbol cannot bring the text box back.
+    STATE_KEYS.concat(keys).forEach((key) => {
+        if (new RegExp('ng-model="config\\.' + key + '"').test(config.replace(STATES_MARKER, ''))) {
+            problem(typeName, 'config.html binds config.' + key + ' to a control of its own; put ' +
+                '<!-- pvx:states key=' + key + ' kind=... --> on its own line where the control goes');
+        }
+    });
+    return out;
 }
 
 // Fields that take an AF path say so with a marker after their input:

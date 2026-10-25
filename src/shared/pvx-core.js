@@ -710,6 +710,475 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * states — digital state maps edited as rows in a format pane
+     * ================================================================== *
+     * Three grammars name digital states in config, all comma separated:
+     *   map     State:colour[:label]   pvxStatusGrid, pvxSitePlan StateMap
+     *   colors  State:colour           pvxStateDuration StateColors
+     *   list    State                  pvxStateDuration UptimeStates
+     *
+     * Typed by hand, a state map is wrong in the quiet way: "Runing" or
+     * "Fault " matches nothing, and the tile falls back to another colour
+     * with no error anywhere. So build.js expands a marker in config.html
+     *   <!-- pvx:states key=StateMap kind=map -->
+     * into rows (src/shared/config-states.html) whose state is chosen from a
+     * list, a severity or colour is picked, and the stored value stays the
+     * grammar string, so saved displays and every symbol's parser are
+     * unaffected.
+     *
+     * WHERE THE LIST COMES FROM
+     *   1. The digital state set of each data source, read from PI Web API
+     *      when the site has configured it (a PI point's DigitalSetName, an
+     *      AF attribute's enumeration set). Not yet proven on a server; the
+     *      mock in tools/test-states.js is the only evidence.
+     *   2. States seen in the symbol's live data, so the list is useful on a
+     *      site with no PI Web API at all.
+     *   3. States already in the map, so a saved entry is always selectable.
+     * A state none of those know can still be typed: an empty list must not
+     * make the editor unusable.
+     *
+     * Like the AF picker, every write goes to the `config` the pane passes
+     * in from its own expressions, which is the object PI Vision saves.
+     */
+    var states = PVX.states = {};
+
+    states.KINDS = { map: true, colors: true, list: true };
+    states.MAX_OPTIONS = 300;
+
+    // Severity names over the shared status palette. A severity is only a
+    // colour in the stored string; the name is recovered from the colour.
+    states.SEVERITIES = [
+        { name: 'Normal', color: color.status.normal },
+        { name: 'Information', color: color.status.info },
+        { name: 'Warning', color: color.status.warning },
+        { name: 'Alarm', color: color.status.alarm },
+        { name: 'Critical', color: color.status.critical },
+        { name: 'Off / stale', color: color.status.stale }
+    ];
+
+    function stTrim(s) { return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, ''); }
+
+    /** Severity name for a colour, or '' when it is not one of the palette's. */
+    states.severityOf = function (c) {
+        var rgb = color.toRgb(c);
+        if (!rgb) { return ''; }
+        var hex = color.toHex(rgb).toLowerCase();
+        for (var i = 0; i < states.SEVERITIES.length; i++) {
+            if (states.SEVERITIES[i].color.toLowerCase() === hex) { return states.SEVERITIES[i].name; }
+        }
+        return '';
+    };
+
+    /**
+     * Grammar string -> [{state, color, label}], in the order written and
+     * without dropping anything the symbols would keep. The symbols read
+     * these strings with parsers of their own; this one must agree with them.
+     */
+    states.parse = function (spec, kind) {
+        var out = [];
+        String(spec === null || spec === undefined ? '' : spec).split(/[,\n;]/).forEach(function (chunk) {
+            var s = stTrim(chunk);
+            if (!s) { return; }
+            if (kind === 'list') { out.push({ state: s, color: '', label: '' }); return; }
+            var p = s.split(':');
+            var key = stTrim(p[0]);
+            if (!key) { return; }
+            out.push({
+                state: key,
+                // colors keeps everything after the first colon as the colour,
+                // exactly as pvxStateDuration reads it.
+                color: kind === 'colors' ? stTrim(p.slice(1).join(':')) : stTrim(p[1]),
+                label: kind === 'map' ? stTrim(p.slice(2).join(':')) : ''
+            });
+        });
+        return out;
+    };
+
+    states.stringify = function (list, kind) {
+        return (list || []).map(function (e) {
+            if (kind === 'list') { return e.state; }
+            var s = e.state + ':' + e.color;
+            return kind === 'map' && e.label ? s + ':' + e.label : s;
+        }).join(', ');
+    };
+
+    /**
+     * Non-numeric values anywhere in a PI Vision data object: Value, Table
+     * and TimeSeries shapes alike. A digital state arrives as a string, or on
+     * some releases as {Name, Value}; numbers are not states.
+     */
+    states.seenIn = function (d, into) {
+        var found = into || [];
+        var have = {};
+        for (var h = 0; h < found.length; h++) { have[found[h].toLowerCase()] = true; }
+        var add = function (v) {
+            if (v && typeof v === 'object') { v = v.Name !== undefined ? v.Name : v.name; }
+            if (typeof v !== 'string') { return; }
+            var s = stTrim(v);
+            if (!s || util.num(s) !== null || have[s.toLowerCase()] || found.length >= states.MAX_OPTIONS) { return; }
+            have[s.toLowerCase()] = true;
+            found.push(s);
+        };
+        var walk = function (o, depth) {
+            if (!o || typeof o !== 'object' || depth > 4) { return; }
+            if (Object.prototype.toString.call(o) === '[object Array]') {
+                for (var i = 0; i < o.length; i++) { walk(o[i], depth + 1); }
+                return;
+            }
+            if (o.Value !== undefined) {
+                if (o.Value && typeof o.Value === 'object' && o.Value.Name === undefined) { walk(o.Value, depth + 1); }
+                else { add(o.Value); }
+            }
+            walk(o.Values, depth + 1);
+            walk(o.Rows, depth + 1);
+            walk(o.Data, depth + 1);
+        };
+        walk(d, 0);
+        return found;
+    };
+
+    /** 'pi:\\srv\TAG?12' -> '\\srv\TAG' — the path PI Web API resolves. */
+    states.sourcePath = function (ds) {
+        var s = String(ds === null || ds === undefined ? '' : ds);
+        var q = s.indexOf('?');
+        if (q > 0) { s = s.slice(0, q); }
+        return stTrim(s.replace(/^[a-z]+:/i, ''));
+    };
+
+    function stErr(e) {
+        return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API request failed.';
+    }
+
+    function namesOf(r) {
+        var out = [];
+        var items = (r && r.Items) || [];
+        for (var i = 0; i < items.length; i++) { if (items[i] && items[i].Name) { out.push(String(items[i].Name)); } }
+        return out;
+    }
+
+    // Per page, keyed by source path: a set does not change while a display
+    // is open, and three panes on one tag should cost one lookup.
+    var setCache = {};
+
+    /**
+     * The digital state set behind one data source: {set, states:[...]} or
+     * {set:'', states:[]} when it is not digital. Rejects on a request that
+     * fails, so the pane can say why the list is short.
+     */
+    states.lookupSet = function (ds) {
+        var p = states.sourcePath(ds);
+        if (!p) { return Promise.resolve({ set: '', states: [] }); }
+        var k = p.toLowerCase();
+        if (setCache[k]) { return setCache[k]; }
+
+        var none = { set: '', states: [] };
+        var fromPoint = function (pt) {
+            // A Data Archive digital set is named on the point and listed on
+            // its server, so it is found by name there.
+            if (!pt || String(pt.PointType || '').toLowerCase() !== 'digital' || !pt.DigitalSetName) { return none; }
+            var srv = pt.Links && pt.Links.DataServer;
+            if (!srv) { return none; }
+            var name = String(pt.DigitalSetName);
+            return api.get(srv + '/enumerationsets').then(function (r) {
+                var items = (r && r.Items) || [];
+                for (var i = 0; i < items.length; i++) {
+                    if (String(items[i].Name).toLowerCase() === name.toLowerCase() && items[i].WebId) {
+                        return api.get('enumerationsets/' + encodeURIComponent(items[i].WebId) + '/enumerationvalues')
+                            .then(function (v) { return { set: name, states: namesOf(v) }; });
+                    }
+                }
+                throw { message: 'Digital state set ' + name + ' is not listed on its PI Data Archive.' };
+            });
+        };
+
+        var job;
+        if (p.indexOf('|') !== -1) {
+            job = api.get('attributes?path=' + encodeURIComponent(p)).then(function (a) {
+                var links = (a && a.Links) || {};
+                // An AF attribute typed as an enumeration carries its set;
+                // one that only references a digital PI point does not.
+                if (links.EnumerationValues) {
+                    return api.get(links.EnumerationValues).then(function (v) {
+                        return { set: (a && a.TypeQualifier) || '', states: namesOf(v) };
+                    });
+                }
+                if (links.Point) { return api.get(links.Point).then(fromPoint); }
+                return none;
+            });
+        } else {
+            job = api.get('points?path=' + encodeURIComponent(p)).then(fromPoint);
+        }
+        setCache[k] = job;
+        // A failure is not cached: the next pane open tries again.
+        job.then(null, function () { if (setCache[k] === job) { delete setCache[k]; } });
+        return job;
+    };
+
+    states.clearCache = function () { setCache = {}; };
+
+    /**
+     * Publish the editor at runtimeData.pvxStates. Editors are made per
+     * config key by use(), called from the pane, so a symbol whose pane has
+     * no state map pays nothing, and nothing is requested from PI Web API
+     * until a pane with one is opened.
+     *
+     * @param {Object} scope the symbol's Angular scope
+     * @returns {Object} state, also at scope.runtimeData.pvxStates
+     */
+    states.bind = function (scope) {
+        if (!scope) { return null; }
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+
+        var mod = {
+            ed: {},
+            seen: [],           // states seen in live data
+            sets: [],           // [{set, states}] read from PI Web API
+            busy: false,
+            loaded: '',         // the source list the sets were read for
+            pending: null,      // the read in flight, or done, for that list
+            note: '',
+            version: 0,
+            severities: states.SEVERITIES
+        };
+
+        var digest = function () {
+            try { if (scope.$evalAsync) { scope.$evalAsync(function () {}); } } catch (e) { /* no Angular: tests */ }
+        };
+
+        var sourceList = function () {
+            var ds = scope.symbol && scope.symbol.DataSources;
+            var out = [];
+            if (ds && typeof ds.length === 'number') { for (var i = 0; i < ds.length; i++) { out.push(String(ds[i])); } }
+            return out;
+        };
+
+        /** Read each source's digital set once per source list. */
+        mod.load = function () {
+            var list = sourceList();
+            var key = list.join('\n');
+            if (key === mod.loaded && mod.pending) { return mod.pending; }
+            mod.loaded = key;
+            if (!api.isConfigured()) {
+                mod.sets = [];
+                mod.note = 'PI Web API is not set up for this site, so the list holds only states seen in ' +
+                    'live data. Any other state can be typed.';
+                mod.version += 1;
+                mod.pending = Promise.resolve();
+                return mod.pending;
+            }
+            mod.busy = true;
+            mod.note = '';
+            var failed = [];
+            var jobs = list.map(function (ds) {
+                return states.lookupSet(ds).then(null, function (e) {
+                    failed.push(sources.name(ds) + ': ' + stErr(e));
+                    return { set: '', states: [] };
+                });
+            });
+            mod.pending = Promise.all(jobs).then(function (found) {
+                if (mod.loaded !== key) { return; }
+                var sets = [];
+                var named = {};
+                for (var i = 0; i < found.length; i++) {
+                    var f = found[i];
+                    if (!f.states.length || named[f.set.toLowerCase()]) { continue; }
+                    named[f.set.toLowerCase()] = true;
+                    sets.push(f);
+                }
+                mod.sets = sets;
+                mod.busy = false;
+                if (failed.length) {
+                    mod.note = 'Could not read the digital state set of ' + failed.join('; ') +
+                        '. Check the data source in PI Web API; states seen in live data are still listed.';
+                } else if (!sets.length) {
+                    mod.note = 'No data source here has a digital state set, so the list holds states seen ' +
+                        'in live data. Any other state can be typed.';
+                }
+                mod.version += 1;
+                digest();
+            });
+            return mod.pending;
+        };
+
+        /** Feed live data in; called by bootstrap on every data update. */
+        mod.observe = function (d) {
+            var n = mod.seen.length;
+            states.seenIn(d, mod.seen);
+            if (mod.seen.length !== n) { mod.version += 1; }
+        };
+
+        /**
+         * The editor for one config key, made on first use.
+         * @param {String} key  config key, e.g. 'StateMap'
+         * @param {String} kind map | colors | list
+         */
+        mod.use = function (key, kind) {
+            if (mod.ed[key]) { return mod.ed[key]; }
+            var ed = makeEditor(mod, key, states.KINDS[kind] ? kind : 'map');
+            mod.ed[key] = ed;
+            mod.load();
+            return ed;
+        };
+
+        mod.destroy = function () { mod.ed = {}; };
+
+        scope.runtimeData.pvxStates = mod;
+        return mod;
+    };
+
+    function makeEditor(mod, key, kind) {
+        var ed = {
+            key: key,
+            kind: kind,
+            rows: [],
+            textMode: false,
+            written: null,      // the last string this editor wrote or loaded
+            choices: [],
+            built: -1           // mod.version the choices were built for
+        };
+
+        var rowFor = function (e) {
+            var rgb = color.toRgb(e.color);
+            return {
+                state: e.state,
+                color: e.color,
+                hex: rgb ? color.toHex(rgb) : '#000000',
+                label: e.label,
+                severity: states.severityOf(e.color),
+                typed: false
+            };
+        };
+
+        ed.load = function (spec) {
+            var list = states.parse(spec, kind);
+            var rows = [];
+            for (var i = 0; i < list.length; i++) { rows.push(rowFor(list[i])); }
+            ed.rows = rows;
+            ed.written = spec === undefined || spec === null ? '' : String(spec);
+            ed.built = -1;
+        };
+
+        /**
+         * Called by the pane with the stored value on every digest. Rows are
+         * not rebuilt from the string while they are what wrote it, or a
+         * half-typed state would vanish; they are when the text box, an undo
+         * or a load changed it. Always true, so it can sit in an ng-if.
+         */
+        ed.sync = function (spec) {
+            var s = spec === undefined || spec === null ? '' : String(spec);
+            if (s !== ed.written) { ed.load(spec); }
+            return true;
+        };
+
+        /** Write the rows back as the grammar string, into the pane's config. */
+        ed.commit = function (cfg) {
+            var out = [];
+            var seen = {};
+            for (var i = 0; i < ed.rows.length; i++) {
+                var r = ed.rows[i];
+                // Separators in a state or label would split the entry; a colon
+                // in a state would move its colour. Fixed where it can be seen.
+                if (r.state && /[,;:\r\n]/.test(r.state)) { r.state = r.state.replace(/\s*[,;:\r\n]+\s*/g, ' '); }
+                if (r.label && /[,;\r\n]/.test(r.label)) { r.label = r.label.replace(/\s*[,;\r\n]+\s*/g, ' '); }
+                var st = stTrim(r.state);
+                r.invalid = !st;
+                r.duplicate = !!st && !!seen[st.toLowerCase()];
+                if (st) { seen[st.toLowerCase()] = true; }
+                // A row with no state is kept, flagged, rather than lost.
+                if (!r.invalid) {
+                    out.push({ state: st, color: r.color || color.status.info, label: stTrim(r.label) });
+                }
+            }
+            ed.written = states.stringify(out, kind);
+            // A state typed into one row is offered to the others.
+            ed.built = -1;
+            if (cfg) { cfg[key] = ed.written; }
+            return ed.written;
+        };
+
+        ed.setColor = function (r, cfg) {
+            r.color = r.hex;
+            r.severity = states.severityOf(r.hex);
+            return ed.commit(cfg);
+        };
+
+        ed.setSeverity = function (r, cfg) {
+            for (var i = 0; i < states.SEVERITIES.length; i++) {
+                if (states.SEVERITIES[i].name === r.severity) {
+                    r.color = r.hex = states.SEVERITIES[i].color;
+                }
+            }
+            return ed.commit(cfg);
+        };
+
+        /** A new row takes the first listed state not already mapped. */
+        ed.add = function (cfg) {
+            var used = {};
+            for (var i = 0; i < ed.rows.length; i++) { used[stTrim(ed.rows[i].state).toLowerCase()] = true; }
+            var next = '';
+            var ch = ed.options();
+            for (var j = 0; j < ch.length; j++) {
+                if (!used[ch[j].name.toLowerCase()]) { next = ch[j].name; break; }
+            }
+            var c = kind === 'list' ? '' : color.status.normal;
+            ed.rows.push({ state: next, color: c, hex: c || '#000000', label: '',
+                           severity: c ? states.severityOf(c) : '', typed: !ch.length });
+            return ed.commit(cfg);
+        };
+
+        ed.remove = function (i, cfg) {
+            if (i < 0 || i >= ed.rows.length) { return ed.written; }
+            ed.rows.splice(i, 1);
+            ed.built = -1;
+            return ed.commit(cfg);
+        };
+
+        /** Switch one row between the list and a text box. */
+        ed.type = function (r) { r.typed = !r.typed; ed.built = -1; };
+
+        ed.toggleText = function () { ed.textMode = !ed.textMode; };
+
+        ed.hasInvalid = function () {
+            for (var i = 0; i < ed.rows.length; i++) { if (ed.rows[i].invalid) { return true; } }
+            return false;
+        };
+
+        ed.hasDuplicate = function () {
+            for (var i = 0; i < ed.rows.length; i++) { if (ed.rows[i].duplicate) { return true; } }
+            return false;
+        };
+
+        /**
+         * What the state lists offer, grouped by where each came from. The
+         * same array is returned until something changes, so a digest does
+         * not see a new collection every pass.
+         */
+        ed.options = function () {
+            if (ed.built === mod.version && ed.choices) { return ed.choices; }
+            var out = [];
+            var have = {};
+            var push = function (name, group) {
+                var s = stTrim(name);
+                if (!s || have[s.toLowerCase()] || out.length >= states.MAX_OPTIONS) { return; }
+                have[s.toLowerCase()] = true;
+                out.push({ name: s, group: group });
+            };
+            var i, j;
+            for (i = 0; i < mod.sets.length; i++) {
+                var g = 'Digital state set' + (mod.sets[i].set ? ' ' + mod.sets[i].set : '');
+                for (j = 0; j < mod.sets[i].states.length; j++) { push(mod.sets[i].states[j], g); }
+            }
+            for (i = 0; i < mod.seen.length; i++) { push(mod.seen[i], 'Seen in live data'); }
+            for (i = 0; i < ed.rows.length; i++) { push(ed.rows[i].state, 'Already in this list'); }
+            ed.choices = out;
+            ed.built = mod.version;
+            return out;
+        };
+
+        return ed;
+    }
+
+    /* ------------------------------------------------------------------ *
      * scale — linear mapping + nice ticks
      * ------------------------------------------------------------------ */
     var scale = PVX.scale = {};
@@ -3228,12 +3697,16 @@
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
         ctx.bands = thresholds.bind(scope);
         ctx.afpick = afpick.bind(scope);
+        ctx.states = states.bind(scope);
 
         vis.onDataUpdate = function (d) {
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
             if (ctx.sources) { ctx.sources.refresh(); }
+            // So a state map's list can offer what this symbol is showing,
+            // on a site with no PI Web API to read digital sets from.
+            if (ctx.states) { ctx.states.observe(d); }
             if (hooks.onData) {
                 try { hooks.onData(d, ctx); }
                 catch (e) { if (root.console) { root.console.error('[PVX] onData failed', e); } }
@@ -3265,6 +3738,7 @@
             if (ctx.sources) { ctx.sources.destroy(); }
             if (ctx.bands) { ctx.bands.destroy(); }
             if (ctx.afpick) { ctx.afpick.destroy(); }
+            if (ctx.states) { ctx.states.destroy(); }
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

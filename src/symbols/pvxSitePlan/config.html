@@ -147,14 +147,13 @@
         </div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxsp-statemap">Digital state map</label>
-            <textarea id="pvxsp-statemap" ng-model="config.StateMap" rows="2"></textarea>
+            <div class="pvx-cfg-label">Digital state map</div>
+            <!-- pvx:states key=StateMap kind=map -->
         </div>
         <div class="pvx-cfg-hint">
-            <code>State:colour</code> or <code>State:colour:label</code>, comma separated.
-            Matching is exact and case-insensitive, e.g.
-            <code>Running:#2f9e5f, Fault:#c8452f</code>. A numeric tag mixed into a
-            digital plan falls back to the threshold bands.
+            One row per state: pick the state, a severity or colour, and optionally the
+            label shown in the legend. Matching is exact and case-insensitive. A numeric
+            tag mixed into a digital plan falls back to the threshold bands.
         </div>
 
         <div class="pvx-cfg-row">
