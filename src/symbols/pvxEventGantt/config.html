@@ -36,6 +36,25 @@
         </div>
 
         <div class="pvx-cfg-row">
+            <label for="pvxeg-scope">Events of</label>
+            <select id="pvxeg-scope" ng-model="config.AssetScope">
+                <option value="none">The whole database</option>
+                <option value="asset">The display's asset</option>
+                <option value="assetTree">The display's asset and everything below it</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.AssetScope === 'assetTree'">
+            <label for="pvxeg-scopemax">Elements searched (max)</label>
+            <input id="pvxeg-scopemax" type="number" ng-model="config.MaxScopeElements" min="1" max="2000" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The asset is the one in the display's URL, or else the element of the attribute this
+            symbol was placed with, so one template display shows the events of whichever area
+            or complex it is opened on. Below the asset, each element is one sub-request in a
+            single batch, and the footer says when the element limit cut the search short.
+        </div>
+
+        <div class="pvx-cfg-row">
             <label for="pvxeg-searchmode">Search mode</label>
             <select id="pvxeg-searchmode" ng-model="config.SearchMode">
                 <option value="Overlapped">Overlapped</option>

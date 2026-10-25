@@ -308,7 +308,10 @@ function build() {
     }
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
-    const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html'));
+    // The text size control follows the Data sources list in every pane: it
+    // applies to every symbol the same way, so no pane should have to ask.
+    const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html')) +
+        read(path.join(SHARED_DIR, 'config-text.html'));
     const bandsEditor = read(path.join(SHARED_DIR, 'config-bands.html'));
     const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
     const statesEditor = read(path.join(SHARED_DIR, 'config-states.html'));

@@ -129,6 +129,11 @@
                 TemplateName: '',          // one Event Frame template
                 NameFilter: '',            // wildcard, e.g. Downtime*
                 ElementNameFilter: '',     // wildcard on the referenced element
+                // Follow the display's asset. A template display (one Area
+                // Overview serving every area) needs the events of the area it
+                // is showing; a name wildcard cannot follow an asset swap.
+                AssetScope: 'none',        // none | asset | assetTree
+                MaxScopeElements: 200,     // assetTree: elements searched below the asset
                 SearchMode: 'Overlapped',
                 MaxEvents: 500,
                 RefreshSeconds: 60,
@@ -199,7 +204,9 @@
             maxEvents: 0,
             failedBatch: 0,       // failed sub-requests in the enrichment batch
             win: null,            // the window the current events were fetched for
-            tree: null            // hierarchy mode: expansion outcome (see expandChildren)
+            tree: null,           // hierarchy mode: expansion outcome (see expandChildren)
+            scopeCapped: false,   // assetTree: more elements below the asset than searched
+            scopeFailed: 0        // assetTree: element searches that failed
         };
 
         var liveCfg = scope.config || {};
@@ -210,6 +217,8 @@
         // that changes what is drawn — only in a way that saves a request.
         var dbCache = {};         // AF database path -> Promise of WebId
         var elemNames = {};       // element WebId  -> element Name
+        var assetCache = {};      // asset path + scope -> Promise of [element WebId]
+        var sourceAsset = '';     // element of the placeholder data source
 
         var refreshTimer = null;
         var hashTimer = null;
@@ -226,6 +235,18 @@
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-egantt-body',
             render: render,
+
+            // The data source is otherwise ignored, but its element is the
+            // asset to scope to when the URL names none, and PI Vision
+            // re-binds it on an asset swap.
+            onData: function (d) {
+                var one = PVX.data.single(d);
+                var a = one ? PVX.nav.assetOf(one.path) : '';
+                if (a !== sourceAsset) {
+                    sourceAsset = a;
+                    if (trim(liveCfg.AssetScope) && liveCfg.AssetScope !== 'none') { refreshSoon(); }
+                }
+            },
 
             onConfigChange: function (newCfg) {
                 liveCfg = newCfg || liveCfg;
@@ -392,7 +413,8 @@
             var p = {};
             try { p = PVX.nav.parseHash().params || {}; } catch (e) { p = {}; }
             return String(p.starttime || p.StartTime || '') + '|' +
-                   String(p.endtime || p.EndTime || '');
+                   String(p.endtime || p.EndTime || '') + '|' +
+                   String(p.asset || '');
         }
 
         /* ================================================================ *
@@ -502,11 +524,12 @@
          * "there are more than MaxEvents and PI Web API truncated the answer",
          * which the operator has to be told about.
          */
-        function queryEvents(dbWebId, cfg, win) {
+        function queryEvents(dbWebId, cfg, win, elementWebId) {
             var max = intIn(cfg.MaxEvents, 1, 5000, 500);
 
             return PVX.api.eventFrames({
                 databaseWebId: dbWebId,
+                elementWebId: elementWebId || undefined,
                 startTime: win.useRaw ? win.startExpr : isoOf(win.from),
                 endTime: win.useRaw ? win.endExpr : isoOf(win.to),
                 templateName: trim(cfg.TemplateName),
@@ -524,6 +547,111 @@
                 // cache TTL would silently become the TTL.
                 cache: false
             });
+        }
+
+        /** The asset the scope follows: the URL's, else the data source's. */
+        function scopeAsset() {
+            return trim(PVX.nav.currentAsset()) || sourceAsset;
+        }
+
+        /**
+         * WebIds of the elements whose events are wanted: the asset alone, or
+         * the asset and everything below it. Cached per asset, because the AF
+         * hierarchy does not change between refreshes the way events do; a
+         * failed lookup is not cached, for the same reason as resolveDatabase.
+         */
+        function scopeElements(cfg) {
+            var asset = scopeAsset();
+            var tree = cfg.AssetScope === 'assetTree';
+            var cap = intIn(cfg.MaxScopeElements, 1, 2000, 200);
+            var key = asset + '|' + (tree ? 'tree:' + cap : 'one');
+            if (assetCache[key]) { return assetCache[key]; }
+
+            var p = PVX.api.elementByPath(asset).then(function (el) {
+                if (!el || !el.WebId) {
+                    throw { pvxError: {
+                        code: 'no-asset',
+                        message: 'The display\'s asset "' + asset + '" is not an AF element PI Web API can see.',
+                        check: 'the asset in the URL, or the element of this symbol\'s data source'
+                    } };
+                }
+                if (!tree) { return { ids: [el.WebId], capped: false }; }
+                // One more than the cap tells "exactly the cap" from "more".
+                return PVX.api.get('elements/' + encodeURIComponent(el.WebId) +
+                    '/elements?searchFullHierarchy=true&maxCount=' + cap +
+                    '&selectedFields=Items.WebId').then(function (res) {
+                    var ids = [el.WebId];
+                    var items = (res && res.Items) || [];
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].WebId) { ids.push(items[i].WebId); }
+                    }
+                    return { ids: ids, capped: items.length >= cap };
+                });
+            });
+            p['catch'](function () {
+                if (assetCache[key] === p) { delete assetCache[key]; }
+            });
+            assetCache[key] = p;
+            return p;
+        }
+
+        /**
+         * Events referenced by any of the scope's elements, in one batch.
+         * PI Web API searches events per element, so the tree is asked
+         * element by element and the answers merged; an event that references
+         * two of them comes back twice and is kept once.
+         */
+        function queryScoped(dbWebId, cfg, win) {
+            return scopeElements(cfg).then(function (sc) {
+                state.scopeCapped = sc.capped;
+                if (sc.ids.length === 1) { return queryEvents(dbWebId, cfg, win, sc.ids[0]); }
+                var reqs = {};
+                var max = intIn(cfg.MaxEvents, 1, 5000, 500);
+                for (var i = 0; i < sc.ids.length; i++) {
+                    reqs['e' + i] = { Method: 'GET', Resource: apiUrl(eventFramesPath(sc.ids[i], cfg, win, max)) };
+                }
+                return PVX.api.batch(reqs, { cache: false }).then(function (res) {
+                    var split = PVX.api.batchResults(res);
+                    var seen = {}, items = [];
+                    for (var id in split.ok) {
+                        if (!Object.prototype.hasOwnProperty.call(split.ok, id)) { continue; }
+                        var list = (split.ok[id] && split.ok[id].Items) || [];
+                        for (var j = 0; j < list.length; j++) {
+                            var self = (list[j].Links && list[j].Links.Self) || (list[j].Name + list[j].StartTime);
+                            if (seen[self]) { continue; }
+                            seen[self] = true;
+                            items.push(list[j]);
+                        }
+                    }
+                    state.scopeFailed = split.failedCount || 0;
+                    // Newest first before the cap, so a busy tree loses its
+                    // oldest events rather than an arbitrary element's.
+                    items.sort(function (a, b) {
+                        return String(b.StartTime).localeCompare(String(a.StartTime));
+                    });
+                    return { Items: items };
+                });
+            });
+        }
+
+        /** The same query as queryEvents, as a batch sub-request path. */
+        function eventFramesPath(webId, cfg, win, max) {
+            var q = [
+                ['startTime', win.useRaw ? win.startExpr : isoOf(win.from)],
+                ['endTime', win.useRaw ? win.endExpr : isoOf(win.to)],
+                ['templateName', trim(cfg.TemplateName)],
+                ['nameFilter', trim(cfg.NameFilter)],
+                ['referencedElementNameFilter', trim(cfg.ElementNameFilter)],
+                ['searchMode', trim(cfg.SearchMode) || 'Overlapped'],
+                ['maxCount', max + 1],
+                ['selectedFields', frameFields(cfg)]
+            ];
+            var parts = [];
+            for (var i = 0; i < q.length; i++) {
+                if (q[i][1] === '' || q[i][1] === null || q[i][1] === undefined) { continue; }
+                parts.push(q[i][0] + '=' + encodeURIComponent(q[i][1]));
+            }
+            return 'elements/' + encodeURIComponent(webId) + '/eventframes?' + parts.join('&');
         }
 
         /** Last path segment of a PI Web API self/reference link — the WebId. */
@@ -785,10 +913,26 @@
             if (state.phase !== 'ok') { state.phase = 'loading'; }
             ctx.render();
 
+            var scoped = trim(cfg.AssetScope) && cfg.AssetScope !== 'none';
+            state.scopeCapped = false;
+            state.scopeFailed = 0;
+            if (scoped && !scopeAsset()) {
+                state.phase = 'error';
+                state.error = { pvxError: {
+                    code: 'no-asset',
+                    message: 'Events are scoped to the display\'s asset, but the URL names no asset and ' +
+                             'this symbol\'s data source is not an AF attribute.',
+                    check: 'open the display on an asset, or drop an attribute of the asset onto the symbol'
+                } };
+                state.events = [];
+                ctx.render();
+                return;
+            }
+
             resolveDatabase(dbPath)
                 .then(function (webId) {
                     if (stale(gen)) { return null; }
-                    return queryEvents(webId, cfg, win);
+                    return scoped ? queryScoped(webId, cfg, win) : queryEvents(webId, cfg, win);
                 })
                 .then(function (res) {
                     if (stale(gen) || res === null) { return null; }
@@ -1016,6 +1160,13 @@
                 // oversized result — so this reports the bound honestly rather
                 // than inventing a number.
                 m.notes.push('more than ' + state.maxEvents + ' events match — showing ' + state.maxEvents);
+            }
+            if (state.scopeCapped) {
+                m.notes.push('more than ' + intIn(cfg.MaxScopeElements, 1, 2000, 200) +
+                    ' elements below the asset — only the first were searched');
+            }
+            if (state.scopeFailed) {
+                m.notes.push(state.scopeFailed + ' element ' + (state.scopeFailed === 1 ? 'search' : 'searches') + ' failed');
             }
             if (m.hiddenLanes) {
                 m.notes.push('+' + m.hiddenLanes + (m.hiddenLanes === 1 ? ' lane' : ' lanes') +
