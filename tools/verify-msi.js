@@ -63,6 +63,14 @@ function table(name) {
         .map(function (l) { return l.split('\t'); });
 }
 
+/* The official WiX toolset stores names as "SHORT~1|Long Name", and a
+ * Directory's DefaultDir as "target:source" on top of that; wixl writes the
+ * long name alone. Compare on the long target name, or every check passes on
+ * the wixl build and fails on the MSI that actually ships. */
+function longName(field) {
+    return String(field || '').split(':')[0].split('|').pop();
+}
+
 function main() {
     if (!fs.existsSync(msiPath)) {
         console.error('MSI not found: ' + msiPath);
@@ -87,7 +95,7 @@ function main() {
     /* --- directory tree ---------------------------------------------------- */
     var dirRows = table('Directory');
     var dirById = {};
-    dirRows.forEach(function (r) { dirById[r[0]] = { parent: r[1], name: r[2] }; });
+    dirRows.forEach(function (r) { dirById[r[0]] = { parent: r[1], name: longName(r[2]) }; });
 
     function fullPath(dirId) {
         var parts = [];
@@ -133,7 +141,7 @@ function main() {
         var comp = compById[r[1]];
         if (!comp) { return; }
         var dir = fullPath(comp.dir);
-        var rel = (dir === extPath ? '' : dir.slice(extPath.length + 1) + '/') + r[2];
+        var rel = (dir === extPath ? '' : dir.slice(extPath.length + 1) + '/') + longName(r[2]);
         installedAt[rel] = r[1];
     });
 
