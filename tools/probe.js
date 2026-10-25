@@ -172,8 +172,16 @@ server.on('listening', async () => {
         scope.symbol = { Name: a.typeName };
 
         const tpl = await fetch('/sym/template.html').then((r) => r.text());
+        // PI Vision hands init() its own wrapper element, with the template
+        // linked INSIDE it, never the template root. Probing with the bare
+        // template hid a bug where theme variables landed on the wrapper and
+        // the root's stylesheet defaults overrode them.
+        const host = document.createElement('div');
+        host.className = 'pv-symbol-host';
+        host.style.cssText = 'width:100%;height:100%';
+        box.appendChild(host);
         let el;
-        try { el = $compile(tpl)(scope); angular.element(box).append(el); }
+        try { el = angular.element(host).append($compile(tpl)(scope)); }
         catch (e) { return { fatal: 'template compile: ' + e.message }; }
 
         try {

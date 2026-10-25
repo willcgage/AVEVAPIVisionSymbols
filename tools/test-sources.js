@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* ============================================================================
- * PVX sources test — removing a data source from a placed symbol.
+ * PVX format pane test — removing a data source, and the threshold band
+ * editor, both injected into every pane by tools/build.js.
  * ----------------------------------------------------------------------------
  *   node tools/build.js && node tools/test-sources.js
  *
- * Two halves:
+ * Data source removal, in two halves:
  *
  *   rules    PVX.sources in plain Node: name parsing, every renumbering rule,
  *            and the guard that keeps the last source. These are the parts
@@ -15,6 +16,11 @@
  *            one row per source, Remove asks before acting, Confirm shortens
  *            symbol.DataSources and renumbers positional config, and a
  *            single-source symbol offers no Remove at all.
+ *
+ * Band editor: PVX.thresholds.bind in Node (rows <-> the stored grammar
+ * string, which saved displays depend on), then the built pane in Chromium:
+ * one row per band, and typing, picking, adding and removing rewrite
+ * config.Thresholds.
  *
  * Requires the dev dependency `playwright` for the second half. Set
  * PVX_CHROMIUM to use a pre-installed browser.
@@ -122,6 +128,47 @@ function rules() {
     check('the last source cannot be removed', st.remove(0) === false && arr.length === 1, arr);
 }
 
+function bandRules() {
+    console.log('');
+    console.log(C.bold + 'PVX.thresholds.bind rules' + C.reset);
+    const T = loadCore().thresholds;
+    const scope = { config: { Thresholds: '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical' } };
+    const st = T.bind(scope);
+    check('bind publishes on runtimeData', scope.runtimeData.pvxBands === st);
+    check('one row per band, fields split out',
+        st.rows.length === 3 && st.rows[1].value === 70 && st.rows[1].hex === '#d99024' && st.rows[1].label === 'High', st.rows);
+    check('loading writes nothing', scope.config.Thresholds === '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical');
+
+    st.rows[1].value = 75; st.rows[1].label = 'Hi'; st.commit();
+    check('commit writes the grammar', scope.config.Thresholds === '0:#2f9e5f:Normal, 75:#d99024:Hi, 90:#c8452f:Critical', scope.config.Thresholds);
+    st.rows[0].hex = '#123456'; st.setColor(st.rows[0]);
+    check('picking a colour writes it', /^0:#123456:Normal,/.test(scope.config.Thresholds), scope.config.Thresholds);
+
+    st.rows[2].label = 'Trip, now; really'; st.commit();
+    check('separators in a label cannot split the band',
+        st.rows[2].label === 'Trip now really' && T.parse(scope.config.Thresholds).length === 3, scope.config.Thresholds);
+
+    st.rows[1].value = null; st.commit();
+    check('a band with no limit stays as a flagged row', st.rows.length === 3 && st.rows[1].invalid && st.hasInvalid(), st.rows[1]);
+    check('...and is left out of the string', T.parse(scope.config.Thresholds).length === 2, scope.config.Thresholds);
+    st.rows[1].value = 50; st.commit();
+
+    st.add();
+    check('add appends above the highest limit', st.rows.length === 4 && st.rows[3].value === 100, st.rows[3]);
+    st.remove(0);
+    check('remove drops that band', st.rows.length === 3 && !/Normal/.test(scope.config.Thresholds), scope.config.Thresholds);
+
+    st.rows[0].value = 95; st.commit();
+    check('out-of-order rows are reported', st.unsorted() === true);
+    st.sort();
+    check('sort puts the lowest limit first', st.rows[0].value === 90 && !st.unsorted(), st.rows.map((r) => r.value));
+
+    const named = T.bind({ config: { Thresholds: '0:red:Bad' } });
+    check('a colour the picker cannot show is kept until changed', named.rows[0].color === 'red', named.rows[0]);
+    const empty = T.bind({ config: {} });
+    check('no Thresholds key -> no rows, no crash', empty.rows.length === 0);
+}
+
 /* ------------------------------------------------------------------- pane */
 
 function pageHtml(typeName) {
@@ -169,8 +216,11 @@ async function mount(a) {
     scope.runtimeData = { isEditMode: true };
     scope.symbol = { Name: a.typeName, DataSources: a.sources };
     const tpl = await fetch('/dist/ext/sym-' + a.typeName + '-template.html').then((r) => r.text());
-    const el = $compile(tpl)(scope);
-    angular.element(document.getElementById('box')).append(el);
+    // A wrapper around the template, as PI Vision passes init().
+    const host = document.createElement('div');
+    host.style.cssText = 'width:100%;height:100%';
+    document.getElementById('box').appendChild(host);
+    const el = angular.element(host).append($compile(tpl)(scope));
     const cfg = await fetch('/dist/ext/sym-' + a.typeName + '-config.html').then((r) => r.text());
     angular.element(document.getElementById('pane')).append($compile(cfg)(scope));
     new def.visObjectType().init(scope, el, undefined);
@@ -228,6 +278,49 @@ async function pane() {
         check('single-source symbol lists its source', await page.locator('.pvx-cfg-src-row').count() === 1);
         check('...and offers no Remove', await page.locator('.pvx-cfg-src-btn').count() === 0);
 
+        console.log('');
+        console.log(C.bold + 'Band editor (built pane)' + C.reset);
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxRadialGauge', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, {
+            typeName: 'pvxRadialGauge',
+            config: { Thresholds: '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical' },
+            sources: ['pi:\\\\srv\\SINUSOID?c']
+        });
+        const bands = page.locator('.pvx-cfg-band-row');
+        check('one row per band', await bands.count() === 3, await bands.count());
+        check('no grammar text box by default', await page.locator('textarea[ng-model="config.Thresholds"]').count() === 0);
+        check('row shows limit, colour, label',
+            await bands.nth(1).locator('input[type="number"]').inputValue() === '70' &&
+            await bands.nth(1).locator('input[type="color"]').inputValue() === '#d99024' &&
+            await bands.nth(1).locator('input[type="text"]').inputValue() === 'High');
+
+        await bands.nth(1).locator('input[type="number"]').fill('65');
+        await bands.nth(1).locator('input[type="text"]').fill('Warning');
+        const typed = await page.evaluate(() => window.__scope.config.Thresholds);
+        check('typing rewrites config.Thresholds', typed === '0:#2f9e5f:Normal, 65:#d99024:Warning, 90:#c8452f:Critical', typed);
+
+        await bands.nth(0).locator('input[type="color"]').evaluate((el) => {
+            el.value = '#336699';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        const picked = await page.evaluate(() => window.__scope.config.Thresholds);
+        check('picking a colour rewrites it', /^0:#336699:Normal,/.test(picked), picked);
+
+        await page.locator('.pvx-cfg-band-add').click();
+        check('Add band adds a row', await bands.count() === 4);
+        await bands.nth(0).locator('.pvx-cfg-band-x').click();
+        const removed = await page.evaluate(() => window.__scope.config.Thresholds);
+        check('the x removes that band', await bands.count() === 3 && !/Normal/.test(removed), removed);
+
+        await page.locator('.pvx-cfg-band-link', { hasText: 'Edit as text' }).click();
+        const box = page.locator('textarea[ng-model="config.Thresholds"]');
+        check('Edit as text shows the grammar', await box.count() === 1 && await box.inputValue() === removed, await box.inputValue());
+        await box.fill('10:#000000:Low, 20:#ffffff:High');
+        await page.locator('.pvx-cfg-band-link', { hasText: 'Back to fields' }).click();
+        check('text edits come back as rows', await bands.count() === 2 &&
+            await bands.nth(1).locator('input[type="text"]').inputValue() === 'High', await bands.count());
+
         check('no page errors', errors.length === 0, errors);
     } finally {
         await browser.close();
@@ -238,6 +331,7 @@ async function pane() {
 (async () => {
     try {
         rules();
+        bandRules();
         await pane();
     } catch (e) {
         failures += 1;

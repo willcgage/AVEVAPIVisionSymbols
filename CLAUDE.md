@@ -19,7 +19,7 @@ short, sharp list of things that will waste your time if you do not know them.
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal: rules + built pane
+node tools/test-sources.js           # data source removal + band editor: rules + built pane
 node tools/test-afpick.js            # AF path browser: rules + built panes vs a mock AF tree
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
@@ -136,7 +136,9 @@ silently destroys a site's PI Web API settings on upgrade.
   is written as a plain path by the pane's own ng-click, so saved displays
   are unaffected. Proven against a mock AF tree, not yet on a server.
 - One threshold grammar everywhere:
-  `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`.
+  `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
+  rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
+  `scope.runtimeData.pvxBands`); the stored value is still that string.
 
 ---
 
@@ -149,6 +151,13 @@ Each of these cost real debugging time. Do not rediscover them.
   first *element* node — use them, never `elem[0]`.
 - **Re-resolve the host every frame.** `ng-if` swaps the DOM node out; a host
   captured at init paints into a detached element at the wrong size.
+- **PI Vision's `elem` is a wrapper, not the template root.** Theme tokens
+  written as inline `--pvx-*` properties on it lost to the fallbacks each
+  `styles.css` declares on the `.pvx-*` root, so Transparent, dark theme and
+  BackgroundColor did nothing on a live server in 1.8.0 while the harness,
+  which passed the bare template, looked fine. `PVX.bootstrap` resolves
+  `ctx.node` to the `.pvx` root; the harnesses mount templates inside a
+  wrapper, and `verify.js` fails any `--pvx-*` written above the root.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were

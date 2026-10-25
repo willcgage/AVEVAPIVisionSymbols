@@ -309,6 +309,7 @@ function build() {
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
     const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html'));
+    const bandsEditor = read(path.join(SHARED_DIR, 'config-bands.html'));
     const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
 
     // --- symbols ----------------------------------------------------------
@@ -336,7 +337,8 @@ function build() {
 
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'), withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane));
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'),
+            withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -405,6 +407,21 @@ function withSourcesPane(typeName, config, pane) {
         return config;
     }
     return m[0] + pane + config.slice(m[0].length);
+}
+
+// Threshold bands are edited as rows (limit, colour, label), not by typing
+// the grammar. A pane asks for that editor with the marker below, where the
+// control would go; a pane that binds config.Thresholds to a control of its
+// own is refused, so no symbol quietly keeps the old text box.
+const BANDS_MARKER = /^[ \t]*<!-- pvx:bands -->[ \t]*\n/m;
+
+function withBandsEditor(typeName, config, editor) {
+    if (/ng-model="config\.Thresholds"/.test(config.replace(BANDS_MARKER, ''))) {
+        problem(typeName, 'config.html binds config.Thresholds itself; put <!-- pvx:bands --> on its own line ' +
+            'where the control goes and the build injects the shared band editor');
+        return config;
+    }
+    return config.replace(BANDS_MARKER, () => editor);
 }
 
 // Fields that take an AF path say so with a marker after their input:

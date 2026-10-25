@@ -62,7 +62,7 @@ jobs:
       # Removing a data source renumbers positional config (TraceSpec, Sankey
       # links, hotspots). Wrong renumbering draws the wrong attribute with no
       # error, so every rule and the built format pane are exercised here.
-      - name: Verify data source removal
+      - name: Verify data source removal and band editor
         run: node tools/test-sources.js
 
       # The AF path browser decides what path is SAVED with a display, and

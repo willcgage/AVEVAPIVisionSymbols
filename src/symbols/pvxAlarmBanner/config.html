@@ -228,13 +228,10 @@
             <input id="pvxab-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxab-thresh">Threshold bands</label>
-            <textarea id="pvxab-thresh" ng-model="config.Thresholds" rows="3"></textarea>
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">
-            <code>lowerLimit:colour:label</code>, comma separated, lowest first. Position in
-            this list <em>is</em> the severity &mdash; the last band is the worst.
-        </div>
+        <div class="pvx-cfg-hint">Band order <em>is</em> the severity &mdash; the band with the highest limit is the worst.</div>
     </div>
 
 </div>

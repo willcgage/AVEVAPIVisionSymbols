@@ -78,14 +78,10 @@
             <input id="pvxrg-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxrg-thresh">Bands</label>
-            <textarea id="pvxrg-thresh" ng-model="config.Thresholds" rows="3"
-                      placeholder="0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical"></textarea>
+            <div class="pvx-cfg-label">Bands</div>
+            <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">
-            One band per entry: <code>lowerLimit:colour:label</code>, separated by commas.
-            Each band applies from its limit up to the next one.
-        </div>
+        <div class="pvx-cfg-hint">Each band applies from its limit up to the next one.</div>
         <div class="pvx-cfg-row">
             <label for="pvxrg-showbands">Show bands on dial</label>
             <input id="pvxrg-showbands" type="checkbox" ng-model="config.ShowBands" />
