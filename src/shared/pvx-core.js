@@ -21,7 +21,7 @@
     var PVX = root.PVX || {};
     root.PVX = PVX;
 
-    PVX.version = '1.7.1';
+    PVX.version = '1.8.0';
     PVX.SVG_NS = 'http://www.w3.org/2000/svg';
 
     /* ------------------------------------------------------------------ *
