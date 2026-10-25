@@ -20,7 +20,7 @@ node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal + band editor: rules + built pane
-node tools/test-afpick.js            # AF path browser: rules + built panes vs a mock AF tree
+node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -130,12 +130,19 @@ silently destroys a site's PI Web API settings on upgrade.
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
   through `scope.runtimeData`; proven live on a server in 1.8.0 (list, Remove,
   and the removal surviving save and reload).
-- A field that takes an AF path gets a **Browse** panel from a marker after its
+- A field that takes an AF path gets a **Search** pane from a marker after its
   input, `<!-- pvx:afpicker key=DatabasePath kind=database -->` (optional
   `start=<key>`, `append=entryRow|navItem`), expanded by `build.js` from
-  `src/shared/config-afpicker.html`. `PVX.afpick` walks PI Web API; the pick
-  is written as a plain path by the pane's own ng-click, so saved displays
-  are unaffected. Proven against a mock AF tree, not yet on a server.
+  `src/shared/config-afpicker.html`. It copies PI Vision's own Search
+  Criteria pane (Database, Search Root, Return All Descendants, Asset Name,
+  Asset Type + attribute value filters, Asset Category, Number of Results,
+  Sort, Refresh) because Will asked for the baseline experience, not a text
+  box. `PVX.afpick` uses the element collection endpoints, and switches to
+  `elements/search` (AFSearch query) only when an attribute filter is set,
+  saying so if that endpoint is missing. The pick is written as a plain path
+  by the pane's own ng-click, so saved displays are unaffected. Proven
+  against a mock AF database, not yet on a server; the AFSearch syntax is
+  the least certain part.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on

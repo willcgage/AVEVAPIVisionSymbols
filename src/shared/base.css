@@ -434,9 +434,9 @@
     box-sizing: border-box;
 }
 
-/* AF path browser, expanded under each AF path field by build.js. The list
-   scrolls inside a fixed height so a 200-element level does not push the
-   rest of the pane out of reach. */
+/* AF search pane, expanded under each AF path field by build.js. The result
+   list scrolls inside a fixed height so a hundred hits do not push the rest
+   of the format pane out of reach. */
 .pvx-cfg-af { margin: 3px 0 0 0; }
 
 .pvx-cfg-af-panel {
@@ -447,17 +447,64 @@
     font-size: 12px;
 }
 
-.pvx-cfg-af-trail {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    margin-bottom: 4px;
+.pvx-cfg-af-title { font-weight: 700; margin-bottom: 4px; }
+
+/* One criterion per line, label above control, as PI Vision's pane has it. */
+.pvx-cfg-af-field {
+    display: block;
+    margin: 0 0 5px 0;
 }
 
-.pvx-cfg-af-sep { opacity: 0.5; padding: 0 1px; }
+.pvx-cfg-af-field > select,
+.pvx-cfg-af-field > input,
+.pvx-cfg-af-inline > input {
+    display: block;
+    width: 100%;
+    font-size: 12px;
+    padding: 2px 4px;
+    margin-top: 1px;
+    box-sizing: border-box;
+}
 
-.pvx-cfg-af-crumb,
+.pvx-cfg-af-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 1px;
+}
+
+.pvx-cfg-af-inline > input { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 0; }
+
+.pvx-cfg-af-check { display: inline-flex; align-items: center; gap: 3px; margin: 0 0 5px 0; }
+.pvx-cfg-af-inline .pvx-cfg-af-check { margin: 0; }
+
+.pvx-cfg-af-filters { margin: 0 0 5px 8px; }
+
+.pvx-cfg-af-filter {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 3px;
+}
+
+.pvx-cfg-af-filter select,
+.pvx-cfg-af-filter input { font-size: 12px; min-width: 0; }
+.pvx-cfg-af-filter select:first-child { flex: 1 1 40%; }
+.pvx-cfg-af-filter input { flex: 1 1 30%; width: 40px; }
+
+.pvx-cfg-af-actions { margin: 2px 0 5px 0; }
+
+.pvx-cfg-af-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 2px 0;
+    padding-top: 4px;
+    border-top: 1px solid rgba(128, 128, 128, 0.35);
+    font-weight: 700;
+}
+
 .pvx-cfg-af-name {
     font: inherit;
     color: inherit;
@@ -466,17 +513,6 @@
     padding: 1px 2px;
     cursor: pointer;
     text-align: left;
-}
-
-.pvx-cfg-af-crumb { text-decoration: underline; }
-.pvx-cfg-af-crumb[disabled] { text-decoration: none; font-weight: 700; cursor: default; }
-
-.pvx-cfg-af-search {
-    width: 100%;
-    font-size: 12px;
-    padding: 3px 5px;
-    margin-bottom: 4px;
-    box-sizing: border-box;
 }
 
 .pvx-cfg-af-list { max-height: 220px; overflow-y: auto; }

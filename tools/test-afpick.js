@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /* ============================================================================
- * PVX afpick test — choosing AF paths in a format pane instead of typing them.
+ * PVX afpick test — finding AF objects the way PI Vision's Search Criteria
+ * pane does, instead of typing their paths.
  * ----------------------------------------------------------------------------
  *   node tools/build.js && node tools/test-afpick.js
  *
  * Two halves:
  *
- *   rules    PVX.afpick in plain Node: path splitting, the breadcrumb, and the
- *            line each list grammar appends. These decide what is SAVED, so a
- *            mistake here is a display that loads with a wrong path in it.
+ *   rules    PVX.afpick in plain Node: path splitting, the search root, the
+ *            name filter, the AFSearch query, sorting, and the line each list
+ *            grammar appends. These decide what is SEARCHED and what is
+ *            SAVED, so a mistake here is a filter that silently matches the
+ *            wrong assets or a display that loads with a wrong path.
  *   pane     the BUILT format panes in real Chromium against a mock PI Web
- *            API: Browse opens beside the current value, drills and searches,
- *            Use writes a plain path into the bound config key, a list field
- *            gets a line in its own grammar, a bad path falls back to the
- *            nearest level that opens and says so, and an unconfigured site
- *            is told where to configure it.
+ *            API: every criterion reaches the request it should, attribute
+ *            filters go through elements/search, Root and Up move the search
+ *            root, Use writes a plain path into the bound config key, a list
+ *            field gets a line in its own grammar, and every failure (a root
+ *            outside the database, one that does not exist, a PI Web API
+ *            without elements/search, an unconfigured site) is said aloud.
  *
  * Requires the dev dependency `playwright` for the second half. Set
  * PVX_CHROMIUM to use a pre-installed browser.
@@ -48,7 +52,7 @@ if (!fs.existsSync(CORE)) {
 /* ------------------------------------------------------------------ rules */
 
 function loadCore() {
-    const win = { console: console, setTimeout: setTimeout, clearTimeout: clearTimeout };
+    const win = { console: console, setTimeout: setTimeout, clearTimeout: clearTimeout, Promise: Promise };
     win.window = win;
     vm.createContext(win);
     vm.runInContext(fs.readFileSync(CORE, 'utf8'), win, { filename: 'pvx-core.js' });
@@ -65,13 +69,38 @@ function rules() {
         'server,database,element,attribute,root');
     check('parent of a child attribute drops one attribute', A.parent('\\\\S\\DB\\E|a|b') === '\\\\S\\DB\\E|a', A.parent('\\\\S\\DB\\E|a|b'));
     check('parent of an attribute is its element', A.parent('\\\\S\\DB\\E|a') === '\\\\S\\DB\\E', A.parent('\\\\S\\DB\\E|a'));
-    check('parent of a server is the top', A.parent('\\\\S') === '', A.parent('\\\\S'));
     check('spaces inside names survive', A.parent('\\\\S\\Prod DB\\Site A\\Pump 1') === '\\\\S\\Prod DB\\Site A');
 
-    const cr = A.crumbs({ type: 'attribute', path: '\\\\S\\DB\\E|a' });
-    check('crumbs: one per level, each navigable by its own path',
-        cr.map((c) => c.type + '=' + c.path).join(' ') ===
-        'root= server=\\\\S database=\\\\S\\DB element=\\\\S\\DB\\E attribute=\\\\S\\DB\\E|a', cr);
+    const DB = '\\\\S\\Prod';
+    check('relRoot: a full path inside the database becomes relative',
+        A.relRoot('\\\\S\\Prod\\Area 2\\Line 1', DB) === 'Area 2\\Line 1', A.relRoot('\\\\S\\Prod\\Area 2\\Line 1', DB));
+    check('relRoot: the database itself is no root at all', A.relRoot('\\\\s\\prod\\', DB) === '');
+    check('relRoot: a relative root is kept, leading and trailing slashes dropped',
+        A.relRoot(' \\Area 2\\ ', DB) === 'Area 2', A.relRoot(' \\Area 2\\ ', DB));
+    check('relRoot: a path in another database is refused, not searched', A.relRoot('\\\\S\\Lab\\X', DB) === null);
+    check('relRoot: a database whose name starts the same is still another database',
+        A.relRoot('\\\\S\\Production\\X', DB) === null);
+
+    check('nameFilter: plain text means "contains", as in PI Vision', A.nameFilter(' comp ') === '*comp*');
+    check('nameFilter: a typed wildcard is taken as typed', A.nameFilter('Comp?2*') === 'Comp?2*');
+    check('nameFilter: empty stays empty, so no filter is sent', A.nameFilter('  ') === '');
+    check('quote: an apostrophe switches to double quotes', A.quote("Bob's") === '"Bob\'s"' && A.quote('x') === "'x'");
+
+    const q = A.searchQuery({ rootRel: 'Area 2', descendants: false, name: 'comp', template: 'Compressor', category: 'Rotating',
+        attrs: [{ name: 'Status', op: '=', value: 'Running' }, { name: 'Discharge Pressure', op: '>=', value: ' 50 ' },
+                { name: '', op: '=', value: 'x' }, { name: 'Tag', op: '<', value: '1e3' }] });
+    check('searchQuery: every criterion, numbers bare, strings quoted, nameless filters left out',
+        q === "Root:'Area 2' AllDescendants:false Name:'*comp*' Template:'Compressor' Category:'Rotating' " +
+              "'|Status':'Running' '|Discharge Pressure':>=50 '|Tag':<1e3", q);
+    check('searchQuery: whole database with descendants is no Root and no AllDescendants',
+        A.searchQuery({ rootRel: '', descendants: true, name: '', attrs: [{ name: 'S', op: '<>', value: 'Off' }] }) === "'|S':<>'Off'");
+    check('searchQuery: an unknown operator falls back to equals',
+        A.searchQuery({ descendants: true, attrs: [{ name: 'S', op: 'LIKE', value: 'x' }] }) === "'|S':'x'");
+
+    const items = () => [{ name: 'b2', template: 'Pump' }, { name: 'A1', template: 'Valve' }, { name: 'a3', template: 'Pump' }];
+    check('sortItems: by name ignores case', A.sortItems(items(), 'name', 'asc').map((i) => i.name).join() === 'A1,a3,b2');
+    check('sortItems: descending', A.sortItems(items(), 'name', 'desc').map((i) => i.name).join() === 'b2,a3,A1');
+    check('sortItems: by asset type, then name', A.sortItems(items(), 'template', 'asc').map((i) => i.name).join() === 'a3,b2,A1');
 
     const it = { name: 'Charge', path: '\\\\S\\DB\\R1|Charge' };
     check('plain field: the pick is the path, nothing else',
@@ -93,59 +122,102 @@ function rules() {
 
 /* --------------------------------------------------------- mock PI Web API */
 
-// One AF server, two databases, a small hierarchy, and a Data Archive.
-// WebIDs are the path itself with a prefix, which keeps the mock honest:
-// a request for an object nobody resolved first cannot be answered.
+// One AF server with two databases, a small plant with asset types,
+// categories and attribute values, and a Data Archive. WebIDs are the path
+// with a prefix, which keeps the mock honest: an object nobody looked up
+// first cannot be asked for.
+const P = '\\\\AFSRV\\Production';
 const TREE = [
     ['server', '\\\\AFSRV'],
-    ['database', '\\\\AFSRV\\Production'],
+    ['database', P],
     ['database', '\\\\AFSRV\\Lab'],
-    ['element', '\\\\AFSRV\\Production\\Site A'],
-    ['element', '\\\\AFSRV\\Production\\Site A\\Reactor1'],
-    ['element', '\\\\AFSRV\\Production\\Site A\\Reactor2'],
-    ['element', '\\\\AFSRV\\Production\\Cooling'],
-    ['attribute', '\\\\AFSRV\\Production\\Site A\\Reactor1|Catalyst Charge'],
-    ['attribute', '\\\\AFSRV\\Production\\Site A\\Reactor1|Temp'],
-    ['attribute', '\\\\AFSRV\\Production\\Site A\\Reactor1|Temp|Setpoint'],
+    ['element', P + '\\Site A', 'Site', []],
+    ['element', P + '\\Site A\\Reactor1', 'Reactor', ['Process'], { Status: 'Running', Temp: 80 }],
+    ['element', P + '\\Site A\\Reactor2', 'Reactor', ['Process'], { Status: 'Idle', Temp: 40 }],
+    ['element', P + '\\Site B', 'Site', []],
+    ['element', P + '\\Site B\\Reactor3', 'Reactor', ['Process'], { Status: 'Running', Temp: 95 }],
+    ['element', P + '\\Cooling', 'Pump', ['Utility']],
+    ['attribute', P + '\\Site A\\Reactor1|Catalyst Charge'],
+    ['attribute', P + '\\Site A\\Reactor1|Status'],
+    ['attribute', P + '\\Site A\\Reactor1|Temp'],
+    ['attribute', P + '\\Site A\\Reactor1|Temp|Setpoint'],
     ['dataserver', '\\\\PISRV'],
     ['point', '\\\\PISRV\\SINUSOID'],
     ['point', '\\\\PISRV\\CDT158']
 ];
+const TEMPLATES = { Pump: [], Reactor: ['Catalyst Charge', 'Status', 'Temp'], Site: [] };
+const CATEGORIES = ['Process', 'Utility'];
+
 const byId = {};
 const byPath = {};
-TREE.forEach(([type, p]) => {
+const all = TREE.map(([type, p, template, cats, values]) => {
     const name = p.split(/[\\|]/).filter(Boolean).pop();
-    const o = { type, Path: p, Name: name, WebId: 'W' + type[0] + ':' + p };
+    const o = { type, Path: p, Name: name, WebId: 'W' + type[0] + ':' + p, template: template || '', cats: cats || [], values: values || {} };
     byId[o.WebId] = o;
     byPath[type + '|' + p.toLowerCase()] = o;
+    return o;
 });
 const parentOf = (o) => {
     const p = o.Path;
     const cut = Math.max(p.lastIndexOf('|'), p.lastIndexOf('\\'));
     return p.slice(0, cut);
 };
-const all = TREE.map(([t, p]) => byPath[t + '|' + p.toLowerCase()]);
 const kids = (o, type, deep) => all.filter((c) => c.type === type && (deep
     ? c.Path.toLowerCase().indexOf(o.Path.toLowerCase() + '\\') === 0
     : parentOf(c).toLowerCase() === o.Path.toLowerCase()));
 // PI Web API's HasChildren means child elements on an element, child
 // attributes on an attribute — never "has attributes".
-const out = (o) => ({ Name: o.Name, Path: o.Path, WebId: o.WebId,
+const out = (o) => ({ Name: o.Name, Path: o.Path, WebId: o.WebId, TemplateName: o.template, CategoryNames: o.cats,
     HasChildren: kids(o, o.type === 'attribute' ? 'attribute' : 'element', false).length > 0 });
 const like = (name, filter) => {
     if (!filter) { return true; }
-    const re = new RegExp('^' + filter.split('*').map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i');
+    const re = new RegExp('^' + filter.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*').replace(/\\\?/g, '.') + '$', 'i');
     return re.test(name);
 };
+const unq = (t) => (/^['"]/.test(t) ? t.slice(1, -1) : t);
+
+/** The AFSearch subset the pane writes, read back as a strict server would. */
+function afSearch(db, query) {
+    const crit = { descendants: true, attrs: [] };
+    const re = /('[^']*'|"[^"]*"|[^\s:'"]+):(<=|>=|<>|<|>)?('[^']*'|"[^"]*"|\S+)/g;
+    let m;
+    // Anything left over is syntax the pane should not be writing.
+    if (query.replace(re, '').trim()) { return null; }
+    re.lastIndex = 0;
+    while ((m = re.exec(query))) {
+        const key = unq(m[1]);
+        const val = unq(m[3]);
+        if (key[0] === '|') { crit.attrs.push({ name: key.slice(1), op: m[2] || '=', value: val, numeric: !/^['"]/.test(m[3]) }); continue; }
+        if (key === 'Root') { crit.root = val; } else if (key === 'AllDescendants') { crit.descendants = val !== 'false'; } else if (key === 'Name') { crit.name = val; } else if (key === 'Template') { crit.template = val; } else if (key === 'Category') { crit.category = val; } else { return null; }
+    }
+    let base = db;
+    if (crit.root) {
+        base = byPath['element|' + (db.Path + '\\' + crit.root).toLowerCase()];
+        if (!base) { return []; }
+    }
+    const cmp = { '=': (a, b) => a === b, '<>': (a, b) => a !== b, '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
+    return kids(base, 'element', crit.descendants).filter((o) => like(o.Name, crit.name) &&
+        (!crit.template || o.template === crit.template) &&
+        (!crit.category || o.cats.indexOf(crit.category) !== -1) &&
+        crit.attrs.every((f) => {
+            if (!(f.name in o.values)) { return false; }
+            const v = o.values[f.name];
+            return f.numeric ? cmp[f.op](Number(v), Number(f.value)) : cmp[f.op](String(v).toLowerCase(), f.value.toLowerCase());
+        }));
+}
 
 let requests = [];
+let noSearch = false;
 
 function api(req, res, url) {
-    const q = new URL(url, 'http://x').searchParams;
-    const rel = decodeURIComponent(new URL(url, 'http://x').pathname).replace(/^\/piwebapi\/?/, '');
-    requests.push(rel + (q.toString() ? '?' + q.toString() : ''));
+    const u = new URL(url, 'http://x');
+    const q = u.searchParams;
+    const rel = decodeURIComponent(u.pathname).replace(/^\/piwebapi\/?/, '');
+    requests.push(rel + (q.toString() ? '?' + decodeURIComponent(q.toString().replace(/\+/g, ' ')) : ''));
     const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
-    const items = (list) => send(200, { Items: list.slice(0, parseInt(q.get('maxCount') || '1000', 10)).map(out) });
+    const max = parseInt(q.get('maxCount') || '1000', 10);
+    const items = (list) => send(200, { Items: list.slice(0, max).map(out) });
+    const named = (list) => send(200, { Items: list.map((n) => (typeof n === 'string' ? { Name: n } : n)) });
 
     const byPathEp = { assetservers: 'server', dataservers: 'dataserver', assetdatabases: 'database', elements: 'element', attributes: 'attribute' };
     if (byPathEp[rel] && q.get('path')) {
@@ -154,12 +226,29 @@ function api(req, res, url) {
     }
     if (rel === 'assetservers') { return items(all.filter((o) => o.type === 'server')); }
     if (rel === 'dataservers') { return items(all.filter((o) => o.type === 'dataserver')); }
+    if (rel === 'elements/search') {
+        if (noSearch) { return send(404, { Errors: ['No such endpoint'] }); }
+        const db = byId[q.get('databaseWebId')];
+        const hits = db && afSearch(db, q.get('query') || '');
+        return hits ? items(hits) : send(400, { Errors: ['Bad query: ' + q.get('query')] });
+    }
+    const t = /^elementtemplates\/Wt:(.+)\/attributetemplates$/.exec(rel);
+    if (t && TEMPLATES[t[1]]) { return named(TEMPLATES[t[1]]); }
     const m = /^(\w+)\/([^/]+)\/(\w+)$/.exec(rel);
     if (m && byId[m[2]]) {
         const o = byId[m[2]];
+        if (m[3] === 'elementtemplates') {
+            return named(o.Path === P ? Object.keys(TEMPLATES).map((n) => ({ Name: n, WebId: 'Wt:' + n })) : []);
+        }
+        if (m[3] === 'elementcategories') { return named(o.Path === P ? CATEGORIES : []); }
         const want = { assetdatabases: 'database', elements: 'element', attributes: 'attribute', points: 'point' }[m[3]];
         const deep = q.get('searchFullHierarchy') === 'true';
-        return items(kids(o, want, deep).filter((c) => like(c.Name, q.get('nameFilter'))));
+        let list = kids(o, want, deep).filter((c) => like(c.Name, q.get('nameFilter')) &&
+            (!q.get('templateName') || c.template === q.get('templateName')) &&
+            (!q.get('categoryName') || c.cats.indexOf(q.get('categoryName')) !== -1));
+        list.sort((a, b) => (a.Name < b.Name ? -1 : 1));
+        if (q.get('sortOrder') === 'Descending') { list.reverse(); }
+        return items(list);
     }
     send(404, { Errors: ['No mock for ' + rel] });
 }
@@ -204,6 +293,17 @@ function serve() {
 /** Runs in the browser: mount symbol + pane, PI Web API pointed at the mock. */
 async function mount(a) {
     window.PVX.api.configure({ baseUrl: a.configured === false ? '' : location.origin + '/piwebapi', auth: 'anonymous' });
+    // Count requests in flight, so a test can wait for a chain of them
+    // (lists, then a search) rather than guess how long it takes.
+    const get = window.PVX.api.get;
+    window.__inflight = 0;
+    window.PVX.api.get = function () {
+        window.__inflight += 1;
+        const done = () => { window.__inflight -= 1; };
+        const p = get.apply(this, arguments);
+        p.then(done, done);
+        return p;
+    };
     const def = window.PVMock.get(a.typeName);
     const injector = angular.injector(['ng']);
     const $compile = injector.get('$compile');
@@ -224,7 +324,7 @@ async function mount(a) {
 
 async function pane() {
     console.log('');
-    console.log(C.bold + 'AF path browser (built panes)' + C.reset);
+    console.log(C.bold + 'AF search criteria pane (built panes)' + C.reset);
     const { chromium } = require('playwright');
     const server = await serve();
     const launchOpts = { args: ['--no-sandbox', '--disable-dev-shm-usage'] };
@@ -240,122 +340,234 @@ async function pane() {
         };
         const cfg = (k) => page.evaluate((key) => window.__scope.config[key], k);
         const panel = page.locator('.pvx-cfg-af-panel');
-        const names = async () => (await panel.locator('.pvx-cfg-af-name').allTextContents()).map((s) => s.trim());
-        const row = (name) => panel.locator('.pvx-cfg-af-row').filter({ has: page.locator('.pvx-cfg-af-name', { hasText: name }) }).first();
-        const settle = () => page.waitForFunction(() => {
-            const s = window.__scope.runtimeData.pvxAf;
-            return s && !s.busy;
-        }).then(() => page.waitForTimeout(30));
+        const settle = async () => {
+            await page.waitForTimeout(40);
+            await page.waitForFunction(() => {
+                const s = window.__scope.runtimeData.pvxAf;
+                return s && !s.busy && window.__inflight === 0;
+            });
+            await page.waitForTimeout(40);
+        };
+        const names = async () => (await panel.locator('.pvx-cfg-af-name').allTextContents()).map((x) => x.trim());
+        // By the name itself, so 'Site A' is not "Reactor1 in Site A".
+        const exact = (name) => new RegExp('^\\s*' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '( in .*)?\\s*$');
+        const row = (name) => panel.locator('.pvx-cfg-af-row').filter({ has: page.locator('.pvx-cfg-af-name', { hasText: exact(name) }) }).first();
+        const field = (label) => panel.locator('label.pvx-cfg-af-field', { hasText: label });
+        const pick = async (label, option) => { await field(label).locator('select').first().selectOption({ label: option }); await settle(); };
+        const refresh = async () => { await panel.locator('.pvx-cfg-af-refresh').click(); await settle(); };
+        const msg = async () => ((await panel.locator('.pvx-cfg-af-msg').count()) ? (await panel.locator('.pvx-cfg-af-msg').textContent()) : '') || '';
+        const note = async () => (await panel.locator('.pvx-cfg-hint').allTextContents()).join(' ');
+        const last = (re) => requests.filter((r) => re.test(r)).pop() || '';
+        const options = async (label) => (await field(label).locator('select option').allTextContents()).map((x) => x.trim());
 
         // --- Asset Tree: a database, then an element inside it ---
         await open('pvxAssetTree', { DatabasePath: '', RootElementPath: '' });
-        const browse = page.locator('.pvx-cfg-af-toggle');
-        check('one Browse per AF path field', await browse.count() === 2, await browse.count());
-        check('nothing is requested until Browse is pressed',
-            !requests.some((r) => /^assetservers/.test(r)), requests);
+        const toggle = page.locator('.pvx-cfg-af-toggle');
+        check('one Search button per AF path field', await toggle.count() === 2, await toggle.count());
+        check('nothing is requested until Search is pressed', !requests.some((r) => /^assetservers/.test(r)), requests);
 
-        await browse.nth(0).click();
+        await toggle.nth(0).click();
         await settle();
-        check('a database field starts at the server list, AF servers only', (await names()).join() === 'AFSRV', await names());
-        await row('AFSRV').locator('.pvx-cfg-af-name').click();
-        await settle();
-        check('a server lists its databases', (await names()).join() === 'Production,Lab', await names());
-        check('a database field does not drill into a database',
-            await row('Production').locator('.pvx-cfg-af-name').isDisabled());
-        await row('Production').locator('button', { hasText: 'Use' }).click();
-        check('Use writes the plain path into the bound key', await cfg('DatabasePath') === '\\\\AFSRV\\Production', await cfg('DatabasePath'));
-        check('...shows it in the text box', await page.inputValue('#pvxat-db') === '\\\\AFSRV\\Production');
-        check('...and closes the browser', await panel.count() === 0);
+        check('the pane is headed Search Criteria, as PI Vision\'s is',
+            (await panel.locator('.pvx-cfg-af-title').textContent()).trim() === 'Search Criteria');
+        check('Database lists every database on the AF server', (await options('Database')).join() === 'Lab,Production', await options('Database'));
+        check('a database field shows no asset criteria', await field('Asset Name').count() === 0 && await field('Search Root').count() === 0);
+        await pick('Database', 'Lab');
+        await panel.locator('button', { hasText: 'Use this database' }).click();
+        check('Use writes the plain database path into the bound key', await cfg('DatabasePath') === '\\\\AFSRV\\Lab', await cfg('DatabasePath'));
+        check('...shows it in the text box', await page.inputValue('#pvxat-db') === '\\\\AFSRV\\Lab');
+        check('...and closes the pane', await panel.count() === 0);
 
-        await browse.nth(1).click();
+        await page.fill('#pvxat-db', P);
+        await toggle.nth(1).click();
         await settle();
-        check('an element field opens inside the database already chosen',
-            (await names()).join() === 'Site A,Cooling', await names());
-        check('the breadcrumb leads back up',
-            (await panel.locator('.pvx-cfg-af-crumb').allTextContents()).join('>') === 'All servers>AFSRV>Production');
+        check('an element field opens on the database already chosen',
+            await field('Database').locator('select option:checked').textContent() === 'Production');
+        check('...and lists its top level at once, by name', (await names()).join() === 'Cooling,Site A,Site B', await names());
+        check('Asset Type lists the database\'s element templates', (await options('Asset Type')).join() === 'Any,Pump,Reactor,Site', await options('Asset Type'));
+        check('Asset Category lists its categories', (await options('Asset Category')).join() === 'Any,Process,Utility', await options('Asset Category'));
+        check('a result shows its asset type', (await row('Cooling').locator('.pvx-cfg-af-type').textContent()).trim() === 'Pump');
 
-        await panel.locator('.pvx-cfg-af-search').fill('reac');
-        await page.waitForTimeout(450);
-        await settle();
-        const hits = await names();
-        check('search finds elements anywhere below, and says where',
-            hits.length === 2 && hits[0] === 'Reactor1 in Site A', hits);
-        check('search is one server-side request, not a walk',
-            requests.filter((r) => /searchFullHierarchy=true/.test(r) && /nameFilter=\*reac\*/.test(r)).length === 1,
-            requests.filter((r) => /nameFilter/.test(r)));
-        await row('Reactor1').locator('button', { hasText: 'Use' }).click();
-        check('the picked element is stored as its path',
-            await cfg('RootElementPath') === '\\\\AFSRV\\Production\\Site A\\Reactor1', await cfg('RootElementPath'));
+        await field('Asset Name').locator('input').fill('reac');
+        await refresh();
+        check('a name below the top level is not found without Return All Descendants', (await names()).length === 0, await names());
+        check('...and the pane says nothing matched', /Nothing matches/.test(await note()), await note());
+        await panel.locator('label', { hasText: 'Return All Descendants' }).locator('input').check();
+        await refresh();
+        check('with descendants: every match, and where each lives',
+            (await names()).join() === 'Reactor1 in Site A,Reactor2 in Site A,Reactor3 in Site B', await names());
+        check('...as one server-side request with the criteria as parameters',
+            /searchFullHierarchy=true/.test(last(/\/elements\?/)) && /nameFilter=\*reac\*/.test(last(/\/elements\?/)), last(/\/elements\?/));
 
-        await browse.nth(1).click();
+        await field('Asset Name').locator('input').fill('');
+        await pick('Asset Type', 'Reactor');
+        await panel.locator('label', { hasText: 'Descending' }).locator('input').check();
+        await refresh();
+        check('Asset Type and Descending narrow and order the list',
+            (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor3,Reactor2,Reactor1', await names());
+        check('...through templateName and sortOrder', /templateName=Reactor/.test(last(/\/elements\?/)) &&
+            /sortOrder=Descending/.test(last(/\/elements\?/)), last(/\/elements\?/));
+
+        await panel.locator('button', { hasText: '+ Attribute filter' }).click();
+        const filter = panel.locator('.pvx-cfg-af-filter').first();
+        check('an attribute filter offers the asset type\'s attributes',
+            (await filter.locator('select').first().locator('option').allTextContents()).join() === 'Attribute…,Catalyst Charge,Status,Temp');
+        await filter.locator('select').first().selectOption({ label: 'Status' });
+        await filter.locator('input').fill('Running');
+        await refresh();
+        check('Status = Running finds only the running reactors',
+            (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor3,Reactor1', await names());
+        const sq = last(/^elements\/search/);
+        check('...through elements/search, with the criteria as an AFSearch query',
+            /databaseWebId=Wd:/.test(sq) && /query=Template:'Reactor' '\|Status':'Running'/.test(sq), sq);
+        await filter.locator('select').nth(1).selectOption('>=');
+        await filter.locator('select').first().selectOption({ label: 'Temp' });
+        await filter.locator('input').fill('90');
+        await refresh();
+        check('Temp >= 90 compares numbers, not text', (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor3', await names());
+        await panel.locator('button', { hasText: '+ Attribute filter' }).click();
+        await refresh();
+        check('a filter with no attribute chosen is left out, and the pane says so',
+            /1 attribute filter has no attribute chosen/.test(await note()) && (await names()).length === 1, await note());
+        await panel.locator('.pvx-cfg-af-filter').nth(1).locator('button').click();
+
+        noSearch = true;
+        await refresh();
+        check('a PI Web API without elements/search says so instead of ignoring the filters',
+            /no elements\/search endpoint/.test(await msg()) && (await names()).length === 0, await msg());
+        noSearch = false;
+        await panel.locator('.pvx-cfg-af-filter').first().locator('button').click();
+        await pick('Asset Type', 'Any');
+        await panel.locator('label', { hasText: 'Ascending' }).locator('input').check();
+        await refresh();
+
+        await row('Site A').locator('button', { hasText: 'Root' }).click();
         await settle();
-        check('reopening starts beside the current value',
-            (await names()).join() === 'Reactor1,Reactor2', await names());
-        await browse.nth(1).click();
+        check('Root makes an element the Search Root', await field('Search Root').locator('input').inputValue() === 'Site A');
+        check('...and searches below it', (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor1,Reactor2', await names());
+        check('a leaf element offers no Root', await row('Reactor1').locator('button', { hasText: 'Root' }).count() === 0);
+        await panel.locator('button', { hasText: 'Up' }).click();
+        await settle();
+        check('Up returns to the level above', await field('Search Root').locator('input').inputValue() === '' &&
+            (await names()).length === 6, await names());
+
+        await pick('Asset Category', 'Utility');
+        await refresh();
+        check('Asset Category narrows by category', (await names()).join() === 'Cooling', await names());
+        await pick('Asset Category', 'Any');
+        await field('Number of Results').locator('input').fill('2');
+        await refresh();
+        check('Number of Results caps the list and says there are more',
+            (await names()).length === 2 && /Showing the first 2/.test(await note()), await note());
+        await field('Number of Results').locator('input').fill('100');
+
+        await panel.locator('.pvx-cfg-af-inline select').selectOption({ label: 'Asset Type' });
+        await refresh();
+        check('Sort by Asset Type groups by template, then name',
+            (await panel.locator('.pvx-cfg-af-type').allTextContents()).map((x) => x.trim()).join() === 'Pump,Reactor,Reactor,Reactor,Site,Site');
+
+        await field('Search Root').locator('input').fill('Nowhere');
+        await refresh();
+        check('a Search Root that does not exist is named', /Nowhere could not be found/.test(await msg()), await msg());
+        await field('Search Root').locator('input').fill('\\\\AFSRV\\Lab\\Bench');
+        await refresh();
+        check('a Search Root in another database is refused, not searched', /is not in \\\\AFSRV\\Production/.test(await msg()), await msg());
+        await field('Search Root').locator('input').fill('\\\\AFSRV\\Production\\Site B');
+        await refresh();
+        check('a full path for the Search Root is accepted', (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor3', await names());
+
+        await row('Reactor3').locator('button', { hasText: 'Use' }).click();
+        check('the picked element is stored as its full path', await cfg('RootElementPath') === P + '\\Site B\\Reactor3', await cfg('RootElementPath'));
+        check('...and the pane closes', await panel.count() === 0);
+        await toggle.nth(1).click();
+        await settle();
+        check('reopening starts at the current value\'s parent, with the value listed',
+            await field('Search Root').locator('input').inputValue() === 'Site B' && (await names()).join() === 'Reactor3', await names());
+        await toggle.nth(1).click();
 
         await page.fill('#pvxat-db', '\\\\AFSRV\\Typo');
-        await browse.nth(0).click();
+        await page.fill('#pvxat-root', '');
+        await toggle.nth(1).click();
         await settle();
-        const miss = (await panel.locator('.pvx-cfg-af-msg').textContent()) || '';
-        check('a value missing from its own level says so', /AFSRV\\Typo is not in this list/.test(miss), miss);
-        await browse.nth(0).click();
-
-        await page.fill('#pvxat-root', '\\\\AFSRV\\Production\\Nowhere\\Pump 9');
-        await browse.nth(1).click();
-        await settle();
-        const msg = (await panel.locator('.pvx-cfg-af-msg').textContent()) || '';
-        check('a path whose parent does not resolve says so',
-            /Could not open \\\\AFSRV\\Production\\Nowhere/.test(msg) && /Not found/.test(msg), msg);
-        check('...and shows the nearest level that does', (await names()).join() === 'Site A,Cooling', await names());
+        check('a database PI Web API does not list is named', /AFSRV\\Typo is not a database PI Web API lists/.test(await note()), await note());
+        await toggle.nth(1).click();
 
         // --- Entry Table: rows appended in the sheet's own grammar ---
-        await open('pvxEntryTable', { ElementPath: '\\\\AFSRV\\Production\\Site A\\Reactor1', Rows: '' });
+        await open('pvxEntryTable', { ElementPath: P + '\\Site A\\Reactor1', Rows: '' });
         await page.locator('.pvx-cfg-af-toggle').nth(1).click();
         await settle();
-        check('a rows field opens at the element path', (await names()).join() === 'Catalyst Charge,Temp', await names());
+        check('a rows field opens on the element path\'s attributes',
+            (await names()).join() === 'Catalyst Charge,Status,Temp', await names());
         await row('Catalyst Charge').locator('button', { hasText: 'Add' }).click();
         check('a row under the element path is added bare', await cfg('Rows') === 'Catalyst Charge', await cfg('Rows'));
-        check('the browser stays open for the next row', await panel.count() === 1);
+        check('the pane stays open for the next row', await panel.count() === 1);
         await row('Catalyst Charge').locator('button', { hasText: 'Add' }).click();
         check('the same row is refused a second time, and the pane says so',
-            await cfg('Rows') === 'Catalyst Charge' && /already in the list/.test(await panel.locator('.pvx-cfg-af-msg').textContent()));
+            await cfg('Rows') === 'Catalyst Charge' && /already in the list/.test(await msg()));
         await row('Temp').locator('.pvx-cfg-af-name').click();
         await settle();
         await row('Setpoint').locator('button', { hasText: 'Add' }).click();
         check('a child attribute keeps its own pipe', await cfg('Rows') === 'Catalyst Charge\nTemp|Setpoint', await cfg('Rows'));
+        await panel.locator('button', { hasText: 'Back' }).click();
+        await settle();
+        check('Back from a child attribute returns to its element', (await names()).join() === 'Catalyst Charge,Status,Temp', await names());
+        await panel.locator('button', { hasText: 'Back' }).click();
+        await settle();
+        check('...and Back again returns to the search results', (await names()).map((n) => n.split(' ')[0]).join() === 'Reactor1,Reactor2', await names());
 
         // --- Manual Entry: a PI point is a valid pick too ---
         await open('pvxManualEntry', { AttributePath: '' });
         await page.locator('.pvx-cfg-af-toggle').click();
         await settle();
-        check('an attribute field also offers Data Archives', (await names()).join() === 'AFSRV,PISRV', await names());
-        await row('PISRV').locator('.pvx-cfg-af-name').click();
+        check('an attribute field also offers PI points', (await options('Database')).join() === 'Lab,Production,PI points on PISRV', await options('Database'));
+        await pick('Database', 'PI points on PISRV');
+        check('a Data Archive hides the AF-only criteria',
+            await field('Search Root').count() === 0 && await field('Asset Type').count() === 0 && await field('Point Name').count() === 1);
+        check('...and lists its points', (await names()).join() === 'CDT158,SINUSOID', await names());
+        await field('Point Name').locator('input').fill('sinu');
+        await field('Point Name').locator('input').press('Enter');
         await settle();
-        check('a Data Archive lists its points', (await names()).join() === 'SINUSOID,CDT158', await names());
+        check('Enter in a criterion runs the search', (await names()).join() === 'SINUSOID', await names());
         await row('SINUSOID').locator('button', { hasText: 'Use' }).click();
         check('a point is stored as \\\\server\\tag', await cfg('AttributePath') === '\\\\PISRV\\SINUSOID', await cfg('AttributePath'));
 
+        await page.fill('#pvxme-path', P + '\\Site A\\Reactor1|Temp');
+        await page.locator('.pvx-cfg-af-toggle').click();
+        await settle();
+        check('an attribute field reopens on its own element\'s attributes',
+            /Reactor1/.test(await panel.locator('.pvx-cfg-af-head').first().textContent()) &&
+            (await names()).join() === 'Catalyst Charge,Status,Temp', await names());
+
         // --- Nav Panel: only where an item takes an asset ---
         await open('pvxNavPanel', { Mode: 'display', Items: '' });
-        check('no Browse in display mode, where a line needs a display id first',
+        check('no Search in display mode, where a line needs a display id first',
             await page.locator('.pvx-cfg-af-toggle').count() === 0);
         await page.evaluate(() => { window.__scope.config.Mode = 'asset'; window.__scope.$digest(); });
         await page.locator('.pvx-cfg-af-toggle').click();
         await settle();
-        await row('AFSRV').locator('.pvx-cfg-af-name').click();
-        await settle();
-        await row('Production').locator('.pvx-cfg-af-name').click();
-        await settle();
+        await pick('Database', 'Production');
         await row('Cooling').locator('button', { hasText: 'Add' }).click();
-        check('asset mode adds "Label | path"', await cfg('Items') === 'Cooling | \\\\AFSRV\\Production\\Cooling', await cfg('Items'));
+        check('asset mode adds "Label | path"', await cfg('Items') === 'Cooling | ' + P + '\\Cooling', await cfg('Items'));
 
         // --- A site that has not configured PI Web API ---
         await open('pvxEventGantt', { DatabasePath: '' }, false);
         await page.locator('.pvx-cfg-af-toggle').click();
         await settle();
-        const nc = (await panel.locator('.pvx-cfg-af-msg').textContent()) || '';
-        check('unconfigured: the pane names the file to fix', /pvx-config\.js/.test(nc), nc);
+        check('unconfigured: the pane names the file to fix', /pvx-config\.js/.test(await msg()), await msg());
         check('...and the text box still takes a typed path', await page.isEditable('#pvxeg-db'));
+
+        if (process.env.PVX_AF_SHOT) {
+            await open('pvxAssetTree', { DatabasePath: P, RootElementPath: '' });
+            await page.locator('.pvx-cfg-af-toggle').nth(1).click();
+            await settle();
+            await pick('Asset Type', 'Reactor');
+            await panel.locator('label', { hasText: 'Return All Descendants' }).locator('input').check();
+            await panel.locator('button', { hasText: '+ Attribute filter' }).click();
+            await panel.locator('.pvx-cfg-af-filter select').first().selectOption({ label: 'Status' });
+            await panel.locator('.pvx-cfg-af-filter input').fill('Running');
+            await refresh();
+            await panel.screenshot({ path: process.env.PVX_AF_SHOT });
+        }
 
         check('no page errors', errors.length === 0, errors);
     } finally {
