@@ -216,7 +216,10 @@ Banner, Annunciator and Status Grid.
 
 A config field that takes an AF path must not be type-only. Put a marker on
 the line after its input, inside the same `pvx-cfg-stack`, and the build
-expands it into a **Browse** panel that walks PI Web API:
+expands it into a **Search** pane laid out like PI Vision's own Search
+Criteria pane (Database, Search Root, Return All Descendants, Asset Name,
+Asset Type with attribute value filters, Asset Category, Number of Results,
+Sort, Refresh), driven through PI Web API:
 
 ```html
 <input id="pvxat-db" type="text" ng-model="config.DatabasePath" />
@@ -227,11 +230,18 @@ expands it into a **Browse** panel that walks PI Web API:
 |---|---|
 | `key` | the config key the pick is written to; must be an `ng-model="config.<key>"` in the same pane |
 | `kind` | `database`, `element`, or `attribute` (which also accepts a PI point) |
-| `start` | optional: another key whose path the browser opens inside when this field is empty, e.g. `start=DatabasePath` |
+| `start` | optional: another key whose path the search opens on when this field is empty: a database selects it, an element (for an `attribute` field) opens on its attributes, e.g. `start=DatabasePath` |
 | `append` | optional: the field is a list and a pick adds a line in its grammar instead of replacing it: `entryRow` (EntryTable `Rows`), `navItem` (NavPanel `Items`) |
 
 The stored value is a plain path string, exactly what typing it would have
 produced, and the text box stays editable for a path PI Web API cannot see.
+A `database` field shows only the Database dropdown and a Use button; an
+`attribute` field also lists each PI Data Archive as a source, where the
+pane searches points by name. Attribute value filters go through
+`elements/search`; every other criterion is a parameter of the element
+collection endpoints, so a PI Web API without that search endpoint loses
+only the filters, and the pane says so rather than ignoring them.
+
 The build fails on a marker whose key the pane does not bind, an unknown
 kind or grammar, or a malformed marker. A new list grammar needs a case in
 `PVX.afpick.compose` and in `tools/test-afpick.js`.

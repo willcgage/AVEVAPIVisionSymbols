@@ -3166,15 +3166,19 @@
     };
 
     /* ------------------------------------------------------------------ *
-     * afpick — choosing an AF path in a format pane instead of typing it
+     * afpick — choosing AF objects in a format pane the way PI Vision does
      * ================================================================== *
-     * A database path typed by hand is the commonest way a PI Web API
-     * symbol ends up blank: one wrong backslash, a server's alias instead of
-     * its AF name, a database renamed last year. The person configuring the
-     * display can already see the AF tree in PI Vision's asset pane, but not
-     * from a text box, so every PVX field that takes an AF path gets a Browse
-     * button (expanded by tools/build.js from a marker in config.html) that
-     * walks PI Web API: servers, databases, elements, attributes.
+     * A path typed by hand is the commonest way a PI Web API symbol ends up
+     * blank: one wrong backslash, a server alias, a database renamed last
+     * year. 1.9.0 answered that with a tree browser and a name box, and it
+     * was not enough: the people configuring displays already know PI
+     * Vision's own Search Criteria pane (Database, Search Root, Return All
+     * Descendants, Asset Name, Asset Type with attribute filters, Asset
+     * Category, Number of Results, Sort, Refresh), and finding "every
+     * Compressor in Area 2 whose Status is Running" by clicking down a tree
+     * is not a thing anyone should have to do. So every PVX field that takes
+     * an AF path gets that same pane (expanded by tools/build.js from a
+     * marker in config.html), driven through PI Web API.
      *
      * WHAT IS STORED DOES NOT CHANGE
      *   Picking writes the item's plain Path into the same config key the
@@ -3184,17 +3188,18 @@
      *   expression, on the `config` its ng-model already binds, rather than
      *   from here — that is the one object guaranteed to be the one saved.
      *
-     * Navigation is by path, not by a stack of WebIDs: the breadcrumb is
-     * split out of the path string, and a crumb resolves its WebID when it is
-     * clicked. That is what lets the picker open where the field already
-     * points without walking down from the top first.
+     * TWO WAYS TO SEARCH
+     *   Without attribute filters the pane uses the long-standing element
+     *   collection endpoints, whose parameters are the criteria one for one.
+     *   Attribute VALUE filters exist only in AF's search syntax, so with any
+     *   filter set the same criteria are written as an AFSearch query and
+     *   sent to elements/search. Older PI Web API releases lack that
+     *   endpoint; the pane then says so instead of quietly dropping the
+     *   filters and returning a list that looks filtered and is not.
      */
     var afpick = PVX.afpick = {};
 
-    // A level larger than this is shown truncated, with a note saying so and
-    // pointing at search, rather than a pane that freezes on 30,000 tags.
-    afpick.MAX = 200;
-    afpick.DEBOUNCE_MS = 300;
+    afpick.DEFAULT_MAX = 100;
 
     // What each kind of field may be set to. A PI point counts as an
     // attribute because every attribute field resolves through
@@ -3204,6 +3209,8 @@
         element:   { element: true },
         attribute: { attribute: true, point: true }
     };
+
+    afpick.ops = ['=', '<>', '<', '<=', '>', '>='];
 
     /** '\\srv\db\A\B|x|y' -> {segs: ['srv','db','A','B'], attrs: ['x','y']} */
     afpick.split = function (p) {
@@ -3232,27 +3239,6 @@
         else { sp.segs.pop(); }
         if (!sp.segs.length) { return ''; }
         return '\\\\' + sp.segs.join('\\') + (sp.attrs.length ? '|' + sp.attrs.join('|') : '');
-    };
-
-    /** Breadcrumb for a node: one entry per level, each navigable by path. */
-    afpick.crumbs = function (node) {
-        var out = [{ name: 'All servers', type: 'root', path: '' }];
-        if (!node || node.type === 'root') { return out; }
-        if (node.type === 'dataserver') {
-            out.push({ name: node.name || afpick.split(node.path).segs[0], type: 'dataserver', path: node.path });
-            return out;
-        }
-        var sp = afpick.split(node.path);
-        var acc = '\\\\';
-        for (var i = 0; i < sp.segs.length; i++) {
-            acc += (i ? '\\' : '') + sp.segs[i];
-            out.push({ name: sp.segs[i], type: i === 0 ? 'server' : i === 1 ? 'database' : 'element', path: acc });
-        }
-        for (var j = 0; j < sp.attrs.length; j++) {
-            acc += '|' + sp.attrs[j];
-            out.push({ name: sp.attrs[j], type: 'attribute', path: acc });
-        }
-        return out;
     };
 
     /**
@@ -3286,11 +3272,86 @@
         return { value: text ? text + '\n' + line : line, added: true, line: line };
     };
 
+    /**
+     * A search root as the pane shows it — relative to the database, the way
+     * PI Vision writes it — from whatever was typed or picked. A full path
+     * outside the chosen database comes back null: searching it would mean
+     * searching some other database than the one the dropdown names.
+     */
+    afpick.relRoot = function (root, dbPath) {
+        var r = String(root === null || root === undefined ? '' : root).replace(/^\s+|\s+$/g, '').replace(/\\+$/, '');
+        if (!r) { return ''; }
+        if (!/^\\\\/.test(r)) { return r.replace(/^\\+/, ''); }
+        var db = String(dbPath || '').replace(/\\+$/, '');
+        if (r.toLowerCase() === db.toLowerCase()) { return ''; }
+        if (r.toLowerCase().indexOf(db.toLowerCase() + '\\') !== 0) { return null; }
+        return r.slice(db.length + 1);
+    };
+
+    /** A name filter as PI Vision's box behaves: no wildcard typed means "contains". */
+    afpick.nameFilter = function (name) {
+        var n = String(name === null || name === undefined ? '' : name).replace(/^\s+|\s+$/g, '');
+        if (!n) { return ''; }
+        return /[*?]/.test(n) ? n : '*' + n + '*';
+    };
+
+    /** Quote a value for AFSearch with whichever quote it does not contain. */
+    afpick.quote = function (v) {
+        var s = String(v === null || v === undefined ? '' : v);
+        return s.indexOf("'") === -1 ? "'" + s + "'" : '"' + s.replace(/"/g, '') + '"';
+    };
+
+    /**
+     * The criteria as an AFSearch query, for elements/search.
+     *   Root:'Area 2' AllDescendants:false Name:'*comp*' Template:'Compressor'
+     *   Category:'Rotating' '|Status':'Running' '|Discharge Pressure':>=50
+     * Numbers go bare so the comparison is numeric; everything else quoted.
+     * An attribute filter with no attribute name is skipped by the caller
+     * and reported, never sent as an empty token.
+     */
+    afpick.searchQuery = function (c) {
+        var t = [];
+        if (c.rootRel) { t.push('Root:' + afpick.quote(c.rootRel)); }
+        if (!c.descendants) { t.push('AllDescendants:false'); }
+        var nf = afpick.nameFilter(c.name);
+        if (nf) { t.push('Name:' + afpick.quote(nf)); }
+        if (c.template) { t.push('Template:' + afpick.quote(c.template)); }
+        if (c.category) { t.push('Category:' + afpick.quote(c.category)); }
+        var attrs = c.attrs || [];
+        for (var i = 0; i < attrs.length; i++) {
+            var a = attrs[i];
+            if (!a || !a.name) { continue; }
+            var op = afpick.ops.indexOf(a.op) === -1 || a.op === '=' ? '' : a.op;
+            var v = String(a.value === null || a.value === undefined ? '' : a.value).replace(/^\s+|\s+$/g, '');
+            var val = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(v) ? v : afpick.quote(v);
+            t.push(afpick.quote('|' + a.name) + ':' + op + val);
+        }
+        return t.join(' ');
+    };
+
+    /** Sort in place by name or asset type, then name; returns the array. */
+    afpick.sortItems = function (items, by, order) {
+        var dir = order === 'desc' ? -1 : 1;
+        var key = function (it) { return String((by === 'template' ? it.template : it.name) || '').toLowerCase(); };
+        items.sort(function (a, b) {
+            var ka = key(a), kb = key(b);
+            if (ka === kb && by === 'template') { ka = String(a.name).toLowerCase(); kb = String(b.name).toLowerCase(); }
+            return ka < kb ? -dir : ka > kb ? dir : 0;
+        });
+        return items;
+    };
+
     function afErr(e) {
         return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API request failed.';
     }
 
-    function afQs(parts) { return parts.length ? '?' + parts.join('&') : ''; }
+    function afQs(parts) {
+        var out = [];
+        for (var i = 0; i < parts.length; i++) { if (parts[i]) { out.push(parts[i]); } }
+        return out.length ? '?' + out.join('&') : '';
+    }
+
+    function afTrim(v) { return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, ''); }
 
     /**
      * Publish picker state for the format pane at runtimeData.pvxAf.
@@ -3300,47 +3361,40 @@
     afpick.bind = function (scope) {
         if (!scope) { return null; }
         if (!scope.runtimeData) { scope.runtimeData = {}; }
-        var webIds = {};        // type + path -> WebID, so crumbs resolve once
-        var seq = 0;            // latest request wins; slower replies are dropped
-        var timer = null;
+        var seq = 0;            // latest search wins; slower replies are dropped
+        var F = 'selectedFields=Items.Name;Items.Path;Items.WebId;Items.HasChildren;Items.TemplateName;Items.CategoryNames';
 
         var state = {
             key: '', kind: '', append: '',
-            node: null, trail: [], items: [],
-            query: '', busy: false, message: '', note: ''
+            sources: [],        // databases (and Data Archives for attribute fields)
+            crit: null,
+            templates: [], categories: [], attrNames: [],
+            results: [], searched: false,
+            focus: null,        // element or attribute whose attributes are listed
+            attributes: [],
+            ops: afpick.ops,
+            busy: false, message: '', note: ''
         };
 
-        // Replies arrive outside Angular, so ask for a digest or the pane sits
-        // on "Loading" until something unrelated happens to trigger one.
         var digest = function () {
+            // Replies arrive outside Angular, so ask for a digest or the pane
+            // sits on "Searching" until something unrelated triggers one.
             try { if (scope.$evalAsync) { scope.$evalAsync(function () {}); } } catch (e) { /* no Angular: tests */ }
         };
 
-        var mark = function (type, path, id) { if (id) { webIds[type + '|' + path.toLowerCase()] = id; } };
+        var fresh = function () {
+            // "Any" is null rather than '': it is the empty <option> of an
+            // ng-options select, and '' would show as a blank unknown choice.
+            return { source: '', root: '', descendants: false, name: '', template: null, attrs: [],
+                     category: null, max: afpick.DEFAULT_MAX, sortBy: 'name', order: 'asc' };
+        };
 
-        var resolve = function (node) {
-            if (node.webId || node.type === 'root') { return Promise.resolve(node); }
-            var cached = webIds[node.type + '|' + node.path.toLowerCase()];
-            if (cached) { node.webId = cached; return Promise.resolve(node); }
-            var ep = { server: 'assetservers', dataserver: 'dataservers', database: 'assetdatabases',
-                       element: 'elements', attribute: 'attributes' }[node.type];
-            var get = function (endpoint) {
-                return api.get(endpoint + '?path=' + encodeURIComponent(node.path) + '&selectedFields=WebId;Name;Path');
-            };
-            var p = get(ep);
-            // \\NAME alone could be an AF server or a Data Archive; a PI point
-            // field may well be pointing at the second.
-            if (node.type === 'server' && state.kind === 'attribute') {
-                p = p.then(null, function (e) {
-                    return get('dataservers').then(function (r) { node.type = 'dataserver'; return r; }, function () { throw e; });
-                });
+        state.source = function () {
+            var c = state.crit;
+            for (var i = 0; c && i < state.sources.length; i++) {
+                if (state.sources[i].path === c.source) { return state.sources[i]; }
             }
-            return p.then(function (r) {
-                node.webId = r.WebId;
-                node.name = r.Name || node.name;
-                mark(node.type, node.path, r.WebId);
-                return node;
-            });
+            return null;
         };
 
         var shape = function (type, list, under) {
@@ -3349,106 +3403,234 @@
             for (var i = 0; i < items.length; i++) {
                 var it = items[i];
                 var path = String(it.Path || '');
-                mark(type, path, it.WebId);
                 var where = '';
-                // Search spans the whole subtree; say where a hit lives.
+                // Below the search root, say where a hit lives.
                 if (under && path.toLowerCase().indexOf(under.toLowerCase()) === 0) {
                     where = afpick.parent(path).slice(under.length).replace(/^[\\|]+/, '');
                 }
                 out.push({ name: it.Name, path: path, webId: it.WebId, type: type,
-                           hasChildren: it.HasChildren, where: where });
+                           hasChildren: it.HasChildren, template: it.TemplateName || '', where: where });
             }
             return out;
         };
 
-        var matches = function (items, q) {
-            if (!q) { return items; }
-            var lq = q.toLowerCase();
-            var out = [];
-            for (var i = 0; i < items.length; i++) {
-                if (String(items[i].name).toLowerCase().indexOf(lq) !== -1) { out.push(items[i]); }
-            }
-            return out;
-        };
-
-        /** Children of a node, filtered by q — on the server where PI Web API can. */
-        var list = function (node, q) {
-            var F = 'selectedFields=Items.Name;Items.Path;Items.WebId;Items.HasChildren';
-            var M = 'maxCount=' + afpick.MAX;
-            var nf = q ? ['searchFullHierarchy=true', 'nameFilter=' + encodeURIComponent('*' + q + '*')] : [];
-            var w = encodeURIComponent(node.webId || '');
-            if (node.type === 'root') {
-                var servers = api.get('assetservers').then(function (r) { return matches(shape('server', r), q); });
-                if (state.kind !== 'attribute') { return servers; }
-                return servers.then(function (a) {
-                    return api.get('dataservers').then(function (r) {
-                        return a.concat(matches(shape('dataserver', r), q));
+        /** Every database on every AF server, plus Data Archives where a point is valid. */
+        var loadSources = function () {
+            return api.get('assetservers?selectedFields=Items.Name;Items.Path;Items.WebId').then(function (r) {
+                var servers = (r && r.Items) || [];
+                var many = servers.length > 1;
+                var jobs = [];
+                for (var i = 0; i < servers.length; i++) {
+                    (function (s) {
+                        jobs.push(api.get('assetservers/' + encodeURIComponent(s.WebId) +
+                            '/assetdatabases?selectedFields=Items.Name;Items.Path;Items.WebId').then(function (d) {
+                            var out = [];
+                            var dbs = (d && d.Items) || [];
+                            for (var j = 0; j < dbs.length; j++) {
+                                out.push({ label: many ? s.Name + ' \\ ' + dbs[j].Name : dbs[j].Name,
+                                           path: dbs[j].Path, webId: dbs[j].WebId, type: 'database' });
+                            }
+                            return out;
+                        }, function (e) {
+                            state.note = 'The databases on ' + s.Name + ' could not be listed: ' + afErr(e);
+                            return [];
+                        }));
+                    }(servers[i]));
+                }
+                if (state.kind === 'attribute') {
+                    jobs.push(api.get('dataservers?selectedFields=Items.Name;Items.Path;Items.WebId').then(function (d) {
+                        var out = [];
+                        var das = (d && d.Items) || [];
+                        for (var j = 0; j < das.length; j++) {
+                            out.push({ label: 'PI points on ' + das[j].Name, path: das[j].Path,
+                                       webId: das[j].WebId, type: 'dataserver' });
+                        }
+                        return out;
                     }, function (e) {
                         state.note = 'PI Data Archive servers could not be listed: ' + afErr(e);
-                        return a;
-                    });
+                        return [];
+                    }));
+                }
+                return Promise.all(jobs).then(function (lists) {
+                    var all = [];
+                    for (var k = 0; k < lists.length; k++) { all = all.concat(lists[k]); }
+                    return all;
                 });
-            }
-            if (node.type === 'server') {
-                return api.get('assetservers/' + w + '/assetdatabases?' + F)
-                    .then(function (r) { return matches(shape('database', r), q); });
-            }
-            if (node.type === 'dataserver') {
-                return api.get('dataservers/' + w + '/points' + afQs([M, 'nameFilter=' + encodeURIComponent(q ? '*' + q + '*' : '*'),
-                        'selectedFields=Items.Name;Items.Path;Items.WebId']))
-                    .then(function (r) { return shape('point', r); });
-            }
-            if (node.type === 'attribute') {
-                return api.get('attributes/' + w + '/attributes' + afQs([M, F]))
-                    .then(function (r) { return matches(shape('attribute', r), q); });
-            }
-            var base = (node.type === 'database' ? 'assetdatabases/' : 'elements/') + w;
-            var elems = api.get(base + '/elements' + afQs([M, F].concat(nf)))
-                .then(function (r) { return shape('element', r, q ? node.path : ''); });
-            if (node.type !== 'element' || state.kind !== 'attribute') { return elems; }
-            return elems.then(function (a) {
-                return api.get(base + '/attributes' + afQs([M, F]))
-                    .then(function (r) { return matches(shape('attribute', r), q).concat(a); });
             });
         };
 
-        var show = function (node, q, onFail) {
+        /** Asset types and categories for the chosen database. */
+        var loadLists = function () {
+            var src = state.source();
+            state.templates = [];
+            state.categories = [];
+            state.attrNames = [];
+            if (!src || src.type !== 'database') { return Promise.resolve(); }
+            var w = encodeURIComponent(src.webId);
+            var names = function (r) {
+                var out = [];
+                var items = (r && r.Items) || [];
+                for (var i = 0; i < items.length; i++) { out.push(items[i].Name); }
+                return out;
+            };
+            // Either list failing only costs its dropdown; say so and carry on.
+            return Promise.all([
+                api.get('assetdatabases/' + w + '/elementtemplates?selectedFields=Items.Name;Items.WebId').then(function (r) {
+                    state.templates = (r && r.Items) || [];
+                }, function (e) { state.note = 'Asset types could not be listed: ' + afErr(e); }),
+                api.get('assetdatabases/' + w + '/elementcategories?selectedFields=Items.Name').then(function (r) {
+                    state.categories = names(r);
+                }, function (e) { state.note = 'Asset categories could not be listed: ' + afErr(e); })
+            ]);
+        };
+
+        var loadAttrNames = function () {
+            state.attrNames = [];
+            var t = null;
+            for (var i = 0; i < state.templates.length; i++) {
+                if (state.templates[i].Name === state.crit.template) { t = state.templates[i]; }
+            }
+            if (!t) { return Promise.resolve(); }
+            return api.get('elementtemplates/' + encodeURIComponent(t.WebId) +
+                    '/attributetemplates?showInherited=true&selectedFields=Items.Name').then(function (r) {
+                var items = (r && r.Items) || [];
+                var out = [];
+                for (var j = 0; j < items.length; j++) { out.push(items[j].Name); }
+                state.attrNames = out;
+            }, function (e) { state.note = 'The attributes of ' + t.Name + ' could not be listed: ' + afErr(e); });
+        };
+
+        /** Run the criteria. Resolves when the results (or the reason for none) are shown. */
+        state.refresh = function () {
+            var c = state.crit;
+            var src = state.source();
             var mine = ++seq;
+            state.message = '';
+            state.note = '';
+            state.focus = null;
+            state.attributes = [];
+            if (!src) {
+                state.message = 'Choose a database first.';
+                return Promise.resolve();
+            }
+            var max = parseInt(c.max, 10);
+            if (!isFinite(max) || max < 1) { max = afpick.DEFAULT_MAX; c.max = max; }
+            var M = 'maxCount=' + max;
+            var w = encodeURIComponent(src.webId);
+            var job;
+
+            if (src.type === 'dataserver') {
+                job = api.get('dataservers/' + w + '/points' + afQs([M,
+                        'nameFilter=' + encodeURIComponent(afpick.nameFilter(c.name) || '*'),
+                        'selectedFields=Items.Name;Items.Path;Items.WebId']), { cache: false })
+                    .then(function (r) { return shape('point', r); });
+            } else {
+                var rel = afpick.relRoot(c.root, src.path);
+                if (rel === null) {
+                    state.message = 'The search root ' + c.root + ' is not in ' + src.path +
+                        '. Clear it, or choose the database it belongs to.';
+                    return Promise.resolve();
+                }
+                var rootPath = rel ? src.path + '\\' + rel : '';
+                var filters = [];
+                var skipped = 0;
+                for (var i = 0; i < c.attrs.length; i++) {
+                    if (c.attrs[i].name) { filters.push(c.attrs[i]); } else { skipped += 1; }
+                }
+                if (filters.length) {
+                    var q = afpick.searchQuery({ rootRel: rel, descendants: c.descendants, name: c.name,
+                        template: c.template, category: c.category, attrs: filters });
+                    job = api.get('elements/search' + afQs(['databaseWebId=' + w, 'query=' + encodeURIComponent(q), M, F]), { cache: false })
+                        .then(function (r) { return shape('element', r, rootPath || src.path); }, function (e) {
+                            if (e && e.status === 404) {
+                                throw { pvxError: { message: 'This PI Web API has no elements/search endpoint, so ' +
+                                    'attribute value filters cannot run. Remove the filters, or upgrade PI Web API.' } };
+                            }
+                            throw e;
+                        });
+                } else {
+                    var parts = [M, F,
+                        c.descendants ? 'searchFullHierarchy=true' : '',
+                        afpick.nameFilter(c.name) ? 'nameFilter=' + encodeURIComponent(afpick.nameFilter(c.name)) : '',
+                        c.template ? 'templateName=' + encodeURIComponent(c.template) : '',
+                        c.category ? 'categoryName=' + encodeURIComponent(c.category) : '',
+                        'sortField=Name', 'sortOrder=' + (c.order === 'desc' ? 'Descending' : 'Ascending')];
+                    job = (rootPath
+                        ? api.get('elements?path=' + encodeURIComponent(rootPath) + '&selectedFields=WebId').then(function (r) {
+                            return 'elements/' + encodeURIComponent(r.WebId);
+                        }, function (e) {
+                            throw { pvxError: { message: 'The search root ' + rootPath + ' could not be found: ' + afErr(e) } };
+                        })
+                        : Promise.resolve('assetdatabases/' + w))
+                        .then(function (base) { return api.get(base + '/elements' + afQs(parts), { cache: false }); })
+                        .then(function (r) { return shape('element', r, rootPath || src.path); });
+                }
+                if (skipped) {
+                    state.note = skipped + ' attribute filter' + (skipped === 1 ? ' has' : 's have') +
+                        ' no attribute chosen and ' + (skipped === 1 ? 'was' : 'were') + ' left out.';
+                }
+            }
+
             state.busy = true;
             digest();
-            return resolve(node).then(function (n) { return list(n, q); }).then(function (items) {
+            return job.then(function (items) {
                 if (mine !== seq) { return; }
-                state.node = node;
-                state.trail = afpick.crumbs(node);
-                state.items = items;
+                state.results = afpick.sortItems(items, c.sortBy, c.order);
+                state.searched = true;
                 state.busy = false;
-                if (items.length >= afpick.MAX) {
-                    state.note = 'Showing the first ' + afpick.MAX + ' here. Type part of a name to search for the rest.';
+                if (items.length >= max) {
+                    state.note = (state.note ? state.note + ' ' : '') + 'Showing the first ' + max +
+                        '. Raise Number of Results or narrow the search to see the rest.';
                 } else if (!items.length) {
-                    state.note = q ? 'Nothing here matches "' + q + '".' : 'Nothing to choose below this level.';
+                    state.note = (state.note ? state.note + ' ' : '') + 'Nothing matches these criteria.';
                 }
                 digest();
             }, function (e) {
                 if (mine !== seq) { return; }
                 state.busy = false;
-                if (onFail) { return onFail(e); }
+                state.searched = true;
+                state.results = [];
                 state.message = afErr(e);
                 digest();
             });
         };
 
-        /** Go to a path, climbing to the nearest level that opens if it does not. */
-        var openAt = function (path, first) {
-            var node = { type: afpick.typeOf(path), path: path };
-            return show(node, '', function (e) {
-                if (node.type === 'root') { state.message = afErr(e); digest(); return; }
-                if (e && e.pvxError && e.pvxError.code === 'not-configured') { state.message = afErr(e); digest(); return; }
-                var up = afpick.parent(path);
-                state.message = 'Could not open ' + (first || path) + ': ' + afErr(e) +
-                    ' Showing the nearest level that does open.';
-                return openAt(up, first || path);
+        state.changeSource = function () {
+            var c = state.crit;
+            c.root = '';
+            c.template = null;
+            c.category = null;
+            c.attrs = [];
+            state.results = [];
+            state.searched = false;
+            return loadLists().then(function () {
+                digest();
+                if (state.kind !== 'database') { return state.refresh(); }
             });
         };
+
+        state.changeTemplate = function () {
+            state.crit.attrs = [];
+            return loadAttrNames().then(digest);
+        };
+
+        state.addFilter = function () { state.crit.attrs.push({ name: null, op: '=', value: '' }); };
+        state.removeFilter = function (i) { state.crit.attrs.splice(i, 1); };
+
+        state.setRoot = function (it) {
+            var src = state.source();
+            state.crit.root = (src && afpick.relRoot(it.path, src.path)) || '';
+            return state.refresh();
+        };
+
+        state.rootUp = function () {
+            var r = afTrim(state.crit.root).replace(/\\+$/, '');
+            var cut = r.lastIndexOf('\\');
+            state.crit.root = cut === -1 ? '' : r.slice(0, cut);
+            return state.refresh();
+        };
+
+        state.onKey = function (ev) { if (ev && ev.keyCode === 13) { state.refresh(); } };
 
         state.isOpen = function (id) { return state.key === id; };
 
@@ -3456,87 +3638,147 @@
          * @param {String} id      the config key this Browse button edits
          * @param {String} kind    database | element | attribute
          * @param {String} append  '' to replace, or a list grammar to append to
-         * @param {String} current the field's value: opens beside it
-         * @param {String} start   another key's value to open inside (a
+         * @param {String} current the field's value: the search opens around it
+         * @param {String} start   another key's value to search inside (a
          *                         database for an element field, say)
          */
         state.open = function (id, kind, append, current, start) {
-            if (state.key === id) { state.close(); return; }
+            if (state.key === id) { state.close(); return Promise.resolve(); }
+            seq += 1;
             state.key = id;
             state.kind = afpick.kinds[kind] ? kind : 'element';
             state.append = append || '';
-            state.items = [];
-            state.trail = [];
-            state.query = '';
+            state.crit = fresh();
+            state.results = [];
+            state.searched = false;
+            state.focus = null;
+            state.attributes = [];
             state.message = '';
             state.note = '';
-            var cur = String(current || '').replace(/^\s+|\s+$/g, '');
-            var st = String(start || '').replace(/^\s+|\s+$/g, '');
-            // Beside the current value, so it is in the list being shown;
-            // inside the start path, because that is where its children are.
-            var at = /^\\\\/.test(cur) ? afpick.parent(cur) : /^\\\\/.test(st) ? st : '';
-            openAt(at).then(function () {
-                // Its parent opened but the value itself is not there: say so,
-                // or a misspelt last segment just looks like a missing row.
-                if (!cur || at !== afpick.parent(cur) || state.key !== id || state.message) { return; }
-                if (!state.node || state.node.path.toLowerCase() !== at.toLowerCase()) { return; }
-                for (var i = 0; i < state.items.length; i++) {
-                    if (state.items[i].path.toLowerCase() === cur.toLowerCase()) { return; }
+            state.busy = true;
+            var cur = afTrim(current);
+            var st = afTrim(start);
+            var near = /^\\\\/.test(cur) ? cur : /^\\\\/.test(st) ? st : '';
+            var sp = afpick.split(near);
+            var dbPath = sp.segs.length >= 2 ? '\\\\' + sp.segs[0] + '\\' + sp.segs[1] : '';
+            var owner = '';
+            var mine = seq;
+            return loadSources().then(function (list) {
+                if (mine !== seq) { return; }
+                state.sources = list;
+                state.busy = false;
+                if (!list.length) {
+                    state.message = state.message || 'PI Web API lists no AF databases this account can read.';
+                    digest();
+                    return;
                 }
-                state.message = cur + ' is not in this list. It may be misspelt, renamed, or not visible to you.';
+                var pick = null;
+                for (var i = 0; i < list.length; i++) {
+                    if (dbPath && list[i].path.toLowerCase() === dbPath.toLowerCase()) { pick = list[i]; }
+                    if (!pick && sp.segs.length === 1 && list[i].path.toLowerCase() === near.toLowerCase()) { pick = list[i]; }
+                }
+                if (near && !pick && sp.segs.length >= 2) {
+                    state.note = dbPath + ' is not a database PI Web API lists for this account. ' +
+                        'It may be misspelt, renamed, or not visible to you.';
+                }
+                state.crit.source = (pick || list[0]).path;
+                // Open around the value: the element it names (or, for an
+                // attribute field, the element that owns it) is listed from
+                // its parent, so it is in the first results without a search.
+                var base = cur ? cur.split('|')[0] : st;
+                if (state.kind === 'attribute' && afpick.split(cur).attrs.length) { owner = base; }
+                if (state.kind === 'attribute' && !cur && afpick.typeOf(st) === 'element') { owner = st; }
+                if (pick && pick.type === 'database' && state.kind !== 'database' && /^\\\\/.test(base) &&
+                        afpick.split(base).segs.length >= 3) {
+                    state.crit.root = afpick.relRoot(afpick.parent(base), pick.path) || '';
+                }
+                var keepNote = state.note;
+                return loadLists().then(function () {
+                    if (mine !== seq) { return; }
+                    digest();
+                    if (state.kind === 'database') { return; }
+                    return state.refresh().then(function () {
+                        if (keepNote) { state.note = keepNote + (state.note ? ' ' + state.note : ''); }
+                        // An attribute field opens on its own element's attributes.
+                        if (owner) {
+                            for (var k = 0; k < state.results.length; k++) {
+                                if (state.results[k].path.toLowerCase() === owner.toLowerCase()) {
+                                    return state.enter(state.results[k]);
+                                }
+                            }
+                        }
+                    });
+                });
+            }, function (e) {
+                if (mine !== seq) { return; }
+                state.busy = false;
+                state.message = afErr(e);
                 digest();
             });
         };
 
         state.close = function () {
             seq += 1;
-            if (timer) { clearTimeout(timer); timer = null; }
             state.key = '';
             state.busy = false;
         };
 
-        state.go = function (i) {
-            var c = state.trail[i];
-            if (!c) { return; }
-            state.query = '';
-            state.message = '';
-            state.note = '';
-            openAt(c.path);
-        };
-
         state.canOpen = function (it) {
-            var k = state.kind;
-            if (it.type === 'server' || it.type === 'dataserver') { return true; }
-            if (it.type === 'database') { return k !== 'database'; }
-            if (it.type === 'element') { return k === 'attribute' || it.hasChildren !== false; }
-            if (it.type === 'attribute') { return k === 'attribute' && !!it.hasChildren; }
-            return false;
+            if (state.kind !== 'attribute') { return false; }
+            return it.type === 'element' || (it.type === 'attribute' && !!it.hasChildren);
         };
 
-        state.label = function (it) {
-            return { server: 'AF server', dataserver: 'Data Archive', database: 'database', element: 'element',
-                     attribute: 'attribute', point: 'PI point' }[it.type] || it.type;
-        };
+        state.canRoot = function (it) { return it.type === 'element' && it.hasChildren !== false; };
 
         state.canUse = function (it) { return !!(afpick.kinds[state.kind] || {})[it.type]; };
 
-        state.enter = function (it) {
-            if (!state.canOpen(it)) { return; }
-            state.query = '';
-            state.message = '';
-            state.note = '';
-            show({ type: it.type, path: it.path, webId: it.webId, name: it.name });
+        state.label = function (it) {
+            if (it.type === 'element') { return it.template || 'element'; }
+            return { database: 'database', attribute: 'attribute', point: 'PI point' }[it.type] || it.type;
         };
 
-        state.search = function () {
-            if (timer) { clearTimeout(timer); }
-            timer = setTimeout(function () {
-                timer = null;
-                if (!state.key || !state.node) { return; }
-                state.message = '';
-                state.note = '';
-                show(state.node, String(state.query || '').replace(/^\s+|\s+$/g, ''));
-            }, afpick.DEBOUNCE_MS);
+        /** List an element's (or a parent attribute's) attributes. */
+        state.enter = function (it) {
+            if (!state.canOpen(it)) { return Promise.resolve(); }
+            var mine = ++seq;
+            state.busy = true;
+            state.message = '';
+            digest();
+            var ep = (it.type === 'element' ? 'elements/' : 'attributes/') + encodeURIComponent(it.webId) + '/attributes';
+            return api.get(ep + afQs(['maxCount=1000', 'selectedFields=Items.Name;Items.Path;Items.WebId;Items.HasChildren']))
+                .then(function (r) {
+                    if (mine !== seq) { return; }
+                    state.focus = it;
+                    state.attributes = afpick.sortItems(shape('attribute', r), 'name', 'asc');
+                    state.busy = false;
+                    if (!state.attributes.length) { state.note = it.name + ' has no attributes.'; }
+                    digest();
+                }, function (e) {
+                    if (mine !== seq) { return; }
+                    state.busy = false;
+                    state.message = afErr(e);
+                    digest();
+                });
+        };
+
+        state.back = function () {
+            var f = state.focus;
+            state.attributes = [];
+            state.focus = null;
+            state.note = '';
+            // A child attribute steps back to its parent attribute, not the list.
+            if (f && f.type === 'attribute') {
+                var up = afpick.parent(f.path);
+                var owner = { type: afpick.typeOf(up) === 'attribute' ? 'attribute' : 'element', path: up,
+                              name: afpick.split(up).attrs.slice(-1)[0] || afpick.split(up).segs.slice(-1)[0] };
+                return api.get((owner.type === 'element' ? 'elements' : 'attributes') + '?path=' +
+                        encodeURIComponent(up) + '&selectedFields=WebId').then(function (r) {
+                    owner.webId = r.WebId;
+                    owner.hasChildren = true;
+                    return state.enter(owner);
+                }, function (e) { state.message = afErr(e); digest(); });
+            }
+            return Promise.resolve();
         };
 
         /** Called from the pane's ng-click; returns the value to store. */
@@ -3545,6 +3787,13 @@
             if (!state.append) { state.close(); return r.value; }
             state.message = r.added ? 'Added ' + r.line + '.' : r.line + ' is already in the list.';
             return r.value;
+        };
+
+        /** A database field takes the dropdown's choice. */
+        state.useSource = function (current, cfg) {
+            var src = state.source();
+            if (!src) { return current; }
+            return state.use({ name: src.label, path: src.path, type: src.type }, current, cfg);
         };
 
         state.destroy = function () { state.close(); };

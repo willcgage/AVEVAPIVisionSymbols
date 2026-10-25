@@ -1,29 +1,116 @@
 <!-- Expanded by tools/build.js in place of each AF-path marker in a config.html.
-     State and actions come from PVX.afpick.bind, via runtimeData. The pick is
-     written here, to the config this pane's ng-model binds, as a plain path. -->
+     Laid out like PI Vision's own Search Criteria pane, so nobody has to learn
+     a second way to find an asset. State and actions come from
+     PVX.afpick.bind, via runtimeData. The pick is written here, to the config
+     this pane's ng-model binds, as a plain path. -->
 <div class="pvx-cfg-af" ng-if="runtimeData.pvxAf">
     <button type="button" class="pvx-cfg-src-btn pvx-cfg-af-toggle"
             ng-click="runtimeData.pvxAf.open('__ID__', '__KIND__', '__APPEND__', __CURRENT__, __START__)"
-            title="Browse PI Web API for __WHAT__ instead of typing it">{{runtimeData.pvxAf.isOpen('__ID__') ? 'Close' : 'Browse&hellip;'}}</button>
-    <div class="pvx-cfg-af-panel" ng-if="runtimeData.pvxAf.isOpen('__ID__')">
-        <div class="pvx-cfg-af-trail">
-            <span ng-repeat="c in runtimeData.pvxAf.trail track by $index"><span class="pvx-cfg-af-sep" ng-if="$index">&rsaquo;</span><button type="button"
-                class="pvx-cfg-af-crumb" ng-disabled="$last" ng-click="runtimeData.pvxAf.go($index)">{{c.name}}</button></span>
+            title="Search PI Web API for __WHAT__ instead of typing it">{{runtimeData.pvxAf.isOpen('__ID__') ? 'Close search' : 'Search&hellip;'}}</button>
+    <div class="pvx-cfg-af-panel" ng-if="runtimeData.pvxAf.isOpen('__ID__') && runtimeData.pvxAf.crit">
+        <div class="pvx-cfg-af-title">Search Criteria</div>
+        <label class="pvx-cfg-af-field">Database
+            <select ng-model="runtimeData.pvxAf.crit.source"
+                    ng-options="s.path as s.label for s in runtimeData.pvxAf.sources"
+                    ng-change="runtimeData.pvxAf.changeSource()"></select>
+        </label>
+        <div class="pvx-cfg-af-actions" ng-if="runtimeData.pvxAf.kind === 'database'">
+            <button type="button" class="pvx-cfg-src-btn" ng-disabled="!runtimeData.pvxAf.source()"
+                    ng-click="config.__KEY__ = runtimeData.pvxAf.useSource(config.__KEY__, config)">__USE__ this database</button>
         </div>
-        <input type="text" class="pvx-cfg-af-search" ng-model="runtimeData.pvxAf.query"
-               ng-change="runtimeData.pvxAf.search()" placeholder="Search by name below this level" />
-        <div class="pvx-cfg-hint" ng-if="runtimeData.pvxAf.busy">Loading&hellip;</div>
-        <div class="pvx-cfg-hint pvx-cfg-af-msg" ng-if="runtimeData.pvxAf.message">{{runtimeData.pvxAf.message}}</div>
-        <div class="pvx-cfg-af-list">
-            <div class="pvx-cfg-af-row" ng-repeat="it in runtimeData.pvxAf.items track by $index">
-                <button type="button" class="pvx-cfg-af-name" title="{{it.path}}"
-                        ng-disabled="!runtimeData.pvxAf.canOpen(it)"
-                        ng-click="runtimeData.pvxAf.enter(it)">{{it.name}}<span class="pvx-cfg-af-where" ng-if="it.where"> in {{it.where}}</span></button>
-                <span class="pvx-cfg-af-type">{{runtimeData.pvxAf.label(it)}}</span>
-                <button type="button" class="pvx-cfg-src-btn" ng-if="runtimeData.pvxAf.canUse(it)"
-                        ng-click="config.__KEY__ = runtimeData.pvxAf.use(it, config.__KEY__, config)">__USE__</button>
+        <div ng-if="runtimeData.pvxAf.kind !== 'database'">
+            <div ng-if="runtimeData.pvxAf.source().type === 'database'">
+                <label class="pvx-cfg-af-field">Search Root
+                    <span class="pvx-cfg-af-inline">
+                        <input type="text" ng-model="runtimeData.pvxAf.crit.root" placeholder="(the whole database)"
+                               ng-keyup="runtimeData.pvxAf.onKey($event)" />
+                        <button type="button" class="pvx-cfg-src-btn" title="Search from the level above"
+                                ng-disabled="!runtimeData.pvxAf.crit.root" ng-click="runtimeData.pvxAf.rootUp()">Up</button>
+                    </span>
+                </label>
+                <label class="pvx-cfg-af-check"><input type="checkbox" ng-model="runtimeData.pvxAf.crit.descendants" /> Return All Descendants</label>
+            </div>
+            <label class="pvx-cfg-af-field">{{runtimeData.pvxAf.source().type === 'dataserver' ? 'Point Name' : 'Asset Name'}}
+                <input type="text" ng-model="runtimeData.pvxAf.crit.name" placeholder="* for any; Enter to search"
+                       ng-keyup="runtimeData.pvxAf.onKey($event)" />
+            </label>
+            <div ng-if="runtimeData.pvxAf.source().type === 'database'">
+                <label class="pvx-cfg-af-field">Asset Type
+                    <select ng-model="runtimeData.pvxAf.crit.template"
+                            ng-options="t.Name as t.Name for t in runtimeData.pvxAf.templates"
+                            ng-change="runtimeData.pvxAf.changeTemplate()"><option value="">Any</option></select>
+                </label>
+                <div class="pvx-cfg-af-filters" ng-if="runtimeData.pvxAf.crit.template">
+                    <div class="pvx-cfg-af-filter" ng-repeat="f in runtimeData.pvxAf.crit.attrs track by $index">
+                        <select ng-model="f.name" ng-options="n as n for n in runtimeData.pvxAf.attrNames"><option value="">Attribute&hellip;</option></select>
+                        <select ng-model="f.op" ng-options="o as o for o in runtimeData.pvxAf.ops"></select>
+                        <input type="text" ng-model="f.value" placeholder="value"
+                               ng-keyup="runtimeData.pvxAf.onKey($event)" />
+                        <button type="button" class="pvx-cfg-src-btn" title="Remove this filter"
+                                ng-click="runtimeData.pvxAf.removeFilter($index)">&times;</button>
+                    </div>
+                    <button type="button" class="pvx-cfg-src-btn" ng-disabled="!runtimeData.pvxAf.attrNames.length"
+                            ng-click="runtimeData.pvxAf.addFilter()">+ Attribute filter</button>
+                </div>
+                <label class="pvx-cfg-af-field">Asset Category
+                    <select ng-model="runtimeData.pvxAf.crit.category"
+                            ng-options="c as c for c in runtimeData.pvxAf.categories"><option value="">Any</option></select>
+                </label>
+            </div>
+            <label class="pvx-cfg-af-field">Number of Results
+                <input type="number" min="1" max="1000" ng-model="runtimeData.pvxAf.crit.max" />
+            </label>
+            <div class="pvx-cfg-af-field">Sort by
+                <span class="pvx-cfg-af-inline">
+                    <select ng-model="runtimeData.pvxAf.crit.sortBy">
+                        <option value="name">{{runtimeData.pvxAf.source().type === 'dataserver' ? 'Point Name' : 'Asset Name'}}</option>
+                        <option value="template" ng-if="runtimeData.pvxAf.source().type === 'database'">Asset Type</option>
+                    </select>
+                    <label class="pvx-cfg-af-check"><input type="radio" value="asc" ng-model="runtimeData.pvxAf.crit.order" /> Ascending</label>
+                    <label class="pvx-cfg-af-check"><input type="radio" value="desc" ng-model="runtimeData.pvxAf.crit.order" /> Descending</label>
+                </span>
+            </div>
+            <div class="pvx-cfg-af-actions">
+                <button type="button" class="pvx-cfg-src-btn pvx-cfg-af-refresh" ng-disabled="runtimeData.pvxAf.busy"
+                        ng-click="runtimeData.pvxAf.refresh()">Refresh</button>
             </div>
         </div>
+        <div class="pvx-cfg-hint" ng-if="runtimeData.pvxAf.busy">Searching&hellip;</div>
+        <div class="pvx-cfg-hint pvx-cfg-af-msg" ng-if="runtimeData.pvxAf.message">{{runtimeData.pvxAf.message}}</div>
         <div class="pvx-cfg-hint" ng-if="runtimeData.pvxAf.note">{{runtimeData.pvxAf.note}}</div>
+
+        <div ng-if="runtimeData.pvxAf.kind !== 'database'">
+            <div ng-if="runtimeData.pvxAf.focus">
+                <div class="pvx-cfg-af-head">
+                    <button type="button" class="pvx-cfg-src-btn" ng-click="runtimeData.pvxAf.back()">&lsaquo; Back</button>
+                    <span class="pvx-cfg-af-where" title="{{runtimeData.pvxAf.focus.path}}">Attributes of {{runtimeData.pvxAf.focus.name}}</span>
+                </div>
+                <div class="pvx-cfg-af-list">
+                    <div class="pvx-cfg-af-row" ng-repeat="it in runtimeData.pvxAf.attributes track by $index">
+                        <button type="button" class="pvx-cfg-af-name" title="{{it.path}}"
+                                ng-disabled="!runtimeData.pvxAf.canOpen(it)"
+                                ng-click="runtimeData.pvxAf.enter(it)">{{it.name}}</button>
+                        <span class="pvx-cfg-af-type">{{runtimeData.pvxAf.label(it)}}</span>
+                        <button type="button" class="pvx-cfg-src-btn" ng-if="runtimeData.pvxAf.canUse(it)"
+                                ng-click="config.__KEY__ = runtimeData.pvxAf.use(it, config.__KEY__, config)">__USE__</button>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="!runtimeData.pvxAf.focus">
+                <div class="pvx-cfg-af-head" ng-if="runtimeData.pvxAf.results.length">Results ({{runtimeData.pvxAf.results.length}})</div>
+                <div class="pvx-cfg-af-list">
+                    <div class="pvx-cfg-af-row" ng-repeat="it in runtimeData.pvxAf.results track by $index">
+                        <button type="button" class="pvx-cfg-af-name" title="{{it.path}}"
+                                ng-disabled="!runtimeData.pvxAf.canOpen(it)"
+                                ng-click="runtimeData.pvxAf.enter(it)">{{it.name}}<span class="pvx-cfg-af-where" ng-if="it.where"> in {{it.where}}</span></button>
+                        <span class="pvx-cfg-af-type">{{runtimeData.pvxAf.label(it)}}</span>
+                        <button type="button" class="pvx-cfg-src-btn" ng-if="runtimeData.pvxAf.canRoot(it)"
+                                title="Search below {{it.name}}" ng-click="runtimeData.pvxAf.setRoot(it)">Root</button>
+                        <button type="button" class="pvx-cfg-src-btn" ng-if="runtimeData.pvxAf.canUse(it)"
+                                ng-click="config.__KEY__ = runtimeData.pvxAf.use(it, config.__KEY__, config)">__USE__</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
