@@ -59,7 +59,7 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `ShowTime` | `false` | *(shared)* |
 | `Decimals` | `"auto"` | *(shared)* |
 | `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
@@ -102,7 +102,7 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `ShowTime` | `false` | *(shared)* |
 | `Decimals` | `"auto"` | *(shared)* |
 | `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
@@ -1369,7 +1369,7 @@ This is the overview panel operators put at the top of a display: every tag gets
 | `ShowTime` | `false` | *(shared)* |
 | `Decimals` | `"auto"` | *(shared)* |
 | `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
@@ -1556,3 +1556,10 @@ its own limit up to the next band's limit; the last band runs to the top of
 the scale. Values below the first limit match no band and fall back to the
 symbol's accent colour. The label is optional and is what symbols show when
 "show band label" is switched on.
+
+The string above is a placeholder on a 0-100 scale, and most symbols start
+with it. The three that raise alarms (Exception Banner, Annunciator, Status
+Grid) start with no bands, and with no bands they flag nothing and say that
+no limits are set. A display saved by 1.9.0 or earlier with the placeholder
+on one of those three loads with no bands. They read only these bands, not
+the limits configured on an AF attribute.

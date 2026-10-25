@@ -194,6 +194,24 @@ A grammar none of these covers needs a new rule in `PVX.sources.rules` and a
 case in `tools/test-sources.js`. An unknown rule name is reported in the pane
 as "NOT renumbered", never skipped silently.
 
+## Symbols that raise alarms
+
+`PVX.thresholds.DEFAULT` is a placeholder on a 0-100 scale. Colouring an arc
+with it is harmless; flagging a point with it is a false alarm, and on a live
+server it flagged every point above 70 whatever its units. A symbol that
+alarms, latches or lists exceptions therefore declares
+
+```js
+limitsRequired: true,
+```
+
+on its definition and sets `Thresholds: ''` in `getDefaultConfig`. With no
+bands it flags nothing and says, in the symbol, that no limits are set; an
+empty list must never read as an all-clear. `PVX.register` clears a saved
+placeholder on load so the format pane shows what is in effect.
+`tools/test-limits.js` covers the three that do this today: Exception
+Banner, Annunciator and Status Grid.
+
 ## AF path fields
 
 A config field that takes an AF path must not be type-only. Put a marker on
@@ -253,6 +271,33 @@ verifier feed the symbol the right shape of test data:
 
 Without that tag both tools send a numeric signal, and a time-in-state symbol
 would be "verified" against data it can never receive in the field.
+
+A config key that names digital states is edited with the shared state map
+editor (`src/shared/config-states.html`), never a text box. Put a marker on its
+own line where the control goes, naming the key and the grammar it holds:
+
+```html
+<div class="pvx-cfg-stack">
+    <div class="pvx-cfg-label">Digital state map</div>
+    <!-- pvx:states key=StateMap kind=map -->
+</div>
+```
+
+| kind | Stored grammar | Row fields |
+|---|---|---|
+| `map` | `State:colour[:label]` | state, severity, colour, label |
+| `colors` | `State:colour` | state, severity, colour |
+| `list` | `State` | state |
+
+The state is chosen from a list: the data sources' digital state sets read
+through `PVX.api` when the site has configured PI Web API, states seen in the
+symbol's live data, and states already in the map, with a button to type one
+that is not listed. Severity is a name over `PVX.color.status`; only the colour
+is stored. The key keeps its grammar string, so saved displays load unchanged
+and the symbol's own parser is untouched. The build fails a pane that binds
+`StateMap`, `StateColors`, `UptimeStates` or a marked key to a control of its
+own, and a marker with an unknown kind. A new grammar needs a kind in
+`PVX.states` and `tools/build.js`, and a case in `tools/test-states.js`.
 
 The same tag selects the other profiles in `dev/pv-mock.js`. `@mock health`
 breaks some tags in the ways `pvxDataHealth` catches (a feed that stops, a

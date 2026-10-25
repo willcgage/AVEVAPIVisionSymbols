@@ -180,6 +180,13 @@ function main() {
     out.push('symbol\'s accent colour. The label is optional and is what symbols show when');
     out.push('"show band label" is switched on.');
     out.push('');
+    out.push('The string above is a placeholder on a 0-100 scale, and most symbols start');
+    out.push('with it. The three that raise alarms (Exception Banner, Annunciator, Status');
+    out.push('Grid) start with no bands, and with no bands they flag nothing and say that');
+    out.push('no limits are set. A display saved by 1.9.0 or earlier with the placeholder');
+    out.push('on one of those three loads with no bands. They read only these bands, not');
+    out.push('the limits configured on an AF attribute.');
+    out.push('');
 
     fs.mkdirSync(path.dirname(OUT), { recursive: true });
     fs.writeFileSync(OUT, out.join('\n'), 'utf8');

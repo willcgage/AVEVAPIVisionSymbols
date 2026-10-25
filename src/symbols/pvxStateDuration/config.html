@@ -36,20 +36,19 @@
         <div class="pvx-cfg-legend">States</div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxstate-colors">State colours</label>
-            <textarea id="pvxstate-colors" ng-model="config.StateColors" rows="4"></textarea>
+            <div class="pvx-cfg-label">State colours</div>
+            <!-- pvx:states key=StateColors kind=colors -->
         </div>
         <div class="pvx-cfg-hint">
-            <code>state:colour</code>, comma separated. Matched case-insensitively.
-            Any state not listed here gets a colour from the shared palette, in the order
-            it first appears.
+            Matched case-insensitively. Any state not listed here gets a colour from the
+            shared palette, in the order it first appears.
         </div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxstate-uptime-states">States that count as running</label>
-            <textarea id="pvxstate-uptime-states" ng-model="config.UptimeStates" rows="2"></textarea>
+            <div class="pvx-cfg-label">States that count as running</div>
+            <!-- pvx:states key=UptimeStates kind=list -->
         </div>
-        <div class="pvx-cfg-hint">Comma separated, case-insensitive. Drives the uptime column and the summary line.</div>
+        <div class="pvx-cfg-hint">Drives the uptime column and the summary line.</div>
     </div>
 
     <div class="pvx-cfg-group">
