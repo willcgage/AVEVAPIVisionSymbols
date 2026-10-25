@@ -134,7 +134,7 @@ jobs:
           retention-days: 14
 
   installer-windows:
-    name: Install · upgrade from 1.6.0 · uninstall (Windows)
+    name: Install · upgrade from 1.6.0 and 1.7.0 · uninstall (Windows)
     runs-on: windows-latest
     timeout-minutes: 25
 
@@ -143,7 +143,8 @@ jobs:
     # pvx-config.js, removing the old flat files and resolving the drive and
     # PIPC folder are all runtime behaviour, so this job builds the real MSI
     # with the official toolset and installs it for real, against fake PI
-    # Vision trees, including an upgrade over the published 1.6.0 MSI and zip.
+    # Vision trees, including upgrades over the published 1.6.0 MSI and zip and
+    # the 1.7.0 MSI.
     steps:
       - uses: actions/checkout@v4
 
@@ -175,15 +176,17 @@ jobs:
               -out PvxSymbols-ci.msi PvxSymbols.wixobj
           if ($LASTEXITCODE -ne 0) { throw "light failed ($LASTEXITCODE)" }
 
-      # The release this one upgrades from. Fetched rather than committed: it
-      # is the published artifact sites actually have installed.
-      - name: Download the 1.6.0 MSI and zip
+      # The releases this one upgrades from. Fetched rather than committed:
+      # they are the published artifacts sites actually have installed.
+      - name: Download the 1.6.0 MSI and zip, and the 1.7.0 MSI
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download v1.6.0 --repo ${{ github.repository }} --dir legacy `
               --pattern 'PvxSymbols-1.6.0.msi' --pattern 'pvx-symbols-1.6.0.zip'
+          gh release download v1.7.0 --repo ${{ github.repository }} --dir legacy `
+              --pattern 'PvxSymbols-1.7.0.msi'
           Get-ChildItem legacy
 
       - name: Install, upgrade and uninstall for real
@@ -191,6 +194,7 @@ jobs:
         run: |
           ./tools/test-installer.ps1 -Msi dist/installer/PvxSymbols-ci.msi `
               -LegacyMsi legacy/PvxSymbols-1.6.0.msi -LegacyZip legacy/pvx-symbols-1.6.0.zip `
+              -PreviousMsi legacy/PvxSymbols-1.7.0.msi `
               -WorkDir "${{ runner.temp }}\pvx-installer-test"
 
       - name: Upload msiexec logs

@@ -27,18 +27,23 @@ const EXT = path.join(DIST, 'ext');
  * (the MSI generator, the zip, the deploy script, the harnesses) sees the same
  * layout a PI Vision server does.
  *
- * Nothing of ours sits directly in ext\, ext\icons\ or ext\libraries\ any
- * more. Those folders are shared with AVEVA's samples and every other symbol
- * pack on the server; 1.6.0 and earlier put 150 files loose in them.
- *
- *   ext\pvx\              symbols, templates, styles, the diagnostic page
+ *   ext\                  sym-pvx*.js and sym-pvx*.css, and nothing else of ours
+ *   ext\pvx\              templates, config panes, the diagnostic page
  *   ext\pvx\icons\        palette icons
  *   ext\libraries\pvx\    the shared runtime and the site's settings
  *
- * The runtime cannot live in ext\pvx\ with everything else. ext\libraries is
- * the only folder PI Vision documents as loading BEFORE the symbols, and its
- * guide explicitly allows subfolders of it — so a subfolder of libraries is the
- * one place the runtime can go without depending on undocumented behaviour. */
+ * The scripts and stylesheets have to sit in ext itself. PI Vision finds them
+ * by scanning that folder, and its guide allows subfolders only under
+ * ext\libraries. 1.7.0 moved them into ext\pvx\, and on the first live server
+ * none of the symbols appeared in the palette.
+ *
+ * Everything else is fetched by URL, and PVX.register spells every URL out
+ * (PVX.EXT_PATH), so templates and icons can live in a folder of our own and
+ * keep the shared folders down to the 66 files PI Vision insists on.
+ *
+ * The runtime is under ext\libraries because that is the only folder PI Vision
+ * documents as loading BEFORE the symbols, and its guide explicitly allows
+ * subfolders of it. */
 const PVX_DIR = path.join(EXT, 'pvx');
 const ICON_DIR = path.join(PVX_DIR, 'icons');
 const LIB_DIR = path.join(EXT, 'libraries', 'pvx');
@@ -321,14 +326,14 @@ function build() {
         validateCss(typeName, css);
         validateIcon(typeName, icon);
 
-        write(path.join(PVX_DIR, 'sym-' + typeName + '.js'), banner(typeName) + js);
+        write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(PVX_DIR, 'sym-' + typeName + '-template.html'), template);
         write(path.join(PVX_DIR, 'sym-' + typeName + '-config.html'), config);
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
         // keeps each symbol self-contained.
-        write(path.join(PVX_DIR, 'sym-' + typeName + '.css'),
+        write(path.join(EXT, 'sym-' + typeName + '.css'),
             banner(typeName + ' styles') + baseCss + '\n\n' + css);
         write(path.join(ICON_DIR, typeName + '.svg'), icon);
 
@@ -353,7 +358,7 @@ function build() {
         extPath: 'Scripts/app/editor/symbols/ext',
         // Where inside extPath each kind of file lands. Tools read these rather
         // than hard-coding the layout a second time.
-        layout: { symbols: 'pvx', icons: 'pvx/icons', libraries: 'libraries/pvx' },
+        layout: { scripts: '', templates: 'pvx', icons: 'pvx/icons', libraries: 'libraries/pvx' },
         symbols: manifest
     }, null, 2));
 

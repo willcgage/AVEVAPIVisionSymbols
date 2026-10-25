@@ -156,14 +156,21 @@ function main() {
 
     // The icons landing beside the symbols instead of inside icons/ is the
     // exact bug this catches, and it is invisible in a build log.
-    // The point of the 1.7 layout: nothing of ours loose in the folders other
-    // symbol packs share. Every file must sit under ext/pvx/ or
-    // ext/libraries/pvx/, and the build must not have drifted back.
+    // Two ways to get the layout wrong, and 1.6.0 and 1.7.0 each shipped one.
+    // PI Vision only scans ext itself for symbol scripts and stylesheets, so
+    // those must be there (1.7.0 put them in ext/pvx/ and they did not load).
+    // Everything else stays out of the folders other symbol packs share
+    // (1.6.0 put 150 files loose in them).
+    var atRoot = function (p) { return /^sym-pvx\w+\.(js|css)$/.test(p); };
     var loose = expected.filter(function (p) {
-        return p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
+        return !atRoot(p) && p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
     });
-    check('every file is inside ext/pvx/ or ext/libraries/pvx/',
+    check('only sym-pvx*.js and .css are directly in ext; the rest is in ext/pvx/ or ext/libraries/pvx/',
         loose.length === 0, loose.slice(0, 6).join(', '));
+    var buried = expected.filter(function (p) { return /(^|\/)sym-[^/]+\.(js|css)$/.test(p) && !atRoot(p); });
+    var scripts = expected.filter(atRoot);
+    check(scripts.length + ' symbol scripts and stylesheets are directly in ext, where PI Vision loads them',
+        buried.length === 0 && scripts.length > 0, buried.slice(0, 6).join(', '));
 
     var nested = expected.filter(function (p) { return p.indexOf('/') !== -1; });
     var misplaced = nested.filter(function (p) {
@@ -276,6 +283,12 @@ function main() {
                 return removes.some(function (x) { return x.split('|').pop() === n; });
             }),
             'RemoveFile names: ' + removes.join(', '));
+        // RemoveFile columns: FileKey, Component_, FileName, DirProperty, InstallMode.
+        check('the 1.7.0 symbol scripts in ext\\pvx are removed on install',
+            table('RemoveFile').some(function (r) {
+                return r[2].split('|').pop() === 'sym-pvx*.js' && r[3] !== 'PVXEXTDIR';
+            }),
+            'no sym-pvx*.js removal outside PVXEXTDIR');
         check('the folder dialog is wired to PIVISIONPATH',
             props.WIXUI_INSTALLDIR === 'PIVISIONPATH', 'got: ' + props.WIXUI_INSTALLDIR);
     }

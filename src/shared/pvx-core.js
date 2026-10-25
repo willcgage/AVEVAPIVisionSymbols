@@ -2259,15 +2259,17 @@
      * and a guard so one broken symbol cannot stop the rest of the library
      * from loading.
      */
-    // The library's own folder inside ext, not ext itself: PVX keeps its files
-    // out of the folder AVEVA's samples and other symbol packs share. Every
-    // URL is spelled out rather than left to PI Vision's "current directory"
-    // default, which its guide never pins to a subfolder.
+    // Where templates and icons live: the library's own folder inside ext.
+    // The sym-*.js files cannot follow them there (PI Vision only scans ext
+    // itself for symbols), but anything fetched by URL can, so every URL is
+    // spelled out rather than left to PI Vision's "current directory" default,
+    // which would point at ext.
     PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/pvx/';
 
     // typeNames that reached PI Vision's catalog. Lets a deployment be checked
     // from the browser console in two halves: PVX.version answers "did
-    // ext/libraries/pvx load", PVX.registered.length "did ext/pvx load".
+    // ext/libraries/pvx load", PVX.registered.length "did the sym-pvx*.js
+    // files in ext load".
     PVX.registered = PVX.registered || [];
 
     PVX.register = function (PV, def) {

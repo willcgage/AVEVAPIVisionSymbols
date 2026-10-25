@@ -100,8 +100,9 @@ npm run installer    # additionally generates the WiX installer source
 
 Install the MSI on the PI Vision server, or copy `dist/ext` there with the
 generated `dist/Deploy-PvxSymbols.ps1`, then recycle the app pool and
-hard-refresh the browser. Both put PVX in folders of its own, `ext\pvx` and
-`ext\libraries\pvx`, never loose among other symbol packs, and both take the
+hard-refresh the browser. Both put the symbol scripts and stylesheets directly
+in `ext`, the only place PI Vision loads them from, and everything else in
+folders of PVX's own, `ext\pvx` and `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode. That is the whole installation for twenty-eight of the thirty-three.

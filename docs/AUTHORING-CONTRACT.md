@@ -15,11 +15,13 @@ styles.css      # symbol-specific CSS
 icon.svg        # 512x512 viewBox, transparent background
 ```
 
-The build copies these to `dist/ext/pvx/sym-<typeName>.js`, `-template.html`,
-`-config.html`, `.css` and `dist/ext/pvx/icons/<typeName>.svg` — the library's
-own folder inside PI Vision's `ext`, never `ext` itself. `PVX.register` fills in
-`templateUrl`, `configTemplateUrl` and `iconUrl` for that folder; leave them
-unset rather than spelling out a path.
+The build copies `symbol.js` and `styles.css` to `dist/ext/sym-<typeName>.js`
+and `.css`, directly in `ext`, because PI Vision only loads symbol scripts and
+stylesheets from there. The rest goes to the library's own folder:
+`dist/ext/pvx/sym-<typeName>-template.html`, `-config.html` and
+`dist/ext/pvx/icons/<typeName>.svg`. `PVX.register` fills in `templateUrl`,
+`configTemplateUrl` and `iconUrl` for that folder; leave them unset rather than
+spelling out a path.
 
 ## Hard rules
 

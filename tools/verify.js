@@ -86,8 +86,8 @@ body.dark{background:#1f2124}
 <script src="/dev/vendor/angular.min.js"></script>
 <script src="/dev/pv-mock.js"></script>
 <script src="/dist/ext/libraries/pvx/pvx-core.js"></script>
-<link rel="stylesheet" href="/dist/ext/pvx/sym-${typeName}.css">
-<script src="/dist/ext/pvx/sym-${typeName}.js"></script>
+<link rel="stylesheet" href="/dist/ext/sym-${typeName}.css">
+<script src="/dist/ext/sym-${typeName}.js"></script>
 <script>window.__inspect = ${inspect.toString()};</script>
 </body></html>`;
 }

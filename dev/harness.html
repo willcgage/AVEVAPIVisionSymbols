@@ -266,8 +266,8 @@
         .then(function () {
             return manifest.symbols.reduce(function (chain, s) {
                 return chain.then(function () {
-                    loadCss('../dist/ext/pvx/sym-' + s.typeName + '.css');
-                    return loadScript('../dist/ext/pvx/sym-' + s.typeName + '.js');
+                    loadCss('../dist/ext/sym-' + s.typeName + '.css');
+                    return loadScript('../dist/ext/sym-' + s.typeName + '.js');
                 });
             }, Promise.resolve());
         })

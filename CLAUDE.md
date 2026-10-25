@@ -112,10 +112,11 @@ silently destroys a site's PI Web API settings on upgrade.
 
 ## Architecture in five lines
 
-- Install layout: symbols, templates, CSS and the diagnostic in `ext/pvx/`,
-  icons in `ext/pvx/icons/`, runtime and site settings in `ext/libraries/pvx/`.
-  Nothing of ours loose in `ext`, `ext/icons` or `ext/libraries` (1.7+);
-  `verify-msi.js` fails the build if a file drifts back.
+- Install layout: `sym-pvx*.js` and `.css` directly in `ext/` (the only
+  place PI Vision loads them from), templates, config panes and the
+  diagnostic in `ext/pvx/`, icons in `ext/pvx/icons/`, runtime and site
+  settings in `ext/libraries/pvx/`. `verify-msi.js` fails the build if a file
+  drifts either way.
 - `src/shared/pvx-core.js` → `ext/libraries/pvx/pvx-core.js`. Namespaces: `util`,
   `fmt`, `color`, `theme`, `thresholds`, `scale`, `svg`, `data`, `stats`, `nav`,
   `layout`, `config`, `api`, `ack`. Symbols contain only what makes them differ.
@@ -187,6 +188,11 @@ Each of these cost real debugging time. Do not rediscover them.
   `C:\Program Files` to `Program Files (x86)` while AppSearch still probes the
   real path — 1.6.0's default install silently landed where PI Vision never
   looks.
+- **PI Vision does not load `sym-*.js` from a subfolder of `ext`.** 1.7.0 put
+  them in `ext/pvx/` and the first live server showed an empty palette. Only
+  `ext/libraries` may have subfolders (AVEVA's extensibility guide says so,
+  and only for libraries). Anything fetched by URL (templates, config panes,
+  icons) can live anywhere, because `PVX.register` spells the URLs out.
 - **`pvx-config` sorts before `pvx-core`.** 1.6.0's config assumed the opposite
   and dropped its settings when loaded first. The template now queues its
   settings on `PVX.pendingSiteSettings` and the core applies them; keep both
