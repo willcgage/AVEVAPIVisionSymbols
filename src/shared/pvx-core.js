@@ -2606,7 +2606,24 @@
      */
     PVX.bootstrap = function (vis, scope, elem, hooks) {
         hooks = hooks || {};
-        var node = util.node(elem);
+
+        /**
+         * The symbol's own root: the template's `.pvx` element.
+         *
+         * PI Vision passes init() its wrapper element with the template linked
+         * inside it, not the template root. Symbols write theme tokens onto
+         * ctx.node as inline --pvx-* custom properties, and their stylesheets
+         * declare fallbacks for the same properties on the `.pvx-*` root. Set
+         * on the wrapper, the inline values only reach the root by inheritance,
+         * which the root's own declarations beat, so Transparent, dark theme
+         * and BackgroundColor were ignored on a live server while the harness,
+         * which passed the bare template, looked correct. The fallback covers
+         * a template without a `.pvx` root.
+         */
+        var resolveNode = function () {
+            return util.find(elem, '.pvx') || util.node(elem);
+        };
+        var node = resolveNode();
 
         /**
          * Resolve the drawing host fresh on every frame.
@@ -2640,6 +2657,7 @@
         var renderer = layout.renderer(function () {
             if (ctx.destroyed) { return; }
             ctx.config = scope.config || ctx.config;
+            ctx.node = resolveNode() || ctx.node;
             ctx.host = resolveHost();
             if (ctx.host) {
                 var w = ctx.host.clientWidth, h = ctx.host.clientHeight;

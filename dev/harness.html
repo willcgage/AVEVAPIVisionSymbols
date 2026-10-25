@@ -380,10 +380,14 @@
             scope.runtimeData = { isEditMode: false };
             scope.symbol = { Name: typeName };
 
+            // Mount inside a wrapper and hand init() the wrapper, as PI
+            // Vision does: the template root is never init()'s element there.
+            var host = document.createElement('div');
+            host.style.cssText = 'width:100%;height:100%';
+            frame.appendChild(host);
             var el;
             try {
-                el = $compile(parts[0])(scope);
-                angular.element(frame).append(el);
+                el = angular.element(host).append($compile(parts[0])(scope));
             } catch (e) {
                 frame.innerHTML = '<div class="err">template compile failed\n' + escapeHtml(e.message) + '</div>';
                 return;

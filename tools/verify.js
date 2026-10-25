@@ -112,6 +112,28 @@ function inspect() {
     const out = { childCount: box.childElementCount, badAttrs: [], overflow: [], texts: [], svgCount: 0, painted: false, maxOverflow: 0, worstOverflow: '' };
     const boxRect = box.getBoundingClientRect();
 
+    // Theme tokens written as inline --pvx-* properties above the template's
+    // .pvx root never take effect: they reach the root only by inheritance,
+    // and the symbol's stylesheet declares the same properties on the root.
+    // That is how Transparent and the dark theme were silently ignored on a
+    // live server, so any such write is a failure, not a style note.
+    out.shadowedVars = [];
+    const pvxRoot = box.querySelector('.pvx');
+    if (pvxRoot) {
+        const rootStyle = window.getComputedStyle(pvxRoot);
+        for (let anc = pvxRoot.parentElement; anc && anc !== document.body; anc = anc.parentElement) {
+            for (let k = 0; k < anc.style.length; k++) {
+                const prop = anc.style[k];
+                if (prop.indexOf('--pvx-') !== 0) { continue; }
+                // Custom properties keep their authored text, so compare with
+                // the whitespace out: "rgba(0,0,0,.1)" vs "rgba(0, 0, 0, .1)".
+                const want = anc.style.getPropertyValue(prop).replace(/\s+/g, '');
+                const got = rootStyle.getPropertyValue(prop).replace(/\s+/g, '');
+                if (want !== got) { out.shadowedVars.push(prop + ' set to ' + want + ' but the root has ' + got); }
+            }
+        }
+    }
+
     const all = box.querySelectorAll('*');
     out.painted = all.length > 1;
     out.svgCount = box.querySelectorAll('svg').length;
@@ -214,10 +236,16 @@ function inspect() {
                         scope.symbol = { Name: typeName };
 
                         const tpl = await fetch('/dist/ext/sym-' + typeName + '-template.html').then((r) => r.text());
+                        // init() gets a wrapper with the template linked
+                        // inside it, as PI Vision does, never the template
+                        // root itself. See the shadowed-variable check.
+                        const host = document.createElement('div');
+                        host.className = 'pv-symbol-host';
+                        host.style.cssText = 'width:100%;height:100%';
+                        box.appendChild(host);
                         let el;
                         try {
-                            el = $compile(tpl)(scope);
-                            angular.element(box).append(el);
+                            el = angular.element(host).append($compile(tpl)(scope));
                         } catch (e) { return { fatal: 'template compile: ' + e.message }; }
 
                         // The config pane must compile too — a broken one makes
@@ -283,6 +311,9 @@ function inspect() {
                         }
                         if (result.badAttrs && result.badAttrs.length) {
                             problems.push(tag + ' — invalid SVG attribute: ' + result.badAttrs.slice(0, 3).join(', '));
+                        }
+                        if (result.shadowedVars && result.shadowedVars.length) {
+                            problems.push(tag + ' — theme variable written outside the .pvx root: ' + result.shadowedVars[0]);
                         }
                         if (result.destroyError) {
                             problems.push(tag + ' — onDestroy threw: ' + result.destroyError);
