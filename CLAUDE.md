@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 33 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 34 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.10.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,12 +17,13 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 594 render checks — the gate, and slow
+node tools/verify.js                 # 612 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal + band editor: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
+node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, text zoom vs a mock AF
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -31,7 +32,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 33 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 34 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -56,7 +57,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js` and `test-limits.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-limits.js` and `test-overview.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -252,7 +253,8 @@ The roadmap is **closed by decision**, not abandoned: tiers 1 and 2 shipped,
 declined with reasons recorded on each card in `docs/roadmap.html`
 (`pvxTimePicker`, `pvxWebView`, `pvxAlarmSound`, `pvxMap`). Two symbols were
 added afterwards from a gap analysis, on the owner's request: `pvxOperatingMap`
-and `pvxDataHealth` (`docs/ROADMAP.md`, *After the plan*). Do not "finish
+and `pvxDataHealth` (`docs/ROADMAP.md`, *After the plan*), then `pvxAssetTable`
+from a review against Will's overview display build guide. Do not "finish
 tier 3" — that is a resolved question, not an open task.
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs

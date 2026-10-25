@@ -51,7 +51,7 @@
                 Width: 380,
 
                 // What a click does.
-                Mode: 'time',              // display | asset | time | custom
+                Mode: 'time',              // display | asset | time | custom | hierarchy
                 Items: '8 hours | *-8h | *\n' +
                        '24 hours | *-24h | *\n' +
                        '7 days | *-7d | *\n' +
@@ -78,6 +78,18 @@
                 ConfirmNavigation: false,
                 ConfirmText: 'Leave this display?',
 
+                // Hierarchy mode: buttons come from the current asset's
+                // place in AF, not from Items.
+                StartAsset: '',            // used when the URL names no asset
+                LevelDisplays: '',         // "level | display" per line, "*" for any
+                TopLevel: 1,               // shallowest level shown and reachable by Up
+                ShowUp: true,
+                ShowBreadcrumb: true,
+                ShowSiblings: true,
+                SiblingsSameTemplate: true,
+                ShowChildren: false,
+                MaxSiblings: 50,
+
                 // Chrome
                 ShowTitle: false,
                 Title: ''
@@ -103,6 +115,22 @@
         var pendingIndex = -1;        // index of the button awaiting confirmation
         var pendingTimer = null;
 
+        // Hierarchy mode. Up and the breadcrumb are path arithmetic on the
+        // current asset; siblings and children need PI Web API, fetched once
+        // per asset and kept until the asset changes.
+        var hier = {
+            sourceAsset: '',          // element of the placeholder data source
+            fetchedFor: null,         // key of the asset + options last fetched
+            siblings: null,           // [{name, path, template}] or null
+            children: null,
+            notes: [],                // why a group is missing or short
+            gen: 0,                   // bumps on every fetch; stale answers drop
+            lastAsset: null,
+            timer: null,
+            listener: null
+        };
+        var HIER_POLL_MS = 1000;
+
         // Long enough to read "Confirm?" and act, short enough that a stray
         // click never leaves a button stuck in a scary state.
         var CONFIRM_MS = 4000;
@@ -110,6 +138,16 @@
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-nav-body',
             render: render,
+            // The data source is otherwise ignored, but in hierarchy mode its
+            // element is where the panel starts when the URL names no asset.
+            onData: function (d) {
+                var one = PVX.data.single(d);
+                var a = one ? PVX.nav.assetOf(one.path) : '';
+                if (a !== hier.sourceAsset) {
+                    hier.sourceAsset = a;
+                    if ((ctx.config || {}).Mode === 'hierarchy') { ctx.render(); }
+                }
+            },
             onDestroy: teardown
         });
 
@@ -207,6 +245,9 @@
             } else if (mode === 'time') {
                 opts.start = item.target;
                 opts.end = item.extra || '*';        // '*' = now, the usual intent
+            } else if (mode === 'hierarchy') {
+                opts.asset = item.target;
+                if (item.extra) { opts.display = item.extra; }      // blank => stay put
             } else if (mode === 'custom') {
                 if (item.target) { opts.display = item.target; }   // blank => stay put
                 var p = parsePairs(item.extra);
@@ -228,6 +269,10 @@
         /** Short human description used as the button tooltip. */
         function describe(item, cfg) {
             var mode = cfg.Mode || 'display';
+            if (item.tip) { return item.tip; }
+            if (mode === 'hierarchy') {
+                return item.target + (item.extra ? '  (display ' + item.extra + ')' : '');
+            }
             if (mode === 'asset') { return 'Asset: ' + item.target; }
             if (mode === 'time') { return 'Time: ' + item.target + ' to ' + (item.extra || '*'); }
             if (mode === 'custom') {
@@ -290,6 +335,11 @@
 
             if (mode === 'asset') {
                 return !!item.target && assetKey(item.target) === assetKey(PVX.nav.currentAsset());
+            }
+            if (mode === 'hierarchy') {
+                // Up names the parent, which is never where the display is.
+                return item.kind !== 'up' && !!item.target &&
+                       assetKey(item.target) === assetKey(hierAsset(cfg));
             }
             if (mode === 'time') {
                 return timeKey(cur.params.starttime) === timeKey(item.target) &&
@@ -451,10 +501,258 @@
 
         function teardown() {
             if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
+            // A leaked poller on a control-room kiosk runs for weeks.
+            if (hier.timer !== null) { clearInterval(hier.timer); hier.timer = null; }
+            if (hier.listener) {
+                try { window.removeEventListener('hashchange', hier.listener, false); }
+                catch (e) { /* ignore */ }
+                hier.listener = null;
+            }
+            hier.gen += 1;
             pendingIndex = -1;
             unbindHost();
             buttons = [];
             builtSignature = null;
+        }
+
+        /* ================================================================ *
+         * hierarchy mode
+         * ================================================================ *
+         * The build guide's navigation strip: Up to the parent, a breadcrumb
+         * of the current asset's ancestors, and its siblings, all switching
+         * the asset and, where a level has its own display, the display too.
+         * Everything but siblings and children is read off the path itself,
+         * so the strip works before PI Web API is configured and says what
+         * it is missing rather than leaving the group out.
+         */
+
+        function intIn(v, lo, hi, dflt) {
+            var n = parseInt(v, 10);
+            return isFinite(n) ? PVX.util.clamp(n, lo, hi) : dflt;
+        }
+
+        /** URL asset first, then the configured start, then the data source's element. */
+        function hierAsset(cfg) {
+            return trim(PVX.nav.currentAsset()) || trim(cfg.StartAsset) || hier.sourceAsset;
+        }
+
+        /**
+         * "2 | 1058" opens display 1058 for any level-2 element, "* | 1042"
+         * for every level without a line of its own. Levels count from the
+         * top of the AF database, 1 being its top-level elements, because
+         * that is what stays fixed when a site adds a unit under an area.
+         */
+        function levelDisplays(text) {
+            var map = {};
+            var lines = String(text || '').split(/\r?\n/);
+            for (var i = 0; i < lines.length; i++) {
+                var it = parseItem(lines[i]);
+                if (!it || !it.target) { continue; }
+                if (it.label === '*') { map['*'] = it.target; continue; }
+                var n = parseInt(it.label, 10);
+                if (n > 0) { map[n] = it.target; }
+            }
+            return map;
+        }
+
+        function displayFor(map, level) {
+            return map[level] || map['*'] || '';
+        }
+
+        function relativesKey(asset, cfg) {
+            return assetKey(asset) + '\u0000' + (cfg.ShowSiblings !== false) + '\u0000' +
+                (cfg.ShowChildren === true) + '\u0000' + intIn(cfg.MaxSiblings, 1, 500, 50);
+        }
+
+        function apiFailure(err, what) {
+            var e = err && err.pvxError;
+            return 'Could not list ' + what + ': ' +
+                (e ? e.message + (e.check ? ' Check: ' + e.check + '.' : '') : String(err && err.message || err));
+        }
+
+        /** A 404 from a path lookup, said as the missing path rather than "check the WebID". */
+        function notFoundAs(what) {
+            return function (err) {
+                if (err && err.pvxError && err.pvxError.code === 'not-found') {
+                    throw { pvxError: { code: 'not-found', message: 'there is no AF ' + what + '.',
+                        check: 'the asset in the URL, or Start asset in Format' } };
+                }
+                throw err;
+            };
+        }
+
+        /** The collection endpoint holding an element's children. */
+        function childrenBase(path) {
+            var segs = PVX.nav.segments(path);
+            if (!segs.elements.length) {
+                // A database's elements are not under elements/{id}/elements.
+                var db = segs.prefix.replace(/\\+$/, '');
+                return PVX.api.get('assetdatabases?path=' + encodeURIComponent(db) + '&selectedFields=WebId')
+                    ['catch'](notFoundAs('database at "' + db + '"'))
+                    .then(function (r) {
+                        if (!r || !r.WebId) { throw new Error('no AF database at ' + db); }
+                        return 'assetdatabases/' + encodeURIComponent(r.WebId) + '/elements';
+                    });
+            }
+            return PVX.api.get('elements?path=' + encodeURIComponent(path) + '&selectedFields=WebId')
+                ['catch'](notFoundAs('element at "' + path + '"'))
+                .then(function (r) {
+                    if (!r || !r.WebId) { throw new Error('no AF element at ' + path); }
+                    return 'elements/' + encodeURIComponent(r.WebId) + '/elements';
+                });
+        }
+
+        function listChildren(path, max) {
+            return childrenBase(path).then(function (base) {
+                // One more than we draw, so "exactly max" and "cut off" differ.
+                return PVX.api.get(base + '?selectedFields=Items.Name;Items.Path;Items.TemplateName' +
+                    '&maxCount=' + (max + 1));
+            }).then(function (res) {
+                var raw = (res && res.Items) || [];
+                var out = [];
+                for (var i = 0; i < raw.length && i < max; i++) {
+                    if (!raw[i] || !raw[i].Path) { continue; }
+                    out.push({ name: raw[i].Name || raw[i].Path, path: raw[i].Path, template: raw[i].TemplateName || '' });
+                }
+                return { items: out, truncated: raw.length > max };
+            });
+        }
+
+        /** Fetch siblings and children once per asset; renders again on arrival. */
+        function ensureRelatives(cfg) {
+            var asset = hierAsset(cfg);
+            var key = relativesKey(asset, cfg);
+            if (key === hier.fetchedFor) { return; }
+            hier.fetchedFor = key;
+            hier.siblings = null;
+            hier.children = null;
+            hier.notes = [];
+            var gen = ++hier.gen;
+
+            var wantSiblings = cfg.ShowSiblings !== false;
+            var wantChildren = cfg.ShowChildren === true;
+            if (!asset || !PVX.nav.segments(asset).prefix || (!wantSiblings && !wantChildren)) { return; }
+            if (!PVX.api.isConfigured()) {
+                hier.notes.push({
+                    label: (wantSiblings ? 'Siblings' : 'Children') + ' need PI Web API',
+                    tip: 'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it with ext/piwebapi-check.html.'
+                });
+                return;
+            }
+
+            var max = intIn(cfg.MaxSiblings, 1, 500, 50);
+            function settle(field, what, promise) {
+                promise.then(function (r) {
+                    if (gen !== hier.gen) { return; }
+                    hier[field] = r.items;
+                    if (r.truncated) {
+                        hier.notes.push({ label: 'First ' + max + ' ' + what,
+                            tip: 'There are more ' + what + ' than MaxSiblings (' + max + ') allows; raise it in Format to show them.' });
+                    }
+                    ctx.render();
+                })['catch'](function (err) {
+                    if (gen !== hier.gen) { return; }
+                    hier[field] = [];
+                    hier.notes.push({ label: 'No ' + what, tip: apiFailure(err, what) });
+                    ctx.render();
+                });
+            }
+            var parent = PVX.nav.parentOf(asset) || PVX.nav.segments(asset).prefix;
+            if (wantSiblings) { settle('siblings', 'siblings', listChildren(parent, max)); }
+            if (wantChildren) { settle('children', 'children', listChildren(asset, max)); }
+        }
+
+        function hierarchyItems(cfg) {
+            var asset = hierAsset(cfg);
+            var segs = PVX.nav.segments(asset);
+            var depth = segs.elements.length;
+            if (!asset || !segs.prefix || !depth) { return []; }
+
+            var top = intIn(cfg.TopLevel, 1, depth, 1);
+            var map = levelDisplays(cfg.LevelDisplays);
+            var pathAt = function (d) { return segs.prefix + segs.elements.slice(0, d).join('\\'); };
+            var groups = [];
+            var i, g;
+
+            if (cfg.ShowUp !== false) {
+                var canUp = depth > top;
+                groups.push([{
+                    kind: 'up', label: '↑ Up',
+                    target: canUp ? pathAt(depth - 1) : '',
+                    extra: canUp ? displayFor(map, depth - 1) : '',
+                    disabled: !canUp,
+                    tip: canUp ? 'Up to ' + segs.elements[depth - 2] : 'Already at the top level shown'
+                }]);
+            }
+
+            if (cfg.ShowBreadcrumb !== false) {
+                g = [];
+                for (i = top; i <= depth; i++) {
+                    if (g.length) { g.push({ kind: 'sep', label: '›' }); }
+                    g.push({ kind: 'crumb', label: segs.elements[i - 1], target: pathAt(i), extra: displayFor(map, i) });
+                }
+                groups.push(g);
+            }
+
+            function relatives(list, kind, level) {
+                var mine = null, out = [];
+                for (var j = 0; j < list.length; j++) {
+                    if (assetKey(list[j].path) === assetKey(asset)) { mine = list[j]; }
+                }
+                // Same template keeps the strip on peers: the other compressors,
+                // not the station's tanks and meters that share its parent.
+                var tpl = kind === 'sibling' && cfg.SiblingsSameTemplate !== false && mine ? mine.template : '';
+                for (j = 0; j < list.length; j++) {
+                    if (tpl && list[j].template !== tpl) { continue; }
+                    out.push({ kind: kind, label: list[j].name, target: list[j].path, extra: displayFor(map, level) });
+                }
+                return out;
+            }
+            if (cfg.ShowSiblings !== false && hier.siblings && hier.siblings.length) {
+                groups.push(relatives(hier.siblings, 'sibling', depth));
+            }
+            if (cfg.ShowChildren === true && hier.children && hier.children.length) {
+                groups.push(relatives(hier.children, 'child', depth + 1));
+            }
+            if (hier.notes.length) {
+                g = [];
+                for (i = 0; i < hier.notes.length; i++) {
+                    g.push({ kind: 'note', label: hier.notes[i].label, tip: hier.notes[i].tip });
+                }
+                groups.push(g);
+            }
+
+            var out = [];
+            for (i = 0; i < groups.length; i++) {
+                if (!groups[i].length) { continue; }
+                if (out.length) { out.push({ kind: 'div', label: '|' }); }
+                out = out.concat(groups[i]);
+            }
+            return out;
+        }
+
+        function itemsKey(items) {
+            var parts = [];
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                parts.push([it.kind || '', it.label, it.target || '', it.extra || '', it.disabled ? 1 : 0, it.tip || ''].join('\u0001'));
+            }
+            return parts.join('\u0002');
+        }
+
+        /**
+         * Follow the display's asset. Polling as well as hashchange, as the
+         * Asset Navigator does: some PI Vision releases change the asset
+         * through the router without a hashchange.
+         */
+        function pollAsset() {
+            if (ctx.destroyed) { return; }
+            var cfg = ctx.config || {};
+            if (cfg.Mode !== 'hierarchy') { return; }
+            var a = assetKey(PVX.nav.currentAsset());
+            if (a === hier.lastAsset) { return; }
+            hier.lastAsset = a;
+            ctx.render();
         }
 
         /* ================================================================ *
@@ -463,6 +761,7 @@
 
         function syncClass(rec) {
             var cls = 'pvx-btn pvx-nav-btn';
+            if (rec.item.kind) { cls += ' pvx-nav-btn-' + rec.item.kind; }
             if (rec.active) { cls += ' pvx-nav-btn-active'; }
             if (rec.confirming) { cls += ' pvx-nav-confirm'; }
             rec.el.className = cls;
@@ -477,6 +776,11 @@
             return (cfg.Mode || 'display') + '\u0000' + (cfg.Items || '');
         }
 
+        // Hierarchy mode puts text between the buttons: the breadcrumb's
+        // chevrons, a divider between groups, and notes. They are spans, so
+        // they never take a click or a place in `buttons`.
+        var TEXT_KINDS = { sep: 'pvx-nav-sep', div: 'pvx-nav-div', note: 'pvx-nav-note' };
+
         function build(host, items, cfg) {
             clearConfirm();
             buttons = [];
@@ -487,7 +791,9 @@
                 // cannot diagnose.
                 var hint = document.createElement('div');
                 hint.className = 'pvx-empty pvx-nav-hint';
-                hint.textContent = 'Add one button per line in the format Label | target';
+                hint.textContent = cfg.Mode === 'hierarchy'
+                    ? 'No current asset. Open this display with an asset, drop an attribute of one onto the panel, or set a start asset in Format.'
+                    : 'Add one button per line in the format Label | target';
                 host.appendChild(hint);
                 return;
             }
@@ -495,11 +801,22 @@
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
 
+                if (TEXT_KINDS[item.kind]) {
+                    var span = document.createElement('span');
+                    span.className = TEXT_KINDS[item.kind];
+                    span.textContent = item.label;
+                    if (item.tip) { span.title = item.tip; }
+                    span.setAttribute('aria-hidden', item.kind === 'note' ? 'false' : 'true');
+                    host.appendChild(span);
+                    continue;
+                }
+
                 var b = document.createElement('button');
                 b.type = 'button';                       // never submit a form
-                b.setAttribute('data-pvx-index', String(i));
+                b.setAttribute('data-pvx-index', String(buttons.length));
                 b.setAttribute('aria-pressed', 'false');
                 b.title = describe(item, cfg);
+                if (item.disabled) { b.disabled = true; }
 
                 // textContent, not innerHTML: labels are operator-authored text
                 // and must never be interpreted as markup.
@@ -509,8 +826,9 @@
                 b.appendChild(labelEl);
 
                 host.appendChild(b);
-                buttons.push({ el: b, labelEl: labelEl, item: item, active: false, confirming: false });
-                syncClass(buttons[i]);
+                var rec = { el: b, labelEl: labelEl, item: item, active: false, confirming: false };
+                buttons.push(rec);
+                syncClass(rec);
             }
         }
 
@@ -605,8 +923,10 @@
             if (host) {
                 bindHost(host);
 
-                var items = parseItems(cfg.Items, cfg.Mode || 'display');
-                var sig = signature(cfg);
+                var hierarchy = cfg.Mode === 'hierarchy';
+                if (hierarchy) { ensureRelatives(cfg); }
+                var items = hierarchy ? hierarchyItems(cfg) : parseItems(cfg.Items, cfg.Mode || 'display');
+                var sig = hierarchy ? 'hierarchy\u0000' + itemsKey(items) : signature(cfg);
                 if (sig !== builtSignature) {
                     build(host, items, cfg);
                     builtSignature = sig;
@@ -623,6 +943,12 @@
                 try { scope.$digest(); } catch (e) { /* already digesting */ }
             }
         }
+
+        hier.lastAsset = assetKey(PVX.nav.currentAsset());
+        hier.timer = setInterval(pollAsset, HIER_POLL_MS);
+        hier.listener = function () { pollAsset(); };
+        try { window.addEventListener('hashchange', hier.listener, false); }
+        catch (e) { hier.listener = null; }
 
         return ctx;
     };

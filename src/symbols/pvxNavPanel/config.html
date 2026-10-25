@@ -10,10 +10,79 @@
                 <option value="asset">Switch asset</option>
                 <option value="time">Set time range</option>
                 <option value="custom">Custom (mix)</option>
+                <option value="hierarchy">Move through the asset hierarchy</option>
             </select>
         </div>
 
-        <div class="pvx-cfg-stack">
+        <div ng-if="config.Mode === 'hierarchy'">
+            <div class="pvx-cfg-hint">
+                Builds the buttons from the current asset's place in AF: <b>Up</b> to its
+                parent, a breadcrumb of its ancestors, and its siblings. Each switches the
+                asset; a level with a display below opens that display as well. The
+                Items list is not used.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxnav-start">Start asset</label>
+                <input id="pvxnav-start" type="text" ng-model="config.StartAsset"
+                       placeholder="\\AF server\Database\Area\Unit" />
+                <!-- pvx:afpicker key=StartAsset kind=element -->
+            </div>
+            <div class="pvx-cfg-hint">
+                Used when the display was opened without an asset. Left blank, the element
+                of the attribute dropped onto the panel is used.
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-up">Show Up</label>
+                <input id="pvxnav-up" type="checkbox" ng-model="config.ShowUp" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-crumb">Show breadcrumb</label>
+                <input id="pvxnav-crumb" type="checkbox" ng-model="config.ShowBreadcrumb" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-sib">Show siblings</label>
+                <input id="pvxnav-sib" type="checkbox" ng-model="config.ShowSiblings" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-sibtpl">Only siblings of the same template</label>
+                <input id="pvxnav-sibtpl" type="checkbox" ng-model="config.SiblingsSameTemplate" ng-disabled="!config.ShowSiblings" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-kids">Show children</label>
+                <input id="pvxnav-kids" type="checkbox" ng-model="config.ShowChildren" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-maxsib">Most siblings or children</label>
+                <input id="pvxnav-maxsib" type="number" ng-model="config.MaxSiblings" min="1" max="500" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Siblings and children are listed through PI Web API (set up once per site in
+                <code>pvx-config.js</code>). Without it Up and the breadcrumb still work, and
+                the panel says what is missing.
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxnav-top">Top level shown</label>
+                <input id="pvxnav-top" type="number" ng-model="config.TopLevel" min="1" max="20" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Levels count from the top of the AF database: 1 is its top-level elements.
+                Raise this to hide enterprise levels above the plant; Up stops there too.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxnav-levels">Display for each level</label>
+                <textarea id="pvxnav-levels" ng-model="config.LevelDisplays" rows="4"
+                          placeholder="level | display id"></textarea>
+            </div>
+            <div class="pvx-cfg-hint">
+                One line per level. <code>*</code> covers every level without a line. A level
+                with no display keeps this display and only changes the asset.
+                <pre>2 | 1042
+3 | 1058
+* | 1070</pre>
+            </div>
+        </div>
+
+        <div class="pvx-cfg-stack" ng-if="config.Mode !== 'hierarchy'">
             <label for="pvxnav-items">Items &mdash; one button per line</label>
             <textarea id="pvxnav-items" ng-model="config.Items" rows="7"
                       placeholder="Label | target | extra"></textarea>

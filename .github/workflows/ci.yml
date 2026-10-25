@@ -82,6 +82,12 @@ jobs:
       - name: Verify alarm symbols need limits
         run: node tools/test-limits.js
 
+      # The overview pieces against a mock AF database behind a mock PI Web
+      # API: Navigation Panel hierarchy mode, Asset Table, Event Timeline
+      # scoped to the asset, drill-down paths and the text size zoom.
+      - name: Verify overview symbols
+        run: node tools/test-overview.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current

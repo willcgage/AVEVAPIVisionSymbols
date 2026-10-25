@@ -62,6 +62,7 @@ jobs:
       - run: node tools/test-afpick.js
       - run: node tools/test-states.js
       - run: node tools/test-limits.js
+      - run: node tools/test-overview.js
 
   # --------------------------------------------------------------------------
   # Build the shipping MSI with the official WiX toolset, then assert against

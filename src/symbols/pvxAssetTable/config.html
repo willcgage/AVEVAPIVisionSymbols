@@ -1,0 +1,219 @@
+<div class="c-config-content pvx-cfg pvx-atable-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-source">Rows come from</label>
+            <select id="pvxat-source" ng-model="config.RowSource">
+                <option value="sources">The data sources on this table</option>
+                <option value="search">Elements under the current asset</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.RowSource !== 'search'">
+            Drop the attributes of several elements onto the table: each element becomes a
+            row and each attribute a column. A PI point has no element, so it is listed
+            under the table instead of shown.
+        </div>
+
+        <div ng-if="config.RowSource === 'search'">
+            <div class="pvx-cfg-hint">
+                Lists the child elements of the display's asset through PI Web API and reads
+                the attributes named under Columns for each. Follows an asset swap to an area
+                with a different number of units, which a fixed list of data sources cannot.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxat-root">Search root</label>
+                <input id="pvxat-root" type="text" ng-model="config.SearchRoot"
+                       placeholder="\\AF server\Database\Area" />
+                <!-- pvx:afpicker key=SearchRoot kind=element -->
+            </div>
+            <div class="pvx-cfg-hint">
+                Used when the display was opened without an asset. Left blank, the element
+                of the attribute dropped onto the table is the root.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxat-tpl">Only elements of template</label>
+                <input id="pvxat-tpl" type="text" ng-model="config.SearchTemplate" placeholder="Any template" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxat-deep">Include all descendants</label>
+                <input id="pvxat-deep" type="checkbox" ng-model="config.SearchDescendants" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxat-max">Most rows</label>
+                <input id="pvxat-max" type="number" ng-model="config.MaxRows" min="1" max="500" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxat-refresh">Refresh every (s)</label>
+                <input id="pvxat-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="3600" />
+            </div>
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-label">Row name</label>
+            <select id="pvxat-label" ng-model="config.RowLabel">
+                <option value="name">Element name</option>
+                <option value="parentName">Parent and element name</option>
+                <option value="path">Full path in the database</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Two elements with the same name show their parent as well, whichever you pick.</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-namehead">Name column header</label>
+            <input id="pvxat-namehead" type="text" ng-model="config.NameHeader" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Columns</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-cols">One column per line</label>
+            <textarea id="pvxat-cols" ng-model="config.ColumnSpec" rows="6"
+                      placeholder="Attribute | Header | Colour | Show"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <b>Format:</b> <code>Attribute | Header | Colour | Show</code>. Only the attribute is
+            required. Leave the list empty to show every attribute in the order dropped.
+            <pre>Discharge Pressure | Disch psig | 0:#2f9e5f:Normal, 1150:#c8452f:High
+Vibration          | Vib        | 0:#2f9e5f:Normal, 4:#d99024:Watch, 6:#c8452f:Trip
+Status             |            | states | label</pre>
+            <b>Colour:</b> blank colours numbers by the table's threshold bands and states by
+            its state map below; <code>none</code>, <code>bands</code> or <code>states</code> pick
+            one; a band list gives the column limits of its own.
+            <b>Show:</b> <code>value</code> (default), <code>label</code> (the band or state
+            label), or <code>both</code>.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-style">Cell colour shows as</label>
+            <select id="pvxat-style" ng-model="config.CellStyle">
+                <option value="text">Coloured text</option>
+                <option value="fill">Filled cell</option>
+                <option value="dot">Dot beside the value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-status">Status column</label>
+            <select id="pvxat-status" ng-model="config.StatusColumn">
+                <option value="worst">Worst cell in the row</option>
+                <option value="none">None</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            The dot takes the colour of the row's worst cell: the highest band it has reached,
+            or the state whose severity is highest. Its tooltip names the column.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-units">Show units</label>
+            <input id="pvxat-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-bad">Mark bad quality</label>
+            <input id="pvxat-bad" type="checkbox" ng-model="config.ShowBadQuality" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Threshold bands (columns coloured by <code>bands</code>)</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-hint">No bands, no colour: a table with no limits set flags nothing.</div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Digital state map (columns coloured by <code>states</code>)</div>
+            <!-- pvx:states key=StateMap kind=map -->
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Order</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-sort">Sort rows by</label>
+            <select id="pvxat-sort" ng-model="config.SortBy">
+                <option value="none">As listed</option>
+                <option value="name">Name</option>
+                <option value="worst">Worst status first</option>
+                <option value="column">A column</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.SortBy === 'column'">
+            <label for="pvxat-sortcol">Column (attribute or header)</label>
+            <input id="pvxat-sortcol" type="text" ng-model="config.SortColumn" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-desc">Reverse order</label>
+            <input id="pvxat-desc" type="checkbox" ng-model="config.SortDescending" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Interaction</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-click">On row click</label>
+            <select id="pvxat-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display with that asset</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-navtarget">Target display</label>
+            <input id="pvxat-navtarget" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or blank for this display" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The row's element is passed as <code>asset=</code>, so an asset-relative display
+            opens on that unit. The display id is the number after <code>/Displays/</code> in
+            its address. Rows are keyboard reachable and open with Enter or Space.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxat-title">Header title</label>
+            <input id="pvxat-title" type="text" ng-model="config.Title" placeholder="Leave blank for no header" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-showlabel">Show header</label>
+            <input id="pvxat-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-decimals">Decimals</label>
+            <select id="pvxat-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-theme">Theme</label>
+            <select id="pvxat-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-transparent">Transparent background</label>
+            <input id="pvxat-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-bgcolor">Background colour</label>
+            <input id="pvxat-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-radius">Corner radius</label>
+            <input id="pvxat-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

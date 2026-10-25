@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **33 symbols**.
+> [After the plan](#after-the-plan). The library is at **34 symbols**.
 
 ## On originality
 
@@ -459,6 +459,17 @@ PI Vision's data pipeline, recorded so nobody rediscovers them:
 
 Other candidates from the same review — a read-only loop faceplate, ISA-101
 normalized analog bars, an SPC control chart — were left for usage to decide.
+
+Later the same month the owner had an overview display build guide reviewed
+against the library, and asked for what it was missing. One symbol came of
+it, plus features on existing ones (KPI Card plan source and status edge,
+Navigation Panel hierarchy mode, Ranked Bar click-through, Event Timeline
+scoped to the current asset, Combo Chart dashed traces, a text size control
+on every symbol):
+
+| Symbol | Data shape | Why it earns its place |
+|---|---|---|
+| **pvxAssetTable** | Table, many; or PI Web API | The overview table of units by attribute that PI Vision's own table cannot pivot: per-cell limits, a worst-cell status dot, a row that opens the unit's display. In search mode it lists the elements under the current asset, so an asset swap to an area with more units gets more rows. |
 
 ## What next
 

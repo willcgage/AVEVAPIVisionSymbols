@@ -315,6 +315,38 @@
             return { Data: data };
         }
 
+        // An asset table pivots AF attributes into element rows, so it needs
+        // AF paths across several elements, a digital attribute among the
+        // numbers, and one element short an attribute to show a missing cell.
+        if (shape === 'Table' && opts.profile === 'assets') {
+            var aRows = [];
+            var ATTRS = [
+                { name: 'Discharge Pressure', units: 'psig', base: 1040, amp: 140 },
+                { name: 'Vibration', units: 'mils', base: 3.1, amp: 2.4 },
+                { name: 'Status', units: '' }
+            ];
+            var STATES = ['Running', 'Running', 'Stopped', 'Running', 'Fault'];
+            for (var ar = 0; ar < count; ar++) {
+                var unit = Math.floor(ar / ATTRS.length);
+                var at = ATTRS[ar % ATTRS.length];
+                var el = 'K-' + (301 + unit);
+                var av = at.units ? round(at.base + Math.sin(unit * 1.7 + 0.4) * at.amp + (rand() - 0.5) * at.amp * 0.2, 2)
+                                  : STATES[unit % STATES.length];
+                aRows.push({
+                    Label: el + '|' + at.name,
+                    Units: at.units,
+                    Path: '\\\\AF\\Gathering\\Station ' + (1 + (unit % 2)) + '\\' + el + '|' + at.name,
+                    Time: new Date(now).toISOString(),
+                    Value: av,
+                    IsGood: opts.badIndex === ar ? false : true,
+                    ErrorDescription: opts.badIndex === ar ? 'No Data' : '',
+                    Summary: [{ Value: av }],
+                    Trend: []
+                });
+            }
+            return { Rows: aRows };
+        }
+
         if (shape === 'Table') {
             var rows = [];
             for (var r = 0; r < count; r++) {

@@ -1,0 +1,190 @@
+/* pvxAssetTable — every selector namespaced under .pvx-atable. The custom
+   properties are fallbacks; symbol.js writes the theme's on every render. */
+
+.pvx-atable {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-stripe: rgba(0, 0, 0, 0.13);
+    color: var(--pvx-text);
+}
+
+.pvx-atable .pvx-atable-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-atable .pvx-atable-header {
+    color: var(--pvx-muted);
+}
+
+.pvx-atable .pvx-atable-bodywrap {
+    padding: 0;
+    min-height: 0;
+}
+
+/* Rows scroll; the header stays put so a long list keeps its column names. */
+.pvx-atable .pvx-atable-body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    overflow: auto;
+}
+
+.pvx-atable .pvx-atable-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.pvx-atable .pvx-atable-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--pvx-surface-alt);
+    color: var(--pvx-muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-align: right;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.pvx-atable .pvx-atable-table th.pvx-atable-namehead {
+    text-align: left;
+}
+
+.pvx-atable .pvx-atable-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+}
+
+.pvx-atable .pvx-atable-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.pvx-atable .pvx-atable-statushead,
+.pvx-atable .pvx-atable-status {
+    width: 14px;
+    padding-right: 0;
+    text-align: center;
+}
+
+.pvx-atable .pvx-atable-statusdot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--pvx-border);
+    vertical-align: middle;
+}
+
+/* The name is the one string allowed to truncate; its title holds the path. */
+.pvx-atable .pvx-atable-name {
+    font-weight: 600;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-atable .pvx-atable-cell {
+    text-align: right;
+}
+
+.pvx-atable .pvx-atable-dot {
+    display: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.pvx-atable .pvx-atable-missing {
+    color: var(--pvx-muted);
+}
+
+.pvx-atable .pvx-atable-bad {
+    color: var(--pvx-muted);
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, var(--pvx-stripe) 5px 7px);
+}
+
+.pvx-atable .pvx-atable-click {
+    cursor: pointer;
+}
+
+.pvx-atable .pvx-atable-click:hover td,
+.pvx-atable .pvx-atable-click:focus td {
+    box-shadow: inset 0 0 0 9999px rgba(128, 128, 128, 0.10);
+}
+
+.pvx-atable .pvx-atable-click:focus {
+    outline: 2px solid var(--pvx-border);
+    outline-offset: -2px;
+}
+
+.pvx-atable .pvx-atable-footer {
+    flex: 0 0 auto;
+    padding: 2px 8px 4px 8px;
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-atable .pvx-atable-footer:empty {
+    display: none;
+}
+
+.pvx-atable .pvx-atable-message {
+    padding: 12px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.pvx-atable .pvx-atable-msgtitle {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.pvx-atable .pvx-atable-warn {
+    color: #b8741a;
+}
+
+.pvx-atable .pvx-atable-msgtext {
+    font-size: 11.5px;
+    color: var(--pvx-muted);
+}
+
+/* --- config pane: the worked example, namespaced to this pane ------------- */
+
+.pvx-atable-cfg .pvx-cfg-hint pre {
+    margin: 4px 0;
+    padding: 4px 6px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    line-height: 1.45;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.pvx-atable-cfg .pvx-cfg-hint code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 10.5px;
+    background: rgba(128, 128, 128, 0.14);
+    border-radius: 2px;
+    padding: 0 3px;
+}

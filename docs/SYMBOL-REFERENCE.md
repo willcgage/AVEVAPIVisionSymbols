@@ -10,6 +10,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 |---|---|---|---|
 | [`pvxAlarmBanner`](#pvxalarmbanner) | PVX Exception Banner | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
+| [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | Table | Multiple |
 | [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
@@ -23,7 +24,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
-| [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Single |
+| [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Multiple |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
 | [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
@@ -138,6 +139,48 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `ReturnedColor` | `"#3b82c4"` |  |
 | `DimNormal` | `true` |  |
 | `BaseUrlOverride` | `""` |  |
+
+---
+
+## pvxAssetTable
+
+**PVX Asset Table** · data shape `Table` · multiple data sources · collections not supported
+
+@mock assets
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `Title` | `""` |  |
+| `RowSource` | `"sources"` | sources \| search |
+| `SearchRoot` | `""` | used when the URL names no asset |
+| `SearchTemplate` | `""` |  |
+| `SearchDescendants` | `false` |  |
+| `MaxRows` | `50` |  |
+| `RefreshSeconds` | `30` |  |
+| `ColumnSpec` | `""` |  |
+| `RowLabel` | `"name"` | name \| parentName \| path |
+| `NameHeader` | `"Asset"` |  |
+| `StateMap` | `Running:#2f9e5f, Stopped:#8a8f96, Fault:#c84…` |  |
+| `CellStyle` | `"text"` | text \| fill \| dot |
+| `StatusColumn` | `"worst"` | worst \| none |
+| `ShowBadQuality` | `true` |  |
+| `SortBy` | `"none"` | none \| name \| worst \| column |
+| `SortColumn` | `""` |  |
+| `SortDescending` | `false` |  |
+| `ClickAction` | `"none"` | none \| navigate |
+| `NavigateTarget` | `""` |  |
 
 ---
 
@@ -422,6 +465,8 @@ A normal trend answers "what was the value". A control engineer is almost never 
 | `Intervals` | `400` |  |
 | `TargetMode` | `"fixed"` | fixed \| series |
 | `TargetValue` | `100` |  |
+| `TargetSource` | `"0"` | series: 1-based setpoint source, 0 = the last |
+| `ValueSource` | `"0"` | 1-based process value, 0 = every other source |
 | `DeviationMode` | `"percent"` | percent \| absolute |
 | `Mode` | `"band"` | band \| bars \| trend |
 | `ToleranceMode` | `"symmetric"` | symmetric \| asymmetric |
@@ -611,6 +656,8 @@ symbol selector (see the definition). This is the first symbol in the library wh
 | `TemplateName` | `""` | one Event Frame template |
 | `NameFilter` | `""` | wildcard, e.g. Downtime* |
 | `ElementNameFilter` | `""` | wildcard on the referenced element |
+| `AssetScope` | `"none"` | none \| asset \| assetTree |
+| `MaxScopeElements` | `200` | assetTree: elements searched below the asset |
 | `SearchMode` | `"Overlapped"` |  |
 | `MaxEvents` | `500` |  |
 | `RefreshSeconds` | `60` |  |
@@ -736,7 +783,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 
 ## pvxKpiCard
 
-**PVX KPI Card** · data shape `TimeSeries` · single data source · collections supported
+**PVX KPI Card** · data shape `TimeSeries` · multiple data sources · collections supported
 
 The second reference implementation in the library. Where pvxRadialGauge shows the single-value/Gauge pattern, this one shows the TimeSeries pattern: PI Vision hands back the whole window of values, and the symbol derives the headline number, the period-over-period delta and the sparkline from it.
 
@@ -762,14 +809,18 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `SparkHeightPct` | `38` |  |
 | `SmoothLine` | `true` |  |
 | `ShowDelta` | `true` |  |
+| `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) |
 | `DeltaMode` | `"percent"` | percent \| absolute \| both |
 | `DeltaLookback` | `0.25` | fraction of the window used as the baseline |
 | `DeltaGoodDirection` | `"up"` | up \| down \| none |
 | `GoodColor` | `"#2f9e5f"` |  |
 | `BadColor` | `"#c8452f"` |  |
 | `ShowSecondary` | `true` |  |
-| `SecondaryLeft` | `"min"` | none \| min \| max \| avg \| range \| first \| count |
+| `SecondaryLeft` | `"min"` | none \| min \| max \| avg \| range \| first \| count \| plan |
 | `SecondaryRight` | `"max"` |  |
+| `ShowPlanOnSpark` | `true` | plan as a dashed line on the sparkline |
+| `StatusEdge` | `false` |  |
+| `EdgeWidth` | `4` |  |
 | `ValueColorFromThreshold` | `false` |  |
 | `Align` | `"left"` | left \| center |
 
@@ -836,7 +887,7 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
-| `Mode` | `"time"` | display \| asset \| time \| custom |
+| `Mode` | `"time"` | display \| asset \| time \| custom \| hierarchy |
 | `Items` | `8 hours | *-8h | *
 24 hours | *-24h | *
 7 da…` |  |
@@ -855,6 +906,15 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 | `KeepTime` | `true` |  |
 | `ConfirmNavigation` | `false` |  |
 | `ConfirmText` | `"Leave this display?"` |  |
+| `StartAsset` | `""` | used when the URL names no asset |
+| `LevelDisplays` | `""` | "level \| display" per line, "*" for any |
+| `TopLevel` | `1` | shallowest level shown and reachable by Up |
+| `ShowUp` | `true` |  |
+| `ShowBreadcrumb` | `true` |  |
+| `ShowSiblings` | `true` |  |
+| `SiblingsSameTemplate` | `true` |  |
+| `ShowChildren` | `false` |  |
+| `MaxSiblings` | `50` |  |
 | `ShowTitle` | `false` |  |
 | `Title` | `""` |  |
 
@@ -944,6 +1004,10 @@ The question this symbol answers is "which five assets are driving 80% of my dow
 | `ShowAxis` | `true` |  |
 | `ShowGrid` | `true` |  |
 | `TickCount` | `5` |  |
+| `NameFrom` | `"label"` | label \| element |
+| `HideZero` | `false` |  |
+| `ClickAction` | `"none"` | none \| navigate |
+| `NavigateTarget` | `""` |  |
 
 ---
 

@@ -15,7 +15,7 @@ npm version 1.10.0 --no-git-tag-version
 
 # 2. Regenerate what is generated, and prove it still works.
 node tools/docgen.js
-npm run verify                        # 594 render checks
+npm run verify                        # 612 render checks
 npm run test:api
 
 # 3. Commit, tag, push. The tag must be annotated (-a): --follow-tags pushes
@@ -105,7 +105,7 @@ correct: same path, same component. The runtime did not move and kept its
 **On every pull request** (`.github/workflows/ci.yml`):
 
 - The build validator passes — ES5 only, namespaced CSS, correct registration.
-- 594 render checks: every symbol × 3 sizes × 3 data scenarios × light and dark.
+- 612 render checks: every symbol × 3 sizes × 3 data scenarios × light and dark.
 - The PI Web API layer against a mock misconfigured six ways, plus the
   write-safety assertions.
 - `docs/SYMBOL-REFERENCE.md` is regenerated and compared — a changed default
@@ -165,7 +165,7 @@ likely to have that policy.
 
 There is no schedule. A release happens when there is something to release.
 
-The library is at 33 symbols and the roadmap is closed by decision, so the
+The library is at 34 symbols and the roadmap is closed by decision, so the
 expected shape of the next while is fixes and small additions rather than
 another fourteen symbols. Resist bundling: a release containing one fix is
 trivial to reason about when something breaks in a control room at 3am, and a

@@ -578,14 +578,14 @@
                 if (!tree) { return { ids: [el.WebId], capped: false }; }
                 // One more than the cap tells "exactly the cap" from "more".
                 return PVX.api.get('elements/' + encodeURIComponent(el.WebId) +
-                    '/elements?searchFullHierarchy=true&maxCount=' + cap +
+                    '/elements?searchFullHierarchy=true&maxCount=' + (cap + 1) +
                     '&selectedFields=Items.WebId').then(function (res) {
                     var ids = [el.WebId];
                     var items = (res && res.Items) || [];
-                    for (var i = 0; i < items.length; i++) {
+                    for (var i = 0; i < items.length && i < cap; i++) {
                         if (items[i].WebId) { ids.push(items[i].WebId); }
                     }
-                    return { ids: ids, capped: items.length >= cap };
+                    return { ids: ids, capped: items.length > cap };
                 });
             });
             p['catch'](function () {

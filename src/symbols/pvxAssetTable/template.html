@@ -1,0 +1,21 @@
+<!--
+    pvxAssetTable template: thin on purpose. The table inside .pvx-atable-body
+    and the footer text are written by symbol.js, so a data update never
+    digests a binding per cell.
+-->
+<div class="pvx pvx-atable"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-atable-surface">
+
+        <div class="pvx-header pvx-atable-header" ng-if="config.ShowLabel && config.Title">
+            <div class="pvx-title pvx-truncate" title="{{config.Title}}">{{config.Title}}</div>
+        </div>
+
+        <div class="pvx-body pvx-atable-bodywrap">
+            <div class="pvx-atable-body"></div>
+        </div>
+
+        <div class="pvx-atable-footer"></div>
+
+    </div>
+</div>
