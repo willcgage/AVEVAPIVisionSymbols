@@ -1,0 +1,60 @@
+            <!-- Expanded by tools/build.js in place of each pvx:states marker.
+                 State and actions come from PVX.states.bind, via runtimeData;
+                 every write goes to this pane's config.__KEY__, which stays the
+                 grammar string. -->
+            <div ng-if="runtimeData.pvxStates" ng-init="ed = runtimeData.pvxStates.use('__KEY__', '__KIND__')">
+                <div class="pvx-cfg-states pvx-cfg-states-__KIND__" ng-if="ed.sync(config.__KEY__) && !ed.textMode">
+                    <div class="pvx-cfg-st-row" ng-repeat="r in ed.rows track by $index"
+                         ng-class="{'pvx-cfg-st-bad': r.invalid || r.duplicate}">
+                        <select class="pvx-cfg-st-state" ng-if="!r.typed && ed.options().length"
+                                ng-model="r.state" ng-change="ed.commit(config)"
+                                ng-options="o.name as o.name group by o.group for o in ed.options()"
+                                aria-label="State {{$index + 1}}">
+                            <option value="">Choose a state</option>
+                        </select>
+                        <input type="text" class="pvx-cfg-st-state" ng-if="r.typed || !ed.options().length"
+                               ng-model="r.state" ng-change="ed.commit(config)" placeholder="State name"
+                               aria-label="State {{$index + 1}}" />
+                        <button type="button" class="pvx-cfg-st-type" ng-if="ed.options().length"
+                                ng-click="ed.type(r)" title="{{r.typed ? 'Choose from the list' : 'Type a state that is not listed'}}"
+                                aria-label="{{r.typed ? 'Choose state from the list' : 'Type a state'}}">{{r.typed ? '&#9662;' : '&#9998;'}}</button>
+                        <select class="pvx-cfg-st-sev" ng-if="ed.kind !== 'list'" ng-model="r.severity"
+                                ng-change="ed.setSeverity(r, config)" aria-label="Severity of state {{$index + 1}}"
+                                title="Sets the colour from the shared status palette">
+                            <option value="">Custom</option>
+                            <option ng-repeat="s in runtimeData.pvxStates.severities track by s.name" value="{{s.name}}">{{s.name}}</option>
+                        </select>
+                        <input type="color" class="pvx-cfg-st-color" ng-if="ed.kind !== 'list'" ng-model="r.hex"
+                               ng-change="ed.setColor(r, config)" aria-label="Colour of state {{$index + 1}}" title="{{r.color}}" />
+                        <button type="button" class="pvx-cfg-band-x" ng-click="ed.remove($index, config)"
+                                title="Remove this state" aria-label="Remove state {{$index + 1}}">&times;</button>
+                        <input type="text" class="pvx-cfg-st-label" ng-if="ed.kind === 'map'" ng-model="r.label"
+                               ng-change="ed.commit(config)" placeholder="Label (optional)"
+                               aria-label="Label of state {{$index + 1}}" />
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasInvalid()">
+                        A row with no state is ignored until one is chosen.
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasDuplicate()">
+                        A state listed twice uses its last row.
+                    </div>
+                    <div class="pvx-cfg-hint" ng-if="!ed.rows.length">No states listed.</div>
+                    <div class="pvx-cfg-hint" ng-if="runtimeData.pvxStates.busy">Reading digital state sets&hellip;</div>
+                    <div class="pvx-cfg-hint" ng-if="runtimeData.pvxStates.note">{{runtimeData.pvxStates.note}}</div>
+                    <div class="pvx-cfg-band-actions">
+                        <button type="button" class="pvx-cfg-band-add" ng-click="ed.add(config)">Add state</button>
+                        <button type="button" class="pvx-cfg-band-link" ng-click="ed.toggleText()">Edit as text</button>
+                    </div>
+                </div>
+                <div ng-if="ed.textMode">
+                    <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3" placeholder="__EXAMPLE__"></textarea>
+                    <div class="pvx-cfg-hint">
+                        <code>__GRAMMAR__</code>, comma separated, matched case-insensitively.
+                        <button type="button" class="pvx-cfg-band-link" ng-click="ed.toggleText()">Back to fields</button>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="!runtimeData.pvxStates">
+                <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3" placeholder="__EXAMPLE__"></textarea>
+                <div class="pvx-cfg-hint"><code>__GRAMMAR__</code>, comma separated, matched case-insensitively.</div>
+            </div>

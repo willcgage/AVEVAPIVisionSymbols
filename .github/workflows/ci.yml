@@ -71,6 +71,12 @@ jobs:
       - name: Verify AF path browser
         run: node tools/test-afpick.js
 
+      # Digital state maps are picked as rows and written back as the grammar
+      # string saved displays depend on; the state list is read from a mock
+      # PI Web API's digital sets.
+      - name: Verify state map editor
+        run: node tools/test-states.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current
