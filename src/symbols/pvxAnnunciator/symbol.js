@@ -73,6 +73,10 @@
         // collection element would multiply panels, not populate one.
         supportsCollections: false,
         configTitle: 'Format Annunciator',
+        // A latch must not fire on limits nobody set: no bands means no
+        // excursions, and the placeholder bands older displays saved are
+        // cleared on load (PVX.register, thresholds.isPlaceholder).
+        limitsRequired: true,
 
         getDefaultConfig: function () {
             return window.PVX.config.base({
@@ -85,6 +89,11 @@
                 Width: 480,
 
                 Title: 'Annunciator',
+
+                // No limits until someone sets them. The shared placeholder
+                // (0 / 70 / 90) latched every point above 70 on a live
+                // server, whatever its units, for points with no limits.
+                Thresholds: '',
                 ShowLabel: true,
 
                 // Layout
@@ -750,6 +759,7 @@
                     good: r.good,
                     error: r.errorDescription,
                     unknown: unknown,
+                    noLimits: !byQuality && !bands.length,
                     entry: e,
                     // In quality mode the threshold bands are not what latched
                     // the tile, so labelling it "Critical" would be a fiction.
@@ -761,7 +771,12 @@
 
             pruneStates();
 
-            return { items: items, counts: counts, bands: bands, byQuality: byQuality };
+            return {
+                items: items, counts: counts, bands: bands, byQuality: byQuality,
+                // Nothing to compare against: a quiet panel means "not
+                // checked", and the tiles and the notice must not say "normal".
+                noLimits: !byQuality && !bands.length
+            };
         }
 
         /**
@@ -808,6 +823,9 @@
                 // green wash would say "this point is fine", which is precisely
                 // what we do not know.
                 on = PVX.color.status.stale;
+            } else if (model.noLimits) {
+                // Green would claim the point was checked and found normal.
+                on = cfg.AccentColor || '#3b82c4';
             } else {
                 on = cfg.NormalColor || '#2f9e5f';
             }
@@ -858,7 +876,7 @@
             if (rawRows.length) { seeded = true; }
 
             renderHeader(c, cfg, t, model);
-            renderNotice(cfg, t);
+            renderNotice(cfg, t, model);
 
             if (host) {
                 if (!model.items.length) {
@@ -935,9 +953,25 @@
          * warning that leaves someone wondering whether the panel still works
          * gets ignored the second time.
          */
-        function renderNotice(cfg, t) {
+        function renderNotice(cfg, t, model) {
             var nFailed = failedCount();
             if (!ackStore || (!sharedErr && !nFailed)) {
+                // An acknowledgement problem outranks this, which is why it
+                // is only said when there is none: a panel that can never
+                // alarm must say so, or it reads as a quiet plant.
+                if (model && model.noLimits && model.items.length) {
+                    var info = PVX.color.status.info;
+                    scope.pvx.notice = 'No limits set, so no tile can alarm. Add threshold bands in Format.';
+                    scope.pvx.noticeTip = 'This panel compares each point against the threshold bands in its ' +
+                        'Format pane, not against AF limits, and none are set. Add bands under Threshold ' +
+                        'bands, or set Alarm condition to Bad data quality.';
+                    scope.pvx.noticeStyle = {
+                        color: info,
+                        background: PVX.color.rgba(info, t.dark ? 0.26 : 0.13),
+                        'border-color': PVX.color.rgba(info, 0.45)
+                    };
+                    return;
+                }
                 scope.pvx.notice = '';
                 scope.pvx.noticeTip = '';
                 return;
@@ -1290,7 +1324,8 @@
             if (e.state === ST_NEW) { return (item.band || 'ALARM').toUpperCase(); }
             if (e.state === ST_ACK) { return 'ACK'; }
             if (e.state === ST_RETURNED) { return 'RINGBACK'; }
-            return item.unknown ? 'NO DATA' : 'NORMAL';
+            if (item.unknown) { return 'NO DATA'; }
+            return item.noLimits ? 'NO LIMITS' : 'NORMAL';
         }
 
         /**

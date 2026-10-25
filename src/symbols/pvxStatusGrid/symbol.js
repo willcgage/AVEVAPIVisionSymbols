@@ -36,6 +36,9 @@
         // many tags at once, so collection support would only ever confuse.
         supportsCollections: false,
         configTitle: 'Format Status Grid',
+        // A red "Critical" tile is an alarm whatever the symbol is called, so
+        // the grid takes no limits it was not given; see pvxAlarmBanner.
+        limitsRequired: true,
 
         getDefaultConfig: function () {
             return window.PVX.config.base({
@@ -51,6 +54,10 @@
 
                 // Colour
                 ColorSource: 'thresholds', // thresholds | stateMap | quality | none
+                // No bands until someone sets them: tiles take the accent
+                // colour. The shared 0 / 70 / 90 placeholder painted every
+                // point above 90 Critical, whatever its units.
+                Thresholds: '',
                 StateMap: 'Running:#2f9e5f, Stopped:#8a8f96, Fault:#c8452f, Alarm:#c8452f',
 
                 // Layout
