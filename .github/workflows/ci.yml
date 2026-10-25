@@ -71,6 +71,11 @@ jobs:
       - name: Verify AF path browser
         run: node tools/test-afpick.js
 
+      # An alarm symbol with no limits set must not alarm. 1.9.0 applied the
+      # placeholder 0/70/90 bands to every point and flagged healthy plant.
+      - name: Verify alarm symbols need limits
+        run: node tools/test-limits.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current

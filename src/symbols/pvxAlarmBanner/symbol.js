@@ -36,6 +36,10 @@
         visObjectType: symbolVis,
         supportsCollections: false,
         configTitle: 'Format Exception Banner',
+        // An exception list must not invent limits: no bands means no
+        // exceptions, and the placeholder bands older displays saved are
+        // cleared on load (PVX.register, thresholds.isPlaceholder).
+        limitsRequired: true,
 
         getDefaultConfig: function () {
             return window.PVX.config.base({
@@ -45,6 +49,11 @@
                 Width: 360,
 
                 Title: 'Exceptions',
+
+                // No limits until someone sets them. The shared placeholder
+                // (0 / 70 / 90) flagged every point above 70 on a live server,
+                // whatever its units, for points that had no limits at all.
+                Thresholds: '',
 
                 // Presentation
                 Mode: 'list',                 // list | ticker | summary
@@ -292,6 +301,9 @@
 
             return {
                 bands: bands,
+                // Nothing to compare against, so the empty list means "not
+                // checked", not "all clear" — buildEmpty must say which.
+                noLimits: !byQuality && !bands.length,
                 all: all,
                 exceptions: exceptions,
                 counts: counts,
@@ -370,7 +382,7 @@
                 if (mode === 'summary') {
                     buildSummary(host, cfg, t, model);
                 } else if (!model.exceptions.length) {
-                    buildEmpty(host, cfg, t);
+                    buildEmpty(host, cfg, t, model);
                 } else if (mode === 'ticker') {
                     buildTicker(host, cfg, t, model);
                 } else {
@@ -669,11 +681,11 @@
          */
 
         function buildSummary(host, cfg, t, model) {
-            if (!model.all.length) { buildEmpty(host, cfg, t); return; }
+            if (!model.all.length) { buildEmpty(host, cfg, t, model); return; }
 
             var wrap = div('pvx-alarm-summary');
             var pills = countPills(model, t);
-            if (!pills.length) { buildEmpty(host, cfg, t); return; }
+            if (!pills.length) { buildEmpty(host, cfg, t, model); return; }
 
             for (var i = 0; i < pills.length; i++) {
                 var p = pills[i];
@@ -697,18 +709,24 @@
 
         /* ---- empty state ---------------------------------------------------- */
 
-        function buildEmpty(host, cfg, t) {
-            if (!cfg.ShowEmptyState) { return; }
+        function buildEmpty(host, cfg, t, model) {
+            // "All values within limits" over a list with no limits is a
+            // false all-clear, so this case ignores ShowEmptyState and
+            // EmptyText: it is a configuration fact, not an empty list.
+            var noLimits = !!(model && model.noLimits);
+            if (!cfg.ShowEmptyState && !noLimits) { return; }
             var wrap = div('pvx-alarm-empty');
-            wrap.style.color = cfg.EmptyColor || PVX.color.status.normal;
+            wrap.style.color = noLimits ? t.textMuted : (cfg.EmptyColor || PVX.color.status.normal);
 
             var glyph = document.createElement('span');
             glyph.className = 'pvx-alarm-check';
-            glyph.textContent = '✓';
+            glyph.textContent = noLimits ? '!' : '✓';
             wrap.appendChild(glyph);
 
             var txt = document.createElement('span');
-            txt.textContent = PVX.util.def(cfg.EmptyText, 'All values within limits');
+            txt.textContent = noLimits
+                ? 'No limits set, so nothing is flagged. Add threshold bands in Format.'
+                : PVX.util.def(cfg.EmptyText, 'All values within limits');
             wrap.appendChild(txt);
 
             host.appendChild(wrap);

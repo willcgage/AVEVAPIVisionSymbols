@@ -21,6 +21,7 @@ node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal + band editor: rules + built pane
 node tools/test-afpick.js            # AF path browser: rules + built panes vs a mock AF tree
+node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -54,7 +55,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js` and `test-afpick.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js` and `test-limits.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 

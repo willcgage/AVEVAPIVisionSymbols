@@ -520,6 +520,22 @@
         }).join(', ');
     };
 
+    /**
+     * Is this spec the shipped placeholder rather than limits someone chose?
+     *
+     * DEFAULT is a demonstration on a 0-100 scale, not a limit. Colouring a
+     * gauge with it is harmless; an alarm symbol applying it to every point
+     * declared steam flow at 118 klb/h "Critical" on a live server, for points
+     * with no limits at all. Compared after parse + stringify so spacing and
+     * band order do not matter: the band editor rewrites the string, and a
+     * display saved through it must still be recognised.
+     */
+    thresholds.isPlaceholder = function (spec) {
+        if (!spec) { return false; }
+        return thresholds.stringify(thresholds.parse(spec)) ===
+            thresholds.stringify(thresholds.parse(thresholds.DEFAULT));
+    };
+
     /** Which band does this value fall into? Returns null below the first band. */
     thresholds.evaluate = function (spec, value) {
         var list = thresholds.parse(spec);
@@ -3110,9 +3126,18 @@
                 def.visObjectType.prototype.pvxSourceInfo = { sourceRemap: def.sourceRemap || null };
             }
             delete def.sourceRemap;
+            // Symbols that raise alarms set limitsRequired: their default is
+            // no limits, and a display saved by 1.9.0 or earlier stored the
+            // placeholder bands (see thresholds.isPlaceholder), so those are
+            // cleared on load. Clearing rather than ignoring keeps the format
+            // pane honest: it shows no bands, which is what is in effect.
+            var limitsRequired = def.limitsRequired === true;
+            delete def.limitsRequired;
             if (!def.loadConfig && def.getDefaultConfig) {
                 def.loadConfig = function (saved) {
-                    return config.upgrade(saved, def.getDefaultConfig());
+                    var c = config.upgrade(saved, def.getDefaultConfig());
+                    if (limitsRequired && thresholds.isPlaceholder(c.Thresholds)) { c.Thresholds = ''; }
+                    return c;
                 };
             }
             PV.symbolCatalog.register(def);

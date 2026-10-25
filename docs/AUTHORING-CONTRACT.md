@@ -194,6 +194,24 @@ A grammar none of these covers needs a new rule in `PVX.sources.rules` and a
 case in `tools/test-sources.js`. An unknown rule name is reported in the pane
 as "NOT renumbered", never skipped silently.
 
+## Symbols that raise alarms
+
+`PVX.thresholds.DEFAULT` is a placeholder on a 0-100 scale. Colouring an arc
+with it is harmless; flagging a point with it is a false alarm, and on a live
+server it flagged every point above 70 whatever its units. A symbol that
+alarms, latches or lists exceptions therefore declares
+
+```js
+limitsRequired: true,
+```
+
+on its definition and sets `Thresholds: ''` in `getDefaultConfig`. With no
+bands it flags nothing and says, in the symbol, that no limits are set; an
+empty list must never read as an all-clear. `PVX.register` clears a saved
+placeholder on load so the format pane shows what is in effect.
+`tools/test-limits.js` covers the three that do this today: Exception
+Banner, Annunciator and Status Grid.
+
 ## AF path fields
 
 A config field that takes an AF path must not be type-only. Put a marker on
