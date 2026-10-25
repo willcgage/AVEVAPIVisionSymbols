@@ -100,13 +100,15 @@ npm run installer    # additionally generates the WiX installer source
 
 Install the MSI on the PI Vision server, or copy `dist/ext` there with the
 generated `dist/Deploy-PvxSymbols.ps1`, then recycle the app pool and
-hard-refresh the browser. Both put PVX in folders of its own, `ext\pvx` and
-`ext\libraries\pvx`, never loose among other symbol packs, and both take the
+hard-refresh the browser. Both use the layout AVEVA's extensibility guide
+describes: symbol files directly in `ext`, icons in `ext\icons`, and the shared
+runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
-edit mode. That is the whole installation for twenty-eight of the thirty-three.
+edit mode; pick one and drag an attribute onto the display to place it (any
+attribute for the seven that take their settings from the format pane alone). That is the whole installation for twenty-eight of the thirty-three.
 
-The other five need one more step: run `ext/pvx/piwebapi-check.html` on the server
+The other five need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
 put the answer in `ext/libraries/pvx/pvx-config.js`.
 
@@ -139,7 +141,7 @@ src/
     symbol.js  template.html  config.html  styles.css  icon.svg
   tools/
     Deploy-PvxSymbols.ps1   the manual-copy deploy script (copied to dist/)
-    piwebapi-check.html     the PI Web API diagnostic -> ext/pvx/
+    piwebapi-check.html     the PI Web API diagnostic -> ext/
 tools/
   build.js             src -> dist/ext, with validation
   verify.js            renders every symbol in headless Chromium and checks it

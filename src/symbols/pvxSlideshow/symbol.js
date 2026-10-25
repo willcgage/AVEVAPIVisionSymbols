@@ -2,8 +2,9 @@
  * pvxSlideshow — "PVX Display Slideshow"
  * ----------------------------------------------------------------------------
  * Rotates a control-room screen through a list of PI Vision displays on a
- * timer. No data sources, no DataShape, no PI Web API: everything is URL
- * navigation through PVX.nav, the same mechanism pvxNavPanel uses.
+ * timer. Its one data source is never read (it only gets the symbol into the
+ * selector), and there is no PI Web API: everything is URL navigation through
+ * PVX.nav, the same mechanism pvxNavPanel uses.
  *
  * THE ONE THING TO UNDERSTAND BEFORE READING ANY OF THIS
  *   Navigating away destroys this symbol along with the rest of the display. A
@@ -116,10 +117,12 @@
         typeName: 'pvxSlideshow',
         displayName: 'PVX Display Slideshow',
 
-        // No data sources: PI Vision offers no drop target and onDataUpdate
-        // never fires. Deliberately no DataShape key — declaring one here makes
-        // PI Vision fetch data that will never be used.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         supportsCollections: false,
@@ -127,6 +130,8 @@
 
         getDefaultConfig: function () {
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 56,
                 Width: 360,
 

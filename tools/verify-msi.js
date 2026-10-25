@@ -156,14 +156,21 @@ function main() {
 
     // The icons landing beside the symbols instead of inside icons/ is the
     // exact bug this catches, and it is invisible in a build log.
-    // The point of the 1.7 layout: nothing of ours loose in the folders other
-    // symbol packs share. Every file must sit under ext/pvx/ or
-    // ext/libraries/pvx/, and the build must not have drifted back.
-    var loose = expected.filter(function (p) {
-        return p.indexOf('pvx/') !== 0 && p.indexOf('libraries/pvx/') !== 0;
+    // The layout AVEVA's guide describes, and the only one proven on a live
+    // server: symbol files directly in ext, icons in ext/icons, the runtime
+    // in ext/libraries/pvx. 1.7.0 put everything else in ext/pvx/ and PI
+    // Vision served none of it — not the scripts, not the templates, not the
+    // icons. A file drifting into any other subfolder fails here.
+    var isSymbolFile = function (p) { return /^(sym-pvx\w+(-template|-config)?\.(js|css|html)|piwebapi-check\.html)$/.test(p); };
+    var isIcon = function (p) { return /^icons\/pvx\w+\.svg$/.test(p); };
+    var misfiled = expected.filter(function (p) {
+        return !isSymbolFile(p) && !isIcon(p) && p.indexOf('libraries/pvx/') !== 0;
     });
-    check('every file is inside ext/pvx/ or ext/libraries/pvx/',
-        loose.length === 0, loose.slice(0, 6).join(', '));
+    check('symbol files directly in ext, icons in ext/icons/, runtime in ext/libraries/pvx/, nothing elsewhere',
+        misfiled.length === 0, misfiled.slice(0, 6).join(', '));
+    check(expected.filter(isSymbolFile).length + ' symbol files and ' + expected.filter(isIcon).length +
+        ' icons where PI Vision loads them',
+        expected.filter(isSymbolFile).length > 0 && expected.filter(isIcon).length > 0);
 
     var nested = expected.filter(function (p) { return p.indexOf('/') !== -1; });
     var misplaced = nested.filter(function (p) {
@@ -272,10 +279,16 @@ function main() {
             'MoveFile rows: ' + JSON.stringify(moves));
         var removes = table('RemoveFile').map(function (r) { return r[2]; });
         check('the 1.6.0 flat files are removed on install',
-            ['sym-pvx*.js', 'pvx*.svg', 'pvx-core.js'].every(function (n) {
+            ['sym-pvx*.html', 'pvx-core.js'].every(function (n) {
                 return removes.some(function (x) { return x.split('|').pop() === n; });
             }),
             'RemoveFile names: ' + removes.join(', '));
+        // RemoveFile columns: FileKey, Component_, FileName, DirProperty, InstallMode.
+        check('1.7.0\'s ext\\pvx is emptied and removed on install',
+            table('RemoveFile').some(function (r) {
+                return r[2].split('|').pop() === 'sym-pvx*' && r[3] !== 'PVXEXTDIR';
+            }) && table('RemoveFile').filter(function (r) { return !r[2]; }).length >= 2,
+            'expected a sym-pvx* removal outside PVXEXTDIR and two folder removals');
         check('the folder dialog is wired to PIVISIONPATH',
             props.WIXUI_INSTALLDIR === 'PIVISIONPATH', 'got: ' + props.WIXUI_INSTALLDIR);
     }

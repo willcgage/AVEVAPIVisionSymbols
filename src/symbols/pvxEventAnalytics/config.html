@@ -12,7 +12,7 @@
             This symbol reads Event Frames from <strong>PI Web API</strong>, not from PI Vision's own
             data pipeline, so it has no attribute drop target. If it says PI Web API is not configured,
             set <code>baseUrl</code> in <code>ext/libraries/pvx/pvx-config.js</code> on this PI Vision server and
-            confirm it with <code>ext/pvx/piwebapi-check.html</code>.
+            confirm it with <code>ext/piwebapi-check.html</code>.
         </div>
 
         <div class="pvx-cfg-stack">
@@ -303,6 +303,11 @@
         <div class="pvx-cfg-row">
             <label for="pvxea-transparent">Transparent background</label>
             <input id="pvxea-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-bgcolor">Background colour</label>
+            <input id="pvxea-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxea-radius">Corner radius</label>

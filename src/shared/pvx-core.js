@@ -1398,6 +1398,10 @@
         var base = {
             Theme: 'auto',              // auto | light | dark
             Transparent: false,
+            // Empty means "follow the theme". theme.resolve always honoured it,
+            // but no pane offered it until operators on a live server asked for
+            // it first: matching a display's look is not optional for them.
+            BackgroundColor: '',
             ShowLabel: true,
             ShowUnits: true,
             ShowTime: false,
@@ -2259,15 +2263,17 @@
      * and a guard so one broken symbol cannot stop the rest of the library
      * from loading.
      */
-    // The library's own folder inside ext, not ext itself: PVX keeps its files
-    // out of the folder AVEVA's samples and other symbol packs share. Every
-    // URL is spelled out rather than left to PI Vision's "current directory"
-    // default, which its guide never pins to a subfolder.
-    PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/pvx/';
+    // Every URL is spelled out rather than left to PI Vision's defaults. The
+    // files are where the defaults would look (ext and ext/icons, the layout
+    // AVEVA's guide describes); 1.7.0 tried a subfolder of ext and PI Vision
+    // served nothing from it, so keep these pointing at the folders it does.
+    PVX.EXT_PATH = 'scripts/app/editor/symbols/ext/';
+    PVX.ICON_PATH = 'scripts/app/editor/symbols/ext/icons/';
 
     // typeNames that reached PI Vision's catalog. Lets a deployment be checked
     // from the browser console in two halves: PVX.version answers "did
-    // ext/libraries/pvx load", PVX.registered.length "did ext/pvx load".
+    // ext/libraries/pvx load", PVX.registered.length "did the sym-pvx*.js
+    // files in ext load".
     PVX.registered = PVX.registered || [];
 
     PVX.register = function (PV, def) {
@@ -2277,7 +2283,7 @@
                 return;
             }
             if (!def.iconUrl) {
-                def.iconUrl = PVX.EXT_PATH + 'icons/' + def.typeName + '.svg';
+                def.iconUrl = PVX.ICON_PATH + def.typeName + '.svg';
             }
             if (!def.templateUrl) {
                 def.templateUrl = PVX.EXT_PATH + 'sym-' + def.typeName + '-template.html';

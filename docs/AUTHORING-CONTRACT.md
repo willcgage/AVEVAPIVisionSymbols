@@ -15,11 +15,11 @@ styles.css      # symbol-specific CSS
 icon.svg        # 512x512 viewBox, transparent background
 ```
 
-The build copies these to `dist/ext/pvx/sym-<typeName>.js`, `-template.html`,
-`-config.html`, `.css` and `dist/ext/pvx/icons/<typeName>.svg` — the library's
-own folder inside PI Vision's `ext`, never `ext` itself. `PVX.register` fills in
-`templateUrl`, `configTemplateUrl` and `iconUrl` for that folder; leave them
-unset rather than spelling out a path.
+The build copies these to `dist/ext/sym-<typeName>.js`, `-template.html`,
+`-config.html`, `.css` and `dist/ext/icons/<typeName>.svg`: the layout AVEVA's
+guide describes. 1.7.0 tried a subfolder of `ext` and PI Vision served nothing
+from it. `PVX.register` fills in `templateUrl`, `configTemplateUrl` and
+`iconUrl`; leave them unset rather than spelling out a path.
 
 ## Hard rules
 
@@ -199,10 +199,20 @@ var v = PVX.data.statValue(row, cfg);
 ## Symbols that talk to PI Web API
 
 Only for what PI Vision's DataShape mechanism cannot reach: Event Frames, the
-AF hierarchy, writing values back. Set `datasourceBehavior: None` and no
-`DataShape` — such a symbol never receives `onDataUpdate`, so it drives its own
-refresh timer and must clear it in `onDestroy`. A leaked poller on a kiosk
-display runs for weeks.
+AF hierarchy, writing values back. Set
+`datasourceBehavior: DatasourceBehaviors.Single` with `DataShape: 'Value'` and
+ignore the data: the operator drops any attribute to place the symbol. **Never
+`DatasourceBehaviors.None`.** PI Vision treats those as static symbols and
+leaves them out of the symbol selector, so they cannot be placed at all; seven
+PVX symbols shipped that way and were invisible on the first live server.
+`onDataUpdate` carries nothing useful, so such a symbol drives its own refresh
+timer and must clear it in `onDestroy`. A leaked poller on a kiosk display runs
+for weeks.
+
+Every symbol also offers **Background colour** (`config.BackgroundColor`, empty
+means follow the theme) beside **Transparent background** in its format pane.
+`PVX.theme.resolve` applies it; a new symbol only needs the two rows, copied
+from any existing `config.html`.
 
 Never use `XMLHttpRequest` or `$http` directly. Everything goes through
 `PVX.api`, because authentication is a property of the deployment and no symbol
@@ -228,7 +238,7 @@ Every rejection carries `err.pvxError.message` and `err.pvxError.check`. Show
 both. "Failed to fetch" tells an operator nothing and sends an engineer to the
 wrong place. Handle each of these distinctly:
 
-- not configured — name `ext/libraries/pvx/pvx-config.js` **and** `ext/pvx/piwebapi-check.html`
+- not configured — name `ext/libraries/pvx/pvx-config.js` **and** `ext/piwebapi-check.html`
 - request failed — the message and the check line
 - authenticated but forbidden — PI/AF security, not the symbol
 - query succeeded, no results — say so; it is not an error

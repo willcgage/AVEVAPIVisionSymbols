@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxAssetTree — "PVX Asset Navigator"
  * ----------------------------------------------------------------------------
- * DataShape: NONE. Like pvxEventGantt, this symbol has no PI Vision data
+ * DataShape: Value, never read: its one data source only gets it into the
+ * symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI Vision data
  * pipeline at all: everything it shows comes from PI Web API through PVX.api.
  *
  * WHY THIS EXISTS ALONGSIDE pvxNavPanel
@@ -82,9 +83,12 @@
         typeName: 'pvxAssetTree',
         displayName: 'PVX Asset Navigator',
 
-        // No data sources: PI Vision offers no attribute drop target and never
-        // calls onDataUpdate. Everything arrives through PVX.api.
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.None,
+        // One data source, which this symbol ignores: everything it shows comes
+        // from its config pane. PI Vision keeps DatasourceBehaviors.None symbols
+        // out of the symbol selector altogether (its guide calls them "static
+        // symbols"), so declared that way this could never be placed on a
+        // display. Pick it and drop any attribute to create it.
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
 
         visObjectType: symbolVis,
         // A collection would repeat the whole navigator once per element, which
@@ -93,10 +97,9 @@
         configTitle: 'Format Asset Navigator',
 
         getDefaultConfig: function () {
-            // NOTE: deliberately no DataShape and no DataQueryMode. Declaring
-            // either on a DatasourceBehaviors.None symbol makes PI Vision ask
-            // its own backend for data that will never arrive.
             return window.PVX.config.base({
+                // The cheapest query PI Vision has, for a value nothing reads.
+                DataShape: 'Value',
                 Height: 420,
                 Width: 320,
 
@@ -1336,7 +1339,7 @@
             if (state.phase === 'unconfigured') {
                 buildMessage(host, 'PI Web API is not configured',
                     'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
-                    'with ext/pvx/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
+                    'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
             }

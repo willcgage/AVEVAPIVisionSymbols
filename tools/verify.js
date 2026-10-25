@@ -86,8 +86,8 @@ body.dark{background:#1f2124}
 <script src="/dev/vendor/angular.min.js"></script>
 <script src="/dev/pv-mock.js"></script>
 <script src="/dist/ext/libraries/pvx/pvx-core.js"></script>
-<link rel="stylesheet" href="/dist/ext/pvx/sym-${typeName}.css">
-<script src="/dist/ext/pvx/sym-${typeName}.js"></script>
+<link rel="stylesheet" href="/dist/ext/sym-${typeName}.css">
+<script src="/dist/ext/sym-${typeName}.js"></script>
 <script>window.__inspect = ${inspect.toString()};</script>
 </body></html>`;
 }
@@ -213,7 +213,7 @@ function inspect() {
                         scope.runtimeData = { isEditMode: false };
                         scope.symbol = { Name: typeName };
 
-                        const tpl = await fetch('/dist/ext/pvx/sym-' + typeName + '-template.html').then((r) => r.text());
+                        const tpl = await fetch('/dist/ext/sym-' + typeName + '-template.html').then((r) => r.text());
                         let el;
                         try {
                             el = $compile(tpl)(scope);
@@ -223,7 +223,7 @@ function inspect() {
                         // The config pane must compile too — a broken one makes
                         // the symbol unconfigurable even though it renders.
                         try {
-                            const cfg = await fetch('/dist/ext/pvx/sym-' + typeName + '-config.html').then((r) => r.text());
+                            const cfg = await fetch('/dist/ext/sym-' + typeName + '-config.html').then((r) => r.text());
                             const holder = document.createElement('div');
                             holder.style.cssText = 'position:absolute;left:-9999px;width:260px';
                             document.body.appendChild(holder);

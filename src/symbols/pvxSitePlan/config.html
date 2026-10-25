@@ -308,6 +308,11 @@
             <input id="pvxsp-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxsp-bgcolor">Background colour</label>
+            <input id="pvxsp-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxsp-accent">Accent colour</label>
             <input id="pvxsp-accent" type="color" ng-model="config.AccentColor" />
         </div>

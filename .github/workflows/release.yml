@@ -247,10 +247,12 @@ jobs:
             `C:\Program Files\PIPC\PIVision`; run it interactively to pick the
             folder in a dialog.
 
-            PVX installs into `ext\pvx\` and `ext\libraries\pvx\`. Upgrading
-            from 1.6.0 or earlier moves your `ext\libraries\pvx-config.js`
-            there and removes the old files from `ext\`. The settings file is
-            never overwritten by an upgrade and never removed by an uninstall.
-            See `docs/DEPLOYMENT.md`.
+            PVX puts its symbol files directly in `ext\`, its icons in
+            `ext\icons\` and its runtime in `ext\libraries\pvx\`, the layout
+            AVEVA's guide describes. Upgrading removes what earlier versions
+            left elsewhere, and from 1.6.0 or earlier moves your
+            `ext\libraries\pvx-config.js` into `ext\libraries\pvx\`. The
+            settings file is never overwritten by an upgrade and never removed
+            by an uninstall. See `docs/DEPLOYMENT.md`.
 
             Verify downloads against `SHA256SUMS.txt`.

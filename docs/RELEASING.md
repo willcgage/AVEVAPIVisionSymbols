@@ -41,7 +41,7 @@ labelled one version and containing another.
 | Artifact | What it is |
 |---|---|
 | `PvxSymbols-<version>.msi` | The installer. Built with the official WiX toolset on a Windows runner. |
-| `pvx-symbols-<version>.zip` | `ext` folder (`ext\pvx`, `ext\libraries\pvx`) plus `Deploy-PvxSymbols.ps1`, for sites that copy files. |
+| `pvx-symbols-<version>.zip` | `ext` folder (symbol files at its top, `ext\icons`, `ext\libraries\pvx`) plus `Deploy-PvxSymbols.ps1`, for sites that copy files. |
 | `PvxSymbols.wxs` | The installer source that produced the MSI, for audit. |
 | `components.json` | Every file's component GUID. See below. |
 | `SHA256SUMS.txt` | Checksums for all of the above. |
@@ -92,6 +92,12 @@ the namespace and upgrade code did not move. The 1.6.0 components retire with
 settings, which the installer moves across explicitly (`tools/wix.js`,
 `emitConfigMove`).
 
+The second: 1.7.1 moved everything in `ext\pvx` back to `ext` and `ext\icons`,
+because PI Vision served none of it from there. Those GUIDs are derived from
+the same paths as in 1.6.0, so they are the 1.6.0 components again, which is
+correct: same path, same component. The runtime did not move and kept its
+1.7.0 GUIDs.
+
 ---
 
 ## What CI actually proves
@@ -105,8 +111,9 @@ settings, which the installer moves across explicitly (`tools/wix.js`,
 - `docs/SYMBOL-REFERENCE.md` is regenerated and compared — a changed default
   with stale docs fails the build.
 - The installer source compiles, and `tools/verify-msi.js` reads the resulting
-  MSI's own tables: all 168 files present, every one inside `ext\pvx` or
-  `ext\libraries\pvx`, subfolders actually nested, every component GUID
+  MSI's own tables: all 168 files present, symbol files directly in `ext`,
+  icons in `ext\icons`, the runtime in `ext\libraries\pvx` and nothing
+  anywhere else, subfolders actually nested, every component GUID
   matching `components.json`, the Upgrade table wired to the frozen code, and
   the drive / PIPC folder rules resolving `PIVISIONPATH` before AppSearch.
   `wixl` compiles the source with `PvxFull=0` — structure only, since it cannot
@@ -117,8 +124,8 @@ settings, which the installer moves across explicitly (`tools/wix.js`,
   arguments; an upgrade over the published 1.6.0 MSI with an edited
   `pvx-config.js`, which must arrive in `ext\libraries\pvx` intact with every
   flat 1.6.0 file gone; the same through `Deploy-PvxSymbols.ps1` under Windows
-  PowerShell 5.1 over the 1.6.0 zip; and a location with no PI Vision, which
-  both must refuse. A Linux job then reads that MSI's tables with
+  PowerShell 5.1 over the 1.6.0 zip, then again over 1.7.0's leftovers; an
+  upgrade over the published 1.7.0 MSI, whose `ext\pvx` must be gone; and a location with no PI Vision, which both must refuse. A Linux job then reads that MSI's tables with
   `verify-msi.js --strict-attributes`: `Permanent` + `NeverOverwrite`, the
   searches, the move, the clean-up and the folder dialog.
 
