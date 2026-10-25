@@ -222,8 +222,8 @@ $env:PVX_CHROMIUM = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 npm run verify
 ```
 
-`PVX_CHROMIUM` is honoured by `verify.js`, `probe.js`, `test-api.js` and
-`test-sources.js`. Note
+`PVX_CHROMIUM` is honoured by `verify.js`, `probe.js`, `test-api.js`,
+`test-sources.js` and `test-afpick.js`. Note
 that it removes the *browser download*, not the package — `require('playwright')`
 still needs the module present.
 

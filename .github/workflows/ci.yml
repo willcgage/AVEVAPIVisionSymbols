@@ -65,6 +65,12 @@ jobs:
       - name: Verify data source removal
         run: node tools/test-sources.js
 
+      # The AF path browser decides what path is SAVED with a display, and
+      # how a list field's new line is spelt. Exercised against a mock AF
+      # tree through the built format panes.
+      - name: Verify AF path browser
+        run: node tools/test-afpick.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current

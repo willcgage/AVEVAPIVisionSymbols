@@ -7,6 +7,7 @@
             <label for="pvxet-element">Element path (optional)</label>
             <input id="pvxet-element" type="text" ng-model="config.ElementPath"
                    placeholder="\\AFSERVER01\Production\Reactor1" />
+            <!-- pvx:afpicker key=ElementPath kind=element -->
         </div>
         <div class="pvx-cfg-hint">
             Set this and every row below can be a bare attribute name. That is the difference between
@@ -18,6 +19,7 @@
             <label for="pvxet-rows">Rows &mdash; one per line</label>
             <textarea id="pvxet-rows" ng-model="config.Rows" rows="8"
                       placeholder="Catalyst Charge | Charge | kg | 0:500"></textarea>
+            <!-- pvx:afpicker key=Rows kind=attribute append=entryRow start=ElementPath -->
         </div>
 
         <div class="pvx-cfg-hint">

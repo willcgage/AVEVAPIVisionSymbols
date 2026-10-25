@@ -2539,6 +2539,394 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * afpick — choosing an AF path in a format pane instead of typing it
+     * ================================================================== *
+     * A database path typed by hand is the commonest way a PI Web API
+     * symbol ends up blank: one wrong backslash, a server's alias instead of
+     * its AF name, a database renamed last year. The person configuring the
+     * display can already see the AF tree in PI Vision's asset pane, but not
+     * from a text box, so every PVX field that takes an AF path gets a Browse
+     * button (expanded by tools/build.js from a marker in config.html) that
+     * walks PI Web API: servers, databases, elements, attributes.
+     *
+     * WHAT IS STORED DOES NOT CHANGE
+     *   Picking writes the item's plain Path into the same config key the
+     *   text box edits, so a display saved before this existed loads exactly
+     *   as before, and the box stays editable for a path PI Web API cannot
+     *   see from here. The write happens in the pane's own ng-click
+     *   expression, on the `config` its ng-model already binds, rather than
+     *   from here — that is the one object guaranteed to be the one saved.
+     *
+     * Navigation is by path, not by a stack of WebIDs: the breadcrumb is
+     * split out of the path string, and a crumb resolves its WebID when it is
+     * clicked. That is what lets the picker open where the field already
+     * points without walking down from the top first.
+     */
+    var afpick = PVX.afpick = {};
+
+    // A level larger than this is shown truncated, with a note saying so and
+    // pointing at search, rather than a pane that freezes on 30,000 tags.
+    afpick.MAX = 200;
+    afpick.DEBOUNCE_MS = 300;
+
+    // What each kind of field may be set to. A PI point counts as an
+    // attribute because every attribute field resolves through
+    // attributes?path=, which takes either.
+    afpick.kinds = {
+        database:  { database: true },
+        element:   { element: true },
+        attribute: { attribute: true, point: true }
+    };
+
+    /** '\\srv\db\A\B|x|y' -> {segs: ['srv','db','A','B'], attrs: ['x','y']} */
+    afpick.split = function (p) {
+        var s = String(p === null || p === undefined ? '' : p).replace(/^\s+|\s+$/g, '');
+        var bar = s.indexOf('|');
+        var head = bar === -1 ? s : s.slice(0, bar);
+        var attrs = bar === -1 ? [] : s.slice(bar + 1).split('|');
+        var segs = head.replace(/^\\+/, '').split('\\');
+        var out = [];
+        for (var i = 0; i < segs.length; i++) { if (segs[i]) { out.push(segs[i]); } }
+        return { segs: out, attrs: attrs };
+    };
+
+    /** What a path names, from its shape alone. */
+    afpick.typeOf = function (p) {
+        var sp = afpick.split(p);
+        if (!sp.segs.length) { return 'root'; }
+        if (sp.attrs.length) { return 'attribute'; }
+        return sp.segs.length === 1 ? 'server' : sp.segs.length === 2 ? 'database' : 'element';
+    };
+
+    /** One level up; '' once there is nothing above but the server list. */
+    afpick.parent = function (p) {
+        var sp = afpick.split(p);
+        if (sp.attrs.length) { sp.attrs.pop(); }
+        else { sp.segs.pop(); }
+        if (!sp.segs.length) { return ''; }
+        return '\\\\' + sp.segs.join('\\') + (sp.attrs.length ? '|' + sp.attrs.join('|') : '');
+    };
+
+    /** Breadcrumb for a node: one entry per level, each navigable by path. */
+    afpick.crumbs = function (node) {
+        var out = [{ name: 'All servers', type: 'root', path: '' }];
+        if (!node || node.type === 'root') { return out; }
+        if (node.type === 'dataserver') {
+            out.push({ name: node.name || afpick.split(node.path).segs[0], type: 'dataserver', path: node.path });
+            return out;
+        }
+        var sp = afpick.split(node.path);
+        var acc = '\\\\';
+        for (var i = 0; i < sp.segs.length; i++) {
+            acc += (i ? '\\' : '') + sp.segs[i];
+            out.push({ name: sp.segs[i], type: i === 0 ? 'server' : i === 1 ? 'database' : 'element', path: acc });
+        }
+        for (var j = 0; j < sp.attrs.length; j++) {
+            acc += '|' + sp.attrs[j];
+            out.push({ name: sp.attrs[j], type: 'attribute', path: acc });
+        }
+        return out;
+    };
+
+    /**
+     * The value a pick writes. Plain fields get the path. A list field gets
+     * one more line in its own grammar, and the same line twice is refused
+     * rather than added, because a duplicate row in a rounds sheet or a nav
+     * bar is a mistake nobody meant to make.
+     * @returns {{value: String, added: Boolean}}
+     */
+    afpick.compose = function (append, item, current, cfg) {
+        var path = item.path;
+        if (!append) { return { value: path, added: true }; }
+        var line = path;
+        if (append === 'entryRow') {
+            // EntryTable reads a bare attribute name against its element
+            // path, so a pick under that element is written the short way.
+            var base = String((cfg && cfg.ElementPath) || '').replace(/^\s+|\s+$/g, '');
+            if (base && path.toLowerCase().indexOf(base.toLowerCase() + '|') === 0) {
+                line = path.slice(base.length + 1);
+            }
+        } else if (append === 'navItem') {
+            line = (cfg && cfg.Mode === 'custom')
+                ? item.name + ' |  | asset=' + path
+                : item.name + ' | ' + path;
+        }
+        var text = String(current === null || current === undefined ? '' : current).replace(/\s+$/, '');
+        var lines = text.split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].replace(/^\s+|\s+$/g, '') === line) { return { value: text, added: false, line: line }; }
+        }
+        return { value: text ? text + '\n' + line : line, added: true, line: line };
+    };
+
+    function afErr(e) {
+        return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API request failed.';
+    }
+
+    function afQs(parts) { return parts.length ? '?' + parts.join('&') : ''; }
+
+    /**
+     * Publish picker state for the format pane at runtimeData.pvxAf.
+     * Nothing is requested until a Browse button is pressed, so binding it
+     * on every symbol costs nothing on a display that never opens a pane.
+     */
+    afpick.bind = function (scope) {
+        if (!scope) { return null; }
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+        var webIds = {};        // type + path -> WebID, so crumbs resolve once
+        var seq = 0;            // latest request wins; slower replies are dropped
+        var timer = null;
+
+        var state = {
+            key: '', kind: '', append: '',
+            node: null, trail: [], items: [],
+            query: '', busy: false, message: '', note: ''
+        };
+
+        // Replies arrive outside Angular, so ask for a digest or the pane sits
+        // on "Loading" until something unrelated happens to trigger one.
+        var digest = function () {
+            try { if (scope.$evalAsync) { scope.$evalAsync(function () {}); } } catch (e) { /* no Angular: tests */ }
+        };
+
+        var mark = function (type, path, id) { if (id) { webIds[type + '|' + path.toLowerCase()] = id; } };
+
+        var resolve = function (node) {
+            if (node.webId || node.type === 'root') { return Promise.resolve(node); }
+            var cached = webIds[node.type + '|' + node.path.toLowerCase()];
+            if (cached) { node.webId = cached; return Promise.resolve(node); }
+            var ep = { server: 'assetservers', dataserver: 'dataservers', database: 'assetdatabases',
+                       element: 'elements', attribute: 'attributes' }[node.type];
+            var get = function (endpoint) {
+                return api.get(endpoint + '?path=' + encodeURIComponent(node.path) + '&selectedFields=WebId;Name;Path');
+            };
+            var p = get(ep);
+            // \\NAME alone could be an AF server or a Data Archive; a PI point
+            // field may well be pointing at the second.
+            if (node.type === 'server' && state.kind === 'attribute') {
+                p = p.then(null, function (e) {
+                    return get('dataservers').then(function (r) { node.type = 'dataserver'; return r; }, function () { throw e; });
+                });
+            }
+            return p.then(function (r) {
+                node.webId = r.WebId;
+                node.name = r.Name || node.name;
+                mark(node.type, node.path, r.WebId);
+                return node;
+            });
+        };
+
+        var shape = function (type, list, under) {
+            var out = [];
+            var items = (list && list.Items) || [];
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                var path = String(it.Path || '');
+                mark(type, path, it.WebId);
+                var where = '';
+                // Search spans the whole subtree; say where a hit lives.
+                if (under && path.toLowerCase().indexOf(under.toLowerCase()) === 0) {
+                    where = afpick.parent(path).slice(under.length).replace(/^[\\|]+/, '');
+                }
+                out.push({ name: it.Name, path: path, webId: it.WebId, type: type,
+                           hasChildren: it.HasChildren, where: where });
+            }
+            return out;
+        };
+
+        var matches = function (items, q) {
+            if (!q) { return items; }
+            var lq = q.toLowerCase();
+            var out = [];
+            for (var i = 0; i < items.length; i++) {
+                if (String(items[i].name).toLowerCase().indexOf(lq) !== -1) { out.push(items[i]); }
+            }
+            return out;
+        };
+
+        /** Children of a node, filtered by q — on the server where PI Web API can. */
+        var list = function (node, q) {
+            var F = 'selectedFields=Items.Name;Items.Path;Items.WebId;Items.HasChildren';
+            var M = 'maxCount=' + afpick.MAX;
+            var nf = q ? ['searchFullHierarchy=true', 'nameFilter=' + encodeURIComponent('*' + q + '*')] : [];
+            var w = encodeURIComponent(node.webId || '');
+            if (node.type === 'root') {
+                var servers = api.get('assetservers').then(function (r) { return matches(shape('server', r), q); });
+                if (state.kind !== 'attribute') { return servers; }
+                return servers.then(function (a) {
+                    return api.get('dataservers').then(function (r) {
+                        return a.concat(matches(shape('dataserver', r), q));
+                    }, function (e) {
+                        state.note = 'PI Data Archive servers could not be listed: ' + afErr(e);
+                        return a;
+                    });
+                });
+            }
+            if (node.type === 'server') {
+                return api.get('assetservers/' + w + '/assetdatabases?' + F)
+                    .then(function (r) { return matches(shape('database', r), q); });
+            }
+            if (node.type === 'dataserver') {
+                return api.get('dataservers/' + w + '/points' + afQs([M, 'nameFilter=' + encodeURIComponent(q ? '*' + q + '*' : '*'),
+                        'selectedFields=Items.Name;Items.Path;Items.WebId']))
+                    .then(function (r) { return shape('point', r); });
+            }
+            if (node.type === 'attribute') {
+                return api.get('attributes/' + w + '/attributes' + afQs([M, F]))
+                    .then(function (r) { return matches(shape('attribute', r), q); });
+            }
+            var base = (node.type === 'database' ? 'assetdatabases/' : 'elements/') + w;
+            var elems = api.get(base + '/elements' + afQs([M, F].concat(nf)))
+                .then(function (r) { return shape('element', r, q ? node.path : ''); });
+            if (node.type !== 'element' || state.kind !== 'attribute') { return elems; }
+            return elems.then(function (a) {
+                return api.get(base + '/attributes' + afQs([M, F]))
+                    .then(function (r) { return matches(shape('attribute', r), q).concat(a); });
+            });
+        };
+
+        var show = function (node, q, onFail) {
+            var mine = ++seq;
+            state.busy = true;
+            digest();
+            return resolve(node).then(function (n) { return list(n, q); }).then(function (items) {
+                if (mine !== seq) { return; }
+                state.node = node;
+                state.trail = afpick.crumbs(node);
+                state.items = items;
+                state.busy = false;
+                if (items.length >= afpick.MAX) {
+                    state.note = 'Showing the first ' + afpick.MAX + ' here. Type part of a name to search for the rest.';
+                } else if (!items.length) {
+                    state.note = q ? 'Nothing here matches "' + q + '".' : 'Nothing to choose below this level.';
+                }
+                digest();
+            }, function (e) {
+                if (mine !== seq) { return; }
+                state.busy = false;
+                if (onFail) { return onFail(e); }
+                state.message = afErr(e);
+                digest();
+            });
+        };
+
+        /** Go to a path, climbing to the nearest level that opens if it does not. */
+        var openAt = function (path, first) {
+            var node = { type: afpick.typeOf(path), path: path };
+            return show(node, '', function (e) {
+                if (node.type === 'root') { state.message = afErr(e); digest(); return; }
+                if (e && e.pvxError && e.pvxError.code === 'not-configured') { state.message = afErr(e); digest(); return; }
+                var up = afpick.parent(path);
+                state.message = 'Could not open ' + (first || path) + ': ' + afErr(e) +
+                    ' Showing the nearest level that does open.';
+                return openAt(up, first || path);
+            });
+        };
+
+        state.isOpen = function (id) { return state.key === id; };
+
+        /**
+         * @param {String} id      the config key this Browse button edits
+         * @param {String} kind    database | element | attribute
+         * @param {String} append  '' to replace, or a list grammar to append to
+         * @param {String} current the field's value: opens beside it
+         * @param {String} start   another key's value to open inside (a
+         *                         database for an element field, say)
+         */
+        state.open = function (id, kind, append, current, start) {
+            if (state.key === id) { state.close(); return; }
+            state.key = id;
+            state.kind = afpick.kinds[kind] ? kind : 'element';
+            state.append = append || '';
+            state.items = [];
+            state.trail = [];
+            state.query = '';
+            state.message = '';
+            state.note = '';
+            var cur = String(current || '').replace(/^\s+|\s+$/g, '');
+            var st = String(start || '').replace(/^\s+|\s+$/g, '');
+            // Beside the current value, so it is in the list being shown;
+            // inside the start path, because that is where its children are.
+            var at = /^\\\\/.test(cur) ? afpick.parent(cur) : /^\\\\/.test(st) ? st : '';
+            openAt(at).then(function () {
+                // Its parent opened but the value itself is not there: say so,
+                // or a misspelt last segment just looks like a missing row.
+                if (!cur || at !== afpick.parent(cur) || state.key !== id || state.message) { return; }
+                if (!state.node || state.node.path.toLowerCase() !== at.toLowerCase()) { return; }
+                for (var i = 0; i < state.items.length; i++) {
+                    if (state.items[i].path.toLowerCase() === cur.toLowerCase()) { return; }
+                }
+                state.message = cur + ' is not in this list. It may be misspelt, renamed, or not visible to you.';
+                digest();
+            });
+        };
+
+        state.close = function () {
+            seq += 1;
+            if (timer) { clearTimeout(timer); timer = null; }
+            state.key = '';
+            state.busy = false;
+        };
+
+        state.go = function (i) {
+            var c = state.trail[i];
+            if (!c) { return; }
+            state.query = '';
+            state.message = '';
+            state.note = '';
+            openAt(c.path);
+        };
+
+        state.canOpen = function (it) {
+            var k = state.kind;
+            if (it.type === 'server' || it.type === 'dataserver') { return true; }
+            if (it.type === 'database') { return k !== 'database'; }
+            if (it.type === 'element') { return k === 'attribute' || it.hasChildren !== false; }
+            if (it.type === 'attribute') { return k === 'attribute' && !!it.hasChildren; }
+            return false;
+        };
+
+        state.label = function (it) {
+            return { server: 'AF server', dataserver: 'Data Archive', database: 'database', element: 'element',
+                     attribute: 'attribute', point: 'PI point' }[it.type] || it.type;
+        };
+
+        state.canUse = function (it) { return !!(afpick.kinds[state.kind] || {})[it.type]; };
+
+        state.enter = function (it) {
+            if (!state.canOpen(it)) { return; }
+            state.query = '';
+            state.message = '';
+            state.note = '';
+            show({ type: it.type, path: it.path, webId: it.webId, name: it.name });
+        };
+
+        state.search = function () {
+            if (timer) { clearTimeout(timer); }
+            timer = setTimeout(function () {
+                timer = null;
+                if (!state.key || !state.node) { return; }
+                state.message = '';
+                state.note = '';
+                show(state.node, String(state.query || '').replace(/^\s+|\s+$/g, ''));
+            }, afpick.DEBOUNCE_MS);
+        };
+
+        /** Called from the pane's ng-click; returns the value to store. */
+        state.use = function (it, current, cfg) {
+            var r = afpick.compose(state.append, it, current, cfg);
+            if (!state.append) { state.close(); return r.value; }
+            state.message = r.added ? 'Added ' + r.line + '.' : r.line + ' is already in the list.';
+            return r.value;
+        };
+
+        state.destroy = function () { state.close(); };
+
+        scope.runtimeData.pvxAf = state;
+        return state;
+    };
+
+    /* ------------------------------------------------------------------ *
      * register — thin wrapper over PV.symbolCatalog.register
      * ------------------------------------------------------------------ *
      * Adds: consistent iconUrl/template paths, automatic loadConfig upgrade,
@@ -2653,6 +3041,7 @@
         ctx.renderNow = renderer.flush;
 
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
+        ctx.afpick = afpick.bind(scope);
 
         vis.onDataUpdate = function (d) {
             ctx.data = d;
@@ -2688,6 +3077,7 @@
             ctx.destroyed = true;
             renderer.destroy();
             if (ctx.sources) { ctx.sources.destroy(); }
+            if (ctx.afpick) { ctx.afpick.destroy(); }
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

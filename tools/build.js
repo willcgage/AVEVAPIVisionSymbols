@@ -309,6 +309,7 @@ function build() {
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
     const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html'));
+    const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
 
     // --- symbols ----------------------------------------------------------
     const symbols = discoverSymbols();
@@ -335,7 +336,7 @@ function build() {
 
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'), withSourcesPane(typeName, config, sourcesPane));
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -404,6 +405,63 @@ function withSourcesPane(typeName, config, pane) {
         return config;
     }
     return m[0] + pane + config.slice(m[0].length);
+}
+
+// Fields that take an AF path say so with a marker after their input:
+//   <!-- pvx:afpicker key=DatabasePath kind=database -->
+//   <!-- pvx:afpicker key=Rows kind=attribute append=entryRow start=ElementPath -->
+// and get the shared Browse panel in its place. Checked here rather than
+// trusted, because a marker naming a key the pane does not bind would offer
+// a Browse button whose pick lands in a config key nothing reads.
+const AF_MARKER = /<!--\s*pvx:afpicker\b([^>]*?)-->/g;
+const AF_KINDS = { database: 'an AF database', element: 'an AF element', attribute: 'an AF attribute or PI point' };
+const AF_APPEND = ['', 'entryRow', 'navItem'];
+
+function withAfPickers(typeName, config, snippet) {
+    const bound = (key) => new RegExp('ng-model="config\\.' + key + '"').test(config);
+    const out = config.replace(AF_MARKER, (whole, body) => {
+        const a = {};
+        body.trim().split(/\s+/).forEach((kv) => {
+            const eq = kv.indexOf('=');
+            if (eq > 0) { a[kv.slice(0, eq)] = kv.slice(eq + 1); }
+        });
+        const key = a.key || '';
+        const append = a.append || '';
+        if (!/^\w+$/.test(key) || !bound(key)) {
+            problem(typeName, 'pvx:afpicker key "' + key + '" is not an ng-model="config.<key>" in config.html');
+            return whole;
+        }
+        if (!AF_KINDS[a.kind]) {
+            problem(typeName, 'pvx:afpicker kind "' + a.kind + '" must be one of ' + Object.keys(AF_KINDS).join(', '));
+            return whole;
+        }
+        if (AF_APPEND.indexOf(append) === -1) {
+            problem(typeName, 'pvx:afpicker append "' + append + '" must be one of ' + AF_APPEND.filter(Boolean).join(', '));
+            return whole;
+        }
+        if (a.start && (!/^\w+$/.test(a.start) || !bound(a.start))) {
+            problem(typeName, 'pvx:afpicker start "' + a.start + '" is not an ng-model="config.<key>" in config.html');
+            return whole;
+        }
+        const fill = {
+            __ID__: key,
+            __KEY__: key,
+            __KIND__: a.kind,
+            __APPEND__: append,
+            // A list field's value is lines of text, not a path to open beside.
+            __CURRENT__: append ? "''" : 'config.' + key,
+            __START__: a.start ? 'config.' + a.start : "''",
+            __WHAT__: AF_KINDS[a.kind],
+            __USE__: append ? 'Add' : 'Use'
+        };
+        return snippet.replace(/__[A-Z]+__/g, (t) => (t in fill ? fill[t] : t));
+    });
+    // A marker the pattern did not match (no closing -->, a typo in the
+    // name) would otherwise vanish as an ordinary comment, Browse and all.
+    if (/pvx:afpicker/.test(out) && !problems.some((p) => p.indexOf(typeName + ': pvx:afpicker') === 0)) {
+        problem(typeName, 'malformed pvx:afpicker marker in config.html');
+    }
+    return out;
 }
 
 function banner(what) {

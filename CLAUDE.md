@@ -20,6 +20,7 @@ node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 594 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal: rules + built pane
+node tools/test-afpick.js            # AF path browser: rules + built panes vs a mock AF tree
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -53,7 +54,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js` and `test-sources.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js` and `test-afpick.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -128,6 +129,12 @@ silently destroys a site's PI Web API settings on upgrade.
   injected by `build.js`) whose Remove splices `symbol.DataSources` and
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
   through `scope.runtimeData`; proven against the harness, not yet on a server.
+- A field that takes an AF path gets a **Browse** panel from a marker after its
+  input, `<!-- pvx:afpicker key=DatabasePath kind=database -->` (optional
+  `start=<key>`, `append=entryRow|navItem`), expanded by `build.js` from
+  `src/shared/config-afpicker.html`. `PVX.afpick` walks PI Web API; the pick
+  is written as a plain path by the pane's own ng-click, so saved displays
+  are unaffected. Proven against a mock AF tree, not yet on a server.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`.
 

@@ -1,0 +1,29 @@
+<!-- Expanded by tools/build.js in place of each AF-path marker in a config.html.
+     State and actions come from PVX.afpick.bind, via runtimeData. The pick is
+     written here, to the config this pane's ng-model binds, as a plain path. -->
+<div class="pvx-cfg-af" ng-if="runtimeData.pvxAf">
+    <button type="button" class="pvx-cfg-src-btn pvx-cfg-af-toggle"
+            ng-click="runtimeData.pvxAf.open('__ID__', '__KIND__', '__APPEND__', __CURRENT__, __START__)"
+            title="Browse PI Web API for __WHAT__ instead of typing it">{{runtimeData.pvxAf.isOpen('__ID__') ? 'Close' : 'Browse&hellip;'}}</button>
+    <div class="pvx-cfg-af-panel" ng-if="runtimeData.pvxAf.isOpen('__ID__')">
+        <div class="pvx-cfg-af-trail">
+            <span ng-repeat="c in runtimeData.pvxAf.trail track by $index"><span class="pvx-cfg-af-sep" ng-if="$index">&rsaquo;</span><button type="button"
+                class="pvx-cfg-af-crumb" ng-disabled="$last" ng-click="runtimeData.pvxAf.go($index)">{{c.name}}</button></span>
+        </div>
+        <input type="text" class="pvx-cfg-af-search" ng-model="runtimeData.pvxAf.query"
+               ng-change="runtimeData.pvxAf.search()" placeholder="Search by name below this level" />
+        <div class="pvx-cfg-hint" ng-if="runtimeData.pvxAf.busy">Loading&hellip;</div>
+        <div class="pvx-cfg-hint pvx-cfg-af-msg" ng-if="runtimeData.pvxAf.message">{{runtimeData.pvxAf.message}}</div>
+        <div class="pvx-cfg-af-list">
+            <div class="pvx-cfg-af-row" ng-repeat="it in runtimeData.pvxAf.items track by $index">
+                <button type="button" class="pvx-cfg-af-name" title="{{it.path}}"
+                        ng-disabled="!runtimeData.pvxAf.canOpen(it)"
+                        ng-click="runtimeData.pvxAf.enter(it)">{{it.name}}<span class="pvx-cfg-af-where" ng-if="it.where"> in {{it.where}}</span></button>
+                <span class="pvx-cfg-af-type">{{runtimeData.pvxAf.label(it)}}</span>
+                <button type="button" class="pvx-cfg-src-btn" ng-if="runtimeData.pvxAf.canUse(it)"
+                        ng-click="config.__KEY__ = runtimeData.pvxAf.use(it, config.__KEY__, config)">__USE__</button>
+            </div>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="runtimeData.pvxAf.note">{{runtimeData.pvxAf.note}}</div>
+    </div>
+</div>
