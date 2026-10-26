@@ -172,6 +172,13 @@ function inspect() {
     }
     out.minFont = out.texts.length ? Math.min.apply(null, out.texts) : null;
     out.textLen = (box.textContent || '').trim().length;
+    // The mock's second update carries no Label, as PI Vision's routinely
+    // don't, so a placeholder name here means a symbol lost the real one
+    // between metadata updates: the labels flicker on a live server.
+    const words = (box.textContent || '') + ' ' +
+        Array.prototype.map.call(box.querySelectorAll('title'), (n) => n.textContent).join(' ');
+    const placeholder = /\b(Series|Row|Trace) \d+\b/.exec(words);
+    out.placeholder = placeholder ? placeholder[0] : '';
     return out;
 }
 
@@ -317,6 +324,9 @@ function inspect() {
                         }
                         if (result.destroyError) {
                             problems.push(tag + ' — onDestroy threw: ' + result.destroyError);
+                        }
+                        if (!scenario.empty && result.placeholder) {
+                            problems.push(tag + ' — shows "' + result.placeholder + '" after an update without metadata');
                         }
                         if (!scenario.empty && !result.painted) {
                             problems.push(tag + ' — rendered nothing');

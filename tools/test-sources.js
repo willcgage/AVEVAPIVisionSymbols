@@ -17,6 +17,10 @@
  *            symbol.DataSources and renumbers positional config, and a
  *            single-source symbol offers no Remove at all.
  *
+ * Labels across updates: PVX.data.metaCarry in Node, which keeps each
+ * source's Label, Units and Path between PI Vision's metadata updates and
+ * keeps them with the right source after a removal.
+ *
  * Band editor: PVX.thresholds.bind in Node (rows <-> the stored grammar
  * string, which saved displays depend on), then the built pane in Chromium:
  * one row per band, and typing, picking, adding and removing rewrite
@@ -129,6 +133,41 @@ function rules() {
     st.remove(0);
     check('can go down to one source', arr.length === 1);
     check('the last source cannot be removed', st.remove(0) === false && arr.length === 1, arr);
+}
+
+/*
+ * PI Vision sends Label, Units and Path only now and then, so the core carries
+ * them across the updates in between. Keyed by data source, a removal must
+ * not hand a name to the neighbour that moves into the removed one's place.
+ */
+function metaRules() {
+    console.log('');
+    console.log(C.bold + 'PVX.data.metaCarry rules' + C.reset);
+    const D = loadCore().data;
+    let list = ['pi:\\\\s\\A?1', 'pi:\\\\s\\B?2', 'pi:\\\\s\\C?3'];
+    const keep = D.metaCarry(() => list);
+    const full = { Data: [
+        { Label: 'A', Units: 'psi', Path: 'pa', Value: [] },
+        { Label: 'B', Units: '', Path: 'pb', Value: [] },
+        { Label: 'C', Units: 'gpm', Path: 'pc', Value: [] }] };
+    keep(full);
+    const bare = { Data: [{ Value: [] }, { Value: [] }, { Value: [] }] };
+    const next = D.series(keep(bare));
+    check('names survive an update without metadata', next.map((x) => x.label).join() === 'A,B,C', next.map((x) => x.label));
+    check('units survive, and a unitless tag stays unitless', next.map((x) => x.units).join() === 'psi,,gpm', next.map((x) => x.units));
+    check('PI Vision\'s own objects are not modified', bare.Data[0].Label === undefined);
+    list = [list[0], list[2]];
+    const after = D.series(keep({ Data: [{ Value: [] }, { Value: [] }] }));
+    check('after a removal each name stays with its own source', after.map((x) => x.label).join() === 'A,C', after.map((x) => x.label));
+    const renamed = D.series(keep({ Data: [{ Label: 'A2', Value: [] }, { Value: [] }] }));
+    check('a new name replaces the remembered one', renamed[0].label === 'A2' && renamed[1].label === 'C', renamed.map((x) => x.label));
+    const one = D.metaCarry(() => ['pi:\\\\s\\X?9']);
+    one({ Value: 1, Label: 'X', Units: 'degF' });
+    const single = D.single(one({ Value: 2 }));
+    check('Value shape keeps its label and units', single.label === 'X' && single.units === 'degF', single);
+    const rows = D.metaCarry(() => null);
+    rows({ Rows: [{ Label: 'R', Value: 1 }] });
+    check('Table rows keep their label by position', D.rows(rows({ Rows: [{ Value: 2 }] }))[0].label === 'R');
 }
 
 function bandRules() {
@@ -334,6 +373,7 @@ async function pane() {
 (async () => {
     try {
         rules();
+        metaRules();
         bandRules();
         await pane();
     } catch (e) {

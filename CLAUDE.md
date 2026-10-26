@@ -177,6 +177,15 @@ Each of these cost real debugging time. Do not rediscover them.
   which passed the bare template, looked fine. `PVX.bootstrap` resolves
   `ctx.node` to the `.pvx` root; the harnesses mount templates inside a
   wrapper, and `verify.js` fails any `--pvx-*` written above the root.
+- **PI Vision sends `Label`, `Units` and `Path` only now and then.** Most
+  updates carry values alone, so normalizing each one on its own showed
+  "Series 1" between metadata updates and the real name on the next: every
+  label flickered on a live server in 1.11.0, 22 symbols at once. The mock
+  sent metadata every time, which hid it. `PVX.bootstrap` now runs every
+  update through `PVX.data.metaCarry` (keyed by data source, so a removal
+  cannot pass a name to the neighbour); the mock strips metadata after the
+  first update, and `verify.js` fails a placeholder name. Never read labels
+  from a raw update without going through the bootstrap.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were
