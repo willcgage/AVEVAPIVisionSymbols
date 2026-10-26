@@ -237,14 +237,16 @@ between releases. Set `Theme` to force one or the other.
 
 **PI Vision's data shapes, normalised.** `PVX.data.single/series/rows/trend`
 absorb the payload differences between releases so symbol code only ever deals
-with one predictable structure.
+with one predictable structure. PI Vision sends labels, units and paths only on
+some updates; `PVX.bootstrap` carries them across the rest, per data source.
 
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
 scenarios (live, empty, bad-quality) × light and dark — 630 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
-renders, unreadable text, and content clipped out of reach. That is the gate to
+renders, unreadable text, content clipped out of reach, and a placeholder name
+("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to
 run before any deployment.
 
 ### Adding a symbol
