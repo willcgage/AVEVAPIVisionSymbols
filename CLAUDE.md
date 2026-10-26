@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 35 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.11.0**, released from
+and an MSI installer generated from the build output. **v1.12.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -22,6 +22,7 @@ node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
+node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, text zoom vs a mock AF
 node tools/test-charts.js            # Wind Rose and XY bubble numbers vs known-answer payloads
@@ -58,7 +59,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-limits.js`, `test-overview.js` and `test-charts.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js` and `test-charts.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -161,6 +162,14 @@ silently destroys a site's PI Web API settings on upgrade.
   The state list comes from each source's digital set via `PVX.api` (proven
   against a mock only), live data, and the map itself; the stored value keeps
   its grammar.
+- Per-attribute settings (`pvxDataHealth`'s `Ranges` and `UpdateOverrides`,
+  `Label: lo..hi` / `Label: minutes`) are rows too:
+  `<!-- pvx:tags key=Ranges kind=range|minutes -->` →
+  `src/shared/config-tags.html`, state on `scope.runtimeData.pvxTags`. The
+  attribute is chosen from the labels the symbol shows; the symbol reads the
+  string with `PVX.tags.parse`, the pane's own parser. **Fill from PI** reads
+  AF Minimum/Maximum limit traits, else the PI point's Zero/Span, once, in the
+  pane (mock-proven only); the symbol itself never calls PI Web API.
 
 ---
 

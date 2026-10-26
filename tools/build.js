@@ -315,6 +315,7 @@ function build() {
     const bandsEditor = read(path.join(SHARED_DIR, 'config-bands.html'));
     const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
     const statesEditor = read(path.join(SHARED_DIR, 'config-states.html'));
+    const tagsEditor = read(path.join(SHARED_DIR, 'config-tags.html'));
 
     // --- symbols ----------------------------------------------------------
     const symbols = discoverSymbols();
@@ -342,9 +343,11 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
         write(path.join(EXT, 'sym-' + typeName + '-config.html'),
-            withStatesEditors(typeName,
-                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor, js),
-                statesEditor));
+            withTagsEditors(typeName,
+                withStatesEditors(typeName,
+                    withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor, js),
+                    statesEditor),
+                tagsEditor));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -508,6 +511,53 @@ function withStatesEditors(typeName, config, snippet) {
         if (new RegExp('ng-model="config\\.' + key + '"').test(config.replace(STATES_MARKER, ''))) {
             problem(typeName, 'config.html binds config.' + key + ' to a control of its own; put ' +
                 '<!-- pvx:states key=' + key + ' kind=... --> on its own line where the control goes');
+        }
+    });
+    return out;
+}
+
+// Per-attribute settings ("Label: low..high", "Label: minutes") are edited as
+// rows whose attribute is chosen from the labels the symbol shows, not typed:
+//   <!-- pvx:tags key=Ranges kind=range -->
+// Same rules as the state maps: a marked key, or one of TAG_KEYS, bound to a
+// control of the pane's own fails the build, and so does an unknown kind.
+const TAGS_MARKER = /^[ \t]*<!--\s*pvx:tags\b([^>]*?)-->[ \t]*\n/gm;
+const TAGS_KINDS = {
+    range: { grammar: 'Attribute label: low..high', example: 'K-301 Vibration 1X: 0..20' },
+    minutes: { grammar: 'Attribute label: minutes', example: 'Lab Density: 1440' }
+};
+
+const TAG_KEYS = ['Ranges', 'UpdateOverrides'];
+
+function withTagsEditors(typeName, config, snippet) {
+    const keys = [];
+    const out = config.replace(TAGS_MARKER, (whole, body) => {
+        const a = {};
+        body.trim().split(/\s+/).forEach((kv) => {
+            const eq = kv.indexOf('=');
+            if (eq > 0) { a[kv.slice(0, eq)] = kv.slice(eq + 1); }
+        });
+        const key = a.key || '';
+        const kind = TAGS_KINDS[a.kind];
+        if (!/^\w+$/.test(key)) {
+            problem(typeName, 'pvx:tags key "' + key + '" must be a config key name');
+            return whole;
+        }
+        if (!kind) {
+            problem(typeName, 'pvx:tags kind "' + a.kind + '" must be one of ' + Object.keys(TAGS_KINDS).join(', '));
+            return whole;
+        }
+        keys.push(key);
+        return snippet
+            .replace(/__KEY__/g, key)
+            .replace(/__KIND__/g, a.kind)
+            .replace(/__GRAMMAR__/g, kind.grammar)
+            .replace(/__EXAMPLE__/g, kind.example);
+    });
+    TAG_KEYS.concat(keys).forEach((key) => {
+        if (new RegExp('ng-model="config\\.' + key + '"').test(config.replace(TAGS_MARKER, ''))) {
+            problem(typeName, 'config.html binds config.' + key + ' to a control of its own; put ' +
+                '<!-- pvx:tags key=' + key + ' kind=... --> on its own line where the control goes');
         }
     });
     return out;

@@ -16,8 +16,10 @@
  *                 numeric tag is a system digital state ("I/O Timeout").
  *   Out of range  newest value outside the instrument span given in Ranges.
  *                 PI Vision does not pass Zero/Span to symbols, so the span has
- *                 to be configured; a range entry that matches no tag is
- *                 reported in the footer rather than ignored.
+ *                 to be configured; the format pane can fill it from PI once
+ *                 (PVX.tags), but nothing is read from PI Web API here. A range
+ *                 entry that matches no tag is reported in the footer rather
+ *                 than ignored.
  *   Stale         newest event older than StaleMinutes.
  *   Flatlined     value unchanged (within FlatlineTolerance) for FlatlineHours.
  *
@@ -125,39 +127,22 @@
          * ================================================================== */
 
         /**
-         * Parse "Name: value, Name: value" into [{key, name, value}].
-         * The LAST colon splits name from value, so an AF-style label holding a
-         * colon still parses. Entries separate on commas or newlines only —
-         * semicolons are left alone so a range like "0..20" never splits.
+         * "Label: lo..hi" / "Label: minutes" -> [{key, value, used}]. Read by
+         * PVX.tags.parse, the same parser the format pane's rows use, so what
+         * the pane shows and what this symbol checks cannot drift apart.
+         * Entries it cannot read are left out here; the pane flags them.
          */
-        function parseList(spec, parseValue) {
+        function parseList(spec, kind) {
             var out = [];
-            if (!spec) { return out; }
-            var chunks = String(spec).split(/[,\n]/);
-            for (var i = 0; i < chunks.length; i++) {
-                var s = chunks[i].trim();
-                if (!s) { continue; }
-                var at = s.lastIndexOf(':');
-                if (at <= 0) { continue; }
-                var name = s.slice(0, at).trim();
-                var v = parseValue(s.slice(at + 1).trim());
-                if (!name || v === null) { continue; }
-                out.push({ key: name.toLowerCase(), name: name, value: v, used: false });
+            var list = PVX.tags.parse(spec, kind);
+            for (var i = 0; i < list.length; i++) {
+                var e = list[i];
+                if (!e.valid) { continue; }
+                var v = kind === 'minutes' ? e.minutes :
+                    { lo: Math.min(e.lo, e.hi), hi: Math.max(e.lo, e.hi) };
+                out.push({ key: e.label.toLowerCase(), name: e.label, value: v, used: false });
             }
             return out;
-        }
-
-        function parseRange(s) {
-            var m = /^(-?[\d.]+(?:e-?\d+)?)\s*\.\.\s*(-?[\d.]+(?:e-?\d+)?)$/i.exec(s);
-            if (!m) { return null; }
-            var lo = PVX.util.num(m[1]), hi = PVX.util.num(m[2]);
-            if (lo === null || hi === null) { return null; }
-            return lo <= hi ? { lo: lo, hi: hi } : { lo: hi, hi: lo };
-        }
-
-        function parseMinutes(s) {
-            var n = PVX.util.num(s);
-            return (n === null || n < 0) ? null : n;
         }
 
         /* Exact, case-insensitive match. A substring match would let a range
@@ -185,8 +170,8 @@
             if (flatH === null || flatH < 0) { flatH = 4; }
             var tol = Math.abs(PVX.util.num(cfg.FlatlineTolerance) || 0);
 
-            var ranges = parseList(cfg.Ranges, parseRange);
-            var overrides = parseList(cfg.UpdateOverrides, parseMinutes);
+            var ranges = parseList(cfg.Ranges, 'range');
+            var overrides = parseList(cfg.UpdateOverrides, 'minutes');
 
             // A sample newer than "now" means the browser clock is behind the
             // server's; trust the data rather than calling every tag fresh.

@@ -1,0 +1,72 @@
+            <!-- Expanded by tools/build.js in place of each pvx:tags marker.
+                 State and actions come from PVX.tags.bind, via runtimeData;
+                 every write goes to this pane's config.__KEY__, which stays the
+                 grammar string. -->
+            <div ng-if="runtimeData.pvxTags" ng-init="ed = runtimeData.pvxTags.use('__KEY__', '__KIND__')">
+                <div class="pvx-cfg-tags pvx-cfg-tags-__KIND__" ng-if="ed.sync(config.__KEY__) && !ed.textMode">
+                    <div class="pvx-cfg-tg-row" ng-repeat="r in ed.rows track by $index"
+                         ng-class="{'pvx-cfg-tg-bad': r.invalid || r.duplicate}">
+                        <div class="pvx-cfg-tg-line">
+                            <select class="pvx-cfg-tg-label" ng-if="!r.typed && ed.options().length"
+                                    ng-model="r.label" ng-change="ed.commit(config)"
+                                    ng-options="o.name as o.name group by o.group for o in ed.options()"
+                                    aria-label="Attribute {{$index + 1}}">
+                                <option value="">Choose an attribute</option>
+                            </select>
+                            <input type="text" class="pvx-cfg-tg-label" ng-if="r.typed || !ed.options().length"
+                                   ng-model="r.label" ng-change="ed.commit(config)" placeholder="Attribute label"
+                                   aria-label="Attribute {{$index + 1}}" />
+                            <button type="button" class="pvx-cfg-st-type" ng-if="ed.options().length"
+                                    ng-click="ed.type(r)" title="{{r.typed ? 'Choose from the list' : 'Type a label that is not listed'}}"
+                                    aria-label="{{r.typed ? 'Choose attribute from the list' : 'Type an attribute label'}}">{{r.typed ? '&#9662;' : '&#9998;'}}</button>
+                            <button type="button" class="pvx-cfg-band-x" ng-click="ed.remove($index, config)"
+                                    title="Remove this attribute" aria-label="Remove attribute {{$index + 1}}">&times;</button>
+                        </div>
+                        <div class="pvx-cfg-tg-line pvx-cfg-tg-vals" ng-if="ed.kind === 'range'">
+                            <label>Low <input type="number" step="any" class="pvx-cfg-tg-lo" ng-model="r.lo"
+                                   ng-change="ed.commit(config)" aria-label="Low end of span {{$index + 1}}" /></label>
+                            <label>High <input type="number" step="any" class="pvx-cfg-tg-hi" ng-model="r.hi"
+                                   ng-change="ed.commit(config)" aria-label="High end of span {{$index + 1}}" /></label>
+                        </div>
+                        <div class="pvx-cfg-tg-line pvx-cfg-tg-vals" ng-if="ed.kind === 'minutes'">
+                            <label>Stale after <input type="number" min="0" step="any" class="pvx-cfg-tg-min" ng-model="r.minutes"
+                                   ng-change="ed.commit(config)" aria-label="Minutes for attribute {{$index + 1}}" /> min</label>
+                            <span class="pvx-cfg-tg-off" ng-if="r.minutes === 0">not checked</span>
+                        </div>
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasInvalid()">
+                        A row needs an attribute and {{ed.kind === 'range' ? 'both ends of its span' : 'a number of minutes'}};
+                        until then it is ignored.
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasSeparator()">
+                        A label containing a comma cannot be stored here, because commas separate the entries.
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasDuplicate()">
+                        An attribute listed twice uses its first row.
+                    </div>
+                    <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="ed.hasUnknown()">
+                        An attribute under "Not on this symbol" matches no label the symbol shows, so it has no effect.
+                    </div>
+                    <div class="pvx-cfg-hint" ng-if="!ed.rows.length">No attributes listed.</div>
+                    <div class="pvx-cfg-hint" ng-if="runtimeData.pvxTags.busy">Reading spans from PI&hellip;</div>
+                    <div class="pvx-cfg-hint" ng-if="ed.kind === 'range' && runtimeData.pvxTags.note">{{runtimeData.pvxTags.note}}</div>
+                    <div class="pvx-cfg-band-actions">
+                        <button type="button" class="pvx-cfg-band-add" ng-click="ed.add(config)">Add attribute</button>
+                        <button type="button" class="pvx-cfg-band-add pvx-cfg-tg-fill" ng-if="ed.kind === 'range'"
+                                ng-click="ed.fill(config)" ng-disabled="runtimeData.pvxTags.busy"
+                                title="Add a row for each attribute from its AF Minimum/Maximum limits, or its PI point Zero/Span">Fill from PI</button>
+                        <button type="button" class="pvx-cfg-band-link" ng-click="ed.toggleText()">Edit as text</button>
+                    </div>
+                </div>
+                <div ng-if="ed.textMode">
+                    <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3" placeholder="__EXAMPLE__"></textarea>
+                    <div class="pvx-cfg-hint">
+                        <code>__GRAMMAR__</code>, one per line or comma separated.
+                        <button type="button" class="pvx-cfg-band-link" ng-click="ed.toggleText()">Back to fields</button>
+                    </div>
+                </div>
+            </div>
+            <div ng-if="!runtimeData.pvxTags">
+                <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3" placeholder="__EXAMPLE__"></textarea>
+                <div class="pvx-cfg-hint"><code>__GRAMMAR__</code>, one per line or comma separated.</div>
+            </div>

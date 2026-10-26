@@ -77,6 +77,12 @@ jobs:
       - name: Verify state map editor
         run: node tools/test-states.js
 
+      # Data Health's instrument ranges and update overrides are picked as
+      # rows by the label the symbol shows; Fill from PI reads spans from a
+      # mock PI Web API's AF limit traits and PI point Zero/Span.
+      - name: Verify per-attribute row editor
+        run: node tools/test-tags.js
+
       # An alarm symbol with no limits set must not alarm. 1.9.0 applied the
       # placeholder 0/70/90 bands to every point and flagged healthy plant.
       - name: Verify alarm symbols need limits
