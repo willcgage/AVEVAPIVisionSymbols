@@ -48,6 +48,8 @@ For the person doing this on the day. Each line is expanded below.
 [ ] ext\piwebapi-check.html opened ON THE SERVER, in a browser, as a normal user
 [ ] Result is a full pass, not a partial pass  (see the warning below)
 [ ] ext\libraries\pvx\pvx-config.js edited with baseUrl and auth
+    (skip if the check passed on the address it filled in itself: PI Web API
+     on this server is found without being set)
 [ ] Re-run the diagnostic; one PI Web API symbol placed and drawing
 [ ] --- repeat every step above on every other web server ---
 ```
@@ -437,7 +439,12 @@ Open this **on the PI Vision server, in a browser, signed in as a normal user**:
 https://<pivision-server>/Scripts/app/editor/symbols/ext/piwebapi-check.html
 ```
 
-Enter your PI Web API base URL and run it. It executes exactly what a symbol
+If `baseUrl` in `pvx-config.js` is blank, the page fills in the address the
+symbols will try on their own, `https://<pivision-server>/piwebapi`. Run it as
+it is first: if PI Web API is installed on this server and the check passes
+there, the verdict says nothing needs setting and you can skip Step 2.
+
+Otherwise enter your PI Web API base URL and run it. It executes exactly what a symbol
 executes, from exactly where a symbol executes, and reports which configuration
 actually works rather than which one should. It reads only — nothing there
 writes to PI.
@@ -481,15 +488,21 @@ first, and the 1.6.0 version of the file lost its settings when that happened.
 `basic` and `anonymous` are the alternatives; each is documented inline in the
 file itself, with its trade-offs.
 
-Optionally set a default AF database there too, so it does not have to be typed
-into every symbol:
+Optionally set a site-wide AF database there too. Event Timeline, Event
+Analytics and Asset Tree already take the database of the attribute dropped on
+them when their own database field is blank; this is the fallback after that
+and after the display's asset:
 
 ```js
-root.PVX.api.defaults = {
+var siteSettings = {
+    …
     databasePath: '\\\\AFSERVER01\\Production',
-    eventFrameTemplate: 'Downtime'
-};
+    …
 ```
+
+(Up to 1.12.0 this page showed a `root.PVX.api.defaults` block for the same
+purpose that nothing read. It works now, but `databasePath` in the settings
+block is the place for it. Its `eventFrameTemplate` key is still not read.)
 
 Recycle the app pool and hard-refresh again.
 

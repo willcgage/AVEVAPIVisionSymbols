@@ -164,6 +164,7 @@
     var PVX = window.PVX;
     var $ = function (id) { return document.getElementById(id); };
     var report = [];
+    var autoBase = '';   // where the symbols look on their own, if baseUrl is blank
 
     /* Prefill from the deployed site config, so this page also verifies that
        pvx-config.js is present and parsed — a blank base URL here is itself
@@ -172,12 +173,20 @@
         var note = 'pvx-config.js not found or did not load.';
         if (PVX && PVX.api) {
             var s = PVX.api.settings;
-            $('baseUrl').value = s.baseUrl || '';
+            // A blank baseUrl is not "off" any more: the symbols look on this
+            // server. Test exactly the address they will try.
+            var auto = !s.baseUrl && typeof PVX.api.isAuto === 'function' && PVX.api.isAuto();
+            if (auto) { autoBase = PVX.api.sameOriginBase(); }
+            $('baseUrl').value = s.baseUrl || autoBase;
             if (s.auth) { $('auth').value = 'auto'; }
             note = s.baseUrl
                 ? 'Loaded from pvx-config.js — base URL set, auth "' + s.auth + '".'
-                : 'pvx-config.js loaded but baseUrl is blank. Fill it in below to test, then put the ' +
-                  'working value into that file.';
+                : auto
+                ? 'pvx-config.js loaded and baseUrl is blank, so the symbols look for PI Web API on this ' +
+                  'server at ' + PVX.api.sameOriginBase() + '. Run the checks to see whether it answers there; ' +
+                  'if it does, there is nothing to set.'
+                : 'pvx-config.js loaded but baseUrl is blank and autoDiscover is off. Fill it in below to ' +
+                  'test, then put the working value into that file.';
         }
         $('loaded').textContent = note;
     }());
@@ -390,6 +399,16 @@
 
             box.className = 'verdict ok';
             var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
+            // Running the checks configures baseUrl, so judge by what the
+            // site file said when the page loaded.
+            var found = autoBase && baseUrl.replace(/\/+$/, '') === autoBase && best === 'iwa';
+            if (found) {
+                box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
+                    '<p>PI Web API answers on this PI Vision server, which is where the symbols look when ' +
+                    '<code>baseUrl</code> is blank. Nothing needs setting in <code>pvx-config.js</code> on this ' +
+                    'server. Run this page on every PI Vision server: each one looks on itself.</p>';
+                return;
+            }
             box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
                 '<p>Put this into <code>ext\\libraries\\pvx\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
                 'server — the ext folder is not replicated between them:</p>' +

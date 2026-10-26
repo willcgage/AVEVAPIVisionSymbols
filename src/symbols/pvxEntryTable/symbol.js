@@ -443,6 +443,12 @@
 
             applyBaseUrlOverride(cfg);
 
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi. Decide nothing until it has its answer.
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { refresh(); } });
+                return;
+            }
             if (!PVX.api.isConfigured()) {
                 state.phase = 'unconfigured';
                 ctx.render();
@@ -1092,8 +1098,8 @@
 
             if (state.phase === 'unconfigured') {
                 showState('PI Web API is not configured',
-                    'This symbol writes through PI Web API. Set baseUrl in ext/libraries/pvx/pvx-config.js on ' +
-                    'this PI Vision server, then confirm it with ext/piwebapi-check.html.', 'warn');
+                    'This symbol writes through PI Web API. ' + PVX.api.unsetHint() +
+                    ', then confirm it with ext/piwebapi-check.html.', 'warn');
                 digest();
                 return;
             }

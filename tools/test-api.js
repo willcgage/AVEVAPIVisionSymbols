@@ -37,6 +37,11 @@ const API_PORT = 31781;      // stands in for PI Web API on another server
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', bold: '\x1b[1m' };
 
 let scenario = 'healthy';
+// When true, the PI Vision origin also answers /piwebapi, as a server with PI
+// Web API installed beside PI Vision does. Off by default: the scenarios
+// above are about the cross-origin arrangement.
+let coLocated = false;
+let apiHandler = null;   // the mock PI Web API's handler, reused same-origin
 const valueStore = {};   // webId -> value, so writes are actually observable
 let writeLog = [];       // every write the mock received, in order
 
@@ -44,6 +49,7 @@ let writeLog = [];       // every write the mock received, in order
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json' };
 
 const visionServer = http.createServer((req, res) => {
+    if (coLocated && /^\/piwebapi(\/|$)/.test(req.url)) { apiHandler(req, res); return; }
     let rel = decodeURIComponent(req.url.split('?')[0]);
     if (rel === '/') { rel = '/piwebapi-check.html'; }
     const target = path.normalize(path.join(EXT, rel));
@@ -76,7 +82,7 @@ function corsHeaders(req) {
     return h;
 }
 
-const apiServer = http.createServer((req, res) => {
+apiHandler = (req, res) => {
     const url = req.url.split('?')[0];
     const headers = corsHeaders(req);
 
@@ -170,7 +176,8 @@ const apiServer = http.createServer((req, res) => {
         return;
     }
     json(404, { Errors: ['Not found'] });
-});
+};
+const apiServer = http.createServer(apiHandler);
 
 /* --------------------------------------------------------------- scenarios */
 const SCENARIOS = [
@@ -270,10 +277,20 @@ const SCENARIOS = [
         await PVX.api.get('assetservers');
         out.cachedFaster = (performance.now() - t1) < Math.max(1, first);
 
-        // an unconfigured client must refuse clearly rather than guessing a host
-        PVX.api.configure({ baseUrl: '' });
+        // with discovery off, an unconfigured client must refuse clearly
+        // rather than guessing a host
+        PVX.api.configure({ baseUrl: '', autoDiscover: false });
         try { await PVX.api.get(''); out.unconfigured = 'resolved'; }
         catch (e) { out.unconfigured = e.pvxError && e.pvxError.code; }
+
+        // with discovery on and nothing at /piwebapi on this origin, the
+        // same refusal, naming the address it tried
+        PVX.api.configure({ autoDiscover: true });
+        out.autoBase = PVX.api.base();
+        try { await PVX.api.get('assetservers'); out.autoMissing = 'resolved'; }
+        catch (e) { out.autoMissing = e.pvxError && e.pvxError.code; out.autoMissingMsg = e.pvxError && e.pvxError.message; }
+        out.autoMissingConfigured = PVX.api.isConfigured();
+        out.autoMissingSource = PVX.api.baseSource();
 
         // bearer with no token supplied must say so, not send an empty header
         PVX.api.configure({ baseUrl: 'http://127.0.0.1:' + apiPort + '/piwebapi', auth: 'bearer', getToken: null });
@@ -308,11 +325,48 @@ const SCENARIOS = [
         return out;
     }, API_PORT);
 
+    /* -- discovery on a server with PI Web API beside PI Vision ------------- *
+     * A fresh page, because discovery answers once per page by design.     */
+    coLocated = true;
+    const co = await browser.newPage();
+    const coRequests = [];
+    co.on('request', (r) => { if (/\/piwebapi/.test(r.url())) { coRequests.push(r.url()); } });
+    await co.goto(ORIGIN + '/piwebapi-check.html', { waitUntil: 'networkidle' });
+    const found = await co.evaluate(async () => {
+        const PVX = window.PVX;
+        PVX.api.configure({ baseUrl: '', auth: 'anonymous', cacheTtlMs: 0 });
+        const out = { prefill: document.getElementById('baseUrl').value };
+        out.probingFirst = PVX.api.discovering();
+        const r = await PVX.api.get('assetservers');
+        out.items = r && r.Items && r.Items.length;
+        out.source = PVX.api.baseSource();
+        out.crossOrigin = PVX.api.isCrossOrigin();
+        await PVX.api.get('assetservers');
+        // an explicit baseUrl always wins over a discovered one
+        PVX.api.configure({ baseUrl: 'http://127.0.0.1:' + 1 + '/piwebapi' });
+        out.explicitWins = PVX.api.base() === 'http://127.0.0.1:1/piwebapi' && PVX.api.baseSource() === 'config';
+        return out;
+    });
+    await co.close();
+    coLocated = false;
+    const probes = coRequests.filter((u) => /\/piwebapi\/$/.test(u)).length;
+
     const unitChecks = [
+        ['discovery off: blank baseUrl stays off', unit.unconfigured === 'not-configured'],
+        ['discovery on, nothing there: not-configured', unit.autoMissing === 'not-configured' &&
+            unit.autoMissingConfigured === false && unit.autoMissingSource === 'none'],
+        ['discovery on, nothing there: names the address tried',
+            typeof unit.autoMissingMsg === 'string' && unit.autoMissingMsg.indexOf(ORIGIN + '/piwebapi') !== -1 &&
+            unit.autoBase === ORIGIN + '/piwebapi'],
+        ['check page prefills the address symbols will try', found.prefill === ORIGIN + '/piwebapi'],
+        ['same-server PI Web API found with baseUrl blank', found.probingFirst === true && found.items === 1 &&
+            found.source === 'discovered'],
+        ['discovered base is same-origin (no CORS)', found.crossOrigin === false],
+        ['discovery probes once per page', probes === 1],
+        ['an explicit baseUrl wins over discovery', found.explicitWins === true],
         ['batch chunking returns all 7', unit.batchCount === 7],
         ['batch reports zero failures', unit.batchResults === 0],
         ['second GET served from cache', unit.cachedFaster === true],
-        ['unconfigured base refuses clearly', unit.unconfigured === 'not-configured'],
         ['bearer without token refuses clearly', unit.noToken === 'no-token'],
         ['a write is visible on read-back', unit.writeVisible === true],
         ['a refused write rejects, never retried into success', unit.forbiddenWrite === 'forbidden'],

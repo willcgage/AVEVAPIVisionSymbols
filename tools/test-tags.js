@@ -241,7 +241,8 @@ function serve() {
 
 /** Runs in the browser: mount symbol + pane, feed one data update. */
 async function mount(a) {
-    window.PVX.api.configure({ baseUrl: a.configured === false ? '' : location.origin + '/piwebapi', auth: 'anonymous' });
+    window.PVX.api.configure({ baseUrl: a.configured === false || a.configured === 'auto' ? '' : location.origin + '/piwebapi',
+        autoDiscover: a.configured !== false, auth: 'anonymous' });
     const def = window.PVMock.get(a.typeName);
     const injector = angular.injector(['ng']);
     const $compile = injector.get('$compile');

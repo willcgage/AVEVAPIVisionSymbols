@@ -490,6 +490,12 @@
         function refreshSearch(force) {
             var cfg = liveCfg;
             if (cfg.RowSource !== 'search') { return; }
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi. Decide nothing until it has its answer.
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { refreshSearch(force); } });
+                return;
+            }
             if (!PVX.api.isConfigured()) {
                 search.status = 'unconfigured';
                 ctx.render();
@@ -730,8 +736,8 @@
         function searchMessage(cfg) {
             if (search.status === 'unconfigured') {
                 return { title: 'PI Web API is not configured', warn: true,
-                    text: 'Search mode reads elements through PI Web API. Set baseUrl in ext/libraries/pvx/pvx-config.js ' +
-                          'on this PI Vision server, then confirm it with ext/piwebapi-check.html.' };
+                    text: 'Search mode reads elements through PI Web API. ' + PVX.api.unsetHint() +
+                          ', then confirm it with ext/piwebapi-check.html.' };
             }
             if (search.status === 'noroot') {
                 return { title: 'No asset to search under',

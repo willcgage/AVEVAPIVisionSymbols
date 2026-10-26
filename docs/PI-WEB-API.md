@@ -132,9 +132,50 @@ regardless.
 folder between nodes, so behind a load balancer a user who lands on the
 unconfigured server sees the "not configured" state.
 
-If `baseUrl` is blank, the PI Web API symbols show a clear message naming this
-file and the diagnostic page. That is the intended default — a library deployed
-without anyone editing this does nothing surprising.
+### PI Web API on the PI Vision server itself: nothing to set
+
+If `baseUrl` is blank, the symbols look for PI Web API on the PI Vision server
+they were loaded from, at `https://<the address PI Vision was opened with>/piwebapi`.
+They ask once per page (a `GET` of the service root, which must come back as
+PI Web API's JSON with a `Links` object) and remember the answer. Where PI Web
+API is installed beside PI Vision (both on port 443, which HTTP.sys allows)
+that is the whole configuration, and because the requests are same-origin
+there is no CORS to set up: none of the preflight problems above can arise.
+
+PVX cannot use PI Vision's own connection to AF instead. PI Vision reaches AF
+from the server through AF SDK and gives display code no supported way in; its
+internal `/PIVision/Services` endpoints are undocumented, change between
+releases and cannot write values. Same-server discovery is the supported way to
+get the same "it just works".
+
+Where nothing answers there, the symbols show the same "PI Web API is not
+configured" message as before, naming the address they tried, this file, and
+the diagnostic page. Set `autoDiscover: false` to skip the look and keep the
+blank-means-off behaviour of 1.12.0 and earlier. An explicit `baseUrl` always
+wins.
+
+On a server without PI Web API the browser console shows one 404 for
+`/piwebapi/` per page: that is the probe, and it is harmless. Setting
+`baseUrl` or `autoDiscover: false` stops it.
+
+Each PI Vision server looks on itself, so behind a load balancer every node
+needs its own PI Web API for this to work, or an explicit `baseUrl`.
+
+### AF database: taken from the symbol when left blank
+
+Event Timeline, Event Analytics and Asset Tree need an AF database. When the
+database field in the format pane is blank they use, in order:
+
+1. the database of the AF attribute dropped on the symbol, as PI Vision last
+   sent it, so an asset swap carries it along;
+2. the database of the display's asset (`?asset=` in the URL);
+3. `databasePath` in `pvx-config.js`, a site-wide fallback.
+
+The footer says which one is in use ("database \\AF\Production from this
+symbol's data source"). Nothing is written into the saved display, so a symbol
+keeps following its data source. The **Search** pane of every AF field also
+opens on the database and element of the symbol's data source when the field
+is empty.
 
 ### Bearer tokens
 
@@ -192,7 +233,7 @@ than "failed to fetch". The codes map as follows.
 
 | What you see | Where to look |
 |---|---|
-| **not-configured** | `baseUrl` is blank in `ext/libraries/pvx/pvx-config.js` on *this* PI Vision server |
+| **not-configured** | `baseUrl` is blank in `ext/libraries/pvx/pvx-config.js` on *this* PI Vision server, and nothing answered at `/piwebapi` on the same server (the message names the address tried) |
 | **cors-or-network** | The preflight. `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
 | **network** (same-origin) | Base URL, the service, the certificate name |
 | **unauthorized** (401) | Browser willingness to send Windows credentials to that host; or for bearer, the token's audience and expiry |

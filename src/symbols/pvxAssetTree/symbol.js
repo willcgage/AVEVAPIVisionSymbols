@@ -164,8 +164,10 @@
          * ================================================================ */
         var state = {
             phase: 'idle',      // idle | loading | ok | unconfigured | nopath | error
-            error: null         // the rejection from PVX.api, carrying .pvxError
+            error: null,        // the rejection from PVX.api, carrying .pvxError
+            db: { path: '', from: '' }   // database in use; `from` set when not configured
         };
+        var sourceAsset = '';   // element of the placeholder data source
 
         var liveCfg = scope.config || {};
         var generation = 0;     // bumps on refresh/teardown; stale replies are dropped
@@ -210,6 +212,21 @@
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-tree-body',
             render: render,
+
+            // The data source is otherwise ignored, but with no database or
+            // root configured the tree opens on its database.
+            onData: function (d) {
+                var one = PVX.data.single(d);
+                var a = one ? PVX.nav.assetOf(one.path) : '';
+                if (a !== sourceAsset) {
+                    var before = PVX.nav.databaseOf(sourceAsset);
+                    sourceAsset = a;
+                    // Re-root only when the database itself changed: a swap
+                    // to a sibling asset must not collapse the operator's tree.
+                    if (!trim(liveCfg.DatabasePath) && !trim(liveCfg.RootElementPath) &&
+                            PVX.nav.databaseOf(a) !== before) { refreshSoon(); }
+                }
+            },
 
             onConfigChange: function (newCfg) {
                 liveCfg = newCfg || liveCfg;
@@ -369,7 +386,7 @@
         /** Resolve the configured starting point to a node. */
         function resolveRoot(cfg) {
             var rootPath = trim(cfg.RootElementPath);
-            var dbPath = trim(cfg.DatabasePath);
+            var dbPath = state.db.path;
 
             if (rootPath) {
                 return PVX.api.get('elements?path=' + encodeURIComponent(rootPath) +
@@ -625,6 +642,13 @@
 
             applyBaseUrlOverride(cfg);
 
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi. Decide nothing until it has its answer.
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { refresh(); } });
+                return;
+            }
+
             // Each of these is a different problem with a different owner, so
             // each gets its own message rather than one shared "no data".
             if (!PVX.api.isConfigured()) {
@@ -634,7 +658,12 @@
                 ctx.render();
                 return;
             }
-            if (!trim(cfg.DatabasePath) && !trim(cfg.RootElementPath)) {
+            // Nothing configured: the database this symbol's data source
+            // lives in (see PVX.nav.defaultDatabase).
+            state.db = trim(cfg.DatabasePath) ? { path: trim(cfg.DatabasePath), from: '' }
+                     : trim(cfg.RootElementPath) ? { path: '', from: '' }
+                     : PVX.nav.defaultDatabase(scope, sourceAsset);
+            if (!state.db.path && !trim(cfg.RootElementPath)) {
                 state.phase = 'nopath';
                 state.error = null;
                 root = null;
@@ -1285,6 +1314,7 @@
             if (outsideRoot && !search.active) {
                 notes.push('the display’s asset is not under this root');
             }
+            if (state.db.from) { notes.push('database ' + state.db.path + ' from ' + state.db.from); }
             scope.pvx.note = notes.join(' \u00b7 ');
 
             digest();
@@ -1338,14 +1368,15 @@
         function buildStatus(host, cfg, t) {
             if (state.phase === 'unconfigured') {
                 buildMessage(host, 'PI Web API is not configured',
-                    'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
+                    PVX.api.unsetHint() + ', then confirm it ' +
                     'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
             }
             if (state.phase === 'nopath') {
                 buildMessage(host, 'No AF database configured',
-                    'Set the AF database path in the format pane, for example \\\\AFSERVER01\\Production. ' +
+                    'Drop an AF attribute onto this symbol to use its database, or set the AF database ' +
+                    'path in the format pane, for example \\\\AFSERVER01\\Production. ' +
                     'A root element path may be used instead to start further down the hierarchy.',
                     PVX.color.status.warning);
                 return;

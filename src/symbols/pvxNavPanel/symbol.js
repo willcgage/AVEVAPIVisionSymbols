@@ -632,10 +632,17 @@
             var wantSiblings = cfg.ShowSiblings !== false;
             var wantChildren = cfg.ShowChildren === true;
             if (!asset || !PVX.nav.segments(asset).prefix || (!wantSiblings && !wantChildren)) { return; }
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi; ask again once it has its answer.
+            if (PVX.api.discovering()) {
+                hier.fetchedFor = null;
+                PVX.api.discover().then(function () { if (gen === hier.gen) { ctx.render(); } });
+                return;
+            }
             if (!PVX.api.isConfigured()) {
                 hier.notes.push({
                     label: (wantSiblings ? 'Siblings' : 'Children') + ' need PI Web API',
-                    tip: 'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it with ext/piwebapi-check.html.'
+                    tip: PVX.api.unsetHint() + ', then confirm it with ext/piwebapi-check.html.'
                 });
                 return;
             }
