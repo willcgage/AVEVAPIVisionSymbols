@@ -318,6 +318,33 @@ and the symbol's own parser is untouched. The build fails a pane that binds
 own, and a marker with an unknown kind. A new grammar needs a kind in
 `PVX.states` and `tools/build.js`, and a case in `tools/test-states.js`.
 
+A setting that names one attribute by the label the symbol shows for it
+(`pvxDataHealth`'s `Ranges` and `UpdateOverrides`) is edited as rows too, from
+the shared editor in `src/shared/config-tags.html`:
+
+```html
+<div class="pvx-cfg-stack">
+    <div class="pvx-cfg-label">Instrument ranges</div>
+    <!-- pvx:tags key=Ranges kind=range -->
+</div>
+```
+
+| kind | Stored grammar | Row fields |
+|---|---|---|
+| `range` | `Label: low..high` | attribute, low, high; plus **Fill from PI** |
+| `minutes` | `Label: minutes` | attribute, minutes (`0` = not checked) |
+
+The attribute is chosen from the labels in the symbol's live data, so it
+matches by construction. Read the key with `PVX.tags.parse(spec, kind)` and
+skip entries whose `valid` is false; that is the parser the pane uses, so the
+two cannot drift. **Fill from PI** adds a row for each attribute without one,
+from its AF `Minimum`/`Maximum` limit traits, else its PI point's Zero and
+Span, read once through `PVX.api` in the pane; the symbol never calls PI Web
+API for it. The build fails a pane that binds `Ranges`, `UpdateOverrides` or a
+marked key to a control of its own, and a marker with an unknown kind. A new
+grammar needs a kind in `PVX.tags` and `tools/build.js`, and a case in
+`tools/test-tags.js`.
+
 The same tag selects the other profiles in `dev/pv-mock.js`. `@mock health`
 breaks some tags in the ways `pvxDataHealth` catches (a feed that stops, a
 value that freezes, an "I/O Timeout" in place of a number) — on healthy data

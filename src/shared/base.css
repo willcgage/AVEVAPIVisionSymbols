@@ -484,6 +484,44 @@
 
 .pvx-cfg-st-bad > .pvx-cfg-st-state { outline: 1px solid #c8452f; }
 
+/* Per-attribute rows, expanded from <!-- pvx:tags --> markers. Attribute
+   labels run long ("K-301 Compressor|Vibration 1X"), so the attribute has a
+   line to itself and the numbers sit under it. */
+.pvx-cfg-tg-row {
+    margin: 3px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.pvx-cfg-tg-line {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pvx-cfg-tg-line + .pvx-cfg-tg-line { margin-top: 3px; }
+
+.pvx-cfg-tg-line > input,
+.pvx-cfg-tg-line > select,
+.pvx-cfg-tg-vals input {
+    box-sizing: border-box;
+    font-size: 12px;
+    font-family: inherit;
+    height: 24px;
+}
+
+.pvx-cfg-tg-line > input[type="text"],
+.pvx-cfg-tg-vals input { padding: 3px 4px; }
+
+.pvx-cfg-tg-label { flex: 1 1 auto; min-width: 0; }
+
+.pvx-cfg-tg-vals { font-size: 11px; gap: 10px; }
+.pvx-cfg-tg-vals label { display: flex; align-items: center; gap: 4px; }
+.pvx-cfg-tg-vals input { width: 70px; }
+.pvx-cfg-tg-off { opacity: 0.7; font-style: italic; }
+
+.pvx-cfg-tg-bad .pvx-cfg-tg-label { outline: 1px solid #c8452f; }
+
 .pvx-cfg-band-text {
     width: 100%;
     min-height: 56px;

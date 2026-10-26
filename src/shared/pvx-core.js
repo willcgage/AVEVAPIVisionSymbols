@@ -1278,6 +1278,391 @@
     }
 
     /* ------------------------------------------------------------------ *
+     * tags — per-attribute settings edited as rows in a format pane
+     * ================================================================== *
+     * Some settings belong to one attribute, named by the label the symbol
+     * shows for it, in a comma separated list:
+     *   range    Label: low..high    pvxDataHealth Ranges
+     *   minutes  Label: minutes      pvxDataHealth UpdateOverrides
+     *
+     * Typed by hand these go wrong quietly: "Pump 1 Amps" for a row the
+     * symbol labels "Pump 1|Amps" matches nothing, and the tag is simply
+     * never range-checked. So build.js expands a marker in config.html
+     *   <!-- pvx:tags key=Ranges kind=range -->
+     * into rows (src/shared/config-tags.html) whose attribute is chosen from
+     * the labels the symbol is showing, with number fields for the value.
+     * The stored value stays the grammar string, and the symbol reads it with
+     * tags.parse below, so the pane and the symbol cannot disagree on it.
+     *
+     * FILL FROM PI (range only)
+     *   PI Vision does not pass an attribute's span to a symbol, but PI Web
+     *   API has it: an AF attribute's Minimum and Maximum limit traits, else
+     *   the Zero and Span of the PI point behind it. The pane reads them once,
+     *   when asked, and writes plain rows; nothing is read while a display is
+     *   open, so the symbol needs no PI Web API at run time. Proven against
+     *   the mock in tools/test-tags.js only, not yet a server.
+     */
+    var tags = PVX.tags = {};
+
+    tags.KINDS = { range: true, minutes: true };
+
+    var TG_NUM = '-?(?:\\d+\\.?\\d*|\\.\\d+)(?:e[-+]?\\d+)?';
+    var TG_RANGE = new RegExp('^(' + TG_NUM + ')\\s*\\.\\.\\s*(' + TG_NUM + ')$', 'i');
+
+    /**
+     * Grammar string -> [{label, lo, hi, minutes, valid}] in the order written.
+     * The LAST colon splits the label from the value, so an AF-style label
+     * holding a colon still parses. Entries separate on commas or newlines
+     * only, never semicolons. An entry the symbol cannot use is returned with
+     * valid false rather than dropped, so the pane can show it.
+     */
+    tags.parse = function (spec, kind) {
+        var out = [];
+        String(spec === null || spec === undefined ? '' : spec).split(/[,\n]/).forEach(function (chunk) {
+            var s = stTrim(chunk);
+            if (!s) { return; }
+            var at = s.lastIndexOf(':');
+            var label = at > 0 ? stTrim(s.slice(0, at)) : s;
+            var v = at > 0 ? stTrim(s.slice(at + 1)) : '';
+            var e = { label: label, lo: null, hi: null, minutes: null, valid: false };
+            if (kind === 'minutes') {
+                var n = util.num(v);
+                if (n !== null && n >= 0) { e.minutes = n; e.valid = at > 0 && !!label; }
+            } else {
+                var m = TG_RANGE.exec(v);
+                if (m) { e.lo = util.num(m[1]); e.hi = util.num(m[2]); }
+                e.valid = at > 0 && !!label && e.lo !== null && e.hi !== null;
+            }
+            out.push(e);
+        });
+        return out;
+    };
+
+    tags.stringify = function (list, kind) {
+        return (list || []).map(function (e) {
+            return e.label + ': ' + (kind === 'minutes' ? e.minutes : e.lo + '..' + e.hi);
+        }).join(', ');
+    };
+
+    /** Round away float noise, so 0.1 + 0.2 is stored as 0.3. */
+    function tgRound(n) { return parseFloat(n.toPrecision(12)); }
+
+    // Per page, keyed by source path, like the digital set cache.
+    var spanCache = {};
+
+    /**
+     * The instrument span of one data source: {lo, hi, from} or null when PI
+     * has none. AF Minimum/Maximum limit traits first, because that is where
+     * an AF model keeps the range it means; then Zero/Span of the PI point,
+     * which every numeric point has. Rejects on a request that fails.
+     */
+    tags.lookupSpan = function (ds) {
+        var p = states.sourcePath(ds);
+        if (!p) { return Promise.resolve(null); }
+        var k = p.toLowerCase();
+        if (spanCache[k]) { return spanCache[k]; }
+
+        var fromPoint = function (pt) {
+            // A digital point's Zero/Span count states, not engineering units.
+            if (!pt || !pt.WebId || String(pt.PointType || '').toLowerCase() === 'digital') { return null; }
+            var id = encodeURIComponent(pt.WebId);
+            return Promise.all([
+                api.get('points/' + id + '/attributes/zero'),
+                api.get('points/' + id + '/attributes/span')
+            ]).then(function (r) {
+                var lo = util.num(r[0] && r[0].Value);
+                var span = util.num(r[1] && r[1].Value);
+                if (lo === null || span === null || !(span > 0)) { return null; }
+                return { lo: lo, hi: tgRound(lo + span), from: 'PI point Zero/Span' };
+            });
+        };
+
+        // One trait at a time, so which value is which never depends on the
+        // order or the names PI Web API returns them under.
+        var trait = function (webId, name) {
+            return api.get('attributes/' + encodeURIComponent(webId) + '/attributes?trait=' + name).then(function (r) {
+                var it = ((r && r.Items) || [])[0];
+                if (!it || !it.WebId) { return null; }
+                return api.get('streams/' + encodeURIComponent(it.WebId) + '/value').then(function (v) {
+                    return util.num(v && v.Value);
+                });
+            });
+        };
+
+        var job;
+        if (p.indexOf('|') !== -1) {
+            job = api.get('attributes?path=' + encodeURIComponent(p)).then(function (a) {
+                if (!a || !a.WebId) { return null; }
+                return Promise.all([trait(a.WebId, 'Minimum'), trait(a.WebId, 'Maximum')]).then(function (t) {
+                    if (t[0] !== null && t[1] !== null && t[1] > t[0]) {
+                        return { lo: t[0], hi: t[1], from: 'AF Minimum/Maximum limits' };
+                    }
+                    var links = a.Links || {};
+                    return links.Point ? api.get(links.Point).then(fromPoint) : null;
+                });
+            });
+        } else {
+            job = api.get('points?path=' + encodeURIComponent(p)).then(fromPoint);
+        }
+        spanCache[k] = job;
+        job.then(null, function () { if (spanCache[k] === job) { delete spanCache[k]; } });
+        return job;
+    };
+
+    tags.clearCache = function () { spanCache = {}; };
+
+    /** Labels of a PI Vision data object, in data source order. */
+    tags.labelsIn = function (d) {
+        var items = d && (d.Data || d.data || d.Rows || d.rows);
+        if (!items && Object.prototype.toString.call(d) === '[object Array]') { items = d; }
+        var out = [];
+        for (var i = 0; items && i < items.length; i++) {
+            var it = items[i] || {};
+            out.push(stTrim(it.Label !== undefined ? it.Label : it.label));
+        }
+        return out;
+    };
+
+    /**
+     * Publish the editor at runtimeData.pvxTags. Editors are made per config
+     * key by use(), from the pane, so a symbol whose pane has none pays
+     * nothing, and PI Web API is only asked when Fill from PI is pressed.
+     *
+     * @param {Object} scope the symbol's Angular scope
+     * @returns {Object} state, also at scope.runtimeData.pvxTags
+     */
+    tags.bind = function (scope) {
+        if (!scope) { return null; }
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+
+        var mod = {
+            ed: {},
+            labels: [],         // the symbol's labels, by data source position
+            busy: false,
+            note: '',
+            version: 0
+        };
+
+        mod.digest = function () {
+            try { if (scope.$evalAsync) { scope.$evalAsync(function () {}); } } catch (e) { /* no Angular: tests */ }
+        };
+
+        mod.sourceList = function () {
+            var ds = scope.symbol && scope.symbol.DataSources;
+            var out = [];
+            if (ds && typeof ds.length === 'number') { for (var i = 0; i < ds.length; i++) { out.push(String(ds[i])); } }
+            return out;
+        };
+
+        /** Feed live data in; called by bootstrap on every data update. */
+        mod.observe = function (d) {
+            var l = tags.labelsIn(d);
+            if (!l.length || l.join('\n') === mod.labels.join('\n')) { return; }
+            mod.labels = l;
+            mod.version += 1;
+        };
+
+        /**
+         * The editor for one config key, made on first use.
+         * @param {String} key  config key, e.g. 'Ranges'
+         * @param {String} kind range | minutes
+         */
+        mod.use = function (key, kind) {
+            if (!mod.ed[key]) { mod.ed[key] = makeTagEditor(mod, key, tags.KINDS[kind] ? kind : 'range'); }
+            return mod.ed[key];
+        };
+
+        mod.destroy = function () { mod.ed = {}; };
+
+        scope.runtimeData.pvxTags = mod;
+        return mod;
+    };
+
+    function makeTagEditor(mod, key, kind) {
+        var ed = {
+            key: key,
+            kind: kind,
+            rows: [],
+            textMode: false,
+            written: null,      // the last string this editor wrote or loaded
+            choices: [],
+            built: -1           // mod.version + rows the choices were built for
+        };
+
+        ed.load = function (spec) {
+            var list = tags.parse(spec, kind);
+            var rows = [];
+            for (var i = 0; i < list.length; i++) {
+                rows.push({ label: list[i].label, lo: list[i].lo, hi: list[i].hi, minutes: list[i].minutes,
+                            typed: false, invalid: !list[i].valid });
+            }
+            ed.rows = rows;
+            ed.written = spec === undefined || spec === null ? '' : String(spec);
+            ed.built = -1;
+        };
+
+        /** As PVX.states: rows are rebuilt only when something else changed the string. */
+        ed.sync = function (spec) {
+            var s = spec === undefined || spec === null ? '' : String(spec);
+            if (s !== ed.written) { ed.load(spec); }
+            return true;
+        };
+
+        var num = function (v) { return typeof v === 'number' && isFinite(v) ? v : util.num(v); };
+
+        /** Write the rows back as the grammar string, into the pane's config. */
+        ed.commit = function (cfg) {
+            var out = [];
+            var seen = {};
+            for (var i = 0; i < ed.rows.length; i++) {
+                var r = ed.rows[i];
+                var label = stTrim(r.label);
+                // A comma or line break would split the entry in two, and
+                // unlike a state name the label cannot be changed to suit:
+                // it has to match the symbol's. Such a row is flagged, not stored.
+                r.separator = /[,\r\n]/.test(label);
+                var e = { label: label, lo: num(r.lo), hi: num(r.hi), minutes: num(r.minutes) };
+                r.invalid = !label || r.separator ||
+                    (kind === 'minutes' ? e.minutes === null || e.minutes < 0 : e.lo === null || e.hi === null);
+                r.duplicate = !!label && !!seen[label.toLowerCase()];
+                if (label) { seen[label.toLowerCase()] = true; }
+                if (!r.invalid) { out.push(e); }
+            }
+            ed.written = tags.stringify(out, kind);
+            ed.built = -1;
+            if (cfg) { cfg[key] = ed.written; }
+            return ed.written;
+        };
+
+        /** A new row takes the first label the symbol shows that has none. */
+        ed.add = function (cfg) {
+            var used = {};
+            for (var i = 0; i < ed.rows.length; i++) { used[stTrim(ed.rows[i].label).toLowerCase()] = true; }
+            var next = '';
+            for (var j = 0; j < mod.labels.length; j++) {
+                if (mod.labels[j] && !used[mod.labels[j].toLowerCase()]) { next = mod.labels[j]; break; }
+            }
+            ed.rows.push({ label: next, lo: null, hi: null, minutes: kind === 'minutes' ? 0 : null,
+                           typed: !ed.options().length });
+            return ed.commit(cfg);
+        };
+
+        ed.remove = function (i, cfg) {
+            if (i < 0 || i >= ed.rows.length) { return ed.written; }
+            ed.rows.splice(i, 1);
+            return ed.commit(cfg);
+        };
+
+        ed.type = function (r) { r.typed = !r.typed; ed.built = -1; };
+        ed.toggleText = function () { ed.textMode = !ed.textMode; };
+
+        var any = function (f) {
+            for (var i = 0; i < ed.rows.length; i++) { if (ed.rows[i][f]) { return true; } }
+            return false;
+        };
+        ed.hasInvalid = function () { return any('invalid'); };
+        ed.hasDuplicate = function () { return any('duplicate'); };
+        ed.hasSeparator = function () { return any('separator'); };
+
+        /** True when some row names a label the symbol is not showing. */
+        ed.hasUnknown = function () {
+            if (!mod.labels.length) { return false; }
+            var have = {};
+            for (var i = 0; i < mod.labels.length; i++) { have[mod.labels[i].toLowerCase()] = true; }
+            for (var j = 0; j < ed.rows.length; j++) {
+                var l = stTrim(ed.rows[j].label).toLowerCase();
+                if (l && !have[l]) { return true; }
+            }
+            return false;
+        };
+
+        /**
+         * The labels a row can name: the symbol's own, then any already in
+         * this list that it is not showing, so a saved entry stays selectable
+         * and visibly apart. Same array until something changes.
+         */
+        ed.options = function () {
+            var sig = mod.version + '/' + ed.written;
+            if (ed.built === sig) { return ed.choices; }
+            var out = [];
+            var have = {};
+            var push = function (name, group) {
+                var s = stTrim(name);
+                if (!s || have[s.toLowerCase()]) { return; }
+                have[s.toLowerCase()] = true;
+                out.push({ name: s, group: group });
+            };
+            var i;
+            for (i = 0; i < mod.labels.length; i++) { push(mod.labels[i], 'Attributes on this symbol'); }
+            for (i = 0; i < ed.rows.length; i++) { push(ed.rows[i].label, 'Not on this symbol'); }
+            ed.choices = out;
+            ed.built = sig;
+            return out;
+        };
+
+        /**
+         * Add a row for every attribute that has no row yet and whose span PI
+         * knows. A row already there is the user's word and is left alone.
+         */
+        ed.fill = function (cfg) {
+            if (kind !== 'range') { return Promise.resolve(ed.written); }
+            if (!api.isConfigured()) {
+                mod.note = 'PI Web API is not set up for this site, so spans cannot be read from PI. ' +
+                    'Enter them in the rows instead.';
+                return Promise.resolve(ed.written);
+            }
+            var list = mod.sourceList();
+            var have = {};
+            for (var h = 0; h < ed.rows.length; h++) { have[stTrim(ed.rows[h].label).toLowerCase()] = true; }
+            var jobs = [];
+            var unlabelled = 0;
+            for (var i = 0; i < list.length; i++) {
+                var label = mod.labels[i] || '';
+                if (!label) { unlabelled++; continue; }
+                if (have[label.toLowerCase()]) { continue; }
+                jobs.push((function (ds, lab) {
+                    return tags.lookupSpan(ds).then(function (s) { return { label: lab, span: s }; },
+                        function (e) { return { label: lab, error: stErr(e) }; });
+                }(list[i], label)));
+            }
+            var kept = ed.rows.length;
+            mod.busy = true;
+            mod.note = '';
+            return Promise.all(jobs).then(function (found) {
+                var added = [], none = [], failed = [];
+                for (var j = 0; j < found.length; j++) {
+                    var f = found[j];
+                    if (f.error) { failed.push(f.label + ': ' + f.error); continue; }
+                    if (!f.span) { none.push(f.label); continue; }
+                    ed.rows.push({ label: f.label, lo: f.span.lo, hi: f.span.hi, minutes: null, typed: false });
+                    added.push(f.label + ' (' + f.span.from + ')');
+                }
+                var said = [];
+                said.push(added.length ? 'Added ' + added.length + ' from PI: ' + added.join(', ') + '.' :
+                    'Nothing added from PI.');
+                if (kept) { said.push(kept + ' row' + (kept === 1 ? ' was' : 's were') + ' already set and left as they are.'); }
+                if (none.length) {
+                    said.push('No Minimum/Maximum limits or point Zero/Span in PI for ' + none.join(', ') + '.');
+                }
+                if (unlabelled) {
+                    said.push(unlabelled + ' data source' + (unlabelled === 1 ? ' has' : 's have') +
+                        ' no live data yet to name it; try again once the symbol shows values.');
+                }
+                if (failed.length) {
+                    said.push('Could not read ' + failed.join('; ') + '. Check the data source in PI Web API.');
+                }
+                mod.note = said.join(' ');
+                mod.busy = false;
+                var out = ed.commit(cfg);
+                mod.digest();
+                return out;
+            });
+        };
+
+        return ed;
+    }
+
+    /* ------------------------------------------------------------------ *
      * scale — linear mapping + nice ticks
      * ------------------------------------------------------------------ */
     var scale = PVX.scale = {};
@@ -4137,6 +4522,7 @@
         ctx.bands = thresholds.bind(scope);
         ctx.afpick = afpick.bind(scope);
         ctx.states = states.bind(scope);
+        ctx.tags = tags.bind(scope);
 
         vis.onDataUpdate = function (d) {
             ctx.data = d;
@@ -4146,6 +4532,8 @@
             // So a state map's list can offer what this symbol is showing,
             // on a site with no PI Web API to read digital sets from.
             if (ctx.states) { ctx.states.observe(d); }
+            // So a per-attribute list can offer the labels this symbol shows.
+            if (ctx.tags) { ctx.tags.observe(d); }
             if (hooks.onData) {
                 try { hooks.onData(d, ctx); }
                 catch (e) { if (root.console) { root.console.error('[PVX] onData failed', e); } }
@@ -4178,6 +4566,7 @@
             if (ctx.bands) { ctx.bands.destroy(); }
             if (ctx.afpick) { ctx.afpick.destroy(); }
             if (ctx.states) { ctx.states.destroy(); }
+            if (ctx.tags) { ctx.tags.destroy(); }
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

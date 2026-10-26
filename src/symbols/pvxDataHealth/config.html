@@ -35,26 +35,26 @@
         </div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxdh-ranges">Instrument ranges</label>
-            <textarea id="pvxdh-ranges" ng-model="config.Ranges" rows="3"
-                      placeholder="K-301 Vibration 1X: 0..20"></textarea>
+            <div class="pvx-cfg-label">Instrument ranges</div>
+            <!-- pvx:tags key=Ranges kind=range -->
         </div>
         <div class="pvx-cfg-hint">
-            <code>Attribute label: low..high</code>, one per line or comma separated.
-            PI Vision does not pass an attribute's Zero/Span to symbols, so spans are entered
-            here. Labels must match exactly; an entry that matches nothing is reported in the
-            footer.
+            Turns on the Out of range check for an attribute: its newest value is
+            flagged when it falls outside Low..High. PI Vision does not pass an
+            attribute's span to symbols, so it is set here; <b>Fill from PI</b> reads
+            each attribute's AF Minimum/Maximum limits, or its PI point's Zero and Span,
+            into rows once. An attribute with no row is not range-checked.
         </div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxdh-over">Update overrides</label>
-            <textarea id="pvxdh-over" ng-model="config.UpdateOverrides" rows="3"
-                      placeholder="Lab Density: 1440"></textarea>
+            <div class="pvx-cfg-label">Update overrides</div>
+            <!-- pvx:tags key=UpdateOverrides kind=minutes -->
         </div>
         <div class="pvx-cfg-hint">
-            <code>Attribute label: minutes</code> replaces the stale limit for one tag.
-            <code>0</code> excludes the tag from the stale and flatline checks (lab results,
-            daily totals); excluded tags are still counted in the footer.
+            Replaces <em>Stale after</em> for one attribute that updates slowly on
+            purpose. <code>0</code> minutes excludes it from the stale and flatline
+            checks (lab results, daily totals); excluded attributes are still counted
+            in the footer.
         </div>
     </div>
 
