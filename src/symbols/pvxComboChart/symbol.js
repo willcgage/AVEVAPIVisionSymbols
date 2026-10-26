@@ -186,6 +186,147 @@
         return out;
     }
 
+    /** The inverse of parseTraceSpec for one entry per trace, tokens in the
+     *  documented order. An entry that sets nothing is left out: it would
+     *  mean exactly what leaving the trace unlisted means. */
+    function stringifyTraceSpec(entries) {
+        var out = [];
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            var toks = [String(e.index)];
+            if (e.type) { toks.push(e.type); }
+            if (e.axis === 'right') { toks.push('right'); }
+            if (e.color && isColorToken(e.color)) { toks.push(e.color); }
+            if (e.dash && e.dash !== 'solid') { toks.push(e.dash); }
+            if (e.width > 0) { toks.push(String(Math.round(e.width * 100) / 100) + 'px'); }
+            if (toks.length > 1) { out.push(toks.join(':')); }
+        }
+        return out.join(', ');
+    }
+
+    var TYPE_NAMES = { line: 'Line', area: 'Area', bar: 'Bar', step: 'Step', scatter: 'Scatter' };
+
+    /**
+     * TraceSpec as rows in the format pane, one per data source, published
+     * at scope.runtimeData.pvxTraces. The stored value stays the grammar
+     * string, so saved displays and the parser above are unaffected; the
+     * operator picks a type, an axis and a colour instead of counting data
+     * sources and typing "3:line:right:#5aa0d6".
+     *
+     * Rows follow the data source list, not the string: a trace with no
+     * entry still gets a row (showing the default), and an entry for a
+     * position with no data source keeps a row marked as such, so a spec
+     * written for four sources is not trimmed when the pane is opened on
+     * three.
+     *
+     * As with the band editor, rows are not re-read from the string while
+     * the operator edits them, only when something else changed it (the
+     * text box, a removed data source, a load).
+     */
+    function bindTraceEditor(scope, PVX) {
+        if (!scope.runtimeData) { scope.runtimeData = {}; }
+        var state = { rows: [], textMode: false, written: null, seenSources: null, unwatch: null };
+        var pal = PVX.color.categorical;
+
+        var cfg = function () {
+            return scope.config || (scope.symbol && scope.symbol.Configuration) || null;
+        };
+        var sourceList = function () {
+            var ds = scope.symbol && scope.symbol.DataSources;
+            var out = [];
+            if (ds && typeof ds.length === 'number') { for (var i = 0; i < ds.length; i++) { out.push(String(ds[i])); } }
+            return out;
+        };
+        var autoHex = function (index) { return pal[(index - 1) % pal.length]; };
+
+        state.load = function (spec) {
+            var list = sourceList();
+            var byIndex = {};
+            var top = list.length;
+            var parsed = parseTraceSpec(spec);
+            for (var i = 0; i < parsed.length; i++) {
+                byIndex[parsed[i].index] = parsed[i];
+                if (parsed[i].index > top) { top = parsed[i].index; }
+            }
+            var rows = [];
+            for (var n = 1; n <= top; n++) {
+                var e = byIndex[n] || {};
+                var rgb = e.color ? PVX.color.toRgb(e.color) : null;
+                rows.push({
+                    index: n,
+                    name: n <= list.length ? PVX.sources.name(list[n - 1]) : 'No data source',
+                    path: n <= list.length ? list[n - 1] : '',
+                    missing: n > list.length,
+                    type: e.type || '',
+                    axis: e.axis === 'right' ? 'right' : 'left',
+                    color: e.color || null,
+                    hex: rgb ? PVX.color.toHex(rgb) : autoHex(n),
+                    dash: e.dash && e.dash !== 'solid' ? e.dash : '',
+                    width: e.width || null
+                });
+            }
+            state.rows = rows;
+            state.written = spec === undefined || spec === null ? '' : String(spec);
+            state.seenSources = list.join('\n');
+        };
+
+        state.commit = function () {
+            var c = cfg();
+            var w;
+            for (var i = 0; i < state.rows.length; i++) {
+                w = PVX.util.num(state.rows[i].width);
+                state.rows[i].width = w !== null && w > 0 ? w : null;
+            }
+            state.written = stringifyTraceSpec(state.rows);
+            if (c) { c.TraceSpec = state.written; }
+        };
+
+        state.setColor = function (r) { r.color = r.hex; state.commit(); };
+        state.autoColor = function (r) { r.color = null; r.hex = autoHex(r.index); state.commit(); };
+
+        state.defaultName = function () {
+            var c = cfg();
+            return TYPE_NAMES[normType(c && c.DefaultType)] || 'Line';
+        };
+
+        /** Line style and width only mean something for a drawn outline. */
+        state.stroked = function (r) {
+            var c = cfg();
+            var t = r.type || normType(c && c.DefaultType) || 'line';
+            return t === 'line' || t === 'step' || t === 'area';
+        };
+
+        state.hasMissing = function () {
+            for (var i = 0; i < state.rows.length; i++) { if (state.rows[i].missing) { return true; } }
+            return false;
+        };
+
+        state.toggleText = function () { state.textMode = !state.textMode; };
+
+        if (scope.$watch) {
+            try {
+                state.unwatch = scope.$watch(function () {
+                    var c = cfg();
+                    var v = c ? c.TraceSpec : '';
+                    return (v === undefined || v === null ? '' : String(v)) + '\u0001' + sourceList().join('\n');
+                }, function () {
+                    var c = cfg();
+                    var v = c ? c.TraceSpec : '';
+                    var s2 = v === undefined || v === null ? '' : String(v);
+                    if (s2 !== state.written || sourceList().join('\n') !== state.seenSources) { state.load(v); }
+                });
+            } catch (e) { state.unwatch = null; }
+        }
+        state.destroy = function () {
+            if (state.unwatch) { state.unwatch(); state.unwatch = null; }
+        };
+
+        var c0 = cfg();
+        state.load(c0 ? c0.TraceSpec : '');
+        scope.runtimeData.pvxTraces = state;
+        return state;
+    }
+
     symbolVis.prototype.init = function (scope, elem) {
         var PVX = window.PVX;
 
@@ -194,9 +335,14 @@
 
         var series = [];
 
+        var traceEditor = bindTraceEditor(scope, PVX);
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-combo-body',
+            // LimitBands is the threshold grammar, so it gets the same rows.
+            bandKeys: ['LimitBands'],
             onData: function (d) { series = PVX.data.series(d) || []; },
+            onDestroy: function () { traceEditor.destroy(); },
             render: render
         });
 

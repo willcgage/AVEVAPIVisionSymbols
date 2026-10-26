@@ -3,23 +3,78 @@
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Traces</div>
 
-        <div class="pvx-cfg-stack">
-            <label for="pvxcombo-spec">Trace specification</label>
-            <textarea id="pvxcombo-spec" ng-model="config.TraceSpec" rows="2"
-                      placeholder="1:bar, 2:line:right, 3:area"></textarea>
+        <!-- One row per data source, from runtimeData.pvxTraces (symbol.js).
+             config.TraceSpec stays the stored grammar string. -->
+        <div class="pvx-cfg-traces" ng-if="runtimeData.pvxTraces && !runtimeData.pvxTraces.textMode">
+            <div class="pvx-cfg-tr-row" ng-repeat="r in runtimeData.pvxTraces.rows track by $index"
+                 ng-class="{'pvx-cfg-tr-missing': r.missing}">
+                <div class="pvx-cfg-tr-name" title="{{r.path}}">
+                    <span class="pvx-cfg-src-n">{{r.index}}</span>
+                    <span class="pvx-cfg-tr-label">{{r.name}}</span>
+                </div>
+                <select class="pvx-cfg-tr-type" ng-model="r.type" ng-change="runtimeData.pvxTraces.commit()"
+                        aria-label="How trace {{r.index}} is drawn">
+                    <option value="">Default ({{runtimeData.pvxTraces.defaultName()}})</option>
+                    <option value="line">Line</option>
+                    <option value="area">Area</option>
+                    <option value="bar">Bar</option>
+                    <option value="step">Step</option>
+                    <option value="scatter">Scatter</option>
+                    <option value="hidden">Hidden</option>
+                </select>
+                <select class="pvx-cfg-tr-axis" ng-if="r.type !== 'hidden'" ng-model="r.axis"
+                        ng-change="runtimeData.pvxTraces.commit()" aria-label="Axis of trace {{r.index}}">
+                    <option value="left">Left axis</option>
+                    <option value="right">Right axis</option>
+                </select>
+                <input type="color" class="pvx-cfg-tr-color" ng-if="r.type !== 'hidden'" ng-model="r.hex"
+                       ng-change="runtimeData.pvxTraces.setColor(r)" aria-label="Colour of trace {{r.index}}"
+                       title="{{r.color ? r.color : 'Automatic colour'}}" />
+                <button type="button" class="pvx-cfg-band-link pvx-cfg-tr-auto" ng-if="r.color && r.type !== 'hidden'"
+                        ng-click="runtimeData.pvxTraces.autoColor(r)" title="Go back to the automatic colour">Auto</button>
+                <select class="pvx-cfg-tr-dash" ng-if="r.type !== 'hidden' && runtimeData.pvxTraces.stroked(r)" ng-model="r.dash"
+                        ng-change="runtimeData.pvxTraces.commit()" aria-label="Line style of trace {{r.index}}">
+                    <option value="">Solid</option>
+                    <option value="dashed">Dashed</option>
+                    <option value="dotted">Dotted</option>
+                </select>
+                <input type="number" class="pvx-cfg-tr-width" ng-if="r.type !== 'hidden' && runtimeData.pvxTraces.stroked(r)"
+                       ng-model="r.width" ng-change="runtimeData.pvxTraces.commit()" min="0.5" max="6" step="0.5"
+                       placeholder="px" aria-label="Line width of trace {{r.index}} in px"
+                       title="Line width in px; blank uses Line width below" />
+            </div>
+            <div class="pvx-cfg-hint" ng-if="!runtimeData.pvxTraces.rows.length">
+                Add data sources to the chart, then set how each one is drawn here.
+            </div>
+            <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxTraces.hasMissing()">
+                A row marked No data source is kept as written and applies if a source is added at that position.
+            </div>
+            <div class="pvx-cfg-band-actions">
+                <span></span>
+                <button type="button" class="pvx-cfg-band-link" ng-click="runtimeData.pvxTraces.toggleText()">Edit as text</button>
+            </div>
         </div>
-        <div class="pvx-cfg-hint">
-            One entry per data source, comma separated:
-            <code>index:type[:axis][:#colour]</code>.
-            <br /><em>index</em> counts the data sources in the order they were added (1 = first).
-            <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
-            <code>step</code>, <code>scatter</code> or <code>hidden</code>.
-            <br /><em>axis</em> is <code>left</code> or <code>right</code>.
-            <br /><em>colour</em> is a hex value such as <code>#8267b0</code>.
-            <br />A line or step can also be <code>dashed</code> or <code>dotted</code> and take a
-            width such as <code>1px</code>.
-            <br />Example: <code>1:bar, 2:line:right, 3:line:#5aa0d6:dashed:1px</code>.
-            Anything not listed uses the default type on the left axis.
+        <div ng-if="!runtimeData.pvxTraces || runtimeData.pvxTraces.textMode">
+            <div class="pvx-cfg-stack">
+                <label for="pvxcombo-spec">Trace specification</label>
+                <textarea id="pvxcombo-spec" ng-model="config.TraceSpec" rows="2"
+                          placeholder="1:bar, 2:line:right, 3:area"></textarea>
+            </div>
+            <div class="pvx-cfg-hint">
+                One entry per data source, comma separated:
+                <code>index:type[:axis][:#colour]</code>.
+                <br /><em>index</em> counts the data sources in the order they were added (1 = first).
+                <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
+                <code>step</code>, <code>scatter</code> or <code>hidden</code>.
+                <br /><em>axis</em> is <code>left</code> or <code>right</code>.
+                <br /><em>colour</em> is a hex value such as <code>#8267b0</code>.
+                <br />A line or step can also be <code>dashed</code> or <code>dotted</code> and take a
+                width such as <code>1px</code>.
+                <br />Example: <code>1:bar, 2:line:right, 3:line:#5aa0d6:dashed:1px</code>.
+                Anything not listed uses the default type on the left axis.
+                <button type="button" class="pvx-cfg-band-link" ng-if="runtimeData.pvxTraces"
+                        ng-click="runtimeData.pvxTraces.toggleText()">Back to fields</button>
+            </div>
         </div>
 
         <div class="pvx-cfg-row">
@@ -121,16 +176,12 @@
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Limit bands</div>
 
-        <div class="pvx-cfg-stack">
-            <label for="pvxcombo-bands">Bands (left axis)</label>
-            <textarea id="pvxcombo-bands" ng-model="config.LimitBands" rows="2"
-                      placeholder="80:#d99024:High, 95:#c8452f:Critical"></textarea>
-        </div>
         <div class="pvx-cfg-hint">
-            <code>lowerLimit:colour:label</code>, comma separated. Each band shades from its own
-            limit up to the next one, and the top band runs to the top of the axis. A limit belongs
-            to the axis, not to a tag, so it costs no data source.
+            On the left axis. Each band shades from its own limit up to the next one, and the top
+            band runs to the top of the axis. A limit belongs to the axis, not to a tag, so it
+            costs no data source.
         </div>
+        <!-- pvx:bands key=LimitBands -->
         <div class="pvx-cfg-row">
             <label for="pvxcombo-bandop">Band opacity</label>
             <input id="pvxcombo-bandop" type="number" ng-model="config.LimitBandOpacity" min="0" max="1" step="0.02" />
