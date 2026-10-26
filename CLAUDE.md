@@ -19,7 +19,7 @@ short, sharp list of things that will waste your time if you do not know them.
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 630 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal + band editor: rules + built pane
+node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
@@ -151,6 +151,9 @@ silently destroys a site's PI Web API settings on upgrade.
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
   `scope.runtimeData.pvxBands`); the stored value is still that string.
+  Combo Chart's `LimitBands` uses the same rows via `key=LimitBands` plus
+  `bandKeys` in its bootstrap hooks, and its `TraceSpec` is rows too, one per
+  data source, from an editor in its own `symbol.js` (`runtimeData.pvxTraces`).
 - Digital state maps (`StateMap`, `StateColors`, `UptimeStates`, and the
   alarm symbols' `StateBands`, which puts a state in a threshold band) are rows too:
   `<!-- pvx:states key=StateMap kind=map|colors|list|bands -->` →

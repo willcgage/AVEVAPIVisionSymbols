@@ -582,12 +582,20 @@
      * limit vanish. Rows write the string; the string is read back into rows
      * only when something else changed it (the text box, an undo, a load).
      *
+     * Most symbols have one band list, config.Thresholds. A symbol with
+     * another key in the same grammar (Combo Chart's LimitBands) binds that
+     * key too; each editor is published under its key so two on one pane
+     * never write into each other's string.
+     *
      * @param {Object} scope the symbol's Angular scope
-     * @returns {Object} state, also at scope.runtimeData.pvxBands
+     * @param {String} [key] config key holding the grammar, default 'Thresholds'
+     * @returns {Object} state, at scope.runtimeData.pvxBandsFor[key], and
+     *          for Thresholds also at scope.runtimeData.pvxBands
      */
-    thresholds.bind = function (scope) {
+    thresholds.bind = function (scope, key) {
         if (!scope) { return null; }
         if (!scope.runtimeData) { scope.runtimeData = {}; }
+        key = key || 'Thresholds';
 
         var state = {
             rows: [],
@@ -634,7 +642,7 @@
                 }
             }
             state.written = thresholds.stringify(out);
-            if (c) { c.Thresholds = state.written; }
+            if (c) { c[key] = state.written; }
         };
 
         state.setColor = function (r) {
@@ -692,7 +700,7 @@
             try {
                 state.unwatch = scope.$watch(function () {
                     var c = cfg();
-                    return c ? c.Thresholds : undefined;
+                    return c ? c[key] : undefined;
                 }, function (v) {
                     var s = v === undefined || v === null ? '' : String(v);
                     if (s !== state.written) { state.load(v); }
@@ -704,8 +712,10 @@
         };
 
         var c0 = cfg();
-        state.load(c0 ? c0.Thresholds : '');
-        scope.runtimeData.pvxBands = state;
+        state.load(c0 ? c0[key] : '');
+        if (!scope.runtimeData.pvxBandsFor) { scope.runtimeData.pvxBandsFor = {}; }
+        scope.runtimeData.pvxBandsFor[key] = state;
+        if (key === 'Thresholds') { scope.runtimeData.pvxBands = state; }
         return state;
     };
 
@@ -4211,6 +4221,11 @@
 
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
         ctx.bands = thresholds.bind(scope);
+        // Other keys in the band grammar, named by the symbol, e.g. LimitBands.
+        ctx.bandEditors = [];
+        for (var bk = 0; hooks.bandKeys && bk < hooks.bandKeys.length; bk++) {
+            if (hooks.bandKeys[bk] !== 'Thresholds') { ctx.bandEditors.push(thresholds.bind(scope, hooks.bandKeys[bk])); }
+        }
         ctx.afpick = afpick.bind(scope);
         ctx.states = states.bind(scope);
 
@@ -4264,6 +4279,7 @@
             renderer.destroy();
             if (ctx.sources) { ctx.sources.destroy(); }
             if (ctx.bands) { ctx.bands.destroy(); }
+            for (var be = 0; be < ctx.bandEditors.length; be++) { ctx.bandEditors[be].destroy(); }
             if (ctx.afpick) { ctx.afpick.destroy(); }
             if (ctx.states) { ctx.states.destroy(); }
             if (hooks.onDestroy) {

@@ -26,6 +26,10 @@
  * one row per band, and typing, picking, adding and removing rewrite
  * config.Thresholds.
  *
+ * Combo Chart: its TraceSpec as one row per data source (type, axis, colour,
+ * line style, width) and its LimitBands through the same band rows, each
+ * writing only its own key and following a removed data source.
+ *
  * Requires the dev dependency `playwright` for the second half. Set
  * PVX_CHROMIUM to use a pre-installed browser.
  * ==========================================================================*/
@@ -209,6 +213,16 @@ function bandRules() {
     check('a colour the picker cannot show is kept until changed', named.rows[0].color === 'red', named.rows[0]);
     const empty = T.bind({ config: {} });
     check('no Thresholds key -> no rows, no crash', empty.rows.length === 0);
+
+    const two = { config: { Thresholds: '0:#2f9e5f:Normal', LimitBands: '80:#d99024:High' } };
+    const th = T.bind(two);
+    const lb = T.bind(two, 'LimitBands');
+    check('another key binds its own editor',
+        two.runtimeData.pvxBandsFor.LimitBands === lb && two.runtimeData.pvxBandsFor.Thresholds === th &&
+        two.runtimeData.pvxBands === th && lb.rows.length === 1 && lb.rows[0].value === 80, lb.rows);
+    lb.rows[0].value = 85; lb.commit();
+    check('...and writes only its own key',
+        two.config.LimitBands === '85:#d99024:High' && two.config.Thresholds === '0:#2f9e5f:Normal', two.config);
 }
 
 /* ------------------------------------------------------------------- pane */
@@ -362,6 +376,88 @@ async function pane() {
         await page.locator('.pvx-cfg-band-link', { hasText: 'Back to fields' }).click();
         check('text edits come back as rows', await bands.count() === 2 &&
             await bands.nth(1).locator('input[type="text"]').inputValue() === 'High', await bands.count());
+
+        console.log('');
+        console.log(C.bold + 'Combo Chart traces and limit bands (built pane)' + C.reset);
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxComboChart', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, {
+            typeName: 'pvxComboChart',
+            config: { TraceSpec: '1:bar, 2:line:right:#8267b0:dashed:1px, 5:area', LimitBands: '80:#d99024:High' },
+            sources: ['af:\\\\srv\\db\\Pump 101|Flow?a', 'af:\\\\srv\\db\\Pump 101|Power?b', 'pi:\\\\srv\\SINUSOID?c']
+        });
+        const tr = page.locator('.pvx-cfg-tr-row');
+        check('no trace text box by default', await page.locator('textarea[ng-model="config.TraceSpec"]').count() === 0);
+        check('one trace row per source, plus one for an entry past the end', await tr.count() === 5, await tr.count());
+        check('rows are named after the data source',
+            (await tr.nth(1).locator('.pvx-cfg-tr-label').textContent()).trim() === 'Pump 101|Power');
+        check('row 4 has no entry and no source, but is kept below the listed 5',
+            /No data source/.test(await tr.nth(4).locator('.pvx-cfg-tr-label').textContent()));
+        check('row shows type, axis, colour, style, width from the string',
+            await tr.nth(1).locator('.pvx-cfg-tr-type').inputValue() === 'line' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-axis').inputValue() === 'right' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-color').inputValue() === '#8267b0' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-dash').inputValue() === 'dashed' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-width').inputValue() === '1');
+        check('a bar has no line style', await tr.nth(0).locator('.pvx-cfg-tr-dash').count() === 0);
+        check('an unlisted trace shows the default', await tr.nth(2).locator('.pvx-cfg-tr-type').inputValue() === '' &&
+            /Default \(Line\)/.test(await tr.nth(2).locator('.pvx-cfg-tr-type option').first().textContent()));
+        check('opening the pane writes nothing',
+            await page.evaluate(() => window.__scope.config.TraceSpec) === '1:bar, 2:line:right:#8267b0:dashed:1px, 5:area');
+
+        await tr.nth(2).locator('.pvx-cfg-tr-type').selectOption('step');
+        await tr.nth(2).locator('.pvx-cfg-tr-axis').selectOption('right');
+        await tr.nth(0).locator('.pvx-cfg-tr-axis').selectOption('right');
+        let spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('choosing type and axis rewrites TraceSpec', spec === '1:bar:right, 2:line:right:#8267b0:dashed:1px, 3:step:right, 5:area', spec);
+
+        await tr.nth(2).locator('.pvx-cfg-tr-color').evaluate((el) => {
+            el.value = '#336699';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await tr.nth(2).locator('.pvx-cfg-tr-dash').selectOption('dotted');
+        await tr.nth(2).locator('.pvx-cfg-tr-width').fill('2.5');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('colour, style and width are written', /3:step:right:#336699:dotted:2\.5px/.test(spec), spec);
+        await tr.nth(1).locator('.pvx-cfg-tr-auto').click();
+        await tr.nth(1).locator('.pvx-cfg-tr-dash').selectOption('');
+        await tr.nth(1).locator('.pvx-cfg-tr-width').fill('');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('Auto, Solid and a blank width drop their tokens', /(^|, )2:line:right(,|$)/.test(spec), spec);
+        await tr.nth(0).locator('.pvx-cfg-tr-type').selectOption('');
+        await tr.nth(0).locator('.pvx-cfg-tr-axis').selectOption('left');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('a row back at every default leaves the string', !/(^|, )1:/.test(spec), spec);
+        await tr.nth(1).locator('.pvx-cfg-tr-type').selectOption('hidden');
+        check('a hidden trace offers no axis or colour',
+            await tr.nth(1).locator('.pvx-cfg-tr-axis').count() === 0 && await tr.nth(1).locator('.pvx-cfg-tr-color').count() === 0);
+
+        await page.locator('.pvx-cfg-traces .pvx-cfg-band-link', { hasText: 'Edit as text' }).click();
+        const tbox = page.locator('textarea[ng-model="config.TraceSpec"]');
+        check('Edit as text shows the grammar', await tbox.count() === 1 && await tbox.inputValue() ===
+            await page.evaluate(() => window.__scope.config.TraceSpec), await tbox.inputValue());
+        await tbox.fill('1:scatter:#c8452f');
+        await page.locator('.pvx-cfg-band-link', { hasText: 'Back to fields' }).first().click();
+        check('text edits come back as rows', await tr.count() === 3 &&
+            await tr.nth(0).locator('.pvx-cfg-tr-type').inputValue() === 'scatter' &&
+            await tr.nth(0).locator('.pvx-cfg-tr-color').inputValue() === '#c8452f', await tr.count());
+
+        await page.locator('.pvx-cfg-src-row').nth(0).locator('button', { hasText: 'Remove' }).click();
+        await page.locator('.pvx-cfg-src-row').nth(0).locator('button', { hasText: 'Confirm' }).click();
+        check('removing a source renumbers and the rows follow', await tr.count() === 2 &&
+            (await tr.nth(0).locator('.pvx-cfg-tr-label').textContent()).trim() === 'Pump 101|Power' &&
+            await tr.nth(0).locator('.pvx-cfg-tr-type').inputValue() === '', await tr.count());
+
+        const lbRows = page.locator('.pvx-cfg-band-row');
+        check('limit bands are rows, not a text box', await lbRows.count() === 1 &&
+            await page.locator('textarea[ng-model="config.LimitBands"]').count() === 0 &&
+            await lbRows.nth(0).locator('input[type="number"]').inputValue() === '80');
+        await lbRows.nth(0).locator('input[type="text"]').fill('Hi limit');
+        await page.locator('.pvx-cfg-band-add').click();
+        const lbs = await page.evaluate(() => window.__scope.config.LimitBands);
+        check('editing a limit band rewrites config.LimitBands', /^80:#d99024:Hi limit, 90:/.test(lbs), lbs);
+        check('...and leaves Thresholds alone', await page.evaluate(() => window.__scope.config.Thresholds) ===
+            await page.evaluate(() => window.PVMock.get('pvxComboChart').getDefaultConfig().Thresholds));
 
         check('no page errors', errors.length === 0, errors);
     } finally {

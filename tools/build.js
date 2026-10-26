@@ -343,7 +343,7 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
         write(path.join(EXT, 'sym-' + typeName + '-config.html'),
             withStatesEditors(typeName,
-                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor),
+                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor, js),
                 statesEditor));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
@@ -416,18 +416,48 @@ function withSourcesPane(typeName, config, pane) {
 }
 
 // Threshold bands are edited as rows (limit, colour, label), not by typing
-// the grammar. A pane asks for that editor with the marker below, where the
-// control would go; a pane that binds config.Thresholds to a control of its
-// own is refused, so no symbol quietly keeps the old text box.
-const BANDS_MARKER = /^[ \t]*<!-- pvx:bands -->[ \t]*\n/m;
+// the grammar. A pane asks for that editor with a marker where the control
+// would go:
+//   <!-- pvx:bands -->                  config.Thresholds
+//   <!-- pvx:bands key=LimitBands -->   another key in the same grammar
+// A key other than Thresholds must also be named in the symbol's bootstrap
+// bandKeys, or the rows have no state behind them; the pane then shows the
+// text box, so nothing is lost, but the check below catches it at build time.
+// A pane that binds a band key to a control of its own is refused, so no
+// symbol quietly keeps the old text box.
+const BANDS_MARKER = /^[ \t]*<!--\s*pvx:bands\b([^>]*?)-->[ \t]*\n/gm;
+const BAND_KEYS = ['Thresholds', 'LimitBands'];
+const BANDS_EMPTY = {
+    Thresholds: 'No bands, so thresholds have no effect.',
+    LimitBands: 'No bands, so nothing is shaded.'
+};
 
-function withBandsEditor(typeName, config, editor) {
-    if (/ng-model="config\.Thresholds"/.test(config.replace(BANDS_MARKER, ''))) {
-        problem(typeName, 'config.html binds config.Thresholds itself; put <!-- pvx:bands --> on its own line ' +
-            'where the control goes and the build injects the shared band editor');
-        return config;
-    }
-    return config.replace(BANDS_MARKER, () => editor);
+function withBandsEditor(typeName, config, editor, js) {
+    const keys = [];
+    const out = config.replace(BANDS_MARKER, (whole, body) => {
+        const m = /\bkey=(\S+)/.exec(body);
+        const key = m ? m[1] : 'Thresholds';
+        if (!/^\w+$/.test(key)) {
+            problem(typeName, 'pvx:bands key "' + key + '" must be a config key name');
+            return whole;
+        }
+        if (key !== 'Thresholds' && !new RegExp('bandKeys:\\s*\\[[^\\]]*[\'"]' + key + '[\'"]').test(js)) {
+            problem(typeName, 'config.html has <!-- pvx:bands key=' + key + ' --> but symbol.js does not pass ' +
+                "bandKeys: ['" + key + "'] to PVX.bootstrap, so the rows would have nothing behind them");
+        }
+        keys.push(key);
+        return editor
+            .replace(/__KEY__/g, key)
+            .replace(/__EMPTY__/g, BANDS_EMPTY[key] || 'No bands.');
+    });
+    BAND_KEYS.concat(keys).forEach((key) => {
+        if (new RegExp('ng-model="config\\.' + key + '"').test(config.replace(BANDS_MARKER, ''))) {
+            problem(typeName, 'config.html binds config.' + key + ' itself; put <!-- pvx:bands' +
+                (key === 'Thresholds' ? '' : ' key=' + key) + ' --> on its own line ' +
+                'where the control goes and the build injects the shared band editor');
+        }
+    });
+    return out;
 }
 
 // Digital state maps are edited as rows (state chosen from a list, severity

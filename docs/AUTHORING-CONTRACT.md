@@ -163,6 +163,12 @@ The editor writes `config.Thresholds` as the usual grammar string, so saved
 displays and `PVX.thresholds.parse` are unaffected. The build fails a pane that
 binds `config.Thresholds` to a control of its own.
 
+Another key in the same grammar gets the same rows with
+`<!-- pvx:bands key=LimitBands -->`, and the symbol names the key in its
+bootstrap hooks, `bandKeys: ['LimitBands']`, so `PVX.bootstrap` binds an editor
+for it at `runtimeData.pvxBandsFor.LimitBands`. The build fails a marker whose
+key `symbol.js` does not pass, and a pane that binds `LimitBands` itself.
+
 ## Text size
 
 Every format pane gets a **Text size** select after the Data sources list
