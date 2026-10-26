@@ -88,6 +88,11 @@ jobs:
       - name: Verify overview symbols
         run: node tools/test-overview.js
 
+      # Known-answer data through the Wind Rose and the XY Scatter bubble
+      # mode: wrap at north, time weighting, gaps, calm, bad values, sizes.
+      - name: Verify chart arithmetic
+        run: node tools/test-charts.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current

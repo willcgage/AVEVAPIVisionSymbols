@@ -323,7 +323,8 @@ breaks some tags in the ways `pvxDataHealth` catches (a feed that stops, a
 value that freezes, an "I/O Timeout" in place of a number) — on healthy data
 that symbol would only ever be verified against its empty state.
 `@mock compressor` sends flow and head on compressor scales plus a curve spec
-as a string third source. A symbol that needs data of a particular shape to
+as a string third source. `@mock wind` sends a direction that wraps through
+north and favours one quarter, and a speed that is higher from it. A symbol that needs data of a particular shape to
 draw anything meaningful should get a profile of its own rather than be
 verified against a generic signal.
 

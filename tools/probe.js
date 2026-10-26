@@ -22,6 +22,8 @@
  *   --points       samples per series         (default 140)
  *   --hours        window length in hours     (default 8)
  *   --config       comma-separated Key=Value config overrides
+ *   --payload      JSON file sent as the data update instead of the mock, for
+ *                  a test that needs to know the exact answer
  *   --out          PNG path                   (default /tmp/pvx-<symbol>.png)
  *   --port         override the auto-derived port
  *   --json         print the inspection report as JSON
@@ -198,7 +200,7 @@ server.on('listening', async () => {
 
         const shape = scope.config.DataShape || 'None';
         const count = def.datasourceBehavior === 1 ? 1 : a.count;
-        const mk = (tick) => a.empty || shape === 'None' ? null : window.PVMock.generate(shape, {
+        const mk = (tick) => a.payload ? JSON.parse(a.payload) : a.empty || shape === 'None' ? null : window.PVMock.generate(shape, {
             count: count, points: a.points, hours: a.hours, tick: tick, seed: 7,
             digital: a.mockProfile === 'digital',
             profile: a.mockProfile,
@@ -248,6 +250,10 @@ server.on('listening', async () => {
             svgCount: box.querySelectorAll('svg').length,
             textLen: (box.textContent || '').trim().length,
             text: (box.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 220),
+            // Every tooltip in full: the text above is cut short, and a test
+            // checking a computed share reads it from the tooltip.
+            tips: Array.prototype.map.call(box.querySelectorAll('title'), (n) => n.textContent),
+            footer: Array.prototype.map.call(box.querySelectorAll('.pvx-footer'), (n) => n.textContent.replace(/\s+/g, ' ').trim()).join(' '),
             badAttrs: bad.slice(0, 5),
             maxOverflow: Math.round(maxOverflow),
             worstOverflow: worst,
@@ -258,7 +264,8 @@ server.on('listening', async () => {
         count: parseInt(opt('count', 8), 10),
         points: parseInt(opt('points', 140), 10),
         hours: parseFloat(opt('hours', 8)),
-        mockProfile, overrides
+        mockProfile, overrides,
+        payload: opt('payload', '') ? fs.readFileSync(opt('payload'), 'utf8') : ''
     }).catch((e) => ({ fatal: 'evaluate: ' + e.message }));
 
     await p.screenshot({ path: OUT, clip: { x: 0, y: 0, width: W, height: H } });

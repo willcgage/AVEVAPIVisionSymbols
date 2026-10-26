@@ -41,6 +41,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
 | [`pvxTreemap`](#pvxtreemap) | PVX Treemap | Table | Multiple |
 | [`pvxWaterfall`](#pvxwaterfall) | PVX Waterfall | Table | Multiple |
+| [`pvxWindRose`](#pvxwindrose) | PVX Wind Rose | TimeSeries | Multiple |
 | [`pvxXYScatter`](#pvxxyscatter) | PVX XY Scatter | TimeSeries | Multiple |
 
 ---
@@ -1560,11 +1561,45 @@ The question this symbol answers is "how did we get from A to B" — a mass or e
 
 ---
 
+## pvxWindRose
+
+**PVX Wind Rose** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+degrees, the SECOND is speed)
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#c6dbef, 2:#79b3dc, 4:#3b82c4, 6:#d99024, …` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `600` |  |
+| `Title` | `""` | blank => the speed (or direction) attribute name |
+| `Sectors` | `"16"` | 4 \| 8 \| 12 \| 16 \| 24 \| 36 |
+| `Measure` | `"percent"` | percent \| hours \| normalized (100% per direction) |
+| `DirectionIs` | `"from"` | from \| to |
+| `CalmBelow` | `"0.5"` | speed units; blank => no calm class |
+| `MaxPairGapSeconds` | `0` | 0 => no limit, as PI holds a value until the next |
+| `RingCount` | `4` |  |
+| `PadAngle` | `1.5` | degrees of gap between sectors |
+| `ShowCompass` | `true` |  |
+| `LegendPosition` | `"auto"` | auto \| right \| bottom \| none |
+
+---
+
 ## pvxXYScatter
 
 **PVX XY Scatter** · data shape `TimeSeries` · multiple data sources · collections not supported
 
-PI Vision ships no way to plot one tag against another, so every correlation question ("does bearing temperature actually track load?") ends up in Excel. This symbol answers it on the display, over whatever time range the display is showing.
+Y, and in bubble mode the THIRD sets each point's size)
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1596,6 +1631,9 @@ PI Vision ships no way to plot one tag against another, so every correlation que
 | `ColorMode` | `"single"` | single \| time \| threshold |
 | `PointColor` | `"#3b82c4"` |  |
 | `ShowConnectingLine` | `false` |  |
+| `BubbleMode` | `false` |  |
+| `BubbleMinSize` | `3` | px radius of the smallest size value |
+| `BubbleMaxSize` | `16` | px radius of the largest size value |
 | `ShowRegression` | `true` |  |
 | `RegressionColor` | `"#c8452f"` |  |
 | `ShowEquation` | `true` |  |
