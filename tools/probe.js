@@ -98,6 +98,11 @@ ${css}</style></head><body><div id="box"></div>
 <script src="/dev/vendor/angular.min.js"></script>
 <script src="/dev/pv-mock.js"></script>
 <script src="/src/shared/pvx-core.js"></script>
+<!-- A site with no PI Web API and discovery off, as in 1.12.0: the
+     same-server probe would 404 here, and the browser logs every 404 as a
+     console error, which this gate fails on. Discovery is proven by
+     test-api, test-afpick and test-overview against mocks that answer. -->
+<script>window.PVX.api.configure({ autoDiscover: false });</script>
 <script src="/sym/symbol.js"></script>
 </body></html>`;
 }

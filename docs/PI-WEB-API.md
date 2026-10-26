@@ -154,6 +154,10 @@ the diagnostic page. Set `autoDiscover: false` to skip the look and keep the
 blank-means-off behaviour of 1.12.0 and earlier. An explicit `baseUrl` always
 wins.
 
+On a server without PI Web API the browser console shows one 404 for
+`/piwebapi/` per page: that is the probe, and it is harmless. Setting
+`baseUrl` or `autoDiscover: false` stops it.
+
 Each PI Vision server looks on itself, so behind a load balancer every node
 needs its own PI Web API for this to work, or an explicit `baseUrl`.
 
