@@ -1012,24 +1012,34 @@
             var key = list.join('\n');
             if (key === mod.loaded && mod.pending) { return mod.pending; }
             mod.loaded = key;
-            if (!api.isConfigured()) {
+            var unset = function () {
                 mod.sets = [];
+                mod.busy = false;
                 mod.note = 'PI Web API is not set up for this site, so the list holds only states seen in ' +
                     'live data. Any other state can be typed.';
                 mod.version += 1;
+            };
+            if (!api.isConfigured()) {
+                unset();
                 mod.pending = Promise.resolve();
                 return mod.pending;
             }
             mod.busy = true;
             mod.note = '';
             var failed = [];
-            var jobs = list.map(function (ds) {
-                return states.lookupSet(ds).then(null, function (e) {
-                    failed.push(sources.name(ds) + ': ' + stErr(e));
-                    return { set: '', states: [] };
-                });
-            });
-            mod.pending = Promise.all(jobs).then(function (found) {
+            // Through ready(): with a discovered base, a site with no PI Web
+            // API should read as unset, not as one failure per source.
+            mod.pending = api.ready().then(function (ok) {
+                if (!ok) { return [null]; }
+                return Promise.all(list.map(function (ds) {
+                    return states.lookupSet(ds).then(null, function (e) {
+                        failed.push(sources.name(ds) + ': ' + stErr(e));
+                        return { set: '', states: [] };
+                    });
+                }));
+            }).then(function (found) {
+                if (mod.loaded !== key) { return; }
+                if (found.length === 1 && found[0] === null) { unset(); digest(); return; }
                 if (mod.loaded !== key) { return; }
                 var sets = [];
                 var named = {};
@@ -1616,11 +1626,23 @@
          */
         ed.fill = function (cfg) {
             if (kind !== 'range') { return Promise.resolve(ed.written); }
-            if (!api.isConfigured()) {
+            var unset = function () {
                 mod.note = 'PI Web API is not set up for this site, so spans cannot be read from PI. ' +
                     'Enter them in the rows instead.';
-                return Promise.resolve(ed.written);
+                return ed.written;
+            };
+            if (!api.isConfigured()) { return Promise.resolve(unset()); }
+            if (api.isAuto()) {
+                // Ask whether there is a PI Web API before asking it anything.
+                return api.ready().then(function (ok) {
+                    if (!ok) { var w = unset(); mod.digest(); return w; }
+                    return fillFrom(cfg);
+                });
             }
+            return fillFrom(cfg);
+        };
+
+        var fillFrom = function (cfg) {
             var list = mod.sourceList();
             var have = {};
             for (var h = 0; h < ed.rows.length; h++) { have[stTrim(ed.rows[h].label).toLowerCase()] = true; }
@@ -2574,6 +2596,59 @@
         return { prefix: prefix, elements: m[2] ? m[2].split('\\').filter(function (x) { return !!x; }) : [] };
     };
 
+    /**
+     * The AF database an element path lives in.
+     *   \\srv\db\Area\Pump 101  -> \\srv\db
+     *   \\srv\db                  -> \\srv\db
+     *   ''                          -> ''
+     * Takes element paths (nav.assetOf's output, or a URL asset), not raw
+     * data source strings: \\PISRV01\SINUSOID has the same shape as a
+     * database and only the data source's af:/pi: prefix tells them apart.
+     */
+    nav.databaseOf = function (elementPath) {
+        var segs = nav.segments(elementPath);
+        return segs.prefix ? segs.prefix.replace(/\\$/, '') : '';
+    };
+
+    /**
+     * The element of the first AF attribute among a symbol's data sources, or
+     * '' when every source is a PI point. This is the AF context PI Vision
+     * does hand a custom symbol: it saves the path with the display.
+     */
+    nav.sourceAsset = function (scope) {
+        var ds = scope && scope.symbol && scope.symbol.DataSources;
+        if (!ds || typeof ds.length !== 'number') { return ''; }
+        for (var i = 0; i < ds.length; i++) {
+            var a = nav.assetOf(ds[i]);
+            if (a) { return a; }
+        }
+        return '';
+    };
+
+    /**
+     * Where a symbol's AF database comes from when its DatabasePath is blank,
+     * best evidence first: the element of its data source as PI Vision last
+     * sent it (`live`, which follows an asset swap), then as saved with the
+     * display, then the asset the display's URL names, then the site's
+     * databasePath in pvx-config.js. Returns
+     * {path, from} with `from` worded for a footer, or {path:'', from:''}.
+     */
+    nav.defaultDatabase = function (scope, live) {
+        var db = nav.databaseOf(live);
+        if (db) { return { path: db, from: 'this symbol\'s data source' }; }
+        db = nav.databaseOf(nav.sourceAsset(scope));
+        if (db) { return { path: db, from: 'this symbol\'s data source' }; }
+        db = nav.databaseOf(nav.currentAsset());
+        if (db) { return { path: db, from: 'the display\'s asset' }; }
+        // Site default. PVX.api.defaults is the spelling DEPLOYMENT.md taught
+        // before anything read it; a site that followed it gets what it asked for.
+        var a = PVX.api || {};
+        db = String((a.settings && a.settings.databasePath) || (a.defaults && a.defaults.databasePath) || '')
+            .replace(/^\s+|\s+$/g, '');
+        if (db) { return { path: db, from: 'pvx-config.js' }; }
+        return { path: '', from: '' };
+    };
+
     /* ------------------------------------------------------------------ *
      * layout — resize plumbing shared by every symbol
      * ------------------------------------------------------------------ */
@@ -2830,7 +2905,9 @@
         cacheTtlMs: 30000,
         maxBatchSize: 50,
         verifySsl: true,          // informational; the browser enforces this
-        webIdVersion: null        // pin if a site needs a specific WebID scheme
+        webIdVersion: null,       // pin if a site needs a specific WebID scheme
+        autoDiscover: true,       // blank baseUrl: try /piwebapi on PI Vision's own server
+        databasePath: ''          // last-resort AF database (see nav.defaultDatabase)
     };
 
     /** Merge site settings without discarding keys the site did not mention. */
@@ -2854,13 +2931,155 @@
         delete PVX.pendingSiteSettings;
     }
 
+    /* ---- finding PI Web API without being told ---------------------------- *
+     * PI Vision gives display code no supported route to its own AF connection
+     * (it reaches AF from the server, through AF SDK), so there is nothing of
+     * PI Vision's to borrow. What there often is, is a PI Web API installed on
+     * the same machine: HTTP.sys lets it share port 443 with IIS under
+     * /piwebapi. When baseUrl is blank, ask there once. Same origin also means
+     * no CORS, no preflight and no CorsOrigins list — the arrangement that
+     * fails most often simply does not arise.
+     *
+     * The answer is remembered for the page: a PI Web API does not appear or
+     * vanish between refreshes, and asking on every request would double the
+     * round trips. An explicit baseUrl always wins, and autoDiscover:false in
+     * pvx-config.js restores the old inert behaviour for a site that wants it.
+     */
+    var discovery = { base: '', state: '', promise: null, error: null };   // state: '' | probing | found | missing
+
+    function explicitBase() {
+        return String(api.settings.baseUrl || '').replace(/^\s+|\s+$/g, '');
+    }
+
+    /** /piwebapi on the page's own origin, or '' where there is no origin to use. */
+    api.sameOriginBase = function () {
+        try {
+            var loc = root.location;
+            if (!loc || !/^https?:$/i.test(loc.protocol) || !loc.host) { return ''; }
+            return loc.protocol + '//' + loc.host + '/piwebapi';
+        } catch (e) { return ''; }
+    };
+
+    /** True while the base comes from discovery rather than pvx-config.js. */
+    api.isAuto = function () {
+        return !explicitBase() && api.settings.autoDiscover !== false && !!api.sameOriginBase();
+    };
+
+    function missingError() {
+        var probed = discovery.base || api.sameOriginBase();
+        return {
+            code: 'not-configured',
+            message: 'PI Web API is not configured for this PI Vision server, and none answered at ' + probed +
+                     (discovery.error ? ' (' + discovery.error + ')' : '') + '. Install PI Web API on this server, ' +
+                     'or set baseUrl in ext/libraries/pvx/pvx-config.js to where it lives.',
+            check: 'pvx-config.js baseUrl'
+        };
+    }
+
+    /**
+     * Ask the same-origin /piwebapi once. Always resolves, with true when a PI
+     * Web API answered; never rejects, so callers can chain a refresh on it.
+     */
+    api.discover = function () {
+        if (!api.isAuto()) { return Promise.resolve(api.isConfigured()); }
+        var base = api.sameOriginBase();
+        if (discovery.base === base && discovery.promise) { return discovery.promise; }
+        discovery.base = base;
+        discovery.state = 'probing';
+        discovery.error = null;
+        discovery.promise = new Promise(function (resolve) {
+            var settle = function (found, why) {
+                // A late answer for a base that is no longer the one in use
+                // (baseUrl set meanwhile) must not overwrite the newer state.
+                if (discovery.base !== base) { resolve(false); return; }
+                discovery.state = found ? 'found' : 'missing';
+                discovery.error = found ? null : why;
+                resolve(found);
+            };
+            applyAuth().then(function (auth) {
+                var xhr = new root.XMLHttpRequest();
+                try { xhr.open('GET', base + '/', true); } catch (e) { settle(false, e.message); return; }
+                xhr.withCredentials = !!auth.withCredentials;
+                xhr.timeout = api.settings.timeoutMs;
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                for (var h in auth.headers) {
+                    if (Object.prototype.hasOwnProperty.call(auth.headers, h)) { xhr.setRequestHeader(h, auth.headers[h]); }
+                }
+                xhr.onload = function () {
+                    // 401/403 came from something guarding /piwebapi, which on
+                    // this origin is PI Web API: it exists, and the real
+                    // request will report the credential problem properly.
+                    if (xhr.status === 401 || xhr.status === 403) { settle(true); return; }
+                    if (xhr.status < 200 || xhr.status >= 300) { settle(false, 'HTTP ' + xhr.status); return; }
+                    // IIS or PI Vision answering 200 with a page is not PI
+                    // Web API. Its root is JSON carrying a Links object.
+                    var body = null;
+                    try { body = JSON.parse(xhr.responseText); } catch (e) { body = null; }
+                    if (body && body.Links) { settle(true); } else { settle(false, 'the answer was not PI Web API'); }
+                };
+                xhr.onerror = function () { settle(false, 'no answer'); };
+                xhr.ontimeout = function () { settle(false, 'timed out'); };
+                try { xhr.send(null); } catch (e) { settle(false, e.message); }
+            }, function () { settle(false, 'no credentials for the configured authentication'); });
+        });
+        return discovery.promise;
+    };
+
+    /**
+     * True while a symbol should wait for discovery before deciding whether
+     * PI Web API exists. Starts the probe if nothing has yet.
+     */
+    api.discovering = function () {
+        if (!api.isAuto()) { return false; }
+        if (discovery.base !== api.sameOriginBase() || !discovery.promise) { api.discover(); }
+        return discovery.state === 'probing';
+    };
+
+    /** Resolves true when there is a PI Web API to talk to, false otherwise. */
+    api.ready = function () {
+        return api.isAuto() ? api.discover() : Promise.resolve(api.isConfigured());
+    };
+
+    /**
+     * Is there a PI Web API to call? True for an explicit baseUrl, and for a
+     * discovered one — including while discovery is still in flight, so a
+     * request made then waits for the answer rather than giving up early.
+     */
     api.isConfigured = function () {
-        return !!(api.settings.baseUrl && String(api.settings.baseUrl).trim());
+        if (explicitBase()) { return true; }
+        if (!api.isAuto()) { return false; }
+        if (discovery.base !== api.sameOriginBase()) { return true; }
+        return discovery.state !== 'missing';
+    };
+
+    /** Where the base came from, for diagnostics: 'config' | 'discovered' | 'probing' | 'none'. */
+    api.baseSource = function () {
+        if (explicitBase()) { return 'config'; }
+        if (!api.isAuto()) { return 'none'; }
+        if (discovery.base === api.sameOriginBase() && discovery.state === 'found') { return 'discovered'; }
+        if (discovery.base === api.sameOriginBase() && discovery.state === 'missing') { return 'none'; }
+        return 'probing';
+    };
+
+    /**
+     * First half of a symbol's "not configured" sentence, so every symbol
+     * says what was actually tried; each one finishes it with ", then
+     * confirm it with ext/piwebapi-check.html".
+     */
+    api.unsetHint = function () {
+        if (api.isAuto()) {
+            return 'Nothing answered at ' + api.sameOriginBase() + ' on this PI Vision server. Install PI Web ' +
+                   'API here, or set baseUrl in ext/libraries/pvx/pvx-config.js to where it lives';
+        }
+        return 'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server';
     };
 
     /** Normalised base, no trailing slash. */
     api.base = function () {
-        return String(api.settings.baseUrl || '').replace(/\/+$/, '');
+        var b = explicitBase();
+        if (b) { return b.replace(/\/+$/, ''); }
+        return api.isAuto() ? api.sameOriginBase() : '';
     };
 
     /**
@@ -3017,12 +3236,19 @@
         var s = api.settings;
 
         if (!api.isConfigured()) {
+            if (api.isAuto()) { return Promise.reject({ pvxError: missingError() }); }
             return Promise.reject({ pvxError: {
                 code: 'not-configured',
                 message: 'PI Web API is not configured for this PI Vision server. Set baseUrl in ' +
                          'ext/libraries/pvx/pvx-config.js on the PI Vision server.',
                 check: 'pvx-config.js'
             } });
+        }
+        // Discovered base: wait for the one probe, then go — or refuse with
+        // the same message an unconfigured site gets, naming what was tried.
+        if (api.isAuto() && discovery.state !== 'found') {
+            // Re-entering re-checks isConfigured, which is now definite.
+            return api.discover().then(function () { return api.request(method, pathOrUrl, opts); });
         }
 
         // An empty path means the service root. Joining it naively yields a
@@ -4315,6 +4541,12 @@
             state.busy = true;
             var cur = afTrim(current);
             var st = afTrim(start);
+            // Nothing typed and nothing to start from: open where this
+            // symbol's own data source lives, the AF context PI Vision gave it.
+            if (!/^\\\\/.test(cur) && !/^\\\\/.test(st)) {
+                st = nav.sourceAsset(scope) || afTrim(nav.currentAsset());
+                if (state.kind === 'database') { st = nav.databaseOf(st); }
+            }
             var near = /^\\\\/.test(cur) ? cur : /^\\\\/.test(st) ? st : '';
             var sp = afpick.split(near);
             var dbPath = sp.segs.length >= 2 ? '\\\\' + sp.segs[0] + '\\' + sp.segs[1] : '';

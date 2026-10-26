@@ -206,7 +206,8 @@
             win: null,            // the window the current events were fetched for
             tree: null,           // hierarchy mode: expansion outcome (see expandChildren)
             scopeCapped: false,   // assetTree: more elements below the asset than searched
-            scopeFailed: 0        // assetTree: element searches that failed
+            scopeFailed: 0,       // assetTree: element searches that failed
+            db: { path: '', from: '' }   // database in use; `from` set when not configured
         };
 
         var liveCfg = scope.config || {};
@@ -244,7 +245,9 @@
                 var a = one ? PVX.nav.assetOf(one.path) : '';
                 if (a !== sourceAsset) {
                     sourceAsset = a;
-                    if (trim(liveCfg.AssetScope) && liveCfg.AssetScope !== 'none') { refreshSoon(); }
+                    // A blank DatabasePath follows this element's database too.
+                    if ((trim(liveCfg.AssetScope) && liveCfg.AssetScope !== 'none') ||
+                            !trim(liveCfg.DatabasePath)) { refreshSoon(); }
                 }
             },
 
@@ -550,6 +553,17 @@
         }
 
         /** The asset the scope follows: the URL's, else the data source's. */
+        /**
+         * The configured database, else the one this symbol's data source
+         * lives in (see PVX.nav.defaultDatabase): drop any attribute of the
+         * plant onto the symbol and it already knows where to look.
+         */
+        function databaseFor(cfg) {
+            var typed = trim(cfg.DatabasePath);
+            if (typed) { return { path: typed, from: '' }; }
+            return PVX.nav.defaultDatabase(scope, sourceAsset);
+        }
+
         function scopeAsset() {
             return trim(PVX.nav.currentAsset()) || sourceAsset;
         }
@@ -887,6 +901,13 @@
 
             applyBaseUrlOverride(cfg);
 
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi. Decide nothing until it has its answer.
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { refresh(); } });
+                return;
+            }
+
             // Each state below is a genuinely different problem with a different
             // owner, so each gets its own message rather than one "no data".
             if (!PVX.api.isConfigured()) {
@@ -896,7 +917,8 @@
                 return;
             }
 
-            var dbPath = trim(cfg.DatabasePath);
+            state.db = databaseFor(cfg);
+            var dbPath = state.db.path;
             if (!dbPath) {
                 state.phase = 'nodb';
                 state.error = null;
@@ -1475,6 +1497,7 @@
                 scope.pvx.summary = summaryText(model);
             }
             if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
+            if (!minimal && state.db.from) { addNote('database ' + state.db.path + ' from ' + state.db.from); }
 
             drawChart(svgRoot, W, H, cfg, t, model, compact, minimal);
             digest();
@@ -1503,7 +1526,8 @@
             if (trim(cfg.ElementNameFilter)) { bits.push('element "' + trim(cfg.ElementNameFilter) + '"'); }
             return bits.length
                 ? 'Nothing matched ' + bits.join(' and ') + '. Widen the filter or the time range.'
-                : 'No event frames overlap this time range on ' + trim(cfg.DatabasePath) + '.';
+                : 'No event frames overlap this time range on ' + state.db.path +
+                  (state.db.from ? ' (from ' + state.db.from + ')' : '') + '.';
         }
 
         /* ---- non-chart states -------------------------------------------- *
@@ -1515,7 +1539,7 @@
             if (state.phase === 'unconfigured') {
                 drawMessage(svgRoot, W, H, t, 'PI Web API is not configured',
                     minimal ? '' :
-                    'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
+                    PVX.api.unsetHint() + ', then confirm it ' +
                     'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
@@ -1523,7 +1547,8 @@
             if (state.phase === 'nodb') {
                 drawMessage(svgRoot, W, H, t, 'No AF database configured',
                     minimal ? '' :
-                    'Set the AF database path in the format pane, for example \\\\AFSERVER01\\Production.',
+                    'Drop an AF attribute onto this symbol to use its database, or set the AF database ' +
+                    'path in the format pane, for example \\\\AFSERVER01\\Production.',
                     PVX.color.status.warning);
                 return;
             }

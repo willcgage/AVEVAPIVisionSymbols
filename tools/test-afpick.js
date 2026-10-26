@@ -219,6 +219,8 @@ function api(req, res, url) {
     const items = (list) => send(200, { Items: list.slice(0, max).map(out) });
     const named = (list) => send(200, { Items: list.map((n) => (typeof n === 'string' ? { Name: n } : n)) });
 
+    // The service root, which is what discovery asks for on the PI Vision origin.
+    if (rel === '') { return send(200, { Links: { Self: '/piwebapi', AssetServers: '/piwebapi/assetservers' } }); }
     const byPathEp = { assetservers: 'server', dataservers: 'dataserver', assetdatabases: 'database', elements: 'element', attributes: 'attribute' };
     if (byPathEp[rel] && q.get('path')) {
         const o = byPath[byPathEp[rel] + '|' + q.get('path').toLowerCase()];
@@ -292,7 +294,8 @@ function serve() {
 
 /** Runs in the browser: mount symbol + pane, PI Web API pointed at the mock. */
 async function mount(a) {
-    window.PVX.api.configure({ baseUrl: a.configured === false ? '' : location.origin + '/piwebapi', auth: 'anonymous' });
+    window.PVX.api.configure({ baseUrl: a.configured === false || a.configured === 'auto' ? '' : location.origin + '/piwebapi',
+        autoDiscover: a.configured !== false, auth: 'anonymous' });
     // Count requests in flight, so a test can wait for a chain of them
     // (lists, then a search) rather than guess how long it takes.
     const get = window.PVX.api.get;
@@ -311,7 +314,7 @@ async function mount(a) {
     scope.config = def.getDefaultConfig();
     Object.keys(a.config || {}).forEach((k) => { scope.config[k] = a.config[k]; });
     scope.runtimeData = { isEditMode: true };
-    scope.symbol = { Name: a.typeName, DataSources: ['pi:\\\\srv\\SINUSOID?c'] };
+    scope.symbol = { Name: a.typeName, DataSources: a.sources || ['pi:\\\\srv\\SINUSOID?c'] };
     const tpl = await fetch('/dist/ext/sym-' + a.typeName + '-template.html').then((r) => r.text());
     const el = $compile(tpl)(scope);
     angular.element(document.getElementById('box')).append(el);
@@ -334,9 +337,9 @@ async function pane() {
         const page = await browser.newPage();
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
-        const open = async (typeName, config, configured) => {
+        const open = async (typeName, config, configured, sources) => {
             await page.goto('http://127.0.0.1:' + PORT + '/page/' + typeName, { waitUntil: 'networkidle' });
-            await page.evaluate(mount, { typeName, config, configured });
+            await page.evaluate(mount, { typeName, config, configured, sources });
         };
         const cfg = (k) => page.evaluate((key) => window.__scope.config[key], k);
         const panel = page.locator('.pvx-cfg-af-panel');
@@ -548,6 +551,27 @@ async function pane() {
         await pick('Database', 'Production');
         await row('Cooling').locator('button', { hasText: 'Add' }).click();
         check('asset mode adds "Label | path"', await cfg('Items') === 'Cooling | ' + P + '\\Cooling', await cfg('Items'));
+
+        // --- Nothing in pvx-config.js, PI Web API beside PI Vision, and an
+        //     attribute dropped on the symbol: no setup typed anywhere ---
+        const SRC = ['af:' + P + '\\Site A\\Reactor1|Temp?g'];
+        requests = [];
+        await open('pvxAssetTree', { DatabasePath: '', RootElementPath: '' }, 'auto', SRC);
+        await page.waitForFunction(() => /Reactor|Site A/.test(document.getElementById('box').textContent));
+        check('auto: the tree finds PI Web API on its own server and opens the data source\'s database',
+            /Site A/.test(await page.textContent('#box')) && requests.indexOf('') !== -1, requests.slice(0, 4));
+        check('...and says where the database came from', /from this symbol.s data source/.test(await page.textContent('#box')),
+            await page.textContent('#box'));
+        check('...without writing it into the saved config', await cfg('DatabasePath') === '');
+        await page.locator('.pvx-cfg-af-toggle').nth(0).click();
+        await settle();
+        check('auto: a database field\'s Search opens on the data source\'s database',
+            await field('Database').locator('select option:checked').textContent() === 'Production');
+        await page.locator('.pvx-cfg-af-toggle').nth(0).click();
+        await page.locator('.pvx-cfg-af-toggle').nth(1).click();
+        await settle();
+        check('auto: an element field opens beside the data source\'s element',
+            (await names()).indexOf('Reactor1') !== -1, await names());
 
         // --- A site that has not configured PI Web API ---
         await open('pvxEventGantt', { DatabasePath: '' }, false);

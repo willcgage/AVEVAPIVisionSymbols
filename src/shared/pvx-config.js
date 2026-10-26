@@ -20,9 +20,13 @@
  * is turned on. The other twenty-five symbols run entirely on PI Vision's own
  * data pipeline and need nothing here.
  *
- * If baseUrl is left blank, those symbols show a clear "PI Web API is not
- * configured" state instead of failing obscurely. That is the intended default:
- * a library deployed without this file being edited does nothing surprising.
+ * If baseUrl is left blank, those symbols look for PI Web API on this PI
+ * Vision server itself, at https://<this server>/piwebapi, once per page. Where
+ * PI Web API is installed alongside PI Vision that is all the setup there is.
+ * Where nothing answers there, they show a clear "PI Web API is not
+ * configured" state naming the address they tried, instead of failing
+ * obscurely. Set autoDiscover: false below to skip the look and keep the
+ * blank-means-off behaviour of 1.12.0 and earlier.
  * ==========================================================================*/
 (function (root) {
     'use strict';
@@ -38,8 +42,27 @@
          *
          * The hostname must match the certificate, or every call fails on a
          * TLS error that looks like a CORS problem.
+         *
+         * Leave it blank when PI Web API runs on this PI Vision server: the
+         * symbols find it at /piwebapi on the same address PI Vision is
+         * opened with, and same-origin requests need no CORS setup at all.
          */
         baseUrl: '',
+
+        /* -- Look on this server when baseUrl is blank ----------------------- *
+         * true:  ask https://<this PI Vision server>/piwebapi once per page.
+         * false: blank baseUrl means the PI Web API symbols stay switched off.
+         */
+        autoDiscover: true,
+
+        /* -- AF database for symbols that have none of their own ------------- *
+         * Event Timeline, Event Analytics and Asset Tree use, in order: the
+         * database in their own format pane; the database of the attribute
+         * dropped on them; the database of the display's asset; and then this.
+         *
+         *   databasePath: '\\\\AFSERVER01\\Production',
+         */
+        databasePath: '',
 
         /* -- How to authenticate -------------------------------------------- *
          *   'iwa'        Kerberos / Negotiate. AVEVA's recommended arrangement.
@@ -105,17 +128,5 @@
     } else {
         (PVX.pendingSiteSettings = PVX.pendingSiteSettings || []).push(siteSettings);
     }
-
-    /* -- Optional: default AF database for the Event Frame symbols ---------- *
-     * Saves setting it on every symbol. A symbol's own config still wins.
-     *
-     * Uncomment AFTER the hand-over block above, so it runs once PVX.api
-     * exists:
-     *
-     *   if (PVX.api) { PVX.api.defaults = {
-     *       databasePath: '\\\\AFSERVER01\\Production',
-     *       eventFrameTemplate: 'Downtime'
-     *   }; }
-     */
 
 }(window));

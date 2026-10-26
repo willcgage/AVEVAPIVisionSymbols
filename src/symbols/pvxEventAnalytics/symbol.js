@@ -201,8 +201,10 @@
             capped: false,        // more events matched than MaxEvents
             maxEvents: 0,
             failedBatch: 0,       // failed sub-requests in the enrichment batch
-            win: null             // window the current events were fetched for
+            win: null,            // window the current events were fetched for
+            db: { path: '', from: '' }   // database in use; `from` set when not configured
         };
+        var sourceAsset = '';     // element of the placeholder data source
 
         var liveCfg = scope.config || {};
         var generation = 0;       // bumps on every refresh; stale replies dropped
@@ -228,6 +230,18 @@
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-ea-body',
             render: render,
+
+            // The data source is otherwise ignored, but a blank DatabasePath
+            // takes its database from it, and PI Vision re-binds it on an
+            // asset swap.
+            onData: function (d) {
+                var one = PVX.data.single(d);
+                var a = one ? PVX.nav.assetOf(one.path) : '';
+                if (a !== sourceAsset) {
+                    sourceAsset = a;
+                    if (!trim(liveCfg.DatabasePath)) { refreshSoon(); }
+                }
+            },
 
             onConfigChange: function (newCfg) {
                 liveCfg = newCfg || liveCfg;
@@ -671,11 +685,28 @@
          * refresh
          * ================================================================ */
 
+        /**
+         * The configured database, else the one this symbol's data source
+         * lives in (see PVX.nav.defaultDatabase).
+         */
+        function databaseFor(cfg) {
+            var typed = trim(cfg.DatabasePath);
+            if (typed) { return { path: typed, from: '' }; }
+            return PVX.nav.defaultDatabase(scope, sourceAsset);
+        }
+
         function refresh() {
             if (ctx.destroyed) { return; }
             var cfg = liveCfg = scope.config || liveCfg;
 
             applyBaseUrlOverride(cfg);
+
+            // With no baseUrl set, PVX.api first asks PI Vision's own server
+            // for /piwebapi. Decide nothing until it has its answer.
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { refresh(); } });
+                return;
+            }
 
             // Each state below is a different problem with a different owner, so
             // each gets its own message rather than one "no data".
@@ -686,7 +717,8 @@
                 return;
             }
 
-            var dbPath = trim(cfg.DatabasePath);
+            state.db = databaseFor(cfg);
+            var dbPath = state.db.path;
             if (!dbPath) {
                 state.phase = 'nodb';
                 state.error = null;
@@ -1213,6 +1245,7 @@
                 drawMessage(svgRoot, W, H, t, missingGroupHeadline(cfg),
                     minimal ? '' : missingGroupDetail(cfg, model), PVX.color.status.warning);
                 if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
+                if (!minimal && state.db.from) { addNote('database ' + state.db.path + ' from ' + state.db.from); }
                 digest();
                 return;
             }
@@ -1228,6 +1261,7 @@
                     '. Group by something that varies, or use the name pattern to pull a reason ' +
                     'code out of the event name.', t.textMuted);
                 if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
+                if (!minimal && state.db.from) { addNote('database ' + state.db.path + ' from ' + state.db.from); }
                 digest();
                 return;
             }
@@ -1236,6 +1270,7 @@
                 scope.pvx.summary = summaryText(model, cfg);
             }
             if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
+            if (!minimal && state.db.from) { addNote('database ' + state.db.path + ' from ' + state.db.from); }
 
             var mode = chartMode(cfg);
             if (mode === 'donut' && !model.additive) {
@@ -1295,7 +1330,8 @@
             if (trim(cfg.ElementNameFilter)) { bits.push('element "' + trim(cfg.ElementNameFilter) + '"'); }
             return bits.length
                 ? 'Nothing matched ' + bits.join(' and ') + '. Widen the filter or the time range.'
-                : 'No event frames overlap this time range on ' + trim(cfg.DatabasePath) + '.';
+                : 'No event frames overlap this time range on ' + state.db.path +
+                  (state.db.from ? ' (from ' + state.db.from + ')' : '') + '.';
         }
 
         function missingGroupHeadline(cfg) {
@@ -1330,7 +1366,7 @@
             if (state.phase === 'unconfigured') {
                 drawMessage(svgRoot, W, H, t, 'PI Web API is not configured',
                     minimal ? '' :
-                    'Set baseUrl in ext/libraries/pvx/pvx-config.js on this PI Vision server, then confirm it ' +
+                    PVX.api.unsetHint() + ', then confirm it ' +
                     'with ext/piwebapi-check.html — that page reproduces exactly what this symbol does ' +
                     'and names what to fix.', PVX.color.status.warning);
                 return;
@@ -1338,7 +1374,8 @@
             if (state.phase === 'nodb') {
                 drawMessage(svgRoot, W, H, t, 'No AF database configured',
                     minimal ? '' :
-                    'Set the AF database path in the format pane, for example \\\\AFSERVER01\\Production.',
+                    'Drop an AF attribute onto this symbol to use its database, or set the AF database ' +
+                    'path in the format pane, for example \\\\AFSERVER01\\Production.',
                     PVX.color.status.warning);
                 return;
             }

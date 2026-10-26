@@ -129,7 +129,14 @@ silently destroys a site's PI Web API settings on upgrade.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
 - Symbols get data through PI Vision's pipeline. Only five reach PI Web API via
-  `PVX.api`, configured once per site in `pvx-config.js`.
+  `PVX.api`, configured once per site in `pvx-config.js`. A blank `baseUrl`
+  means "ask `/piwebapi` on PI Vision's own origin, once per page"
+  (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
+  refresh waits on `PVX.api.discovering()` before deciding it is unconfigured.
+  PI Vision's own AF connection is not reachable from display code; do not
+  build on `/PIVision/Services`. A blank `DatabasePath` falls back to
+  `PVX.nav.defaultDatabase` (data source, display asset, site `databasePath`),
+  never saved into config. Proven against mocks only.
 - Every format pane opens with a **Data sources** list (`src/shared/config-sources.html`,
   injected by `build.js`) whose Remove splices `symbol.DataSources` and
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane

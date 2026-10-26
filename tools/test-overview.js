@@ -156,6 +156,8 @@ function route(method, url, via) {
     const max = parseInt(q.get('maxCount') || '1000', 10);
     const notFound = { status: 404, body: { Errors: ['Not found: ' + (q.get('path') || rel)] } };
 
+    // The service root, which is what discovery asks for on the PI Vision origin.
+    if (rel === '') { return { status: 200, body: { Links: { Self: '/piwebapi' } } }; }
     if (rel === 'assetdatabases' && q.get('path')) {
         return q.get('path').toLowerCase() === DB.toLowerCase()
             ? { status: 200, body: { Name: 'Gathering', Path: DB, WebId: wid('d', DB) } } : notFound;
@@ -257,7 +259,8 @@ function serve() {
 
 /** Runs in the browser: mount one symbol, PI Web API pointed at the mock. */
 async function mount(a) {
-    window.PVX.api.configure({ baseUrl: a.configured === false ? '' : location.origin + '/piwebapi', auth: 'anonymous' });
+    window.PVX.api.configure({ baseUrl: a.configured === false || a.configured === 'auto' ? '' : location.origin + '/piwebapi',
+        autoDiscover: a.configured !== false, auth: 'anonymous' });
     window.PVX.api.clearCache();
     const def = window.PVMock.get(a.typeName);
     const injector = angular.injector(['ng']);
@@ -484,6 +487,40 @@ async function page() {
         await open('pvxEventGantt', { asset: '', config: EG, source: 'pi:\\\\PISRV01\\SINUSOID?x' });
         body = await pg.$eval('#box', (n) => n.textContent);
         check('timeline: scoped with no asset says what to do', /names no asset/.test(body), body.slice(0, 200));
+
+        /* ---- Event Timeline with nothing configured ---------------------- *
+         * No baseUrl, no DatabasePath: PI Web API is found beside PI Vision
+         * and the database is the one the dropped attribute lives in.       */
+        const BARE = { DatabasePath: '', AssetScope: 'none', StartOffset: '*-1d' };
+        await open('pvxEventGantt', { asset: '', config: BARE, configured: 'auto' });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('timeline auto: events from the data source\'s database, with no setup',
+            /K-301 trip/.test(body) && /K-303 start/.test(body) &&
+            requests.some((r) => r === 'GET assetdatabases?path=' + DB), requests.slice(0, 4));
+        check('timeline auto: the footer says where the database came from',
+            body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
+
+        await open('pvxEventGantt', { asset: K303, config: BARE, configured: 'auto', source: 'pi:\\\\PISRV01\\SINUSOID?x' });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('timeline auto: a PI point source falls back to the display\'s asset',
+            /K-303 start/.test(body) && body.indexOf('from the display\'s asset') !== -1, body.slice(-200));
+
+        await open('pvxEventGantt', { asset: '', config: BARE, configured: 'auto', source: 'pi:\\\\PISRV01\\SINUSOID?x' });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('timeline auto: no AF anywhere says how to give it a database',
+            /No AF database configured/.test(body) && /Drop an AF attribute/.test(body), body.slice(0, 200));
+
+        await open('pvxEventGantt', { asset: '', config: Object.assign({}, BARE, { DatabasePath: '\\\\AF\\Elsewhere' }), configured: 'auto' });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('timeline auto: a typed database still wins over the data source',
+            requests.some((r) => r === 'GET assetdatabases?path=\\\\AF\\Elsewhere') &&
+            !requests.some((r) => r === 'GET assetdatabases?path=' + DB), requests.slice(0, 4));
+
+        await open('pvxEventAnalytics', { asset: '', config: { DatabasePath: '', StartTime: '*-1d' }, configured: 'auto' });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('analytics auto: the data source\'s database, said in the footer',
+            requests.some((r) => r === 'GET assetdatabases?path=' + DB) &&
+            body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
 
         /* ---- text size -------------------------------------------------- */
         await open('pvxNavPanel', { asset: K301, config: Object.assign({}, NAV, { TextScale: '150' }) });
