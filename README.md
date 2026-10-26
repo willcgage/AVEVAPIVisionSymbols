@@ -44,7 +44,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxCompare/icon.svg) | **PVX Condition Compare** | Splits the time range by a rule on one tag ("yield < 92%") and ranks every other tag by how differently it behaves while the rule holds, with paired histograms per tag. What is different about the bad hours, without the trip to Excel. |
 | ![](src/symbols/pvxXYScatter/icon.svg) | **PVX XY Scatter** | Correlation of one tag against another with least-squares regression, R², time-coloured points and an operating-envelope box. |
 | ![](src/symbols/pvxHeatmap/icon.svg) | **PVX Heatmap** | Hour-of-day × day calendar, tag × time-bucket matrix, or value × time density weighted by time spent. Makes diurnal and shift patterns obvious, and shows a hunting valve as two bands where a trend shows a smear. |
-| ![](src/symbols/pvxPareto/icon.svg) | **PVX Ranked Bar** | Sorted bars with an optional cumulative Pareto line. "Which five assets drive 80% of the loss." |
+| ![](src/symbols/pvxPareto/icon.svg) | **PVX Ranked Bar** | Sorted bars with an optional cumulative Pareto line. "Which five assets drive 80% of the loss." A bar can open the asset's display. |
 
 ### KPI and status
 
@@ -53,7 +53,8 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxAnnunciator/icon.svg) | **PVX Annunciator** | Latching alarm tiles with the ISA-18.2 ringback state, so an excursion that starts and clears between two refreshes is still there when someone looks. First-out marking for cascades. |
 | ![](src/symbols/pvxSitePlan/icon.svg) | **PVX Site Plan** | Live values pinned to a plant drawing by percentage coordinates. The offline answer to a map symbol — no tile provider required. |
 | ![](src/symbols/pvxStateDuration/icon.svg) | **PVX Time in State** | Time-in-state timeline or stacked bar per digital tag, with uptime percentage and transition count. Downtime accounting with no Event Frames, no AF templates and no PI Web API. |
-| ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number, period-over-period delta with a good/bad direction, inline sparkline, footer statistics. |
+| ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number, delta against earlier in the range or against a plan source, inline sparkline with the plan line, footer statistics, and an edge coloured by the headline's band. |
+| ![](src/symbols/pvxAssetTable/icon.svg) | **PVX Asset Table** | One row per asset, one column per attribute, each cell coloured by its own limits or state map, a status dot for the worst cell, and the row opening the unit's display with that unit as the asset. Rows come from the data sources, or from the elements under the current asset so an area with more units gets more rows. |
 | ![](src/symbols/pvxStatusGrid/icon.svg) | **PVX Status Grid** | Responsive tile grid coloured by thresholds or by a digital state map. Four tile styles, optional drill-down. |
 | ![](src/symbols/pvxAlarmBanner/icon.svg) | **PVX Exception Banner** | Shows only the tags currently outside limits, worst first, with dwell time. List, ticker or summary mode. |
 | ![](src/symbols/pvxDataHealth/icon.svg) | **PVX Data Health** | Lists only the tags that can't be trusted right now: bad, out of instrument range, stale, or flatlined. The healthy rest are a count in the footer, so nothing is silently dropped. |
@@ -62,7 +63,7 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxEventGantt/icon.svg) | **PVX Event Timeline** | Event Frames as swimlanes per asset, stacked where they overlap, with open events drawn to the edge rather than faked as finished. The native Events Table is a list; this shows pattern and clustering. A hierarchy mode nests child frames under their parents (batch, unit procedure, phase) and flags the steps that ran longer than typical. |
+| ![](src/symbols/pvxEventGantt/icon.svg) | **PVX Event Timeline** | Event Frames as swimlanes per asset, stacked where they overlap, with open events drawn to the edge rather than faked as finished. The native Events Table is a list; this shows pattern and clustering. A hierarchy mode nests child frames under their parents (batch, unit procedure, phase) and flags the steps that ran longer than typical. Can show only the events of the display's current asset, or of it and everything under it. |
 | ![](src/symbols/pvxEventAnalytics/icon.svg) | **PVX Event Analytics** | Which reason code costs the most hours. Durations are clipped to the window and overlapping events merged before summing — and the footer says when merging changed the total, because a downtime figure that double-counts ends up in a report. |
 | ![](src/symbols/pvxAssetTree/icon.svg) | **PVX Asset Navigator** | Browses the live AF hierarchy and sets the display's asset context, so a unit added in AF appears without editing a display. Lazy-loaded, keyboard navigable. |
 | ![](src/symbols/pvxManualEntry/icon.svg) | **PVX Manual Entry** | Writes one value to an attribute or PI point, with range validation before sending and a confirm step before committing. |
@@ -72,7 +73,7 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxNavPanel/icon.svg) | **PVX Navigation Panel** | Button bar that jumps between displays, swaps the asset context, or sets the time range. |
+| ![](src/symbols/pvxNavPanel/icon.svg) | **PVX Navigation Panel** | Button bar that jumps between displays, swaps the asset context, or sets the time range. A hierarchy mode builds Up, a breadcrumb and the siblings from the current asset, opening each level's own display. |
 | ![](src/symbols/pvxSlideshow/icon.svg) | **PVX Display Slideshow** | Rotates a control-room screen through a list of displays. The same config goes on every display in the rotation and each copy works out where it is — pause survives the navigation, and it never rotates while someone is editing the display. |
 
 Full option reference: **[docs/SYMBOL-REFERENCE.md](docs/SYMBOL-REFERENCE.md)** (generated from the code).
@@ -106,15 +107,18 @@ runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode; pick one and drag an attribute onto the display to place it (any
-attribute for the seven that take their settings from the format pane alone). That is the whole installation for twenty-eight of the thirty-three.
+attribute for the seven that take their settings from the format pane alone). That is the whole installation for twenty-nine of the thirty-four.
 
 Dropped the wrong attribute on a symbol? Open its format pane: every PVX
 symbol lists its data sources at the top, with **Remove** on each row (click
 Remove, then Confirm). Settings that refer to sources by number, such as a
 Combo Chart trace spec or a Sankey link, are renumbered to match and the pane
-says what changed. A symbol always keeps at least one source.
+says what changed. A symbol always keeps at least one source. Below the list,
+**Text size** scales everything the symbol draws from 70% to 200%, and the
+symbol lays itself out again for the larger text rather than overflowing.
 
-The other five need one more step: run `ext/piwebapi-check.html` on the server
+The other five, and the Asset Table's and Navigation Panel's optional AF
+lookups, need one more step: run `ext/piwebapi-check.html` on the server
 to find out which PI Web API configuration your network actually permits, then
 put the answer in `ext/libraries/pvx/pvx-config.js`.
 
@@ -237,7 +241,7 @@ with one predictable structure.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 594 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 612 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, and content clipped out of reach. That is the gate to
 run before any deployment.
@@ -260,7 +264,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, and `pvxAssetTable` from a review against an overview display build guide.
 
 ---
 

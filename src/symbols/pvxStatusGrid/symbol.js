@@ -620,12 +620,14 @@
             if (index < 0 || index >= view.length) { return; }
             var row = view[index];
             var target = String(liveCfg.NavigateTarget || '').trim();
-            // With no target and no asset path there is nowhere to go, and
+            // The tile's element, not its attribute: asset= names an element.
+            var asset = PVX.nav.assetOf(row.path);
+            // With no target and no element there is nowhere to go, and
             // navigating to the current URL would just flicker the display.
-            if (!target && !row.path) { return; }
+            if (!target && !asset) { return; }
             PVX.nav.go(PVX.nav.url({
                 display: target || undefined,
-                asset: row.path || undefined
+                asset: asset || undefined
             }), false);
         }
 

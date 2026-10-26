@@ -62,6 +62,17 @@
             <input id="pvxkpi-showdelta" type="checkbox" ng-model="config.ShowDelta" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxkpi-basis">Compare with</label>
+            <select id="pvxkpi-basis" ng-model="config.DeltaBasis">
+                <option value="window">Earlier in the time range</option>
+                <option value="plan">Plan (data source 2)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <em>Plan</em> compares the headline with the second data source, reduced by the same
+            statistic. Drop the plan or target attribute onto the card after the KPI itself.
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxkpi-deltamode">Display as</label>
             <select id="pvxkpi-deltamode" ng-model="config.DeltaMode">
                 <option value="percent">Percent</option>
@@ -78,7 +89,7 @@
                 <option value="1">Full range</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint">Compares the latest value against the value that far back in the display's time range.</div>
+        <div class="pvx-cfg-hint">With <em>Earlier in the time range</em>: compares the latest value against the value that far back in the display's time range.</div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-good">Good direction</label>
             <select id="pvxkpi-good" ng-model="config.DeltaGoodDirection">
@@ -121,6 +132,11 @@
             <input id="pvxkpi-smooth" type="checkbox" ng-model="config.SmoothLine" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxkpi-planspark">Show plan line</label>
+            <input id="pvxkpi-planspark" type="checkbox" ng-model="config.ShowPlanOnSpark" />
+        </div>
+        <div class="pvx-cfg-hint">Draws data source 2 as a dashed line on the sparkline, on the same scale.</div>
+        <div class="pvx-cfg-row">
             <label for="pvxkpi-points">Resolution (points)</label>
             <input id="pvxkpi-points" type="number" ng-model="config.Intervals" min="20" max="1000" step="10" />
         </div>
@@ -143,6 +159,7 @@
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
+                <option value="plan">Plan (data source 2)</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
@@ -155,6 +172,7 @@
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
+                <option value="plan">Plan (data source 2)</option>
             </select>
         </div>
     </div>
@@ -190,6 +208,20 @@
         <div class="pvx-cfg-row">
             <label for="pvxkpi-usethresh">Colour value by threshold</label>
             <input id="pvxkpi-usethresh" type="checkbox" ng-model="config.ValueColorFromThreshold" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-edge">Status edge</label>
+            <input id="pvxkpi-edge" type="checkbox" ng-model="config.StatusEdge" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-edgew">Edge width (px)</label>
+            <input id="pvxkpi-edgew" type="number" ng-model="config.EdgeWidth" min="1" max="12" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Colours the card's left edge with the headline's band, or with a multistate if one is
+            set. Below the first band the edge stays plain, so a band list such as
+            <code>95:#f2c230:Watch, 100:#e5484d:Alarm</code> flags only off-target values.
+            The placeholder bands never colour it.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-enthresh">Enable thresholds</label>

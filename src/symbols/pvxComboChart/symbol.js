@@ -18,6 +18,11 @@
  *
  *     TraceSpec: "1:bar, 2:line:right, 3:area, 4:step:right:#8267b0"
  *
+ * A line, step or area outline can also be `dashed` or `dotted` and carry a
+ * width such as `1px`: a plan drawn as a thin dashed line beside the actual
+ * is the convention high-performance HMI guides use, and colour alone cannot
+ * carry that distinction for a colour-blind operator.
+ *
  * Anything not mentioned falls back to DefaultType on the left axis, so the
  * symbol is useful the second it lands on a display and only needs editing when
  * the engineer wants something specific.
@@ -127,6 +132,10 @@
      * TraceSpec parsing
      * ---------------------------------------------------------------- */
 
+    /* Stroke patterns, in units of the stroke width so a 1px plan line and a
+     * 3px one read as the same pattern. */
+    var DASHES = { solid: null, dashed: [4, 3], dotted: [1, 2.5] };
+
     /** Only #hex is accepted: a bare word that is not a real CSS colour would
      *  silently paint the trace black, which is worse than ignoring it. */
     function isColorToken(tok) {
@@ -139,8 +148,8 @@
     }
 
     /**
-     * Parse "1:bar, 2:line:right, 3:area, 4:step:right:#8267b0" into
-     * [{index, type, axis, color}].
+     * Parse "1:bar, 2:line:right, 3:area, 4:step:right:#8267b0:dashed:1px"
+     * into [{index, type, axis, color, dash, width}].
      *
      * After the index the remaining tokens are classified by WHAT THEY ARE
      * rather than by position. An operator typing "2:line:#c8452f:right" means
@@ -160,7 +169,7 @@
             // parseInt on the raw token tolerates " 3", "3 " and "#3".
             var idx = parseInt(String(parts[0]).replace(/[^0-9]/g, ''), 10);
             if (!isFinite(idx) || idx < 1) { continue; }
-            var entry = { index: idx, type: null, axis: null, color: null };
+            var entry = { index: idx, type: null, axis: null, color: null, dash: null, width: null };
             for (var p = 1; p < parts.length; p++) {
                 var tok = parts[p].trim();
                 if (!tok) { continue; }
@@ -169,6 +178,8 @@
                 else if (low === 'right' || low === 'r') { entry.axis = 'right'; }
                 else if (low === 'left' || low === 'l') { entry.axis = 'left'; }
                 else if (isColorToken(tok)) { entry.color = tok; }
+                else if (DASHES.hasOwnProperty(low)) { entry.dash = low; }
+                else if (/^\d+(\.\d+)?px$/.test(low)) { entry.width = parseFloat(low); }
             }
             out.push(entry);
         }
@@ -223,6 +234,8 @@
                     type: type,
                     axis: (e && e.axis === 'right') ? 'right' : 'left',
                     color: (e && e.color) || pal[s % pal.length],
+                    dash: (e && e.dash) || 'solid',
+                    width: (e && e.width) || null,
                     raw: list[s].points || [],
                     pts: [],          // decimated, for line/area/step/scatter
                     slots: null,      // aggregated, for bars
@@ -972,7 +985,7 @@
                 });
             }
 
-            var lw = PVX.util.num(L.cfg.LineWidth);
+            var lw = tr.width !== null ? tr.width : PVX.util.num(L.cfg.LineWidth);
             lw = lw === null ? 1.8 : PVX.util.clamp(lw, 0.3, 8);
             var smooth = !!L.cfg.SmoothLines && tr.type !== 'step';
             var g = PVX.svg.el('g', { 'class': 'pvx-combo-trace' }, parent);
@@ -1004,7 +1017,10 @@
                     d: tr.type === 'step' ? PVX.svg.stepLine(xy) : PVX.svg.line(xy, smooth),
                     fill: 'none', stroke: tr.color,
                     'stroke-width': lw,
-                    'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+                    'stroke-dasharray': dashFor(tr, lw),
+                    'stroke-linejoin': 'round',
+                    // A round cap fills the gaps of a dotted line back in.
+                    'stroke-linecap': tr.dash === 'solid' ? 'round' : 'butt',
                     'vector-effect': 'non-scaling-stroke',
                     'class': 'pvx-combo-line'
                 }, g);
@@ -1150,10 +1166,20 @@
                 PVX.svg.el('line', {
                     x1: (x + 1).toFixed(2), y1: cy.toFixed(2),
                     x2: (x + size - 1).toFixed(2), y2: cy.toFixed(2),
-                    stroke: col, 'stroke-width': 2.2, 'stroke-linecap': 'round',
+                    stroke: col, 'stroke-width': 2.2,
+                    'stroke-dasharray': dashFor(tr, 2.2),
+                    'stroke-linecap': tr.dash === 'solid' ? 'round' : 'butt',
                     'class': 'pvx-combo-key'
                 }, parent);
             }
+        }
+
+        /** stroke-dasharray for a trace at a given stroke width, or null. */
+        function dashFor(tr, lw) {
+            var d = DASHES[tr.dash];
+            if (!d) { return null; }
+            var w = Math.max(1, lw);
+            return (d[0] * w).toFixed(1) + ' ' + (d[1] * w).toFixed(1);
         }
 
         /* ------------------------------------------------------------------ *

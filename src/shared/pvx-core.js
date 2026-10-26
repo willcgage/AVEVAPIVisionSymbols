@@ -2065,6 +2065,44 @@
         return nav.parseHash().params.asset || '';
     };
 
+    /**
+     * The AF element a data source belongs to, as PI Vision's asset= wants it.
+     *   af:\\srv\db\Area\Pump 101|Flow?guid  -> \\srv\db\Area\Pump 101
+     *   \\PISRV01\SINUSOID                    -> '' (a PI point has no element)
+     * Drill-down used to pass the attribute's whole path as the asset. PI
+     * Vision's asset parameter names an element, and nothing has shown it
+     * tolerates an attribute path there, so callers pass the element.
+     */
+    nav.assetOf = function (path) {
+        var s = String(path === null || path === undefined ? '' : path);
+        var q = s.lastIndexOf('?');
+        if (q > 0) { s = s.slice(0, q); }
+        s = s.replace(/^[a-z]+:/i, '');
+        var bar = s.indexOf('|');
+        return bar === -1 ? '' : s.slice(0, bar);
+    };
+
+    /** Parent of an element path, or '' at the database root. */
+    nav.parentOf = function (elementPath) {
+        var s = String(elementPath || '').replace(/[\\]+$/, '');
+        var segs = nav.segments(s);
+        if (segs.elements.length < 2) { return ''; }
+        return segs.prefix + segs.elements.slice(0, -1).join('\\');
+    };
+
+    /**
+     * Split \\server\database\A\B\C into its parts. `prefix` is
+     * "\\server\database\", and `elements` are the element names from the
+     * top of the database down, so elements.slice(0, n) is the n-th ancestor.
+     */
+    nav.segments = function (elementPath) {
+        var s = String(elementPath || '').replace(/^[a-z]+:/i, '');
+        var m = /^(\\\\[^\\]+\\[^\\]+\\?)(.*)$/.exec(s);
+        if (!m) { return { prefix: '', elements: s ? s.split('\\').filter(function (x) { return !!x; }) : [] }; }
+        var prefix = m[1].charAt(m[1].length - 1) === '\\' ? m[1] : m[1] + '\\';
+        return { prefix: prefix, elements: m[2] ? m[2].split('\\').filter(function (x) { return !!x; }) : [] };
+    };
+
     /* ------------------------------------------------------------------ *
      * layout — resize plumbing shared by every symbol
      * ------------------------------------------------------------------ */
@@ -2115,6 +2153,40 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * text — one text size control for every symbol
+     * ------------------------------------------------------------------ *
+     * Symbols size text three ways (stylesheet px, inline styles written
+     * while rendering, SVG font-size attributes), and most then lay out
+     * around it: axis margins, legend rows, truncation. Scaling the text
+     * after layout made labels overlap the chart they belong to, so the
+     * control zooms the symbol's contents instead: CSS zoom on the .pvx
+     * root. The root still fills the symbol (a percentage size is not
+     * zoomed), but its contents lay out in CSS px that are k screen px
+     * each, so the host the symbol measures reports 1/k of its on-screen
+     * size, the symbol lays out for that, and everything it draws, text
+     * included, comes out k times larger and still fits. Sizing the root
+     * to 100/k % as well was tried and double-counts. A browser without
+     * CSS zoom ignores the setting and the symbol draws as before.
+     */
+    var text = PVX.text = {};
+
+    /** config.TextScale (percent) as a factor, clamped to 50%..300%. */
+    text.scaleOf = function (cfg) {
+        var n = util.num(cfg && cfg.TextScale);
+        if (n === null || n <= 0) { return 1; }
+        return util.clamp(n / 100, 0.5, 3);
+    };
+
+    /** Apply factor k to a symbol's root. Writes only when it changes. */
+    text.apply = function (rootNode, k) {
+        if (!rootNode || !rootNode.style) { return; }
+        if (rootNode.__pvxZoom === k) { return; }
+        if (rootNode.__pvxZoom === undefined && k === 1) { rootNode.__pvxZoom = 1; return; }
+        rootNode.__pvxZoom = k;
+        rootNode.style.zoom = k === 1 ? '' : String(k);
+    };
+
+    /* ------------------------------------------------------------------ *
      * config — helpers for the configuration pane
      * ------------------------------------------------------------------ */
     var config = PVX.config = {};
@@ -2128,6 +2200,9 @@
             // but no pane offered it until operators on a live server asked for
             // it first: matching a display's look is not optional for them.
             BackgroundColor: '',
+            // Percent, as a string because the pane picks it with a plain
+            // <select>. Applied by PVX.bootstrap to every symbol: see text.
+            TextScale: '100',
             ShowLabel: true,
             ShowUnits: true,
             ShowTime: false,
@@ -3051,6 +3126,18 @@
             if (!isFinite(n) || n < k) { return null; }
             if (n === k) { return { value: 1, note: key + ' pointed at the removed source; it now uses source 1.' }; }
             return { value: n - 1, note: key + ' renumbered from ' + n + ' to ' + (n - 1) + '.' };
+        },
+
+        // A 1-based position where 0 means "automatic" (Deviation
+        // TargetSource / ValueSource). Pointing at the removed source goes
+        // back to automatic: falling back to 1 would silently make the first
+        // process value the setpoint. Stored as a string, because the pane
+        // picks it with a plain <select> whose option values are strings.
+        indexAuto: function (v, k, key) {
+            var n = parseInt(v, 10);
+            if (!isFinite(n) || n < 1 || n < k) { return null; }
+            if (n === k) { return { value: '0', note: key + ' pointed at the removed source; it is automatic again.' }; }
+            return { value: String(n - 1), note: key + ' renumbered from ' + n + ' to ' + (n - 1) + '.' };
         },
 
         // One entry per source in order, comma separated (Radar AxisLimits,
@@ -4030,6 +4117,10 @@
             if (ctx.destroyed) { return; }
             ctx.config = scope.config || ctx.config;
             ctx.node = resolveNode() || ctx.node;
+            // Zoom before measuring, so the host's size below is the box the
+            // symbol lays out in, already 1/k of what is on screen.
+            ctx.fontScale = text.scaleOf(ctx.config);
+            text.apply(ctx.node, ctx.fontScale);
             ctx.host = resolveHost();
             if (ctx.host) {
                 var w = ctx.host.clientWidth, h = ctx.host.clientHeight;

@@ -341,6 +341,36 @@
     .pvx-nav .pvx-nav-body > .pvx-nav-btn.pvx-nav-confirm { animation: none; }
 }
 
+/* --- hierarchy mode ------------------------------------------------------ */
+/* The text between buttons sizes to its content in every layout, so the
+   buttons' equal shares are taken from what is left. */
+
+.pvx-nav .pvx-nav-body > .pvx-nav-sep,
+.pvx-nav .pvx-nav-body > .pvx-nav-div,
+.pvx-nav .pvx-nav-body > .pvx-nav-note {
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--pvx-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.pvx-nav .pvx-nav-body > .pvx-nav-div {
+    opacity: 0.5;
+}
+
+.pvx-nav .pvx-nav-body > .pvx-nav-note {
+    font-size: 11px;
+    font-style: italic;
+    cursor: help;
+}
+
+.pvx-nav .pvx-nav-body > .pvx-nav-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 /* --- empty state ---------------------------------------------------------- */
 
 .pvx-nav .pvx-nav-hint {

@@ -30,7 +30,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (594 render checks)
+[ ] npm run verify passes on the build machine        (612 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -65,7 +65,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 33 symbols…
+    …one set of four per symbol, 34 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -93,7 +93,7 @@ guide explicitly allows subfolders of it.
 
 Phase 2 below confirms the deployment, and the browser console splits it in two
 on any display: `PVX.version` answers whether `ext\libraries\pvx` loaded, and
-`PVX.registered.length` (expect `33`) whether the `sym-pvx*.js` files in `ext`
+`PVX.registered.length` (expect `34`) whether the `sym-pvx*.js` files in `ext`
 did.
 
 1.6.0 used this layout too, except that its runtime was loose in
@@ -223,8 +223,8 @@ npm run verify
 ```
 
 `PVX_CHROMIUM` is honoured by `verify.js`, `probe.js`, `test-api.js`,
-`test-sources.js`, `test-afpick.js`, `test-states.js` and
-`test-limits.js`. Note
+`test-sources.js`, `test-afpick.js`, `test-states.js`, `test-limits.js`
+and `test-overview.js`. Note
 that it removes the *browser download*, not the package — `require('playwright')`
 still needs the module present.
 
@@ -334,7 +334,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 594 render checks must pass
+npm run verify        # gate: 612 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 

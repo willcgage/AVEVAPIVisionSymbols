@@ -163,6 +163,18 @@ The editor writes `config.Thresholds` as the usual grammar string, so saved
 displays and `PVX.thresholds.parse` are unaffected. The build fails a pane that
 binds `config.Thresholds` to a control of its own.
 
+## Text size
+
+Every format pane gets a **Text size** select after the Data sources list
+(`src/shared/config-text.html`, injected by the build), stored as
+`config.TextScale`, a percentage string. `PVX.bootstrap` applies it as CSS
+`zoom` on the `.pvx` root before measuring the host, so `ctx.width` and
+`ctx.height` are already the smaller box the symbol lays out in, and what it
+draws comes out larger and still fits. A symbol needs nothing for this, but it
+must not undo it: lay out from `ctx.width` / `ctx.height`, never write
+`zoom`, `width` or `height` on the root, and never map pointer coordinates
+from `getBoundingClientRect` without dividing by `ctx.fontScale`.
+
 ## Removing a data source
 
 Every symbol's format pane lists its data sources with a Remove button on each
@@ -183,6 +195,7 @@ sourceRemap: { TraceSpec: 'traceSpec' },
 | Rule | Grammar | Used by |
 |---|---|---|
 | `index` | one 1-based position; pointing at the removed one falls back to 1 | Histogram `SeriesIndex`, Compare `ConditionSource` |
+| `indexAuto` | a position stored as a string, `'0'` meaning automatic; pointing at the removed one goes back to automatic | Deviation `ValueSource`, `TargetSource` |
 | `traceSpec` | `"1:bar, 2:line:right"` — entries keyed by a leading index | ComboChart `TraceSpec` |
 | `listComma` | one comma-separated entry per source, blanks kept | Radar `AxisLimits` |
 | `listBar` | one `\|`-separated entry per source | SitePlan `Hotspots` |

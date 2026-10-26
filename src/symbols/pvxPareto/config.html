@@ -46,6 +46,46 @@
             <label for="pvxpar-maxbars">Maximum bars</label>
             <input id="pvxpar-maxbars" type="number" ng-model="config.MaxBars" min="1" max="400" />
         </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-namefrom">Name bars by</label>
+            <select id="pvxpar-namefrom" ng-model="config.NameFrom">
+                <option value="label">Data source label</option>
+                <option value="element">AF element</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <em>AF element</em> names each bar after the element its attribute belongs to, so
+            one attribute per complex reads as a ranking of complexes. A PI point keeps its label.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-hidezero">Hide zero values</label>
+            <input id="pvxpar-hidezero" type="checkbox" ng-model="config.HideZero" />
+        </div>
+        <div class="pvx-cfg-hint">Hidden bars are counted in the footer, and they are left out of the cumulative line.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Interaction</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpar-click">On bar click</label>
+            <select id="pvxpar-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxpar-navtarget">Target display</label>
+            <input id="pvxpar-navtarget" type="text" ng-model="config.NavigateTarget"
+                   placeholder="Display id, or a full URL" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The bar's AF element is passed as <code>asset=</code>, so a display built on one
+            complex opens on the one clicked. Leave the target blank to switch the current
+            display to that element. The <em>Other</em> bar goes nowhere.
+        </div>
     </div>
 
     <div class="pvx-cfg-group">

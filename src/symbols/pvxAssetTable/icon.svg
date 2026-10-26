@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Asset table">
+    <title>PVX Asset Table</title>
+    <!-- A header bar, then three asset rows: a status dot, a name bar and
+         three cells, one of them in alarm. Flat and transparent like the
+         other icons, so it reads at palette size. -->
+    <g>
+        <rect x="40" y="64" width="432" height="56" rx="12" fill="#5c6570"/>
+        <circle cx="76" cy="186" r="22" fill="#2f9e5f"/>
+        <rect x="116" y="164" width="120" height="44" rx="10" fill="#8a8f96"/>
+        <rect x="256" y="164" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="332" y="164" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="408" y="164" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <circle cx="76" cy="280" r="22" fill="#c8452f"/>
+        <rect x="116" y="258" width="120" height="44" rx="10" fill="#8a8f96"/>
+        <rect x="256" y="258" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="332" y="258" width="64" height="44" rx="10" fill="#c8452f"/>
+        <rect x="408" y="258" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <circle cx="76" cy="374" r="22" fill="#d99024"/>
+        <rect x="116" y="352" width="120" height="44" rx="10" fill="#8a8f96"/>
+        <rect x="256" y="352" width="64" height="44" rx="10" fill="#d99024"/>
+        <rect x="332" y="352" width="64" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="408" y="352" width="64" height="44" rx="10" fill="#3b82c4"/>
+    </g>
+</svg>

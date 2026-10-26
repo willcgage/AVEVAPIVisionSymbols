@@ -1,6 +1,8 @@
 <div class="pvx pvx-kpi" ng-class="{'pvx-kpi-center': pvx.align === 'center'}"
      ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
-    <div class="pvx-surface pvx-kpi-surface">
+    <div class="pvx-surface pvx-kpi-surface"
+         ng-class="{'pvx-kpi-edged': !!pvx.edgeColor}"
+         ng-style="pvx.edgeColor ? {'border-left-color': pvx.edgeColor, 'border-left-width': (config.EdgeWidth || 4) + 'px'} : {}">
 
         <div class="pvx-kpi-top">
             <div class="pvx-kpi-title pvx-truncate" ng-if="config.ShowLabel && pvx.title" title="{{pvx.title}}">{{pvx.title}}</div>
@@ -19,6 +21,8 @@
         <div class="pvx-kpi-spark"
              ng-if="config.ShowSparkline"
              ng-style="{'height': (config.SparkHeightPct || 38) + '%'}"></div>
+
+        <div class="pvx-kpi-note pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</div>
 
         <div class="pvx-kpi-footer" ng-if="pvx.secLeft || pvx.secRight || pvx.time">
             <span class="pvx-kpi-stat pvx-truncate" ng-if="pvx.secLeft">
