@@ -582,12 +582,20 @@
      * limit vanish. Rows write the string; the string is read back into rows
      * only when something else changed it (the text box, an undo, a load).
      *
+     * Most symbols have one band list, config.Thresholds. A symbol with
+     * another key in the same grammar (Combo Chart's LimitBands) binds that
+     * key too; each editor is published under its key so two on one pane
+     * never write into each other's string.
+     *
      * @param {Object} scope the symbol's Angular scope
-     * @returns {Object} state, also at scope.runtimeData.pvxBands
+     * @param {String} [key] config key holding the grammar, default 'Thresholds'
+     * @returns {Object} state, at scope.runtimeData.pvxBandsFor[key], and
+     *          for Thresholds also at scope.runtimeData.pvxBands
      */
-    thresholds.bind = function (scope) {
+    thresholds.bind = function (scope, key) {
         if (!scope) { return null; }
         if (!scope.runtimeData) { scope.runtimeData = {}; }
+        key = key || 'Thresholds';
 
         var state = {
             rows: [],
@@ -634,7 +642,7 @@
                 }
             }
             state.written = thresholds.stringify(out);
-            if (c) { c.Thresholds = state.written; }
+            if (c) { c[key] = state.written; }
         };
 
         state.setColor = function (r) {
@@ -692,7 +700,7 @@
             try {
                 state.unwatch = scope.$watch(function () {
                     var c = cfg();
-                    return c ? c.Thresholds : undefined;
+                    return c ? c[key] : undefined;
                 }, function (v) {
                     var s = v === undefined || v === null ? '' : String(v);
                     if (s !== state.written) { state.load(v); }
@@ -704,8 +712,10 @@
         };
 
         var c0 = cfg();
-        state.load(c0 ? c0.Thresholds : '');
-        scope.runtimeData.pvxBands = state;
+        state.load(c0 ? c0[key] : '');
+        if (!scope.runtimeData.pvxBandsFor) { scope.runtimeData.pvxBandsFor = {}; }
+        scope.runtimeData.pvxBandsFor[key] = state;
+        if (key === 'Thresholds') { scope.runtimeData.pvxBands = state; }
         return state;
     };
 
@@ -1851,6 +1861,82 @@
             if (obj && obj[names[i]] !== undefined && obj[names[i]] !== null) { return obj[names[i]]; }
         }
         return undefined;
+    };
+
+    /**
+     * Carry each data source's metadata forward across data updates.
+     *
+     * PI Vision sends Label, Units and Path with the first update and then only
+     * periodically; the updates in between carry values alone (AVEVA's
+     * extensibility guide caches `data.Label` for this reason). Normalizing
+     * each update on its own therefore fell back to "Series 1" on most
+     * updates and back to the real name on the next one with metadata, so
+     * every PVX label flickered on a live server. The harness never showed it
+     * because the mock sent metadata every time.
+     *
+     * Returns a factory: one instance per symbol, called on every update. It
+     * fills a missing field from the last update that had it and returns a
+     * shallow copy, leaving PI Vision's own objects untouched. Entries are
+     * keyed by the data source's own string where `sourceList()` gives one
+     * per item, so a removed or reordered source cannot inherit its
+     * neighbour's name; otherwise by position. Units is only filled when
+     * absent, because '' is a real answer for a unitless tag.
+     */
+    var META_FIELDS = ['Label', 'Units', 'Path', 'Description'];
+
+    var shallow = function (obj) {
+        var out = {};
+        for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) { out[k] = obj[k]; } }
+        return out;
+    };
+
+    data.metaCarry = function (sourceList) {
+        var cache = {};
+
+        var carry = function (item, key) {
+            if (!item || typeof item !== 'object') { return item; }
+            var seen = cache[key] || (cache[key] = {});
+            var copy = null;
+            for (var i = 0; i < META_FIELDS.length; i++) {
+                var f = META_FIELDS[i];
+                var v = pick(item, [f, f.charAt(0).toLowerCase() + f.slice(1)]);
+                if (v !== undefined && (v !== '' || f === 'Units')) {
+                    seen[f] = v;
+                } else if (seen[f] !== undefined) {
+                    copy = copy || shallow(item);
+                    copy[f] = seen[f];
+                }
+            }
+            return copy || item;
+        };
+
+        var carryList = function (items, sources) {
+            var byName = sources && sources.length === items.length;
+            var out = [];
+            for (var i = 0; i < items.length; i++) {
+                out.push(carry(items[i], byName ? 's:' + sources[i] : 'i:' + i));
+            }
+            return out;
+        };
+
+        var isList = function (v) { return Object.prototype.toString.call(v) === '[object Array]'; };
+
+        return function (d) {
+            if (!d || typeof d !== 'object') { return d; }
+            var sources = null;
+            try { sources = sourceList ? sourceList() : null; } catch (e) { sources = null; }
+            if (isList(d)) { return carryList(d, sources); }
+            var out = null;
+            var keys = ['Data', 'data', 'Rows', 'rows', 'Traces'];
+            for (var k = 0; k < keys.length; k++) {
+                if (isList(d[keys[k]])) {
+                    out = out || shallow(d);
+                    out[keys[k]] = carryList(d[keys[k]], sources);
+                }
+            }
+            // Value and Gauge put the one source's fields on the payload itself.
+            return out || carry(d, sources && sources.length === 1 ? 's:' + sources[0] : 'i:0');
+        };
     };
 
     /** DataShape 'Value' / 'Gauge' -> {value, raw, time, label, units, path, good} */
@@ -4520,11 +4606,28 @@
 
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
         ctx.bands = thresholds.bind(scope);
+        // Other keys in the band grammar, named by the symbol, e.g. LimitBands.
+        ctx.bandEditors = [];
+        for (var bk = 0; hooks.bandKeys && bk < hooks.bandKeys.length; bk++) {
+            if (hooks.bandKeys[bk] !== 'Thresholds') { ctx.bandEditors.push(thresholds.bind(scope, hooks.bandKeys[bk])); }
+        }
         ctx.afpick = afpick.bind(scope);
         ctx.states = states.bind(scope);
         ctx.tags = tags.bind(scope);
 
+        var keepMeta = data.metaCarry(function () {
+            var ds = scope.symbol && scope.symbol.DataSources;
+            if (!ds || typeof ds.length !== 'number') { return null; }
+            var out = [];
+            for (var i = 0; i < ds.length; i++) { out.push(String(ds[i])); }
+            return out;
+        });
+
         vis.onDataUpdate = function (d) {
+            // Before anything reads it: the sources list, the state map and
+            // every symbol's own onData all want the names PI Vision only
+            // sends now and then.
+            d = keepMeta(d);
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -4564,6 +4667,7 @@
             renderer.destroy();
             if (ctx.sources) { ctx.sources.destroy(); }
             if (ctx.bands) { ctx.bands.destroy(); }
+            for (var be = 0; be < ctx.bandEditors.length; be++) { ctx.bandEditors[be].destroy(); }
             if (ctx.afpick) { ctx.afpick.destroy(); }
             if (ctx.states) { ctx.states.destroy(); }
             if (ctx.tags) { ctx.tags.destroy(); }

@@ -17,10 +17,18 @@
  *            symbol.DataSources and renumbers positional config, and a
  *            single-source symbol offers no Remove at all.
  *
+ * Labels across updates: PVX.data.metaCarry in Node, which keeps each
+ * source's Label, Units and Path between PI Vision's metadata updates and
+ * keeps them with the right source after a removal.
+ *
  * Band editor: PVX.thresholds.bind in Node (rows <-> the stored grammar
  * string, which saved displays depend on), then the built pane in Chromium:
  * one row per band, and typing, picking, adding and removing rewrite
  * config.Thresholds.
+ *
+ * Combo Chart: its TraceSpec as one row per data source (type, axis, colour,
+ * line style, width) and its LimitBands through the same band rows, each
+ * writing only its own key and following a removed data source.
  *
  * Requires the dev dependency `playwright` for the second half. Set
  * PVX_CHROMIUM to use a pre-installed browser.
@@ -131,6 +139,41 @@ function rules() {
     check('the last source cannot be removed', st.remove(0) === false && arr.length === 1, arr);
 }
 
+/*
+ * PI Vision sends Label, Units and Path only now and then, so the core carries
+ * them across the updates in between. Keyed by data source, a removal must
+ * not hand a name to the neighbour that moves into the removed one's place.
+ */
+function metaRules() {
+    console.log('');
+    console.log(C.bold + 'PVX.data.metaCarry rules' + C.reset);
+    const D = loadCore().data;
+    let list = ['pi:\\\\s\\A?1', 'pi:\\\\s\\B?2', 'pi:\\\\s\\C?3'];
+    const keep = D.metaCarry(() => list);
+    const full = { Data: [
+        { Label: 'A', Units: 'psi', Path: 'pa', Value: [] },
+        { Label: 'B', Units: '', Path: 'pb', Value: [] },
+        { Label: 'C', Units: 'gpm', Path: 'pc', Value: [] }] };
+    keep(full);
+    const bare = { Data: [{ Value: [] }, { Value: [] }, { Value: [] }] };
+    const next = D.series(keep(bare));
+    check('names survive an update without metadata', next.map((x) => x.label).join() === 'A,B,C', next.map((x) => x.label));
+    check('units survive, and a unitless tag stays unitless', next.map((x) => x.units).join() === 'psi,,gpm', next.map((x) => x.units));
+    check('PI Vision\'s own objects are not modified', bare.Data[0].Label === undefined);
+    list = [list[0], list[2]];
+    const after = D.series(keep({ Data: [{ Value: [] }, { Value: [] }] }));
+    check('after a removal each name stays with its own source', after.map((x) => x.label).join() === 'A,C', after.map((x) => x.label));
+    const renamed = D.series(keep({ Data: [{ Label: 'A2', Value: [] }, { Value: [] }] }));
+    check('a new name replaces the remembered one', renamed[0].label === 'A2' && renamed[1].label === 'C', renamed.map((x) => x.label));
+    const one = D.metaCarry(() => ['pi:\\\\s\\X?9']);
+    one({ Value: 1, Label: 'X', Units: 'degF' });
+    const single = D.single(one({ Value: 2 }));
+    check('Value shape keeps its label and units', single.label === 'X' && single.units === 'degF', single);
+    const rows = D.metaCarry(() => null);
+    rows({ Rows: [{ Label: 'R', Value: 1 }] });
+    check('Table rows keep their label by position', D.rows(rows({ Rows: [{ Value: 2 }] }))[0].label === 'R');
+}
+
 function bandRules() {
     console.log('');
     console.log(C.bold + 'PVX.thresholds.bind rules' + C.reset);
@@ -170,6 +213,16 @@ function bandRules() {
     check('a colour the picker cannot show is kept until changed', named.rows[0].color === 'red', named.rows[0]);
     const empty = T.bind({ config: {} });
     check('no Thresholds key -> no rows, no crash', empty.rows.length === 0);
+
+    const two = { config: { Thresholds: '0:#2f9e5f:Normal', LimitBands: '80:#d99024:High' } };
+    const th = T.bind(two);
+    const lb = T.bind(two, 'LimitBands');
+    check('another key binds its own editor',
+        two.runtimeData.pvxBandsFor.LimitBands === lb && two.runtimeData.pvxBandsFor.Thresholds === th &&
+        two.runtimeData.pvxBands === th && lb.rows.length === 1 && lb.rows[0].value === 80, lb.rows);
+    lb.rows[0].value = 85; lb.commit();
+    check('...and writes only its own key',
+        two.config.LimitBands === '85:#d99024:High' && two.config.Thresholds === '0:#2f9e5f:Normal', two.config);
 }
 
 /* ------------------------------------------------------------------- pane */
@@ -324,6 +377,88 @@ async function pane() {
         check('text edits come back as rows', await bands.count() === 2 &&
             await bands.nth(1).locator('input[type="text"]').inputValue() === 'High', await bands.count());
 
+        console.log('');
+        console.log(C.bold + 'Combo Chart traces and limit bands (built pane)' + C.reset);
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxComboChart', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, {
+            typeName: 'pvxComboChart',
+            config: { TraceSpec: '1:bar, 2:line:right:#8267b0:dashed:1px, 5:area', LimitBands: '80:#d99024:High' },
+            sources: ['af:\\\\srv\\db\\Pump 101|Flow?a', 'af:\\\\srv\\db\\Pump 101|Power?b', 'pi:\\\\srv\\SINUSOID?c']
+        });
+        const tr = page.locator('.pvx-cfg-tr-row');
+        check('no trace text box by default', await page.locator('textarea[ng-model="config.TraceSpec"]').count() === 0);
+        check('one trace row per source, plus one for an entry past the end', await tr.count() === 5, await tr.count());
+        check('rows are named after the data source',
+            (await tr.nth(1).locator('.pvx-cfg-tr-label').textContent()).trim() === 'Pump 101|Power');
+        check('row 4 has no entry and no source, but is kept below the listed 5',
+            /No data source/.test(await tr.nth(4).locator('.pvx-cfg-tr-label').textContent()));
+        check('row shows type, axis, colour, style, width from the string',
+            await tr.nth(1).locator('.pvx-cfg-tr-type').inputValue() === 'line' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-axis').inputValue() === 'right' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-color').inputValue() === '#8267b0' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-dash').inputValue() === 'dashed' &&
+            await tr.nth(1).locator('.pvx-cfg-tr-width').inputValue() === '1');
+        check('a bar has no line style', await tr.nth(0).locator('.pvx-cfg-tr-dash').count() === 0);
+        check('an unlisted trace shows the default', await tr.nth(2).locator('.pvx-cfg-tr-type').inputValue() === '' &&
+            /Default \(Line\)/.test(await tr.nth(2).locator('.pvx-cfg-tr-type option').first().textContent()));
+        check('opening the pane writes nothing',
+            await page.evaluate(() => window.__scope.config.TraceSpec) === '1:bar, 2:line:right:#8267b0:dashed:1px, 5:area');
+
+        await tr.nth(2).locator('.pvx-cfg-tr-type').selectOption('step');
+        await tr.nth(2).locator('.pvx-cfg-tr-axis').selectOption('right');
+        await tr.nth(0).locator('.pvx-cfg-tr-axis').selectOption('right');
+        let spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('choosing type and axis rewrites TraceSpec', spec === '1:bar:right, 2:line:right:#8267b0:dashed:1px, 3:step:right, 5:area', spec);
+
+        await tr.nth(2).locator('.pvx-cfg-tr-color').evaluate((el) => {
+            el.value = '#336699';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await tr.nth(2).locator('.pvx-cfg-tr-dash').selectOption('dotted');
+        await tr.nth(2).locator('.pvx-cfg-tr-width').fill('2.5');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('colour, style and width are written', /3:step:right:#336699:dotted:2\.5px/.test(spec), spec);
+        await tr.nth(1).locator('.pvx-cfg-tr-auto').click();
+        await tr.nth(1).locator('.pvx-cfg-tr-dash').selectOption('');
+        await tr.nth(1).locator('.pvx-cfg-tr-width').fill('');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('Auto, Solid and a blank width drop their tokens', /(^|, )2:line:right(,|$)/.test(spec), spec);
+        await tr.nth(0).locator('.pvx-cfg-tr-type').selectOption('');
+        await tr.nth(0).locator('.pvx-cfg-tr-axis').selectOption('left');
+        spec = await page.evaluate(() => window.__scope.config.TraceSpec);
+        check('a row back at every default leaves the string', !/(^|, )1:/.test(spec), spec);
+        await tr.nth(1).locator('.pvx-cfg-tr-type').selectOption('hidden');
+        check('a hidden trace offers no axis or colour',
+            await tr.nth(1).locator('.pvx-cfg-tr-axis').count() === 0 && await tr.nth(1).locator('.pvx-cfg-tr-color').count() === 0);
+
+        await page.locator('.pvx-cfg-traces .pvx-cfg-band-link', { hasText: 'Edit as text' }).click();
+        const tbox = page.locator('textarea[ng-model="config.TraceSpec"]');
+        check('Edit as text shows the grammar', await tbox.count() === 1 && await tbox.inputValue() ===
+            await page.evaluate(() => window.__scope.config.TraceSpec), await tbox.inputValue());
+        await tbox.fill('1:scatter:#c8452f');
+        await page.locator('.pvx-cfg-band-link', { hasText: 'Back to fields' }).first().click();
+        check('text edits come back as rows', await tr.count() === 3 &&
+            await tr.nth(0).locator('.pvx-cfg-tr-type').inputValue() === 'scatter' &&
+            await tr.nth(0).locator('.pvx-cfg-tr-color').inputValue() === '#c8452f', await tr.count());
+
+        await page.locator('.pvx-cfg-src-row').nth(0).locator('button', { hasText: 'Remove' }).click();
+        await page.locator('.pvx-cfg-src-row').nth(0).locator('button', { hasText: 'Confirm' }).click();
+        check('removing a source renumbers and the rows follow', await tr.count() === 2 &&
+            (await tr.nth(0).locator('.pvx-cfg-tr-label').textContent()).trim() === 'Pump 101|Power' &&
+            await tr.nth(0).locator('.pvx-cfg-tr-type').inputValue() === '', await tr.count());
+
+        const lbRows = page.locator('.pvx-cfg-band-row');
+        check('limit bands are rows, not a text box', await lbRows.count() === 1 &&
+            await page.locator('textarea[ng-model="config.LimitBands"]').count() === 0 &&
+            await lbRows.nth(0).locator('input[type="number"]').inputValue() === '80');
+        await lbRows.nth(0).locator('input[type="text"]').fill('Hi limit');
+        await page.locator('.pvx-cfg-band-add').click();
+        const lbs = await page.evaluate(() => window.__scope.config.LimitBands);
+        check('editing a limit band rewrites config.LimitBands', /^80:#d99024:Hi limit, 90:/.test(lbs), lbs);
+        check('...and leaves Thresholds alone', await page.evaluate(() => window.__scope.config.Thresholds) ===
+            await page.evaluate(() => window.PVMock.get('pvxComboChart').getDefaultConfig().Thresholds));
+
         check('no page errors', errors.length === 0, errors);
     } finally {
         await browser.close();
@@ -334,6 +469,7 @@ async function pane() {
 (async () => {
     try {
         rules();
+        metaRules();
         bandRules();
         await pane();
     } catch (e) {

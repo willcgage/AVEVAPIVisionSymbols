@@ -434,6 +434,31 @@
         return null;
     };
 
+    /**
+     * Updates after the first carry values only, as PI Vision's do: it sends
+     * Label, Units and Path on the first update and then only periodically.
+     * The mock used to send them every time, which hid a symbol that lost its
+     * names between metadata updates. `opts.metadata: 'every'` restores the
+     * old behaviour for a caller that wants it.
+     */
+    var generateFull = Mock.generate;
+    Mock.generate = function (shape, opts) {
+        var out = generateFull(shape, opts);
+        if (!out || !opts || !(opts.tick >= 2) || opts.metadata === 'every') { return out; }
+        var strip = function (o) {
+            if (o && typeof o === 'object') { delete o.Label; delete o.Units; delete o.Path; }
+        };
+        var lists = [out.Data, out.Rows, out.Traces];
+        var any = false;
+        for (var l = 0; l < lists.length; l++) {
+            if (!lists[l]) { continue; }
+            any = true;
+            for (var i = 0; i < lists[l].length; i++) { strip(lists[l][i]); }
+        }
+        if (!any) { strip(out); }
+        return out;
+    };
+
     function round(v, d) { var f = Math.pow(10, d); return Math.round(v * f) / f; }
     function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 

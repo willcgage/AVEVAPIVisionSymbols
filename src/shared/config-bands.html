@@ -1,45 +1,45 @@
             <!-- Injected by tools/build.js wherever a pane has the pvx:bands marker.
                  State and actions come from PVX.thresholds.bind, via runtimeData.
-                 config.Thresholds stays the stored grammar string. -->
-            <div class="pvx-cfg-bands" ng-if="runtimeData.pvxBands && !runtimeData.pvxBands.textMode">
+                 config.__KEY__ stays the stored grammar string. -->
+            <div class="pvx-cfg-bands" ng-if="runtimeData.pvxBandsFor.__KEY__ && !runtimeData.pvxBandsFor.__KEY__.textMode">
                 <div class="pvx-cfg-band-head">
                     <span class="pvx-cfg-band-v">From</span>
                     <span class="pvx-cfg-band-c">Colour</span>
                     <span class="pvx-cfg-band-l">Label</span>
                 </div>
-                <div class="pvx-cfg-band-row" ng-repeat="b in runtimeData.pvxBands.rows track by $index"
+                <div class="pvx-cfg-band-row" ng-repeat="b in runtimeData.pvxBandsFor.__KEY__.rows track by $index"
                      ng-class="{'pvx-cfg-band-bad': b.invalid}">
                     <input type="number" step="any" class="pvx-cfg-band-v" ng-model="b.value"
-                           ng-change="runtimeData.pvxBands.commit()"
+                           ng-change="runtimeData.pvxBandsFor.__KEY__.commit()"
                            aria-label="Lower limit of band {{$index + 1}}" title="Band applies from this value up to the next band" />
                     <input type="color" class="pvx-cfg-band-c" ng-model="b.hex"
-                           ng-change="runtimeData.pvxBands.setColor(b)"
+                           ng-change="runtimeData.pvxBandsFor.__KEY__.setColor(b)"
                            aria-label="Colour of band {{$index + 1}}" title="{{b.color}}" />
                     <input type="text" class="pvx-cfg-band-l" ng-model="b.label"
-                           ng-change="runtimeData.pvxBands.commit()" placeholder="Label"
+                           ng-change="runtimeData.pvxBandsFor.__KEY__.commit()" placeholder="Label"
                            aria-label="Label of band {{$index + 1}}" />
-                    <button type="button" class="pvx-cfg-band-x" ng-click="runtimeData.pvxBands.remove($index)"
+                    <button type="button" class="pvx-cfg-band-x" ng-click="runtimeData.pvxBandsFor.__KEY__.remove($index)"
                             title="Remove this band" aria-label="Remove band {{$index + 1}}">&times;</button>
                 </div>
-                <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxBands.hasInvalid()">
+                <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxBandsFor.__KEY__.hasInvalid()">
                     A band with no limit is ignored until it has a number.
                 </div>
-                <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxBands.unsorted()">
+                <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxBandsFor.__KEY__.unsorted()">
                     Bands apply lowest limit first, whatever their order here.
-                    <button type="button" class="pvx-cfg-band-link" ng-click="runtimeData.pvxBands.sort()">Sort them</button>
+                    <button type="button" class="pvx-cfg-band-link" ng-click="runtimeData.pvxBandsFor.__KEY__.sort()">Sort them</button>
                 </div>
-                <div class="pvx-cfg-hint" ng-if="!runtimeData.pvxBands.rows.length">No bands, so thresholds have no effect.</div>
+                <div class="pvx-cfg-hint" ng-if="!runtimeData.pvxBandsFor.__KEY__.rows.length">__EMPTY__</div>
                 <div class="pvx-cfg-band-actions">
-                    <button type="button" class="pvx-cfg-band-add" ng-click="runtimeData.pvxBands.add()">Add band</button>
-                    <button type="button" class="pvx-cfg-band-link" ng-click="runtimeData.pvxBands.toggleText()">Edit as text</button>
+                    <button type="button" class="pvx-cfg-band-add" ng-click="runtimeData.pvxBandsFor.__KEY__.add()">Add band</button>
+                    <button type="button" class="pvx-cfg-band-link" ng-click="runtimeData.pvxBandsFor.__KEY__.toggleText()">Edit as text</button>
                 </div>
             </div>
-            <div ng-if="!runtimeData.pvxBands || runtimeData.pvxBands.textMode">
-                <textarea class="pvx-cfg-band-text" ng-model="config.Thresholds" rows="3"
+            <div ng-if="!runtimeData.pvxBandsFor.__KEY__ || runtimeData.pvxBandsFor.__KEY__.textMode">
+                <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3"
                           placeholder="0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical"></textarea>
                 <div class="pvx-cfg-hint">
                     <code>lowerLimit:colour:label</code>, comma separated.
-                    <button type="button" class="pvx-cfg-band-link" ng-if="runtimeData.pvxBands"
-                            ng-click="runtimeData.pvxBands.toggleText()">Back to fields</button>
+                    <button type="button" class="pvx-cfg-band-link" ng-if="runtimeData.pvxBandsFor.__KEY__"
+                            ng-click="runtimeData.pvxBandsFor.__KEY__.toggleText()">Back to fields</button>
                 </div>
             </div>

@@ -19,7 +19,7 @@ short, sharp list of things that will waste your time if you do not know them.
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 630 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal + band editor: rules + built pane
+node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
@@ -152,6 +152,9 @@ silently destroys a site's PI Web API settings on upgrade.
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
   `scope.runtimeData.pvxBands`); the stored value is still that string.
+  Combo Chart's `LimitBands` uses the same rows via `key=LimitBands` plus
+  `bandKeys` in its bootstrap hooks, and its `TraceSpec` is rows too, one per
+  data source, from an editor in its own `symbol.js` (`runtimeData.pvxTraces`).
 - Digital state maps (`StateMap`, `StateColors`, `UptimeStates`, and the
   alarm symbols' `StateBands`, which puts a state in a threshold band) are rows too:
   `<!-- pvx:states key=StateMap kind=map|colors|list|bands -->` →
@@ -186,6 +189,15 @@ Each of these cost real debugging time. Do not rediscover them.
   which passed the bare template, looked fine. `PVX.bootstrap` resolves
   `ctx.node` to the `.pvx` root; the harnesses mount templates inside a
   wrapper, and `verify.js` fails any `--pvx-*` written above the root.
+- **PI Vision sends `Label`, `Units` and `Path` only now and then.** Most
+  updates carry values alone, so normalizing each one on its own showed
+  "Series 1" between metadata updates and the real name on the next: every
+  label flickered on a live server in 1.11.0, 22 symbols at once. The mock
+  sent metadata every time, which hid it. `PVX.bootstrap` now runs every
+  update through `PVX.data.metaCarry` (keyed by data source, so a removal
+  cannot pass a name to the neighbour); the mock strips metadata after the
+  first update, and `verify.js` fails a placeholder name. Never read labels
+  from a raw update without going through the bootstrap.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were
