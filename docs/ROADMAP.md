@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **34 symbols**.
+> [After the plan](#after-the-plan). The library is at **35 symbols**.
 
 ## On originality
 
@@ -470,6 +470,20 @@ on every symbol):
 | Symbol | Data shape | Why it earns its place |
 |---|---|---|
 | **pvxAssetTable** | Table, many; or PI Web API | The overview table of units by attribute that PI Vision's own table cannot pivot: per-cell limits, a worst-cell status dot, a row that opens the unit's display. In search mode it lists the elements under the current asset, so an asset swap to an area with more units gets more rows. |
+
+A check of fourteen common chart types against the library (spiral, funnel,
+bubble, polar, pyramid, doughnut, chord, concentric, wind rose, timeline and
+their stacked variants) found doughnut and timeline covered and most of the
+rest answered better by an existing symbol. Two additions came of it:
+
+| Symbol | Data shape | Why it earns its place |
+|---|---|---|
+| **pvxWindRose** | TimeSeries, direction + speed | Dispersion, odour and drift questions are direction questions, and a trend of a 0-360 tag cannot answer them. Stacked polar bars of time share by direction and speed band; also covers plain polar and percent-stacked polar. |
+| *bubble mode on pvxXYScatter* | TimeSeries, third source | A third tag sets each point's area, paired by time like X. |
+
+Spiral charts, funnel, pyramid and chord were declined: each restates a
+question that pvxPeriodOverlay, pvxHeatmap, pvxWaterfall or pvxSankey already
+answers in a form that is easier to read values from.
 
 ## What next
 

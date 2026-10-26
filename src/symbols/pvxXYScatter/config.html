@@ -3,7 +3,8 @@
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Data sources</div>
         <div class="pvx-cfg-hint">
-            The <strong>first</strong> data source is the X axis, the <strong>second</strong> is the Y axis.
+            The <strong>first</strong> data source is the X axis, the <strong>second</strong> is the Y axis,
+            and in bubble mode the <strong>third</strong> sets each point's size.
             Any further data sources are ignored. Drag the attributes onto the symbol in that order,
             or reorder them in the display's data source list.
         </div>
@@ -96,6 +97,22 @@
             <input id="pvxxy-connect" type="checkbox" ng-model="config.ShowConnectingLine" />
         </div>
         <div class="pvx-cfg-hint">Turns the plot into a phase portrait — useful for start-up and batch trajectories.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-bubble">Size points by the third source</label>
+            <input id="pvxxy-bubble" type="checkbox" ng-model="config.BubbleMode" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.BubbleMode">
+            <label for="pvxxy-bmin">Smallest bubble (px)</label>
+            <input id="pvxxy-bmin" type="number" ng-model="config.BubbleMinSize" min="1" max="40" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.BubbleMode">
+            <label for="pvxxy-bmax">Largest bubble (px)</label>
+            <input id="pvxxy-bmax" type="number" ng-model="config.BubbleMaxSize" min="2" max="60" step="0.5" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.BubbleMode">
+            Bubble area grows with the third source's value, paired by time the same way as X.
+            Point size above is not used. The footer gives the value range the sizes cover.
+        </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-count">Show point count</label>
             <input id="pvxxy-count" type="checkbox" ng-model="config.ShowPointCount" />

@@ -1,0 +1,24 @@
+<div class="pvx pvx-wr"
+     ng-style="{'background': config.Transparent ? 'transparent' : (config.BackgroundColor || ''),
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- The rose, rings, compass and legend are drawn as SVG by
+                 symbol.js; keep this div empty. -->
+            <div class="pvx-wr-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.countText || pvx.note">
+            <span class="pvx-truncate pvx-num pvx-wr-count" ng-if="pvx.countText">{{pvx.countText}}</span>
+            <span class="pvx-truncate pvx-wr-note" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

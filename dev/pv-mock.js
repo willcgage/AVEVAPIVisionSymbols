@@ -291,6 +291,38 @@
             return { Data: cData };
         }
 
+        // A wind rose is meaningless on a generic sine: it needs a direction
+        // that wraps through 360 and favours a quarter, and a speed that is
+        // higher from that quarter, the way a real met mast reads.
+        if (shape === 'TimeSeries' && opts.profile === 'wind') {
+            var wData = [];
+            var dirV = [], spdV = [];
+            for (var wp = 0; wp < points; wp++) {
+                var wtm = now - span + (span * wp) / (points - 1);
+                var ph2 = (wtm - (now - span)) / span;
+                // Mostly south-westerly, swinging round to the north for a spell.
+                var prevailing = ph2 > 0.55 && ph2 < 0.72 ? 350 : 225;
+                var dir = prevailing + Math.sin(ph2 * 23) * 28 + (rand() - 0.5) * 50;
+                dir = ((dir % 360) + 360) % 360;
+                var spd = (prevailing === 225 ? 5.2 : 2.6) + Math.sin(ph2 * 11) * 2.4 + (rand() - 0.5) * 2.6;
+                dirV.push({ Time: new Date(wtm).toISOString(), Value: round(dir, 1) });
+                spdV.push({ Time: new Date(wtm).toISOString(), Value: round(Math.max(0, spd), 2) });
+            }
+            wData.push({ Label: 'Met Mast Wind Direction', Units: '°', Path: '\\\\AF\\Met Mast|Wind Direction',
+                IsGood: opts.badIndex === 0 ? false : true, Value: dirV });
+            if (count > 1) {
+                wData.push({ Label: 'Met Mast Wind Speed', Units: 'm/s', Path: '\\\\AF\\Met Mast|Wind Speed',
+                    IsGood: opts.badIndex === 1 ? false : true,
+                    ErrorDescription: opts.badIndex === 1 ? 'I/O Timeout' : '', Value: spdV });
+            }
+            for (var wx = 2; wx < count; wx++) {
+                var wt = tags[wx];
+                wData.push({ Label: wt.name, Units: wt.units, Path: '', IsGood: true,
+                    Value: [{ Time: new Date(now).toISOString(), Value: round(wt.base, 2) }] });
+            }
+            return { Data: wData };
+        }
+
         if (shape === 'TimeSeries') {
             var data = [];
             for (var s = 0; s < count; s++) {

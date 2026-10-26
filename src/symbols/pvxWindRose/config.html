@@ -1,0 +1,155 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Data</div>
+        <div class="pvx-cfg-hint">
+            The <strong>first</strong> data source is the direction in degrees (0 = north, clockwise),
+            the <strong>second</strong> is the speed. With direction alone the rose shows how much of
+            the time each direction held. Further data sources are ignored.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-intervals">Resolution (points per tag)</label>
+            <input id="pvxwr-intervals" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-gap">Max sample gap (s)</label>
+            <input id="pvxwr-gap" type="number" ng-model="config.MaxPairGapSeconds" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Each sample counts for the time until the next one, as PI itself holds a value. A limit
+            here stops a long gap being credited to the direction before it; the footer says how much
+            time that left out. A speed sample whose newest direction is older than the limit is
+            counted as unpaired. <code>0</code> is no limit, which suits compressed tags that only
+            record a change.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-dir">Direction means</label>
+            <select id="pvxwr-dir" ng-model="config.DirectionIs">
+                <option value="from">Where it blows from (meteorological)</option>
+                <option value="to">Where it blows to</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-calm">Calm below</label>
+            <input id="pvxwr-calm" type="text" ng-model="config.CalmBelow" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Speeds below this have no meaningful direction. Their share is reported as calm instead of
+            being drawn in a sector. Blank turns calm off.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rose</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxwr-title">Title</label>
+            <input id="pvxwr-title" type="text" ng-model="config.Title" placeholder="Leave blank to use the attribute name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-sectors">Sectors</label>
+            <select id="pvxwr-sectors" ng-model="config.Sectors">
+                <option value="4">4 (90°)</option>
+                <option value="8">8 (45°)</option>
+                <option value="12">12 (30°)</option>
+                <option value="16">16 (22.5°)</option>
+                <option value="24">24 (15°)</option>
+                <option value="36">36 (10°)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-measure">Bar length</label>
+            <select id="pvxwr-measure" ng-model="config.Measure">
+                <option value="percent">Percent of time</option>
+                <option value="hours">Hours</option>
+                <option value="normalized">100% per direction</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <em>100% per direction</em> draws every sector full length and shows only the mix of speed
+            bands within it: "when it blows from the north, how hard does it blow".
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-rings">Rings</label>
+            <input id="pvxwr-rings" type="number" ng-model="config.RingCount" min="2" max="8" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-pad">Gap between sectors (°)</label>
+            <input id="pvxwr-pad" type="number" ng-model="config.PadAngle" min="0" max="10" step="0.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-compass">Show compass points</label>
+            <input id="pvxwr-compass" type="checkbox" ng-model="config.ShowCompass" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-legend">Legend</label>
+            <select id="pvxwr-legend" ng-model="config.LegendPosition">
+                <option value="auto">Auto</option>
+                <option value="right">Right</option>
+                <option value="bottom">Bottom</option>
+                <option value="none">None</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Speed bands</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-usethresh">Split bars by speed</label>
+            <input id="pvxwr-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Speed bands</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-hint">
+            Each band starts at its limit, in the speed's own units; set them for m/s, mph or knots as
+            the tag reads. A band with no label is named by its range. Turned off, each sector is one
+            bar in the accent colour.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-theme">Theme</label>
+            <select id="pvxwr-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-showlabel">Show title</label>
+            <input id="pvxwr-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-accent">Accent colour</label>
+            <input id="pvxwr-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-transparent">Transparent background</label>
+            <input id="pvxwr-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-bgcolor">Background colour</label>
+            <input id="pvxwr-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-radius">Corner radius</label>
+            <input id="pvxwr-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxwr-decimals">Decimals</label>
+            <select id="pvxwr-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+</div>

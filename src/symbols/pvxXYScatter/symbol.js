@@ -1,12 +1,15 @@
 /* ============================================================================
  * pvxXYScatter — correlation (X vs Y) plot for AVEVA PI Vision
  * ----------------------------------------------------------------------------
- * DataShape: TimeSeries (Multiple data sources; the FIRST is X, the SECOND is Y)
+ * DataShape: TimeSeries (Multiple data sources; the FIRST is X, the SECOND is
+ * Y, and in bubble mode the THIRD sets each point's size)
  *
- * PI Vision ships no way to plot one tag against another, so every correlation
- * question ("does bearing temperature actually track load?") ends up in Excel.
- * This symbol answers it on the display, over whatever time range the display
- * is showing.
+ * PI Vision's own XY Plot puts one tag against another; this one answers the
+ * question that comes next, "how strongly, and is it still inside the box":
+ * a least-squares fit with its equation and R², an operating envelope that
+ * turns excursions red, points coloured by time or by limit, and a bubble
+ * mode where a third tag sets each point's area. All of it over whatever
+ * time range the display is showing.
  *
  * The interesting part is the pairing. PI is a compressed historian: two tags
  * are almost never stored on the same timestamps, and PI Vision's plot-values
@@ -64,6 +67,11 @@
                 PointColor: '#3b82c4',
                 ShowConnectingLine: false,
 
+                // Bubble: a third data source sets each point's area.
+                BubbleMode: false,
+                BubbleMinSize: 3,           // px radius of the smallest size value
+                BubbleMaxSize: 16,          // px radius of the largest size value
+
                 // Regression
                 ShowRegression: true,
                 RegressionColor: '#c8452f',
@@ -98,9 +106,11 @@
         var model = {
             xSeries: null,
             ySeries: null,
-            extraCount: 0,     // data sources beyond the first two (ignored)
-            pairs: [],         // [{x, y, t, xt}] in Y-time order
-            dropped: 0         // Y samples with no X value close enough
+            zSeries: null,     // bubble size, when a third source exists
+            sourceCount: 0,
+            pairs: [],         // [{x, y, t, xt, z}] in Y-time order
+            dropped: 0,        // Y samples with no X value close enough
+            noSize: 0          // bubble mode: pairs with no size value close enough
         };
 
         var ctx = PVX.bootstrap(this, scope, elem, {
@@ -110,7 +120,8 @@
                 var all = PVX.data.series(d);
                 model.xSeries = all.length > 0 ? all[0] : null;
                 model.ySeries = all.length > 1 ? all[1] : null;
-                model.extraCount = Math.max(0, all.length - 2);
+                model.zSeries = all.length > 2 ? all[2] : null;
+                model.sourceCount = all.length;
                 rebuildPairs(ctx.config || scope.config || {});
             },
 
@@ -138,6 +149,32 @@
             var res = mergeByTime(xp, yp, maxGapMs);
             model.pairs = res.pairs;
             model.dropped = res.dropped;
+            model.noSize = 0;
+            if (cfg.BubbleMode && model.zSeries) { attachSizes(model.zSeries.points, maxGapMs); }
+        }
+
+        /**
+         * Bubble mode: give each pair the size value in force at its instant,
+         * by the same last-known-value rule and gap limit as X. A pair with no
+         * size is dropped and counted rather than drawn at some invented size,
+         * and the fit then describes exactly the points on the plot.
+         */
+        function attachSizes(zs, maxGapMs) {
+            var kept = [], i = 0;
+            for (var j = 0; j < model.pairs.length; j++) {
+                var pr = model.pairs[j];
+                if (zs.length) {
+                    while (i + 1 < zs.length && zs[i + 1].t <= pr.t) { i++; }
+                    var zPt = zs[i];
+                    if (zPt.t <= pr.t && pr.t - zPt.t <= maxGapMs) {
+                        pr.z = zPt.v;
+                        kept.push(pr);
+                        continue;
+                    }
+                }
+                model.noSize++;
+            }
+            model.pairs = kept;
         }
 
         /**
@@ -275,9 +312,10 @@
             }
             if (!model.pairs.length) {
                 scope.pvx.countText = '';
-                scope.pvx.note = model.dropped
-                    ? (model.dropped + ' samples had no X value within the pairing window')
-                    : '';
+                scope.pvx.note = [
+                    model.dropped ? model.dropped + ' samples had no X value within the pairing window' : '',
+                    model.noSize ? model.noSize + ' pairs had no size value within it' : ''
+                ].filter(function (x) { return x; }).join(' · ');
                 emptyState(svgRoot, W, H, t,
                     'No paired samples',
                     'X and Y never overlap within ' +
@@ -299,8 +337,33 @@
                            PVX.fmt.group(String(pairs.length)) + ' (uniform sample)');
             }
             if (model.dropped) { notes.push(model.dropped + ' unpaired'); }
-            if (model.extraCount) {
-                notes.push(model.extraCount + ' extra source' + (model.extraCount > 1 ? 's' : '') + ' ignored');
+            var zs = (cfg.BubbleMode && model.zSeries) ? model.zSeries : null;
+            if (model.noSize) { notes.push(model.noSize + ' without a size value'); }
+            if (cfg.BubbleMode && !zs) { notes.push('bubble size needs a third data source'); }
+            var extraCount = Math.max(0, model.sourceCount - (zs ? 3 : 2));
+            if (extraCount) {
+                notes.push(extraCount + ' extra source' + (extraCount > 1 ? 's' : '') + ' ignored');
+            }
+
+            // Bubble radii: area grows with the value above the smallest one, so
+            // a value twice as far up the range covers twice the ink rather than
+            // four times, which is how a reader compares circles.
+            var zMin = 0, zMax = 0;
+            var rMin = PVX.util.clamp(PVX.util.num(cfg.BubbleMinSize) || 3, 0.5, 40);
+            var rMax = PVX.util.clamp(PVX.util.num(cfg.BubbleMaxSize) || 16, rMin, 60);
+            if (zs) {
+                zMin = zMax = pairs[0].z;
+                for (var zi = 1; zi < pairs.length; zi++) {
+                    if (pairs[zi].z < zMin) { zMin = pairs[zi].z; }
+                    if (pairs[zi].z > zMax) { zMax = pairs[zi].z; }
+                }
+                notes.push('size: ' + (zs.label || 'third source') + ' ' + PVX.fmt.tick(zMin) + '–' +
+                           PVX.fmt.tick(zMax) + (zs.units ? ' ' + zs.units : ''));
+            }
+            function radiusFor(pt) {
+                if (!zs) { return r; }
+                if (!(zMax > zMin)) { return (rMin + rMax) / 2; }
+                return rMin + (rMax - rMin) * Math.sqrt((pt.z - zMin) / (zMax - zMin));
             }
             scope.pvx.note = notes.join(' · ');
 
@@ -547,19 +610,33 @@
             var quad = [0, 0, 0, 0];   // 0=TL 1=TR 2=BL 3=BR
             var midX = plot.x + plot.w / 2, midY = plot.y + plot.h / 2;
 
-            for (i = 0; i < shown.length; i++) {
-                var pt = shown[i];
+            // Large bubbles first, so a small one is never hidden underneath.
+            var drawOrder = shown;
+            if (zs) {
+                drawOrder = shown.slice().sort(function (a, b) { return b.z - a.z; });
+            }
+            var zTip = zs ? (zs.label || 'Size') : '';
+            var zUnits = (zs && zs.units) ? ' ' + zs.units : '';
+
+            for (i = 0; i < drawOrder.length; i++) {
+                var pt = drawOrder[i];
                 var cxp = sx(pt.x), cyp = sy(pt.y);
+                var fillC = colorFor(pt);
                 var dot = PVX.svg.el('circle', {
-                    cx: cxp.toFixed(2), cy: cyp.toFixed(2), r: r,
-                    fill: colorFor(pt),
+                    cx: cxp.toFixed(2), cy: cyp.toFixed(2), r: radiusFor(pt).toFixed(2),
+                    fill: fillC,
                     'fill-opacity': op,
+                    // Overlapping bubbles merge into one blob without an edge.
+                    // Inline style, because the stylesheet's stroke:none on
+                    // plain dots would beat a presentation attribute.
+                    style: zs ? 'stroke:' + fillC + ';stroke-width:0.8px' : null,
                     'class': 'pvx-xy-dot'
                 }, plotG);
                 var title = PVX.svg.el('title', null, dot);
                 title.textContent =
                     xTip + ': ' + PVX.fmt.number(pt.x, numOpts) + xUnits + '\n' +
                     yTip + ': ' + PVX.fmt.number(pt.y, numOpts) + yUnits + '\n' +
+                    (zs ? zTip + ': ' + PVX.fmt.number(pt.z, numOpts) + zUnits + '\n' : '') +
                     PVX.fmt.time(pt.t, 'datetime');
 
                 quad[(cyp < midY ? 0 : 2) + (cxp < midX ? 0 : 1)]++;
