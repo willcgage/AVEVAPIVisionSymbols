@@ -139,7 +139,6 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `AckColor` | `"#d99024"` |  |
 | `ReturnedColor` | `"#3b82c4"` |  |
 | `DimNormal` | `true` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 
@@ -224,7 +223,6 @@ symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI 
 | `HighlightCurrent` | `true` |  |
 | `AutoExpandToCurrent` | `true` |  |
 | `RememberExpanded` | `true` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 
@@ -579,7 +577,6 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `ShowRowStatus` | `true` |  |
 | `CompactRows` | `false` |  |
 | `ReadOnlyPreview` | `false` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 
@@ -629,7 +626,6 @@ symbol selector (see the definition). Like pvxEventGantt, every number here come
 | `ShowOpenEventNote` | `true` |  |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 
@@ -681,7 +677,6 @@ symbol selector (see the definition). This is the first symbol in the library wh
 | `ShowSummary` | `true` |  |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 
@@ -865,7 +860,6 @@ symbol selector (see the definition). This symbol does not read PI Vision's data
 | `ShowHistory` | `true` |  |
 | `HistoryCount` | `5` |  |
 | `ReadOnlyPreview` | `false` |  |
-| `BaseUrlOverride` | `""` |  |
 
 ---
 

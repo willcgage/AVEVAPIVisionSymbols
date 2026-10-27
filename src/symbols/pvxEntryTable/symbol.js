@@ -110,10 +110,7 @@
                 CompactRows: false,
 
                 /* -- build-before-permissions mode ---------------------------------- */
-                ReadOnlyPreview: false,
-
-                /* -- deployment ------------------------------------------------------ */
-                BaseUrlOverride: ''
+                ReadOnlyPreview: false
             });
         }
     };
@@ -303,18 +300,6 @@
          * PI Web API
          * ================================================================ */
 
-        function applyBaseUrlOverride(cfg) {
-            var override = trim(cfg.BaseUrlOverride);
-            if (!override) { return; }
-            if (PVX.api.settings.baseUrl === override) { return; }
-            // PVX.api is one shared client so authentication is configured once
-            // per site; this therefore moves the base URL for the whole page.
-            // The config pane says so.
-            PVX.api.configure({ baseUrl: override });
-            PVX.api.clearCache();
-            webIds = {};          // WebIds are per-server; none of them survive
-        }
-
         function apiUrl(p) { return PVX.api.base() + '/' + p; }
 
         /**
@@ -440,8 +425,6 @@
         function refresh() {
             if (ctx.destroyed) { return; }
             var cfg = liveCfg = scope.config || liveCfg;
-
-            applyBaseUrlOverride(cfg);
 
             // With no baseUrl set, PVX.api first asks PI Vision's own server
             // for /piwebapi. Decide nothing until it has its answer.
@@ -1071,7 +1054,6 @@
             var host = c.host;
             if (!host) { return; }
 
-            applyBaseUrlOverride(cfg);
             applyThemeVars(c, t, cfg);
             scope.pvx.background = cfg.Transparent ? 'transparent' : t.surface;
 

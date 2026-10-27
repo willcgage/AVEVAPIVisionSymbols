@@ -348,7 +348,39 @@ const SCENARIOS = [
         return out;
     });
     await co.close();
+
+    /* -- the drop-in pvx-config.js ------------------------------------------ *
+     * Same server: the shipped file already says what works, nothing to
+     * download. Cross-origin: the download is this server's own file with
+     * baseUrl and auth changed and every other line as it was.             */
+    const runUi = async (pg, base) => {
+        await pg.goto(ORIGIN + '/piwebapi-check.html', { waitUntil: 'networkidle' });
+        if (base) { await pg.fill('#baseUrl', base); }
+        await pg.click('#run');
+        await pg.waitForFunction(() => { const b = document.getElementById('verdictBox'); return b && !b.hidden; },
+            { timeout: 25000 }).catch(() => { });
+        return pg.$eval('#verdictBox', (b) => b.textContent);
+    };
+    const same = await browser.newPage();
+    const sameVerdict = await runUi(same, '');
+    await same.close();
     coLocated = false;
+
+    scenario = 'healthy';
+    const dl = await browser.newPage({ acceptDownloads: true });
+    const apiBase = 'http://127.0.0.1:' + API_PORT + '/piwebapi';
+    const dlVerdict = await runUi(dl, apiBase);
+    let dlText = '';
+    try {
+        const [download] = await Promise.all([
+            dl.waitForEvent('download', { timeout: 10000 }),
+            dl.click('#verdictBox button')
+        ]);
+        dlText = fs.readFileSync(await download.path(), 'utf8');
+    } catch (e) { dlText = 'no download: ' + e.message; }
+    await dl.close();
+    const shipped = fs.readFileSync(path.join(EXT, 'libraries', 'pvx', 'pvx-config.js'), 'utf8');
+    const strip = (t) => t.replace(/^[ \t]*(baseUrl|auth)[ \t]*:.*$/mg, '');
     const probes = coRequests.filter((u) => /\/piwebapi\/$/.test(u)).length;
 
     const unitChecks = [
@@ -364,6 +396,12 @@ const SCENARIOS = [
         ['discovered base is same-origin (no CORS)', found.crossOrigin === false],
         ['discovery probes once per page', probes === 1],
         ['an explicit baseUrl wins over discovery', found.explicitWins === true],
+        ['check page: same server, nothing to download', /already says exactly this/.test(sameVerdict) &&
+            /leave/.test(sameVerdict)],
+        ['check page: the download sets the working baseUrl',
+            /Download pvx-config\.js/.test(dlVerdict) && dlText.indexOf("baseUrl: '" + apiBase + "',") !== -1],
+        ['check page: ...and the authentication that worked', /^\s*auth: '(iwa|anonymous)',/m.test(dlText)],
+        ['check page: ...and leaves every other line as the server had it', strip(dlText) === strip(shipped)],
         ['batch chunking returns all 7', unit.batchCount === 7],
         ['batch reports zero failures', unit.batchResults === 0],
         ['second GET served from cache', unit.cachedFaster === true],

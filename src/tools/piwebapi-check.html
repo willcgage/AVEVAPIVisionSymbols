@@ -165,6 +165,7 @@
     var $ = function (id) { return document.getElementById(id); };
     var report = [];
     var autoBase = '';   // where the symbols look on their own, if baseUrl is blank
+    var loaded = {};     // baseUrl and auth as pvx-config.js gave them, before a run reconfigures PVX.api
 
     /* Prefill from the deployed site config, so this page also verifies that
        pvx-config.js is present and parsed — a blank base URL here is itself
@@ -173,6 +174,7 @@
         var note = 'pvx-config.js not found or did not load.';
         if (PVX && PVX.api) {
             var s = PVX.api.settings;
+            loaded = { baseUrl: s.baseUrl || '', auth: s.auth || '' };
             // A blank baseUrl is not "off" any more: the symbols look on this
             // server. Test exactly the address they will try.
             var auto = !s.baseUrl && typeof PVX.api.isAuto === 'function' && PVX.api.isAuto();
@@ -399,30 +401,111 @@
 
             box.className = 'verdict ok';
             var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
-            // Running the checks configures baseUrl, so judge by what the
-            // site file said when the page loaded.
-            var found = autoBase && baseUrl.replace(/\/+$/, '') === autoBase && best === 'iwa';
-            if (found) {
+            // Same origin as this page is exactly where a blank baseUrl looks,
+            // whether or not pvx-config.js happens to spell it out: recommend
+            // the blank, which keeps working if the server is renamed or the
+            // display is opened by another name for the same machine.
+            var here = location.protocol + '//' + location.host + '/piwebapi';
+            var onThisServer = baseUrl.replace(/\/+$/, '').toLowerCase() === here.toLowerCase();
+            if (onThisServer && best === 'iwa') {
                 box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
                     '<p>PI Web API answers on this PI Vision server, which is where the symbols look when ' +
-                    '<code>baseUrl</code> is blank. Nothing needs setting in <code>pvx-config.js</code> on this ' +
-                    'server. Run this page on every PI Vision server: each one looks on itself.</p>';
+                    '<code>baseUrl</code> is blank. Nothing needs setting: leave <code>baseUrl: \'\'</code> and ' +
+                    '<code>auth: \'iwa\'</code> in <code>pvx-config.js</code>, as installed' +
+                    (autoBase ? '' : ' (it is set to this address now, which also works, but the blank keeps ' +
+                        'working if the server is reached by another name)') +
+                    '. Run this page on every PI Vision server: each one looks on itself.</p>';
+                offerConfig(box, '', 'iwa');
                 return;
             }
             box.innerHTML = '<h3>Working: ' + working.join(', ') + '</h3>' +
-                '<p>Put this into <code>ext\\libraries\\pvx\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
-                'server — the ext folder is not replicated between them:</p>' +
-                '<div class="detail" style="margin-top:8px">root.PVX.api.configure({\n' +
-                '    baseUrl: \'' + baseUrl + '\',\n' +
-                '    auth: \'' + best + '\'\n});</div>' +
+                '<p>In <code>ext\\libraries\\pvx\\pvx-config.js</code> on <strong>every</strong> PI Vision ' +
+                'server — the ext folder is not replicated between them — set these two values inside ' +
+                '<code>siteSettings</code>, leaving the rest of the file as it is:</p>' +
+                '<div class="detail" style="margin-top:8px">baseUrl: \'' + baseUrl + '\',\n' +
+                'auth: \'' + best + '\',</div>' +
                 (working.indexOf('anonymous') !== -1 && working.length === 1
                     ? '<p style="margin-top:10px"><strong>Note:</strong> only anonymous worked. That means PI Web ' +
                       'API is not identifying your users, so every symbol acts with the same permissions and PI/AF ' +
                       'security cannot distinguish who did what. Fine for a read-only proof; not something to ' +
                       'deploy manual data entry against.</p>'
                     : '');
+            offerConfig(box, baseUrl, best);
         }
     });
+
+    /* ---- a pvx-config.js to drop in -------------------------------------- *
+     * A page in a browser cannot write to the server, and PI Vision's site
+     * should never be able to. What it can do is start from the file this
+     * server is actually serving, so any other setting a site has made (an AF
+     * databasePath, a timeout) is kept, change only the two values the checks
+     * just proved, and hand the result over as a download that replaces the
+     * old file whole. Read as text from the server rather than rebuilt from
+     * PVX.api.settings: that keeps the file's comments, and a getToken
+     * function, which settings cannot be turned back into source.
+     */
+    function jsString(v) {
+        return "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+    }
+
+    function offerConfig(box, base, auth) {
+        var cur = loaded;
+        var curBase = String(cur.baseUrl || '').replace(/\/+$/, '');
+        var wantBase = String(base || '').replace(/\/+$/, '');
+        var p = document.createElement('p');
+        p.style.marginTop = '10px';
+        box.appendChild(p);
+        if (curBase === wantBase && cur.auth === auth) {
+            p.textContent = 'This server\'s pvx-config.js already says exactly this. Nothing to replace.';
+            return;
+        }
+        p.innerHTML = 'This server\'s <code>pvx-config.js</code> says <code>baseUrl: ' + escapeHtml(jsString(curBase)) +
+            '</code>, <code>auth: ' + escapeHtml(jsString(cur.auth || '')) + '</code>. ' +
+            '<button type="button" class="ghost">Download pvx-config.js</button>';
+        var btn = p.querySelector('button');
+        var msg = document.createElement('p');
+        box.appendChild(msg);
+        btn.addEventListener('click', function () {
+            msg.textContent = 'Reading this server\'s pvx-config.js\u2026';
+            fetch('libraries/pvx/pvx-config.js', { cache: 'no-store', credentials: 'same-origin' })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('the server answered HTTP ' + r.status); }
+                    return r.text();
+                })
+                .then(function (text) {
+                    // Settings lines only: the commented examples above them
+                    // start with "*", so anchoring on the key at the start of
+                    // a line cannot touch them.
+                    var reBase = /^([ \t]*baseUrl[ \t]*:[ \t]*)'(?:[^'\\]|\\.)*'/m;
+                    var reAuth = /^([ \t]*auth[ \t]*:[ \t]*)'(?:[^'\\]|\\.)*'/m;
+                    if (!reBase.test(text) || !reAuth.test(text) || text.indexOf('siteSettings') === -1) {
+                        throw new Error('it does not have the baseUrl and auth lines this page knows how to change. ' +
+                            'It may be the pre-1.7 layout; start from the pvx-config.js in the release zip instead');
+                    }
+                    var out = text.replace(reBase, function (m, lead) { return lead + jsString(wantBase); })
+                                  .replace(reAuth, function (m, lead) { return lead + jsString(auth); });
+                    var url = URL.createObjectURL(new Blob([out], { type: 'text/javascript' }));
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'pvx-config.js';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+                    msg.innerHTML = 'Downloaded, with <code>baseUrl: ' + escapeHtml(jsString(wantBase)) +
+                        '</code> and <code>auth: ' + escapeHtml(jsString(auth)) + '</code>; everything else is ' +
+                        'as this server had it. Replace <code>ext\\libraries\\pvx\\pvx-config.js</code> with it on ' +
+                        '<strong>every</strong> PI Vision server, then reload this page: the line at the top should ' +
+                        'show the new values.';
+                })['catch'](function (e) {
+                    msg.textContent = 'Could not build the file: ' + ((e && e.message) || e) + '.';
+                });
+        });
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     $('copy').addEventListener('click', function () {
         var text = report.join('\n');

@@ -260,8 +260,13 @@ function serve() {
 /** Runs in the browser: mount one symbol, PI Web API pointed at the mock. */
 async function mount(a) {
     window.PVX.api.configure({ baseUrl: a.configured === false || a.configured === 'auto' ? '' : location.origin + '/piwebapi',
-        autoDiscover: a.configured !== false, auth: 'anonymous' });
+        autoDiscover: a.configured !== false, auth: 'anonymous', timeoutMs: a.timeoutMs || 20000 });
     window.PVX.api.clearCache();
+    // A load that never settles, whatever the reason: the symbol must say so.
+    if (a.hang) { window.PVX.api.get = () => new Promise(() => {}); }
+    // A runtime from an older release: 1.12.0's core had no defaultDatabase.
+    if (a.staleCore) { delete window.PVX.nav.defaultDatabase; }
+    if (a.coreVersion) { window.PVX.version = a.coreVersion; }
     const def = window.PVMock.get(a.typeName);
     const injector = angular.injector(['ng']);
     const $compile = injector.get('$compile');
@@ -278,13 +283,13 @@ async function mount(a) {
     wrap.append($compile(tpl)(scope));
     angular.element(box).append(wrap);
     const vis = new def.visObjectType();
-    vis.init(scope, wrap, undefined);
+    try { vis.init(scope, wrap, undefined); } catch (e) { window.__initThrew = e.message; }
     scope.$digest();
-    if (a.data !== false) {
+    if (a.data !== false && vis.onDataUpdate) {
         vis.onDataUpdate({ Value: 1, Label: 'Name', Path: a.source || 'af:\\\\AF\\Gathering\\Station 1|Name', IsGood: true,
             Rows: a.rows || undefined });
     }
-    vis.onResize(640, 240);
+    if (vis.onResize) { vis.onResize(640, 240); }
     window.__vis = vis;
     window.__scope = scope;
 }
@@ -521,6 +526,43 @@ async function page() {
         check('analytics auto: the data source\'s database, said in the footer',
             requests.some((r) => r === 'GET assetdatabases?path=' + DB) &&
             body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
+
+        /* ---- Asset Navigator --------------------------------------------- *
+         * Nothing configured: PI Web API beside PI Vision, the database the
+         * dropped attribute lives in. Then the ways it used to sit on
+         * "Loading the AF hierarchy..." for good on a live server.          */
+        const TREE = { DatabasePath: '', RootElementPath: '', Height: 240, Width: 640 };
+        await open('pvxAssetTree', { asset: '', config: TREE, configured: 'auto' });
+        await settle();
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('tree auto: the hierarchy loads with no setup', /Station 1/.test(body) && /Station 2/.test(body), body.slice(0, 200));
+
+        await open('pvxAssetTree', { asset: '', config: TREE, hang: true, timeoutMs: 400 });
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('tree: loading says what it is waiting on',
+            /Loading the AF hierarchy/.test(body) && body.indexOf('Asking PI Web API at ') !== -1 && body.indexOf(DB) !== -1,
+            body.slice(0, 200));
+        await pg.waitForTimeout(6200);
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('tree: a load that never settles stops and names the step',
+            /Stopped waiting for PI Web API/.test(body) && /No answer after \d+ s while asking PI Web API/.test(body),
+            body.slice(0, 240));
+
+        await open('pvxAssetTree', { asset: '', config: TREE, staleCore: true });
+        const fatal = await pg.evaluate(() => ({ threw: window.__initThrew || '',
+            text: (document.querySelector('#box .pvx-fatal') || {}).textContent || '' }));
+        check('register: a symbol that throws in init does not throw to PI Vision', fatal.threw === '', fatal.threw);
+        check('register: ...and says so on the symbol', /could not start/.test(fatal.text) && /\[PVX\]/.test(fatal.text), fatal.text);
+        // Its later refreshes hit the same missing function from a timer,
+        // where they are only console noise: expected here, so not counted.
+        for (let i = errors.length - 1; i >= 0; i--) {
+            if (/defaultDatabase is not a function/.test(errors[i])) { errors.splice(i, 1); }
+        }
+
+        await open('pvxAssetTree', { asset: '', config: TREE, coreVersion: '1.0.0' });
+        const mixed = await pg.evaluate(() => (document.querySelector('#box .pvx-fatal') || {}).textContent || '');
+        check('register: files from two releases are named as such',
+            /two different releases/.test(mixed) && mixed.indexOf('is 1.0.0') !== -1, mixed);
 
         /* ---- text size -------------------------------------------------- */
         await open('pvxNavPanel', { asset: K301, config: Object.assign({}, NAV, { TextScale: '150' }) });

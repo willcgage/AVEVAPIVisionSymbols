@@ -1,7 +1,7 @@
 {
   "name": "pvx-symbols",
-  "version": "1.13.0",
-  "description": "PVX \u2014 an extended custom symbol library for AVEVA PI Vision (charts, KPI/status, navigation)",
+  "version": "1.14.0",
+  "description": "PVX — an extended custom symbol library for AVEVA PI Vision (charts, KPI/status, navigation)",
   "license": "MIT",
   "private": true,
   "scripts": {

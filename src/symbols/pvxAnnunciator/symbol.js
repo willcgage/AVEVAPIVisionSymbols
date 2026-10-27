@@ -149,14 +149,7 @@
                 NormalColor: '#2f9e5f',
                 AckColor: '#d99024',
                 ReturnedColor: '#3b82c4',
-                DimNormal: true,
-
-                /* -- deployment ------------------------------------------------ *
-                 * Normally blank: the base URL belongs in ext/libraries/pvx/pvx-config.js
-                 * where one site setting serves every symbol. Same testing escape
-                 * hatch as pvxEventGantt, and the same caveat — PVX.api is one
-                 * shared client, so this moves the base URL for the whole page. */
-                BaseUrlOverride: ''
+                DimNormal: true
             });
         }
     };
@@ -503,25 +496,6 @@
         /* ================================================================== *
          * Shared acknowledgement
          * ================================================================== */
-
-        /**
-         * Point PVX.api at a different PI Web API.
-         *
-         * Testing escape hatch only. This writes the LIBRARY's settings, not
-         * this symbol's — PVX.api is deliberately one shared client so that
-         * authentication is configured once per site — so the override moves
-         * the base URL for every PVX symbol on the page. The config pane says
-         * so.
-         */
-        function applyBaseUrlOverride(cfg) {
-            var override = trim(cfg.BaseUrlOverride);
-            if (!override) { return; }
-            if (PVX.api.settings.baseUrl === override) { return; }
-            PVX.api.configure({ baseUrl: override });
-            // The shared GET cache is keyed by URL so stale entries could not be
-            // served anyway; dropping them keeps the switch clean.
-            PVX.api.clearCache();
-        }
 
         /**
          * Create, rebuild or tear down the shared store to match the config.
@@ -878,7 +852,6 @@
             // the store is what buildModel folds other operators' acknowledgements
             // in from, and it resolves its attribute against whatever base URL is
             // current at the moment it starts.
-            applyBaseUrlOverride(cfg);
             ensureAckStore(cfg);
 
             var model = buildModel(cfg, now);

@@ -134,13 +134,7 @@
                 HistoryCount: 5,
 
                 /* -- build-before-permissions mode -------------------------------- */
-                ReadOnlyPreview: false,
-
-                /* -- deployment ---------------------------------------------------- *
-                 * Normally blank; the base URL belongs in ext/libraries/pvx/pvx-config.js.
-                 * See the config pane: this moves the base URL for every PVX
-                 * symbol on the page, because PVX.api is one shared client. */
-                BaseUrlOverride: ''
+                ReadOnlyPreview: false
             });
         }
     };
@@ -280,23 +274,6 @@
          * ================================================================ */
 
         /**
-         * Point PVX.api at a different PI Web API.
-         *
-         * This writes the LIBRARY's settings, not this symbol's — PVX.api is
-         * one shared client, deliberately, so authentication is configured once
-         * per site. That makes the override page-wide; the config pane says so.
-         */
-        function applyBaseUrlOverride(cfg) {
-            var override = trim(cfg.BaseUrlOverride);
-            if (!override) { return; }
-            if (PVX.api.settings.baseUrl === override) { return; }
-            PVX.api.configure({ baseUrl: override });
-            PVX.api.clearCache();
-            pathCache = {};       // WebIds are per-server; none of them survive
-            state.webId = '';
-        }
-
-        /**
          * Attribute or PI point path -> {webId, name, units}, resolved once.
          *
          * A FAILED lookup is not cached: a transient outage would otherwise
@@ -348,8 +325,6 @@
         function refresh() {
             if (ctx.destroyed) { return; }
             var cfg = liveCfg = scope.config || liveCfg;
-
-            applyBaseUrlOverride(cfg);
 
             // With no baseUrl set, PVX.api first asks PI Vision's own server
             // for /piwebapi. Decide nothing until it has its answer.
@@ -875,7 +850,6 @@
             var host = c.host;
             if (!host) { return; }
 
-            applyBaseUrlOverride(cfg);
             applyThemeVars(c, t, cfg);
             scope.pvx.background = cfg.Transparent ? 'transparent' : t.surface;
 

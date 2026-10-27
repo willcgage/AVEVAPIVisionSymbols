@@ -167,15 +167,7 @@
 
                 /* -- interaction ---------------------------------------------- */
                 ClickAction: 'none',       // none | navigate
-                NavigateTarget: '',
-
-                /* -- deployment ------------------------------------------------ *
-                 * Normally blank: the base URL belongs in ext/libraries/pvx/pvx-config.js
-                 * where one site setting serves every symbol. Set it here only to
-                 * point this symbol at a SECOND PI Web API (a test instance, a
-                 * different plant's server). See the config pane hint — it moves
-                 * the base URL for the whole page, not just this symbol. */
-                BaseUrlOverride: ''
+                NavigateTarget: ''
             });
         }
     };
@@ -423,27 +415,6 @@
         /* ================================================================ *
          * PI Web API
          * ================================================================ */
-
-        /**
-         * Point PVX.api at a different PI Web API.
-         *
-         * This writes the LIBRARY's settings, not this symbol's — PVX.api is a
-         * single shared client, deliberately, so that authentication is
-         * configured once per site. That makes the override a page-wide switch;
-         * the config pane says so.
-         */
-        function applyBaseUrlOverride(cfg) {
-            var override = trim(cfg.BaseUrlOverride);
-            if (!override) { return; }
-            if (PVX.api.settings.baseUrl === override) { return; }
-            PVX.api.configure({ baseUrl: override });
-            // The shared GET cache is keyed by URL, so entries from the previous
-            // base cannot be returned by mistake; dropping them anyway keeps the
-            // switch clean and costs one refresh.
-            PVX.api.clearCache();
-            dbCache = {};
-            elemNames = {};
-        }
 
         /**
          * AF database path -> WebId, resolved once and remembered.
@@ -898,8 +869,6 @@
         function refresh() {
             if (ctx.destroyed) { return; }
             var cfg = liveCfg = scope.config || liveCfg;
-
-            applyBaseUrlOverride(cfg);
 
             // With no baseUrl set, PVX.api first asks PI Vision's own server
             // for /piwebapi. Decide nothing until it has its answer.
@@ -1432,7 +1401,6 @@
             var host = c.host;
             if (!host) { return; }
 
-            applyBaseUrlOverride(cfg);
             applyThemeVars(c, t);
             scope.pvx.background = cfg.Transparent ? 'transparent' : t.surface;
 

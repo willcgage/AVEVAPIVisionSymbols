@@ -284,6 +284,13 @@ function build() {
     // --- shared runtime ---------------------------------------------------
     const core = read(path.join(SHARED_DIR, 'pvx-core.js'));
     validateSymbolJs('pvx-core', core, { isLibrary: true });
+    // Every symbol file is stamped with VERSION and refuses to start under a
+    // core reporting anything else, so a bump that misses this line would
+    // switch every symbol off.
+    const coreVersion = (/PVX\.version = '([^']+)'/.exec(core) || [])[1];
+    if (coreVersion !== VERSION) {
+        problem('pvx-core', "PVX.version is '" + coreVersion + "' but package.json is '" + VERSION + "'");
+    }
 
     write(path.join(LIB_DIR, 'pvx-core.js'), banner('PVX Core runtime') + core);
     ok('libraries/pvx/pvx-core.js  ' + kb(core));
@@ -340,7 +347,11 @@ function build() {
         validateCss(typeName, css);
         validateIcon(typeName, icon);
 
-        write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) + js);
+        // The release this file came from, for PVX.register to compare with
+        // pvx-core.js: a stale cached core under a new symbol otherwise fails
+        // as "x is not a function" and takes the symbol's context menu with it.
+        write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) +
+            "if (window.PVX) { window.PVX.symbolBuild = '" + VERSION + "'; }\n" + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
         write(path.join(EXT, 'sym-' + typeName + '-config.html'),
             withTagsEditors(typeName,
