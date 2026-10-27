@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 35 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.14.0**, released from
+and an MSI installer generated from the build output. **v1.14.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -217,6 +217,14 @@ Each of these cost real debugging time. Do not rediscover them.
   disagree, since a mismatch would switch every symbol off. There is no
   per-symbol PI Web API setting any more: `BaseUrlOverride` moved the base
   for the whole page and was removed in 1.14.0.
+- **One server, two names, is two sites to a browser.** On the first live
+  test of 1.14.0, `pvx-config.js` said `https://dalpivisiont01/piwebapi`
+  while the display was opened by another name for the same machine; every
+  request went cross-origin and failed as "CORS" on a server with no CORS to
+  configure, while the check page, opened by the short name, passed.
+  `api.base()` now asks under the page's own name when the configured host
+  differs only past its first DNS label (`api.sameServerByAnotherName`).
+  A blank `baseUrl` avoids the question entirely; recommend it.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were

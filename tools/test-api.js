@@ -347,6 +347,20 @@ const SCENARIOS = [
         out.explicitWins = PVX.api.base() === 'http://127.0.0.1:1/piwebapi' && PVX.api.baseSource() === 'config';
         return out;
     });
+    const names = await co.evaluate(() => {
+        const same = window.PVX.api.sameServerByAnotherName;
+        const loc = { protocol: 'https:', hostname: 'dalpivisiont01.corp.example', port: '' };
+        return {
+            shortVsFqdn: same('https://dalpivisiont01/piwebapi', loc),
+            fqdnVsShort: same('https://dalpivisiont01.corp.example/piwebapi',
+                { protocol: 'https:', hostname: 'dalpivisiont01', port: '' }),
+            otherServer: same('https://piwebapi01/piwebapi', loc),
+            notPiwebapi: same('https://dalpivisiont01/other', loc),
+            otherPort: same('https://dalpivisiont01:8443/piwebapi', loc),
+            identical: same('https://dalpivisiont01.corp.example/piwebapi', loc),
+            ip: same('https://10.0.0.5/piwebapi', { protocol: 'https:', hostname: '10.0.0.9', port: '' })
+        };
+    });
     await co.close();
 
     /* -- the drop-in pvx-config.js ------------------------------------------ *
@@ -396,6 +410,10 @@ const SCENARIOS = [
         ['discovered base is same-origin (no CORS)', found.crossOrigin === false],
         ['discovery probes once per page', probes === 1],
         ['an explicit baseUrl wins over discovery', found.explicitWins === true],
+        ['this server by its short name is asked under the page\'s name', names.shortVsFqdn === true &&
+            names.fqdnVsShort === true],
+        ['...but never another server, path, port, or an IP address', !names.otherServer && !names.notPiwebapi &&
+            !names.otherPort && !names.identical && !names.ip],
         ['check page: same server, nothing to download', /already says exactly this/.test(sameVerdict) &&
             /leave/.test(sameVerdict)],
         ['check page: the download sets the working baseUrl',

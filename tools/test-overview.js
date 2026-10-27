@@ -537,6 +537,17 @@ async function page() {
         body = await pg.$eval('#box', (n) => n.textContent);
         check('tree auto: the hierarchy loads with no setup', /Station 1/.test(body) && /Station 2/.test(body), body.slice(0, 200));
 
+        // PI Web API answers an unknown path with 404, which used to surface
+        // as "Not found. Check the path and the WebID." with no path at all.
+        await open('pvxAssetTree', { asset: '', config: TREE, configured: 'auto', source: 'af:\\\\AF\\Nowhere\\Unit|Name?x' });
+        await settle();
+        body = await pg.$eval('#box', (n) => n.textContent);
+        check('tree: a database that is not there is named, with where it came from',
+            /Root did not resolve/.test(body) && body.indexOf('no AF database at "\\\\AF\\Nowhere"') !== -1 &&
+            body.indexOf('came from this symbol\'s data source') !== -1, body.slice(0, 300));
+        check('tree: ...and the address asked', body.indexOf('Asked: ') !== -1 &&
+            body.indexOf('assetdatabases?path=\\\\AF\\Nowhere') !== -1, body.slice(0, 400));
+
         await open('pvxAssetTree', { asset: '', config: TREE, hang: true, timeoutMs: 400 });
         body = await pg.$eval('#box', (n) => n.textContent);
         check('tree: loading says what it is waiting on',

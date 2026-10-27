@@ -11,9 +11,10 @@
         </div>
         <div class="pvx-cfg-hint">
             This symbol reads Event Frames from <strong>PI Web API</strong>, not from PI Vision's own
-            data pipeline, so it has no attribute drop target. If it says PI Web API is not configured,
-            set <code>baseUrl</code> in <code>ext/libraries/pvx/pvx-config.js</code> on this PI Vision server and
-            confirm it with <code>ext/piwebapi-check.html</code>.
+            data pipeline. Leave the database
+            blank to use the database of the attribute dropped on it, or of the display's asset.
+            PI Web API on this PI Vision server needs no setup. If the symbol says it cannot reach PI Web API,
+            open <code>ext/piwebapi-check.html</code>, which says what to change.
         </div>
 
         <div class="pvx-cfg-stack">

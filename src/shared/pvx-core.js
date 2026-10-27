@@ -21,7 +21,7 @@
     var PVX = root.PVX || {};
     root.PVX = PVX;
 
-    PVX.version = '1.14.0';
+    PVX.version = '1.14.1';
     PVX.SVG_NS = 'http://www.w3.org/2000/svg';
 
     /* ------------------------------------------------------------------ *
@@ -3078,8 +3078,38 @@
     /** Normalised base, no trailing slash. */
     api.base = function () {
         var b = explicitBase();
-        if (b) { return b.replace(/\/+$/, ''); }
+        if (b) {
+            b = b.replace(/\/+$/, '');
+            return api.sameServerByAnotherName(b, root.location) ? api.sameOriginBase() : b;
+        }
         return api.isAuto() ? api.sameOriginBase() : '';
+    };
+
+    /**
+     * True when `base` is this PI Vision server's own /piwebapi spelled with
+     * another name for the machine: https://pivision01/piwebapi in
+     * pvx-config.js, the display opened as https://pivision01.corp.example.
+     *
+     * To a browser those are two sites, so every request became cross-origin
+     * and failed as a CORS problem on a server that has no CORS to configure,
+     * while the check page, opened by the short name, passed. Asking under
+     * the page's own name reaches the same PI Web API with no CORS at all.
+     * Only the first DNS label is compared, and never for an IP address,
+     * where a "first label" means nothing.
+     */
+    api.sameServerByAnotherName = function (base, loc) {
+        try {
+            var m = /^(https?:)\/\/([^\/:?#]+)(:\d+)?(\/[^?#]*)?$/i.exec(String(base || ''));
+            if (!m || !loc || !loc.hostname) { return false; }
+            if (String(m[4] || '').replace(/\/+$/, '').toLowerCase() !== '/piwebapi') { return false; }
+            if (m[1].toLowerCase() !== String(loc.protocol || '').toLowerCase()) { return false; }
+            if ((m[3] || '').slice(1) !== String(loc.port || '')) { return false; }
+            var host = m[2].toLowerCase(), page = String(loc.hostname).toLowerCase();
+            if (host === page) { return false; }
+            var ip = /^[\d.]+$|:/;
+            if (ip.test(host) || ip.test(page)) { return false; }
+            return host.split('.')[0] === page.split('.')[0];
+        } catch (e) { return false; }
     };
 
     /**
@@ -3112,13 +3142,22 @@
     function classifyError(status, err, crossOrigin) {
         if (status === 0 || status === null || status === undefined) {
             if (crossOrigin) {
+                // Name both addresses. The commonest cross-origin failure on a
+                // single server is not CORS at all but two names for one
+                // machine: pvx-config.js says https://pivision01/piwebapi and
+                // the display was opened as https://pivision01.corp.example.
+                // To a browser those are different sites.
+                var page = '';
+                try { page = root.location.protocol + '//' + root.location.host; } catch (e) { page = ''; }
                 return {
                     code: 'cors-or-network',
-                    message: 'Could not reach PI Web API. On a cross-origin deployment this is ' +
-                             'usually the CORS preflight: PI Web API must list this PI Vision URL in ' +
+                    message: 'Could not reach PI Web API at ' + api.base() + ' from this page (' + page + '), ' +
+                             'which the browser treats as another site. If PI Web API is on this PI Vision ' +
+                             'server, leave baseUrl blank in pvx-config.js so it is always asked under the ' +
+                             'same name as the page. Otherwise PI Web API must list this PI Vision URL in ' +
                              'CorsOrigins, set CorsSupportsCredentials to true, and answer the OPTIONS ' +
                              'request without an authentication challenge.',
-                    check: 'CorsOrigins / CorsSupportsCredentials / anonymous OPTIONS'
+                    check: 'baseUrl blank, or CorsOrigins / CorsSupportsCredentials / anonymous OPTIONS'
                 };
             }
             return {

@@ -241,7 +241,7 @@ than "failed to fetch". The codes map as follows.
 | What you see | Where to look |
 |---|---|
 | **not-configured** | `baseUrl` is blank in `ext/libraries/pvx/pvx-config.js` on *this* PI Vision server, and nothing answered at `/piwebapi` on the same server (the message names the address tried) |
-| **cors-or-network** | The preflight. `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
+| **cors-or-network** | First, whether PI Web API is on this PI Vision server: then leave `baseUrl` blank, so it is asked under the same name as the page. The message names both addresses. Otherwise the preflight: `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
 | **network** (same-origin) | Base URL, the service, the certificate name |
 | **unauthorized** (401) | Browser willingness to send Windows credentials to that host; or for bearer, the token's audience and expiry |
 | **forbidden** (403) | Authenticated but not permitted — AF and Data Archive mappings for this user |
