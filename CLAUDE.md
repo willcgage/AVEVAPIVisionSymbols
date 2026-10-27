@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 35 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.13.0**, released from
+and an MSI installer generated from the build output. **v1.14.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -205,6 +205,18 @@ Each of these cost real debugging time. Do not rediscover them.
   cannot pass a name to the neighbour); the mock strips metadata after the
   first update, and `verify.js` fails a placeholder name. Never read labels
   from a raw update without going through the bootstrap.
+- **An exception out of `init()` costs the symbol its right-click menu.** On a
+  live server in 1.13.0 the Asset Navigator sat on "Loading the AF
+  hierarchy…" and right-click offered only Configure Display. An `init` that
+  threw explains both (PI Vision had the template but not its own wiring);
+  that is the reading, not yet confirmed from a console. `PVX.register` now wraps
+  every `init` (`guardInit`), shows the error on the symbol, and refuses to
+  start a symbol whose build stamp (`PVX.symbolBuild`, written by `build.js`)
+  differs from `PVX.version` — a cached core from another release is the
+  likeliest cause. `build.js` fails if `PVX.version` and `package.json`
+  disagree, since a mismatch would switch every symbol off. There is no
+  per-symbol PI Web API setting any more: `BaseUrlOverride` moved the base
+  for the whole page and was removed in 1.14.0.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were

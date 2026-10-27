@@ -21,7 +21,7 @@
     var PVX = root.PVX || {};
     root.PVX = PVX;
 
-    PVX.version = '1.13.0';
+    PVX.version = '1.14.0';
     PVX.SVG_NS = 'http://www.w3.org/2000/svg';
 
     /* ------------------------------------------------------------------ *
@@ -4711,6 +4711,77 @@
     // files in ext load".
     PVX.registered = PVX.registered || [];
 
+    /**
+     * Show why a symbol could not start, on the symbol itself.
+     *
+     * Plain DOM and inline styles: whatever failed may be the very code that
+     * would otherwise draw this, and the stylesheet may be the stale part.
+     */
+    function showFatal(elem, typeName, headline, detail) {
+        try {
+            var host = util.find(elem, '.pvx') || util.node(elem);
+            if (!host || !host.appendChild) { return; }
+            var box = root.document.createElement('div');
+            box.className = 'pvx-fatal';
+            box.setAttribute('style', 'position:absolute;left:0;top:0;right:0;bottom:0;z-index:5;' +
+                'padding:10px;overflow:auto;background:#fff4f2;color:#5c1a10;border:1px solid #c8452f;' +
+                'font:12px/1.4 "Segoe UI",Arial,sans-serif;white-space:normal;');
+            var h = root.document.createElement('div');
+            h.setAttribute('style', 'font-weight:600;margin-bottom:4px;');
+            h.textContent = typeName + ': ' + headline;
+            var d = root.document.createElement('div');
+            d.textContent = detail;
+            box.appendChild(h);
+            box.appendChild(d);
+            if (root.getComputedStyle && root.getComputedStyle(host).position === 'static') {
+                host.style.position = 'relative';
+            }
+            host.appendChild(box);
+        } catch (e) { /* nothing left to report with */ }
+    }
+
+    /**
+     * Wrap a symbol's init so nothing it throws reaches PI Vision.
+     *
+     * An exception out of init() leaves PI Vision with a symbol it half-built:
+     * the template is on the display, but the editor's own wiring for it never
+     * ran, so the symbol stops answering right-click with Format Symbol and
+     * can be neither edited nor removed in the normal way. Whatever the cause,
+     * the symbol must stay a symbol and say what went wrong.
+     *
+     * The commonest cause is a mismatch: a symbol file from one release
+     * calling a runtime pvx-core.js from another, because one of them was
+     * served from a browser or proxy cache or did not update on the server.
+     * build.js stamps each symbol file with its release, so that case is
+     * named outright rather than surfacing as "x is not a function".
+     */
+    function guardInit(typeName, proto, build) {
+        if (proto.pvxGuarded || typeof proto.init !== 'function') { return; }
+        var init = proto.init;
+        proto.pvxGuarded = true;
+        proto.init = function (scope, elem) {
+            if (build && build !== PVX.version) {
+                if (root.console && root.console.error) {
+                    root.console.error('[PVX] ' + typeName + ' is from ' + build + ' but pvx-core.js is ' + PVX.version);
+                }
+                showFatal(elem, typeName, 'files from two different releases',
+                    'This symbol is from PVX ' + build + ' but the runtime ext/libraries/pvx/pvx-core.js the browser ' +
+                    'loaded is ' + PVX.version + '. Clear the browser cache (Ctrl+F5) and reload. If it persists, ' +
+                    'reinstall the same release on this PI Vision server so every file matches.');
+                return null;
+            }
+            try {
+                return init.apply(this, arguments);
+            } catch (e) {
+                if (root.console && root.console.error) { root.console.error('[PVX] ' + typeName + ' failed to start', e); }
+                showFatal(elem, typeName, 'could not start',
+                    String((e && e.message) || e) + '  \u2014  Check: the browser console (F12) for the line ' +
+                    'starting [PVX], and that every PVX file on this server is from release ' + PVX.version + '.');
+                return null;
+            }
+        };
+    }
+
     PVX.register = function (PV, def) {
         try {
             if (!PV || !PV.symbolCatalog) {
@@ -4733,6 +4804,9 @@
                 def.visObjectType.prototype.pvxSourceInfo = { sourceRemap: def.sourceRemap || null };
             }
             delete def.sourceRemap;
+            if (def.visObjectType && def.visObjectType.prototype) {
+                guardInit(def.typeName, def.visObjectType.prototype, PVX.symbolBuild || '');
+            }
             // Symbols that raise alarms set limitsRequired: their default is
             // no limits, and a display saved by 1.9.0 or earlier stored the
             // placeholder bands (see thresholds.isPlaceholder), so those are

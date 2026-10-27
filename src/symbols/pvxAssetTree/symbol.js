@@ -78,6 +78,9 @@
     var SEARCH_DEBOUNCE_MS = 300;
     var CONFIG_DEBOUNCE_MS = 400;
     var HASH_POLL_MS = 1000;
+    // Past PVX.api's own request timeout plus this, a load that has still not
+    // settled is reported as stuck instead of spinning on "Loading" forever.
+    var STALL_GRACE_MS = 5000;
 
     var definition = {
         typeName: 'pvxAssetTree',
@@ -135,13 +138,7 @@
                 /* -- context -------------------------------------------------- */
                 HighlightCurrent: true,
                 AutoExpandToCurrent: true,
-                RememberExpanded: true,
-
-                /* -- deployment ------------------------------------------------ *
-                 * Testing escape hatch only — same contract as pvxEventGantt.
-                 * The base URL belongs in ext/libraries/pvx/pvx-config.js, where one
-                 * site setting serves every symbol. See the config pane. */
-                BaseUrlOverride: ''
+                RememberExpanded: true
             });
         }
     };
@@ -165,8 +162,11 @@
         var state = {
             phase: 'idle',      // idle | loading | ok | unconfigured | nopath | error
             error: null,        // the rejection from PVX.api, carrying .pvxError
-            db: { path: '', from: '' }   // database in use; `from` set when not configured
+            db: { path: '', from: '' },  // database in use; `from` set when not configured
+            step: '',           // what a load is waiting on, said on the symbol
+            since: 0            // when that wait began
         };
+        var stallTimer = null;
         var sourceAsset = '';   // element of the placeholder data source
 
         var liveCfg = scope.config || {};
@@ -302,25 +302,6 @@
         /* ================================================================ *
          * PI Web API
          * ================================================================ */
-
-        /**
-         * Point PVX.api at a different PI Web API.
-         *
-         * This writes the LIBRARY's settings, not this symbol's — PVX.api is one
-         * shared client on purpose, so that authentication is configured once
-         * per site. That makes the override page-wide; the config pane says so.
-         */
-        function applyBaseUrlOverride(cfg) {
-            var override = trim(cfg.BaseUrlOverride);
-            if (!override) { return; }
-            if (PVX.api.settings.baseUrl === override) { return; }
-            PVX.api.configure({ baseUrl: override });
-            // The shared GET cache is keyed by URL so entries from the previous
-            // base could not be returned by mistake anyway; dropping them, and
-            // this symbol's own cache, keeps the switch clean for one refresh.
-            PVX.api.clearCache();
-            childCache = {};
-        }
 
         function filterQuery(cfg) {
             var q = [];
@@ -640,11 +621,10 @@
             if (ctx.destroyed) { return; }
             var cfg = liveCfg = scope.config || liveCfg;
 
-            applyBaseUrlOverride(cfg);
-
             // With no baseUrl set, PVX.api first asks PI Vision's own server
             // for /piwebapi. Decide nothing until it has its answer.
             if (PVX.api.discovering()) {
+                beginWait('looking for PI Web API at ' + PVX.api.sameOriginBase());
                 PVX.api.discover().then(function () { if (!ctx.destroyed) { refresh(); } });
                 return;
             }
@@ -672,18 +652,18 @@
             }
 
             var gen = ++generation;
-            state.phase = 'loading';
-            state.error = null;
             root = null;
             outsideRoot = false;
             restoreBudget = RESTORE_BUDGET;
             exitSearch(false);
-            ctx.render();
+            beginWait('asking PI Web API at ' + PVX.api.base() + ' for ' +
+                (trim(cfg.RootElementPath) || state.db.path));
 
             resolveRoot(cfg)
                 .then(function (node) {
                     if (stale(gen)) { return null; }
                     root = node;
+                    endWait();
                     state.phase = 'ok';
                     focusKey = node.key;
                     ctx.render();
@@ -698,11 +678,57 @@
                     if (!stale(gen)) { ctx.render(); }
                 })['catch'](function (err) {
                     if (stale(gen)) { return; }
+                    endWait();
                     state.phase = 'error';
                     state.error = err;
                     root = null;
                     ctx.render();
                 });
+        }
+
+        /**
+         * Enter the loading state, saying what it waits on.
+         *
+         * Every request PVX.api makes times out, so a load that never settles
+         * means something outside it: a reply arriving after this symbol moved
+         * on, a refresh restarting it, or code that threw where nothing could
+         * catch it. "Loading" with no end tells the person looking at it
+         * nothing, so after the request timeout it becomes an error naming the
+         * step it stopped at, and every step is logged for the console.
+         */
+        function beginWait(step) {
+            state.phase = 'loading';
+            state.error = null;
+            state.step = step;
+            state.since = (new Date()).getTime();
+            if (window.console && window.console.info) { window.console.info('[PVX] pvxAssetTree: ' + step); }
+            if (stallTimer === null) { stallTimer = setInterval(checkStall, 1000); }
+            ctx.render();
+        }
+
+        function endWait() {
+            if (stallTimer !== null) { clearInterval(stallTimer); stallTimer = null; }
+        }
+
+        function checkStall() {
+            if (ctx.destroyed || state.phase !== 'loading') { endWait(); return; }
+            var waited = (new Date()).getTime() - state.since;
+            if (waited > (PVX.api.settings.timeoutMs || 20000) + STALL_GRACE_MS) {
+                endWait();
+                // Late replies for this load are dropped from here on.
+                generation += 1;
+                state.phase = 'error';
+                state.error = { pvxError: {
+                    code: 'stalled',
+                    message: 'No answer after ' + Math.round(waited / 1000) + ' s while ' + state.step + '.',
+                    check: 'open that address in this browser; the browser console (F12) lines starting [PVX]'
+                } };
+                if (window.console && window.console.warn) {
+                    window.console.warn('[PVX] pvxAssetTree: gave up after ' + waited + ' ms while ' + state.step);
+                }
+            }
+            // Repaints the elapsed time while waiting, or the error once given up.
+            ctx.render();
         }
 
         function refreshSoon() {
@@ -1058,6 +1084,7 @@
         function teardown() {
             // A leaked poller on a control-room kiosk runs for weeks.
             if (hashTimer !== null) { clearInterval(hashTimer); hashTimer = null; }
+            endWait();
             if (configTimer !== null) { clearTimeout(configTimer); configTimer = null; }
             if (searchTimer !== null) { clearTimeout(searchTimer); searchTimer = null; }
             if (hashListener) {
@@ -1180,7 +1207,6 @@
             var t = c.theme;
             var host = c.host;
 
-            applyBaseUrlOverride(cfg);
             applyVars(c, cfg, t);
             scope.pvx.surface = cfg.Transparent ? 'transparent' : t.surface;
 
@@ -1385,13 +1411,24 @@
                 var e = (state.error && state.error.pvxError) || null;
                 var isRoot = e && (e.code === 'no-database' || e.code === 'no-root');
                 buildMessage(host,
-                    isRoot ? 'Root did not resolve' : 'PI Web API request failed',
+                    isRoot ? 'Root did not resolve'
+                           : e && e.code === 'stalled' ? 'Stopped waiting for PI Web API'
+                           : 'PI Web API request failed',
                     e ? e.message + '  \u2014  Check: ' + e.check
                       : 'The request failed and returned no diagnosis.',
                     PVX.color.status.alarm);
                 return;
             }
-            buildMessage(host, 'Loading the AF hierarchy\u2026', '', t.textMuted);
+            if (state.phase === 'idle') {
+                // Init has not reached its first refresh. If this stays, init
+                // stopped part-way; PVX.register reports that on the symbol.
+                buildMessage(host, 'Starting\u2026', '', t.textMuted);
+                return;
+            }
+            var secs = Math.round(((new Date()).getTime() - state.since) / 1000);
+            buildMessage(host, 'Loading the AF hierarchy\u2026',
+                state.step ? state.step.charAt(0).toUpperCase() + state.step.slice(1) +
+                    (secs >= 3 ? ' (' + secs + ' s)' : '') : '', t.textMuted);
         }
 
         function buildMessage(host, headline, detail, tone) {

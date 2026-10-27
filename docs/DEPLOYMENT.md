@@ -464,7 +464,16 @@ writes to PI.
 
 ### Step 2 — Write the settings
 
-Edit, on the server:
+The quickest route is the check page itself. When its verdict is **Working**
+and the server's file says something else, it offers **Download
+pvx-config.js**: the file this server is serving, with `baseUrl` and `auth`
+set to what the checks just proved and every other line unchanged. Replace
+the server's file with it. When PI Web API answers on the PI Vision server
+itself, the verdict says to leave `baseUrl` blank, and if the file already
+says that, there is nothing to download. Expected after a reload of the check
+page: the line under Settings shows the new values.
+
+To edit by hand instead, on the server:
 
 ```
 <PI Vision>\Scripts\app\editor\symbols\ext\libraries\pvx\pvx-config.js
@@ -698,6 +707,17 @@ by far the most common cause. Then type `PVX.version` and
 `ext\libraries\pvx` did not load; `0` from the second means the symbol scripts
 did not. Check `sym-pvx*.js` are directly in `ext`, not in `ext\pvx` where
 1.7.0 put them; see [What gets deployed](#what-gets-deployed).
+
+**A symbol shows a red box: "could not start" or "files from two different releases".**
+Its startup threw, or its `sym-*.js` and `ext\libraries\pvx\pvx-core.js` came
+from different releases. Up to 1.13.0 either one could leave the symbol frozen
+on its first message (the Asset Navigator on "Loading the AF hierarchy…") with
+PI Vision no longer offering Format Symbol on right-click; since 1.14.0 the
+error is caught and shown on the symbol instead. Hard-refresh (Ctrl+F5) first: a browser holding one cached
+file from the old release is the usual cause. If it persists, reinstall the
+same release so every file matches, and read the console line starting
+`[PVX]`. Typing `PVX.version` in the console shows the release of the core
+that loaded; the red box names the release of the symbol.
 
 **A symbol appears but renders blank.**
 Confirm `ext\sym-<name>-template.html` exists, directly in `ext`. A template

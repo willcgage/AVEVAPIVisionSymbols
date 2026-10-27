@@ -229,23 +229,4 @@
         </div>
     </div>
 
-    <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Advanced</div>
-
-        <div class="pvx-cfg-stack">
-            <label for="pvxat-baseurl">PI Web API base URL override</label>
-            <input id="pvxat-baseurl" type="text" ng-model="config.BaseUrlOverride"
-                   placeholder="Leave blank — use ext/libraries/pvx/pvx-config.js" />
-        </div>
-        <div class="pvx-cfg-hint">
-            A testing escape hatch, exactly as in the Event Timeline symbol, and it belongs blank in
-            production. The base URL lives in <code>ext/libraries/pvx/pvx-config.js</code>, where one site
-            setting serves every symbol and survives an upgrade. Use this only to point at a
-            <em>second</em> PI Web API — a test instance, or another plant's server.
-            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
-            <code>PVX.api</code> is deliberately one shared client so that authentication is configured
-            once per site. Two symbols with two different overrides on one display will fight.
-        </div>
-    </div>
-
 </div>

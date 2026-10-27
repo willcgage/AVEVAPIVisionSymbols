@@ -128,6 +128,13 @@ if it already exists on the server. Everything else in the library is generated 
 deployment; this one is yours. Keep a copy in your own configuration management
 regardless.
 
+**It is the only place PI Web API is configured.** Up to 1.13.0 the six
+symbols that call PI Web API also had a "PI Web API base URL override" in
+their format panes. It was removed in 1.14.0: it moved the address for every
+symbol on the page, not just the one it was set on, so two symbols with
+different values fought over it. A value saved in an older display is
+ignored.
+
 **Deploy it to every PI Vision server.** PI Vision does not replicate the `ext`
 folder between nodes, so behind a load balancer a user who lands on the
 unconfigured server sees the "not configured" state.
@@ -241,6 +248,7 @@ than "failed to fetch". The codes map as follows.
 | **bad-json** | A proxy or a login page answered instead of the API. Common when a gateway sits in front and redirects unauthenticated requests |
 | **timeout** | PI Web API load, or a query with no `maxCount` |
 | **no-token** | `auth: 'bearer'` with no working `getToken` |
+| **stalled** (Asset Navigator) | A load that outlived the request timeout without settling. The message names the step and the address; open that address in the same browser |
 
 Two habits that save time:
 

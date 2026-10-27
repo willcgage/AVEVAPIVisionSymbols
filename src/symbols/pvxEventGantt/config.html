@@ -294,23 +294,4 @@
         </div>
     </div>
 
-    <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Advanced</div>
-
-        <div class="pvx-cfg-stack">
-            <label for="pvxeg-baseurl">PI Web API base URL override</label>
-            <input id="pvxeg-baseurl" type="text" ng-model="config.BaseUrlOverride"
-                   placeholder="Leave blank — use ext/libraries/pvx/pvx-config.js" />
-        </div>
-        <div class="pvx-cfg-hint">
-            Leave this blank in production. The base URL belongs in
-            <code>ext/libraries/pvx/pvx-config.js</code>, where one site setting serves every symbol and
-            survives an upgrade. Use this only to point at a <em>second</em> PI Web API — a test
-            instance, or another plant's server.
-            <strong>It moves the base URL for every PVX symbol on the page</strong>, because
-            <code>PVX.api</code> is deliberately one shared client so that authentication is configured
-            once per site. Two symbols with two different overrides on one display will fight.
-        </div>
-    </div>
-
 </div>
