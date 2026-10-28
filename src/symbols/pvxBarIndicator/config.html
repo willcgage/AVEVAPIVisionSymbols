@@ -110,7 +110,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-accent">Accent colour</label>
-            <input id="pvxbi-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxbi-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-transparent">Transparent background</label>
@@ -118,7 +118,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-bgcolor">Background colour</label>
-            <input id="pvxbi-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxbi-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -170,7 +170,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-targetcolor">Marker colour</label>
-            <input id="pvxbi-targetcolor" type="color" ng-model="config.TargetColor" />
+            <input id="pvxbi-targetcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.TargetColor" />
         </div>
         <div class="pvx-cfg-hint">Hidden automatically when the target falls outside the scale.</div>
     </div>

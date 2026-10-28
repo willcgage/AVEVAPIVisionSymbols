@@ -74,7 +74,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrp-color">Button colour</label>
-            <input id="pvxrp-color" type="color" ng-model="config.ButtonColor" />
+            <input id="pvxrp-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ButtonColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrp-radius">Button corners</label>

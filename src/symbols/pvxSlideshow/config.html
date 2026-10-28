@@ -186,7 +186,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxss-accent">Countdown colour</label>
-            <input id="pvxss-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxss-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxss-theme">Theme</label>
@@ -202,7 +202,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxss-bgcolor">Background colour</label>
-            <input id="pvxss-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxss-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

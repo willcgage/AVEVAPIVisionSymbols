@@ -59,7 +59,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdon-othercolor">Combined slice colour</label>
-            <input id="pvxdon-othercolor" type="color" ng-model="config.OtherColor" />
+            <input id="pvxdon-othercolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.OtherColor" />
         </div>
         <div class="pvx-cfg-hint">Negative values have no share of a total, so those sources are excluded and named in the footer rather than dropped silently.</div>
     </div>
@@ -112,11 +112,11 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdon-single">Slice colour</label>
-            <input id="pvxdon-single" type="color" ng-model="config.SingleColor" />
+            <input id="pvxdon-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdon-accent">Accent colour</label>
-            <input id="pvxdon-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxdon-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Slices whose source reports bad quality are always drawn hatched, whatever the colour mode, and they stay in the legend so the percentages remain accountable.</div>
 
@@ -253,7 +253,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdon-bgcolor">Background colour</label>
-            <input id="pvxdon-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxdon-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

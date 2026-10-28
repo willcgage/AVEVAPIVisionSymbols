@@ -311,15 +311,15 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxann-normal">Normal</label>
-            <input id="pvxann-normal" type="color" ng-model="config.NormalColor" />
+            <input id="pvxann-normal" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.NormalColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-ackcol">Acknowledgement tick</label>
-            <input id="pvxann-ackcol" type="color" ng-model="config.AckColor" />
+            <input id="pvxann-ackcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AckColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-retcol">Ringback</label>
-            <input id="pvxann-retcol" type="color" ng-model="config.ReturnedColor" />
+            <input id="pvxann-retcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ReturnedColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-dim">Recede normal tiles</label>
@@ -332,7 +332,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxann-accent">Accent colour</label>
-            <input id="pvxann-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxann-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the ACK ALL button when anything is outstanding.</div>
     </div>
@@ -362,7 +362,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-bgcolor">Background colour</label>
-            <input id="pvxann-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxann-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

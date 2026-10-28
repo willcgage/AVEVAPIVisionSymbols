@@ -71,7 +71,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxp-line">Line colour</label>
-            <input id="pvxxp-line" type="color" ng-model="config.LineColor" />
+            <input id="pvxxp-line" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxp-showlabel">Show title</label>

@@ -56,7 +56,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxgeo-accent">Colour otherwise</label>
-            <input id="pvxgeo-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxgeo-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
     </div>
 
@@ -164,7 +164,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxgeo-bg">Background colour</label>
-            <input id="pvxgeo-bg" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxgeo-bg" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

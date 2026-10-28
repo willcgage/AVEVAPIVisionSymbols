@@ -260,7 +260,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxat-accent">Accent colour</label>
-            <input id="pvxat-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxat-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the selection highlight and the keyboard focus ring.</div>
         <div class="pvx-cfg-row">
@@ -269,7 +269,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxat-bgcolor">Background colour</label>
-            <input id="pvxat-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxat-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

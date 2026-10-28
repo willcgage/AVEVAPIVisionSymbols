@@ -158,7 +158,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxsp-single">Single colour</label>
-            <input id="pvxsp-single" type="color" ng-model="config.SingleColor" />
+            <input id="pvxsp-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
 
         <div class="pvx-cfg-row">
@@ -307,12 +307,12 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-bgcolor">Background colour</label>
-            <input id="pvxsp-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxsp-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-accent">Accent colour</label>
-            <input id="pvxsp-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxsp-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-radius">Corner radius</label>

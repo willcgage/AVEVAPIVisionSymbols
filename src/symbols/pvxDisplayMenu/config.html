@@ -190,12 +190,12 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdm-fg">Text colour</label>
-            <input id="pvxdm-fg" type="color" ng-model="config.ItemColor" />
+            <input id="pvxdm-fg" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ItemColor" />
             <button type="button" ng-click="config.ItemColor = ''" ng-disabled="!config.ItemColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdm-hl">Highlight colour</label>
-            <input id="pvxdm-hl" type="color" ng-model="config.HighlightColor" />
+            <input id="pvxdm-hl" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.HighlightColor" />
             <button type="button" ng-click="config.HighlightColor = ''" ng-disabled="!config.HighlightColor" title="Use the accent colour again">Accent</button>
         </div>
         <div class="pvx-cfg-row">
@@ -208,7 +208,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdm-bg">Background colour</label>
-            <input id="pvxdm-bg" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxdm-bg" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

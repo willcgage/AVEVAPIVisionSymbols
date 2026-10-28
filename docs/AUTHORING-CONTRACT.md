@@ -141,6 +141,18 @@ Wrap in `<div class="c-config-content pvx-cfg">`. Group settings with
 or `.pvx-cfg-stack` (label above a full-width control). Explain non-obvious
 settings with `.pvx-cfg-hint`. Bind everything with `ng-model="config.X"`.
 
+A colour picker commits when it closes, not while it is dragged:
+
+```html
+<input type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
+```
+
+Without `ng-model-options`, every step of a drag across the picker is its own
+change to the config and its own entry in PI Vision's undo history, so one
+pick from white to black buries every earlier edit under hundreds of greys.
+The build fails a colour input that leaves it out, in a symbol's pane or a
+shared editor.
+
 Keep the root `<div class="c-config-content pvx-cfg">` on the first line, on
 its own. The build injects the shared **Data sources** list
 (`src/shared/config-sources.html`) straight after it, and fails a pane whose

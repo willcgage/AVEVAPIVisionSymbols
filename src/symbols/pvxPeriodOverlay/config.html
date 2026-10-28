@@ -224,7 +224,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxpo-envcolor">Envelope colour</label>
-            <input id="pvxpo-envcolor" type="color" ng-model="config.EnvelopeColor" />
+            <input id="pvxpo-envcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.EnvelopeColor" />
         </div>
         <div class="pvx-cfg-hint">Leave unset to use the accent colour.</div>
         <div class="pvx-cfg-row">
@@ -264,7 +264,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-currentcolor">Current period colour</label>
-            <input id="pvxpo-currentcolor" type="color" ng-model="config.CurrentColor" />
+            <input id="pvxpo-currentcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CurrentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-currentstyle">Current period line</label>
@@ -377,7 +377,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-accent">Accent colour</label>
-            <input id="pvxpo-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxpo-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-decimals">Decimals</label>
@@ -395,7 +395,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-bgcolor">Background colour</label>
-            <input id="pvxpo-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxpo-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

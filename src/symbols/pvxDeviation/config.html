@@ -142,7 +142,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxdev-bandcolor">Tolerance band</label>
-            <input id="pvxdev-bandcolor" type="color" ng-model="config.BandColor" />
+            <input id="pvxdev-bandcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BandColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdev-bandop">Band opacity</label>
@@ -150,15 +150,15 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdev-inband">In tolerance</label>
-            <input id="pvxdev-inband" type="color" ng-model="config.InBandColor" />
+            <input id="pvxdev-inband" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.InBandColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdev-high">Above tolerance</label>
-            <input id="pvxdev-high" type="color" ng-model="config.HighColor" />
+            <input id="pvxdev-high" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.HighColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdev-low">Below tolerance</label>
-            <input id="pvxdev-low" type="color" ng-model="config.LowColor" />
+            <input id="pvxdev-low" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LowColor" />
         </div>
         <div class="pvx-cfg-hint">
             High and low are deliberately different colours: running hot and running cold are
@@ -263,7 +263,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdev-bgcolor">Background colour</label>
-            <input id="pvxdev-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxdev-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

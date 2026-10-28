@@ -220,7 +220,7 @@ Reset time here      |      | start=*-24h;end=*</pre>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxnav-color">Button colour</label>
-            <input id="pvxnav-color" type="color" ng-model="config.ButtonColor" />
+            <input id="pvxnav-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ButtonColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxnav-activecolor">Selected colour</label>
@@ -245,7 +245,7 @@ Reset time here      |      | start=*-24h;end=*</pre>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxnav-bgcolor">Background colour</label>
-            <input id="pvxnav-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxnav-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

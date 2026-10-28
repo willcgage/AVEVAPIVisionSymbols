@@ -124,7 +124,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxspk-linecolor">Line colour</label>
-            <input id="pvxspk-linecolor" type="color" ng-model="config.LineColor" />
+            <input id="pvxspk-linecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-hint">Used for <em>single</em> mode, and as the fallback when a value falls below the first threshold band.</div>
         <div class="pvx-cfg-row">
@@ -158,7 +158,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxspk-accent">Accent colour</label>
-            <input id="pvxspk-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxspk-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxspk-transparent">Transparent background</label>
@@ -166,7 +166,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxspk-bgcolor">Background colour</label>
-            <input id="pvxspk-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxspk-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

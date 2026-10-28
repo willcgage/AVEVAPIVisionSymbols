@@ -355,13 +355,36 @@ async function pane() {
         const typed = await page.evaluate(() => window.__scope.config.Thresholds);
         check('typing rewrites config.Thresholds', typed === '0:#2f9e5f:Normal, 65:#d99024:Warning, 90:#c8452f:Critical', typed);
 
+        // A drag across the picker is a stream of 'input' events and one
+        // 'change' when it closes. Each step written to config was its own
+        // undo entry in PI Vision, so only the close may write.
         await bands.nth(0).locator('input[type="color"]').evaluate((el) => {
-            el.value = '#336699';
-            el.dispatchEvent(new Event('input', { bubbles: true }));
+            ['#ffffff', '#cccccc', '#999999', '#336699'].forEach((v) => {
+                el.value = v;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+        const dragging = await page.evaluate(() => window.__scope.config.Thresholds);
+        check('dragging in the picker writes nothing yet', dragging === typed, dragging);
+        await bands.nth(0).locator('input[type="color"]').evaluate((el) => {
             el.dispatchEvent(new Event('change', { bubbles: true }));
         });
         const picked = await page.evaluate(() => window.__scope.config.Thresholds);
-        check('picking a colour rewrites it', /^0:#336699:Normal,/.test(picked), picked);
+        check('closing the picker writes the colour once', /^0:#336699:Normal,/.test(picked), picked);
+
+        const bg = page.locator('#pane input[type="color"][ng-model="config.BackgroundColor"]');
+        const bgBefore = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        await bg.evaluate((el) => {
+            ['#eeeeee', '#777777', '#202020'].forEach((v) => {
+                el.value = v;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+        const bgDragging = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        await bg.evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+        const bgPicked = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        check('a plain colour field also waits for the picker to close',
+            bgDragging === bgBefore && bgPicked === '#202020', { bgBefore, bgDragging, bgPicked });
 
         await page.locator('.pvx-cfg-band-add').click();
         check('Add band adds a row', await bands.count() === 4);

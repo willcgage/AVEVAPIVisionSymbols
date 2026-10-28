@@ -103,7 +103,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-linecolor">Line colour</label>
-            <input id="pvxprof-linecolor" type="color" ng-model="config.LineColor" />
+            <input id="pvxprof-linecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-linewidth">Line width</label>
@@ -191,7 +191,7 @@
         <div class="pvx-cfg-hint">Both limits shade a band; one limit alone draws a single line. Points outside are ringed and recoloured.</div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-limitcolor">Limit colour</label>
-            <input id="pvxprof-limitcolor" type="color" ng-model="config.LimitColor" />
+            <input id="pvxprof-limitcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LimitColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-envop">Band opacity</label>
@@ -266,7 +266,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-bgcolor">Background colour</label>
-            <input id="pvxprof-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxprof-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

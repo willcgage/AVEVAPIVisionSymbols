@@ -95,7 +95,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxsk-single">Ribbon colour</label>
-            <input id="pvxsk-single" type="color" ng-model="config.SingleColor" />
+            <input id="pvxsk-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
 
         <div class="pvx-cfg-stack">
@@ -207,7 +207,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsk-bgcolor">Background colour</label>
-            <input id="pvxsk-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxsk-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -216,7 +216,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsk-accent">Accent colour</label>
-            <input id="pvxsk-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxsk-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsk-enthresh">Enable thresholds</label>

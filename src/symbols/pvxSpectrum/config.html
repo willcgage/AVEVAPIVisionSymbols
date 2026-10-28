@@ -114,11 +114,11 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-bandcol">Band colour</label>
-            <input id="pvxsp-bandcol" type="color" ng-model="config.BandColor" />
+            <input id="pvxsp-bandcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BandColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-alarmcol">Over-limit colour</label>
-            <input id="pvxsp-alarmcol" type="color" ng-model="config.AlarmColor" />
+            <input id="pvxsp-alarmcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AlarmColor" />
         </div>
     </div>
 
@@ -126,7 +126,7 @@
         <div class="pvx-cfg-legend">Look</div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-line">Line colour</label>
-            <input id="pvxsp-line" type="color" ng-model="config.LineColor" />
+            <input id="pvxsp-line" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxsp-fill">Fill under the line</label>

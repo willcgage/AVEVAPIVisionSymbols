@@ -191,11 +191,11 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxrad-curcolor">Current colour</label>
-            <input id="pvxrad-curcolor" type="color" ng-model="config.CurrentColor" />
+            <input id="pvxrad-curcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CurrentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrad-refcolor">Reference colour</label>
-            <input id="pvxrad-refcolor" type="color" ng-model="config.ReferenceColor" />
+            <input id="pvxrad-refcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ReferenceColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrad-bythreshold">Colour points by threshold</label>
@@ -221,7 +221,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrad-bgcolor">Background colour</label>
-            <input id="pvxrad-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxrad-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

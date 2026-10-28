@@ -31,7 +31,7 @@
                     <option value="left">Left axis</option>
                     <option value="right">Right axis</option>
                 </select>
-                <input type="color" class="pvx-cfg-tr-color" ng-if="r.type !== 'hidden'" ng-model="r.hex"
+                <input type="color" ng-model-options="{ updateOn: 'change' }" class="pvx-cfg-tr-color" ng-if="r.type !== 'hidden'" ng-model="r.hex"
                        ng-change="runtimeData.pvxTraces.setColor(r)" aria-label="Colour of trace {{r.index}}"
                        title="{{r.color ? r.color : 'Automatic colour'}}" />
                 <button type="button" class="pvx-cfg-band-link pvx-cfg-tr-auto" ng-if="r.color && r.type !== 'hidden'"
@@ -307,7 +307,7 @@
             </div>
             <div class="pvx-cfg-row">
                 <label for="pvxcombo-evcolor">Colour</label>
-                <input id="pvxcombo-evcolor" type="color" ng-model="config.EventColor" />
+                <input id="pvxcombo-evcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.EventColor" />
                 <button type="button" ng-click="config.EventColor = ''" ng-disabled="!config.EventColor" title="One colour per event template again">Auto</button>
             </div>
             <div class="pvx-cfg-row">
@@ -408,7 +408,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxcombo-bgcolor">Background colour</label>
-            <input id="pvxcombo-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxcombo-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

@@ -247,6 +247,23 @@ function validateTemplate(typeName, html) {
     }
 }
 
+/* A colour input fires 'input' on every step of a drag across the picker, and
+ * ng-model commits on 'input' by default, so each step became its own change
+ * to the symbol's config: dragging white to black left hundreds of greys in
+ * PI Vision's undo history and buried every earlier edit under them. 'change'
+ * fires once, when the picker closes. Checked on the expanded pane so the
+ * shared editors (bands, states) are held to it too.
+ */
+function validateColorInputs(typeName, html) {
+    (html.match(/<input\b[^>]*>/g) || []).forEach((tag) => {
+        if (!/type\s*=\s*["']color["']/.test(tag)) return;
+        if (!/ng-model-options\s*=\s*"\{\s*updateOn:\s*'change'\s*\}"/.test(tag)) {
+            problem(typeName, 'colour input without ng-model-options="{ updateOn: \'change\' }" — ' +
+                'every step of a drag would be its own undo entry: ' + tag.replace(/\s+/g, ' ').slice(0, 120));
+        }
+    });
+}
+
 function validateIcon(typeName, svg) {
     if (!/<svg[\s\S]*?viewBox\s*=\s*["'][^"']+["']/.test(svg)) {
         problem(typeName, 'icon.svg has no viewBox — PI Vision will not scale it in the picker');
@@ -357,12 +374,13 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) +
             "if (window.PVX) { window.PVX.symbolBuild = '" + VERSION + "'; }\n" + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'),
-            withTagsEditors(typeName,
-                withStatesEditors(typeName,
-                    withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, withAfSearch(typeName, withFilterPane(typeName, config, filterPane, js), afSearch, js), afPicker), sourcesPane), bandsEditor, js),
-                    statesEditor),
-                tagsEditor));
+        const configOut = withTagsEditors(typeName,
+            withStatesEditors(typeName,
+                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, withAfSearch(typeName, withFilterPane(typeName, config, filterPane, js), afSearch, js), afPicker), sourcesPane), bandsEditor, js),
+                statesEditor),
+            tagsEditor);
+        validateColorInputs(typeName, configOut);
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), configOut);
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and

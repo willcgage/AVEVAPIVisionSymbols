@@ -58,7 +58,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrg-accent">Accent colour</label>
-            <input id="pvxrg-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxrg-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrg-transparent">Transparent background</label>
@@ -66,7 +66,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrg-bgcolor">Background colour</label>
-            <input id="pvxrg-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxrg-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -123,7 +123,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxrg-targetcolor">Marker colour</label>
-            <input id="pvxrg-targetcolor" type="color" ng-model="config.TargetColor" />
+            <input id="pvxrg-targetcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.TargetColor" />
         </div>
     </div>
 

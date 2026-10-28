@@ -152,7 +152,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-barcolor">Bar colour</label>
-            <input id="pvxhist-barcolor" type="color" ng-model="config.BarColor" />
+            <input id="pvxhist-barcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BarColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-baropacity">Bar opacity</label>
@@ -194,7 +194,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-curvecolor">Curve colour</label>
-            <input id="pvxhist-curvecolor" type="color" ng-model="config.NormalCurveColor" />
+            <input id="pvxhist-curvecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.NormalCurveColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-mean">Mean line</label>
@@ -256,7 +256,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-bgcolor">Background colour</label>
-            <input id="pvxhist-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxhist-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

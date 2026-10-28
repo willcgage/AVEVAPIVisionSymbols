@@ -150,11 +150,11 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-goodcolor">Good colour</label>
-            <input id="pvxkpi-goodcolor" type="color" ng-model="config.GoodColor" />
+            <input id="pvxkpi-goodcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.GoodColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-badcolor">Bad colour</label>
-            <input id="pvxkpi-badcolor" type="color" ng-model="config.BadColor" />
+            <input id="pvxkpi-badcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BadColor" />
         </div>
     </div>
 
@@ -271,7 +271,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-accent">Accent colour</label>
-            <input id="pvxkpi-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxkpi-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-transparent">Transparent background</label>
@@ -279,7 +279,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-bgcolor">Background colour</label>
-            <input id="pvxkpi-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxkpi-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

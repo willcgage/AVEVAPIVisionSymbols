@@ -181,7 +181,7 @@
 
         <div class="pvx-cfg-row" ng-if="config.ColorBy === 'single' || config.ColorBy === 'attribute'">
             <label for="pvxeg-single">Bar colour</label>
-            <input id="pvxeg-single" type="color" ng-model="config.SingleColor" />
+            <input id="pvxeg-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
     </div>
 
@@ -291,7 +291,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxeg-bgcolor">Background colour</label>
-            <input id="pvxeg-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxeg-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

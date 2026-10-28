@@ -130,7 +130,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-color">Point colour</label>
-            <input id="pvxxy-color" type="color" ng-model="config.PointColor" />
+            <input id="pvxxy-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.PointColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-connect">Join points in time order</label>
@@ -177,7 +177,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-regcolor">Line colour</label>
-            <input id="pvxxy-regcolor" type="color" ng-model="config.RegressionColor" />
+            <input id="pvxxy-regcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.RegressionColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-eq">Show equation</label>
@@ -252,7 +252,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-accent">Accent colour</label>
-            <input id="pvxxy-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxxy-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-transparent">Transparent background</label>
@@ -260,7 +260,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-bgcolor">Background colour</label>
-            <input id="pvxxy-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxxy-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

@@ -83,7 +83,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxtr-color">Button colour</label>
-            <input id="pvxtr-color" type="color" ng-model="config.ButtonColor" />
+            <input id="pvxtr-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ButtonColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxtr-bradius">Button corner radius</label>
@@ -103,7 +103,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxtr-bgcolor">Background colour</label>
-            <input id="pvxtr-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxtr-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

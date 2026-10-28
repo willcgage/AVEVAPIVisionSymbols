@@ -127,7 +127,7 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxpar-cumcolor">Line colour</label>
-            <input id="pvxpar-cumcolor" type="color" ng-model="config.CumulativeColor" />
+            <input id="pvxpar-cumcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CumulativeColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpar-show80">Show reference line</label>
@@ -156,11 +156,11 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxpar-barcolor">Bar colour</label>
-            <input id="pvxpar-barcolor" type="color" ng-model="config.BarColor" />
+            <input id="pvxpar-barcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BarColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpar-accent">Accent colour</label>
-            <input id="pvxpar-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxpar-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Bars whose source reports bad quality are always drawn hatched, whatever the colour mode.</div>
     </div>
@@ -243,7 +243,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpar-bgcolor">Background colour</label>
-            <input id="pvxpar-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxpar-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
