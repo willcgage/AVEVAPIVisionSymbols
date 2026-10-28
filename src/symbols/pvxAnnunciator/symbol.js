@@ -107,6 +107,10 @@
                 // What counts as an excursion
                 SeverityFrom: 'thresholds',   // thresholds | quality
                 MinSeverityBand: 1,
+                // A tile returns only once the value is this far below its
+                // limit: '2' in engineering units, or '2%' of the limit.
+                // Blank: no deadband, as before.
+                Deadband: '',
 
                 // Tile content
                 ShowValue: true,
@@ -321,6 +325,9 @@
                 // Was this episode already under way when the display opened?
                 // Only sharedEntryFor() cares — see the comment there.
                 fromSeed: false,
+                // The band last evaluated, deadband applied. Kept apart from
+                // sev, which the state machine resets and latches.
+                dbSev: -1,
                 pass: pass
             };
         }
@@ -683,6 +690,7 @@
             var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
             var byQuality = cfg.SeverityFrom === 'quality';
             var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
+            var db = PVX.thresholds.parseDeadband(cfg.Deadband);
 
             pass += 1;
 
@@ -714,6 +722,11 @@
                     sev = inAlarm ? 0 : -1;
                 } else {
                     sev = severityOf(r, bands, stateBands);
+                    // A bad reading is not held or released: see below.
+                    if (db && r.good) {
+                        sev = PVX.thresholds.hold(r.value, bands, sev, e.dbSev, db);
+                        e.dbSev = sev;
+                    }
                     inAlarm = sev >= minBand;
                     // A bad-quality reading in threshold mode is not evidence of
                     // anything: the last known value may sit anywhere. Freeze the
@@ -762,7 +775,8 @@
                 items: items, counts: counts, bands: bands, byQuality: byQuality,
                 // Nothing to compare against: a quiet panel means "not
                 // checked", and the tiles and the notice must not say "normal".
-                noLimits: !byQuality && !bands.length
+                noLimits: !byQuality && !bands.length,
+                badDeadband: !!(db && db.bad)
             };
         }
 
@@ -955,6 +969,18 @@
                         color: info,
                         background: PVX.color.rgba(info, t.dark ? 0.26 : 0.13),
                         'border-color': PVX.color.rgba(info, 0.45)
+                    };
+                    return;
+                }
+                if (model && model.badDeadband) {
+                    var warn = PVX.color.status.warning;
+                    scope.pvx.notice = 'Deadband "' + cfg.Deadband + '" not read, so none applied.';
+                    scope.pvx.noticeTip = 'Write a number in the points\' units, such as 2, or a percentage ' +
+                        'of each limit, such as 2%.';
+                    scope.pvx.noticeStyle = {
+                        color: warn,
+                        background: PVX.color.rgba(warn, t.dark ? 0.26 : 0.13),
+                        'border-color': PVX.color.rgba(warn, 0.45)
                     };
                     return;
                 }

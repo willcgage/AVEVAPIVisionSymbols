@@ -18,6 +18,16 @@
  * immediately before it) — the same semantics a PI "interpolated at Y's
  * timestamps" query would give — and drop the pair when the X sample is too
  * stale to be believable (MaxPairGapSeconds).
+ *
+ * Options added later, all off by default so a saved display draws as before:
+ *   YSources 'all'    every source after X is a Y series in its own colour,
+ *                     each with its own fit (bubble size stays the third).
+ *   GateSource        a data source whose value, at each point's instant,
+ *                     must lie in GateMin..GateMax for the point to count:
+ *                     "only while the unit is running".
+ *   FitType           a polynomial of degree 2 or 3 instead of a line.
+ *   EnvelopeShape     'polygon': an operating envelope of any shape, typed
+ *                     as x,y corners, instead of the box.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -34,6 +44,8 @@
         typeName: 'pvxXYScatter',
         displayName: 'PVX XY Scatter',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // The gate names a source by number; renumbered when one is removed.
+        sourceRemap: { GateSource: 'indexAuto' },
         visObjectType: symbolVis,
         supportsCollections: false,
         configTitle: 'Format XY Scatter',
@@ -59,6 +71,12 @@
 
                 // Pairing
                 MaxPairGapSeconds: 60,
+                YSources: 'second',         // second | all
+                // Gate: '0' none, else a data source number. Strings because
+                // the pane picks it with a plain <select>.
+                GateSource: '0',
+                GateMin: '',
+                GateMax: '',
 
                 // Markers
                 PointSize: 3,
@@ -75,6 +93,7 @@
                 // Regression
                 ShowRegression: true,
                 RegressionColor: '#c8452f',
+                FitType: 'linear',          // linear | poly2 | poly3
                 ShowEquation: true,
                 ShowR2: true,
 
@@ -84,6 +103,8 @@
                 EnvelopeXMax: '',
                 EnvelopeYMin: '',
                 EnvelopeYMax: '',
+                EnvelopeShape: 'box',       // box | polygon
+                EnvelopePolygon: '',        // "x,y; x,y; x,y ..." corners in order
 
                 ShowPointCount: true,
                 ShowLabel: true
@@ -110,7 +131,11 @@
             sourceCount: 0,
             pairs: [],         // [{x, y, t, xt, z}] in Y-time order
             dropped: 0,        // Y samples with no X value close enough
-            noSize: 0          // bubble mode: pairs with no size value close enough
+            noSize: 0,         // bubble mode: pairs with no size value close enough
+            all: [],           // every series, as sent
+            list: [],          // [{series, pairs, dropped, noSize, gated}] one per Y
+            gated: 0,          // pairs left out by the gate, all series
+            noGate: 0          // pairs with no gate value close enough
         };
 
         var ctx = PVX.bootstrap(this, scope, elem, {
@@ -122,6 +147,7 @@
                 model.ySeries = all.length > 1 ? all[1] : null;
                 model.zSeries = all.length > 2 ? all[2] : null;
                 model.sourceCount = all.length;
+                model.all = all;
                 rebuildPairs(ctx.config || scope.config || {});
             },
 
@@ -145,36 +171,82 @@
             var maxGapMs = gapSec > 0 ? gapSec * 1000 : Infinity;
 
             var xp = model.xSeries ? model.xSeries.points : [];
-            var yp = model.ySeries ? model.ySeries.points : [];
-            var res = mergeByTime(xp, yp, maxGapMs);
-            model.pairs = res.pairs;
-            model.dropped = res.dropped;
-            model.noSize = 0;
-            if (cfg.BubbleMode && model.zSeries) { attachSizes(model.zSeries.points, maxGapMs); }
+            var gateIdx = (parseInt(cfg.GateSource, 10) || 0) - 1;
+            var gate = gateIdx >= 0 && gateIdx < model.all.length ? model.all[gateIdx] : null;
+            var bubbleIdx = cfg.BubbleMode && model.zSeries ? 2 : -1;
+
+            // Which sources are Y. The default is the second alone, as always.
+            var yIdx = [];
+            if (cfg.YSources === 'all') {
+                for (var k = 1; k < model.all.length; k++) {
+                    if (k !== bubbleIdx && k !== gateIdx) { yIdx.push(k); }
+                }
+            } else if (model.all.length > 1) {
+                yIdx.push(1);
+            }
+
+            model.list = [];
+            model.gated = 0;
+            model.noGate = 0;
+            for (var y = 0; y < yIdx.length; y++) {
+                var ser = model.all[yIdx[y]];
+                var res = mergeByTime(xp, ser.points, maxGapMs);
+                var entry = { series: ser, index: yIdx[y], pairs: res.pairs, dropped: res.dropped, noSize: 0 };
+                if (bubbleIdx !== -1) {
+                    var sz = attachValues(entry.pairs, model.zSeries.points, maxGapMs, 'z');
+                    entry.pairs = sz.kept;
+                    entry.noSize = sz.missing;
+                }
+                if (gate) { applyGate(entry, gate.points, maxGapMs, cfg); }
+                model.list.push(entry);
+            }
+            var first = model.list[0];
+            model.pairs = first ? first.pairs : [];
+            model.dropped = first ? first.dropped : (model.ySeries ? model.ySeries.points.length : 0);
+            model.noSize = first ? first.noSize : 0;
         }
 
         /**
-         * Bubble mode: give each pair the size value in force at its instant,
-         * by the same last-known-value rule and gap limit as X. A pair with no
-         * size is dropped and counted rather than drawn at some invented size,
-         * and the fit then describes exactly the points on the plot.
+         * Keep only the pairs whose gate value, taken by the same rule as X,
+         * lies inside GateMin..GateMax. A pair with no gate value is left out
+         * too, and counted apart: "not running" and "unknown" are different.
          */
-        function attachSizes(zs, maxGapMs) {
-            var kept = [], i = 0;
-            for (var j = 0; j < model.pairs.length; j++) {
-                var pr = model.pairs[j];
+        function applyGate(entry, gp, maxGapMs, cfg) {
+            var lo = PVX.util.num(cfg.GateMin), hi = PVX.util.num(cfg.GateMax);
+            var g = attachValues(entry.pairs, gp, maxGapMs, 'g');
+            model.noGate += g.missing;
+            var kept = [];
+            for (var i = 0; i < g.kept.length; i++) {
+                var v = g.kept[i].g;
+                if ((lo !== null && v < lo) || (hi !== null && v > hi)) { model.gated++; continue; }
+                kept.push(g.kept[i]);
+            }
+            entry.pairs = kept;
+        }
+
+        /**
+         * The value of another series in force at each pair's instant, as
+         * `key`, by the same last-known-value rule and gap limit as X. A pair
+         * with no value is dropped and counted rather than given an invented
+         * one (a bubble size, a gate reading), so a fit describes exactly the
+         * points on the plot.
+         */
+        function attachValues(pairs, zs, maxGapMs, key) {
+            var kept = [], missing = 0, i = 0;
+            for (var j = 0; j < pairs.length; j++) {
+                var pr = pairs[j];
                 if (zs.length) {
                     while (i + 1 < zs.length && zs[i + 1].t <= pr.t) { i++; }
                     var zPt = zs[i];
                     if (zPt.t <= pr.t && pr.t - zPt.t <= maxGapMs) {
-                        pr.z = zPt.v;
+                        pr[key] = zPt.v;
                         kept.push(pr);
                         continue;
                     }
                 }
-                model.noSize++;
+                missing++;
             }
-            model.pairs = kept;
+            return { kept: kept, missing: missing };
         }
 
         /**
@@ -295,7 +367,9 @@
             // ---- header / footer bindings ---------------------------------
             var xName = xs ? (xs.label || 'X') : '';
             var yName = ys ? (ys.label || 'Y') : '';
-            scope.pvx.title = (xs && ys) ? (yName + ' vs ' + xName) : 'XY Scatter';
+            var list = model.list;
+            var multi = list.length > 1;
+            scope.pvx.title = (xs && ys) ? ((multi ? list.length + ' series' : yName) + ' vs ' + xName) : 'XY Scatter';
             scope.pvx.error = '';
             if (xs && !xs.good) { scope.pvx.error = xs.errorDescription || 'Bad data on X'; }
             else if (ys && !ys.good) { scope.pvx.error = ys.errorDescription || 'Bad data on Y'; }
@@ -310,11 +384,15 @@
                 digest();
                 return;
             }
-            if (!model.pairs.length) {
+            var pairs = [];
+            for (var li = 0; li < list.length; li++) { pairs = pairs.concat(list[li].pairs); }
+            if (!pairs.length) {
                 scope.pvx.countText = '';
                 scope.pvx.note = [
                     model.dropped ? model.dropped + ' samples had no X value within the pairing window' : '',
-                    model.noSize ? model.noSize + ' pairs had no size value within it' : ''
+                    model.noSize ? model.noSize + ' pairs had no size value within it' : '',
+                    model.gated ? model.gated + ' outside the gate' : '',
+                    model.noGate ? model.noGate + ' with no gate value' : ''
                 ].filter(function (x) { return x; }).join(' · ');
                 emptyState(svgRoot, W, H, t,
                     'No paired samples',
@@ -324,8 +402,13 @@
                 return;
             }
 
-            var pairs = model.pairs;
-            var shown = subsample(pairs, MAX_POINTS);
+            // The marker budget is shared, so ten series draw no more than one.
+            for (li = 0; li < list.length; li++) {
+                for (var pi = 0; pi < list[li].pairs.length; pi++) { list[li].pairs[pi].s = li; }
+            }
+            var shownBy = list.map(function (en) { return subsample(en.pairs, Math.max(50, Math.floor(MAX_POINTS / list.length))); });
+            var shown = [];
+            for (li = 0; li < shownBy.length; li++) { shown = shown.concat(shownBy[li]); }
             var sampled = shown.length < pairs.length;
 
             scope.pvx.countText = cfg.ShowPointCount
@@ -336,11 +419,26 @@
                 notes.push('showing ' + PVX.fmt.group(String(shown.length)) + ' of ' +
                            PVX.fmt.group(String(pairs.length)) + ' (uniform sample)');
             }
-            if (model.dropped) { notes.push(model.dropped + ' unpaired'); }
+            var dropped = 0, noSize = 0;
+            for (li = 0; li < list.length; li++) { dropped += list[li].dropped; noSize += list[li].noSize; }
+            if (dropped) { notes.push(dropped + ' unpaired'); }
             var zs = (cfg.BubbleMode && model.zSeries) ? model.zSeries : null;
-            if (model.noSize) { notes.push(model.noSize + ' without a size value'); }
+            if (noSize) { notes.push(noSize + ' without a size value'); }
             if (cfg.BubbleMode && !zs) { notes.push('bubble size needs a third data source'); }
-            var extraCount = Math.max(0, model.sourceCount - (zs ? 3 : 2));
+            var gateIdx = (parseInt(cfg.GateSource, 10) || 0) - 1;
+            var gateSer = gateIdx >= 0 && gateIdx < model.all.length ? model.all[gateIdx] : null;
+            if (gateSer) {
+                var gLo = PVX.util.num(cfg.GateMin), gHi = PVX.util.num(cfg.GateMax);
+                notes.push('only while ' + (gateSer.label || 'source ' + (gateIdx + 1)) + ' ' +
+                    (gLo !== null && gHi !== null ? PVX.fmt.tick(gLo) + '\u2013' + PVX.fmt.tick(gHi) :
+                     gLo !== null ? '\u2265 ' + PVX.fmt.tick(gLo) : gHi !== null ? '\u2264 ' + PVX.fmt.tick(gHi) : 'has a value'));
+                if (model.gated) { notes.push(model.gated + ' outside the gate'); }
+                if (model.noGate) { notes.push(model.noGate + ' with no gate value'); }
+            } else if (gateIdx >= 0) {
+                notes.push('gate source ' + (gateIdx + 1) + ' does not exist');
+            }
+            var used = 1 + list.length + (zs ? 1 : 0) + (gateSer && gateIdx !== 0 && list.every(function (en) { return en.index !== gateIdx; }) ? 1 : 0);
+            var extraCount = Math.max(0, model.sourceCount - used);
             if (extraCount) {
                 notes.push(extraCount + ' extra source' + (extraCount > 1 ? 's' : '') + ' ignored');
             }
@@ -365,8 +463,6 @@
                 if (!(zMax > zMin)) { return (rMin + rMax) / 2; }
                 return rMin + (rMax - rMin) * Math.sqrt((pt.z - zMin) / (zMax - zMin));
             }
-            scope.pvx.note = notes.join(' · ');
-
             // ---- domains ---------------------------------------------------
             var tickCount = PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 12);
             var xVals = [], yVals = [];
@@ -378,12 +474,21 @@
                 y0: PVX.util.num(cfg.EnvelopeYMin),
                 y1: PVX.util.num(cfg.EnvelopeYMax)
             };
-            var hasEnvelope = !!cfg.ShowEnvelope &&
-                (env.x0 !== null || env.x1 !== null || env.y0 !== null || env.y1 !== null);
+            var poly = cfg.EnvelopeShape === 'polygon' ? parsePolygon(cfg.EnvelopePolygon) : null;
+            var hasEnvelope = !!cfg.ShowEnvelope && (poly ? poly.pts.length >= 3 :
+                (env.x0 !== null || env.x1 !== null || env.y0 !== null || env.y1 !== null));
+            if (cfg.ShowEnvelope && poly && poly.pts.length < 3) {
+                notes.push('envelope needs at least three x,y corners');
+            }
+            if (cfg.ShowEnvelope && poly && poly.bad) {
+                notes.push(poly.bad + ' envelope corner' + (poly.bad > 1 ? 's' : '') + ' not read: write each as x,y');
+            }
             // Fold the envelope into the extent, otherwise a box drawn outside
             // the data range would be invisible and the operator would think the
             // setting did nothing.
-            if (hasEnvelope) {
+            if (hasEnvelope && poly) {
+                for (var pp = 0; pp < poly.pts.length; pp++) { xVals.push(poly.pts[pp][0]); yVals.push(poly.pts[pp][1]); }
+            } else if (hasEnvelope) {
                 if (env.x0 !== null) { xVals.push(env.x0); }
                 if (env.x1 !== null) { xVals.push(env.x1); }
                 if (env.y0 !== null) { yVals.push(env.y0); }
@@ -421,10 +526,12 @@
                 : 0;
 
             var xTitle = showAxisTitles ? (cfg.XLabel || axisName(xs)) : '';
-            var yTitle = showAxisTitles ? (cfg.YLabel || axisName(ys)) : '';
+            // Several series share the axis: name their common units, if any;
+            // the legend names the series.
+            var yTitle = showAxisTitles ? (cfg.YLabel || (multi ? sharedUnits(list) : axisName(ys))) : '';
 
             // The ramp key needs its "older"/"newer" captions to mean anything.
-            var legendH = (cfg.ColorMode === 'time' && showTickLabels) ? (tickFont + 12) : 0;
+            var legendH = ((cfg.ColorMode === 'time' || multi) && showTickLabels) ? (tickFont + 12) : 0;
 
             var mL = 8 + (yTitle ? titleFont + 4 : 0) + yLabelW + (showTickLabels ? 6 : 0);
             var mR = 8 + lastXLabelW / 2;
@@ -525,7 +632,16 @@
             var plotG = PVX.svg.el('g', { 'clip-path': 'url(#' + clipId + ')' }, svgRoot);
 
             // ---- operating envelope -----------------------------------------
-            if (hasEnvelope) {
+            if (hasEnvelope && poly) {
+                PVX.svg.el('path', {
+                    d: poly.pts.map(function (q, qi) { return (qi ? 'L' : 'M') + sx(q[0]).toFixed(2) + ' ' + sy(q[1]).toFixed(2); }).join(' ') + ' Z',
+                    fill: 'none',
+                    stroke: t.textMuted,
+                    'stroke-width': 1,
+                    'stroke-dasharray': '5 4',
+                    'class': 'pvx-xy-envelope'
+                }, plotG);
+            } else if (hasEnvelope) {
                 var ex0 = env.x0 === null ? xd[0] : env.x0;
                 var ex1 = env.x1 === null ? xd[1] : env.x1;
                 var ey0 = env.y0 === null ? yd[0] : env.y0;
@@ -547,6 +663,7 @@
             /** Inside the envelope? Missing bounds are treated as unbounded. */
             function inEnvelope(pt) {
                 if (!hasEnvelope) { return true; }
+                if (poly) { return PVX.stats.inPolygon(pt.x, pt.y, poly.pts); }
                 if (env.x0 !== null && pt.x < env.x0) { return false; }
                 if (env.x1 !== null && pt.x > env.x1) { return false; }
                 if (env.y0 !== null && pt.y < env.y0) { return false; }
@@ -565,8 +682,20 @@
             }
             var tSpan = (tMax - tMin) || 1;
 
+            // One colour per series when there are several: the first keeps
+            // PointColor, the rest take the palette, skipping a near twin.
+            var serColor = [baseColor];
+            var pal = PVX.color.categorical, pc = 0;
+            while (serColor.length < list.length) {
+                var cand = pal[pc % pal.length];
+                pc++;
+                if (pc <= pal.length && cand.toLowerCase() === String(baseColor).toLowerCase()) { continue; }
+                serColor.push(cand);
+            }
+
             function colorFor(pt) {
                 if (!inEnvelope(pt)) { return PVX.color.status.alarm; }
+                if (multi && mode === 'single') { return serColor[pt.s]; }
                 if (mode === 'time') { return PVX.color.ramp(stops, (pt.t - tMin) / tSpan); }
                 // Threshold colouring still honours the shared UseThresholds
                 // switch, so turning bands off anywhere turns them off here too.
@@ -635,42 +764,55 @@
                 var title = PVX.svg.el('title', null, dot);
                 title.textContent =
                     xTip + ': ' + PVX.fmt.number(pt.x, numOpts) + xUnits + '\n' +
-                    yTip + ': ' + PVX.fmt.number(pt.y, numOpts) + yUnits + '\n' +
+                    (multi ? (list[pt.s].series.label || 'Y') + ': ' + PVX.fmt.number(pt.y, numOpts) +
+                        (list[pt.s].series.units ? ' ' + list[pt.s].series.units : '') :
+                        yTip + ': ' + PVX.fmt.number(pt.y, numOpts) + yUnits) + '\n' +
                     (zs ? zTip + ': ' + PVX.fmt.number(pt.z, numOpts) + zUnits + '\n' : '') +
                     PVX.fmt.time(pt.t, 'datetime');
 
                 quad[(cyp < midY ? 0 : 2) + (cxp < midX ? 0 : 1)]++;
             }
 
-            // ---- regression ---------------------------------------------------------
+            if (hasEnvelope) {
+                var outside = 0;
+                for (i = 0; i < pairs.length; i++) { if (!inEnvelope(pairs[i])) { outside++; } }
+                notes.push(outside ? outside + ' outside the envelope' : 'all inside the envelope');
+            }
+
+            // ---- fit ----------------------------------------------------------------
             // Fitted on every pair, not just the drawn sample: the statistics should
-            // describe the data, not the decimation.
-            var reg = cfg.ShowRegression ? PVX.stats.linreg(pairs) : null;
-            if (reg) {
-                var seg = clipRegression(reg.slope, reg.intercept, xd, yd);
-                if (seg) {
-                    PVX.svg.el('line', {
-                        x1: sx(seg.x0).toFixed(2), y1: sy(seg.y0).toFixed(2),
-                        x2: sx(seg.x1).toFixed(2), y2: sy(seg.y1).toFixed(2),
-                        stroke: cfg.RegressionColor || '#c8452f',
-                        'stroke-width': 1.8,
-                        'stroke-linecap': 'round',
-                        'class': 'pvx-xy-fit'
-                    }, plotG);
+            // describe the data, not the decimation. One fit per series.
+            var degree = cfg.FitType === 'poly3' ? 3 : cfg.FitType === 'poly2' ? 2 : 1;
+            var statLines = [], statColors = [];
+            for (li = 0; cfg.ShowRegression && li < list.length; li++) {
+                var fitColor = multi ? serColor[li] : (cfg.RegressionColor || '#c8452f');
+                var fit = fitOf(list[li].pairs, degree);
+                if (!fit) { continue; }
+                drawFit(plotG, fit, xd, yd, sx, sy, fitColor);
+                var parts = [];
+                if (cfg.ShowEquation) { parts.push(equationText(fit, numOpts)); }
+                if (cfg.ShowR2) { parts.push('R\u00b2 = ' + fit.r2.toFixed(4)); }
+                if (!parts.length) { continue; }
+                if (multi) {
+                    // Several series: one line each, named, R² first so it survives truncation.
+                    statLines.push((list[li].series.label || 'Y') + ': ' + parts.slice().reverse().join(', '));
+                    statColors.push(fitColor);
+                } else {
+                    for (var lp = 0; lp < parts.length; lp++) {
+                        statLines.push(parts[lp]);
+                        statColors.push(lp === 0 ? fitColor : t.text);
+                    }
                 }
             }
 
             // ---- stats box ------------------------------------------------------------
             // The card is only worth its ink if it does not blanket the plot.
-            if (reg && (cfg.ShowEquation || cfg.ShowR2) && plot.w >= 90 && plot.h >= 50) {
-                var lines = [];
-                if (cfg.ShowEquation) {
-                    lines.push('y = ' + PVX.fmt.number(reg.slope, numOpts) + 'x ' +
-                               (reg.intercept < 0 ? '- ' : '+ ') +
-                               PVX.fmt.number(Math.abs(reg.intercept), numOpts));
-                }
-                if (cfg.ShowR2) { lines.push('R² = ' + reg.r2.toFixed(4)); }
-                drawStatsBox(svgRoot, plot, lines, quad, t, tickFont, cfg);
+            if (statLines.length && plot.w >= 90 && plot.h >= 50) {
+                drawStatsBox(svgRoot, plot, statLines.slice(0, Math.max(1, Math.floor((plot.h - 10) / (tickFont * 1.35)) - 1)), quad, t, tickFont, statColors);
+            }
+
+            if (multi && legendH > 0 && mode !== 'time') {
+                drawSeriesLegend(svgRoot, plot, list, serColor, t, tickFont);
             }
 
             // ---- time colour legend -------------------------------------------------------
@@ -678,12 +820,19 @@
                 drawTimeLegend(svgRoot, defs, host, plot, stops, t, tickFont);
             }
 
+            scope.pvx.note = notes.join(' \u00b7 ');
             digest();
         }
 
         /* ------------------------------------------------------------------ *
          * render helpers
          * ------------------------------------------------------------------ */
+
+        function sharedUnits(list) {
+            var u = list[0].series.units || '';
+            for (var i = 1; i < list.length; i++) { if ((list[i].series.units || '') !== u) { return ''; } }
+            return u;
+        }
 
         function axisName(series) {
             if (!series) { return ''; }
@@ -711,8 +860,104 @@
             return { x0: xa, y0: m * xa + b, x1: xb, y1: m * xb + b };
         }
 
+        /** A line (as before) or a polynomial; null when there is nothing to fit. */
+        function fitOf(pairs, degree) {
+            if (degree === 1) {
+                var reg = PVX.stats.linreg(pairs);
+                return reg ? { degree: 1, coef: [reg.intercept, reg.slope], r2: reg.r2 } : null;
+            }
+            return PVX.stats.polyfit(pairs, degree);
+        }
+
+        function drawFit(g, fit, xd, yd, sx, sy, color) {
+            if (fit.degree === 1) {
+                var seg = clipRegression(fit.coef[1], fit.coef[0], xd, yd);
+                if (!seg) { return; }
+                PVX.svg.el('line', {
+                    x1: sx(seg.x0).toFixed(2), y1: sy(seg.y0).toFixed(2),
+                    x2: sx(seg.x1).toFixed(2), y2: sy(seg.y1).toFixed(2),
+                    stroke: color, 'stroke-width': 1.8, 'stroke-linecap': 'round', 'class': 'pvx-xy-fit'
+                }, g);
+                return;
+            }
+            // A curve across the X range; the plot's clip trims what leaves
+            // the window, and a run far outside it is broken rather than
+            // drawn as a spike to infinity.
+            var d = '', pen = false, steps = 120;
+            var span = yd[1] - yd[0];
+            for (var i = 0; i <= steps; i++) {
+                var x = xd[0] + (xd[1] - xd[0]) * i / steps;
+                var y = PVX.stats.polyval(fit.coef, x);
+                if (!isFinite(y) || y < yd[0] - span * 2 || y > yd[1] + span * 2) { pen = false; continue; }
+                d += (pen ? 'L' : 'M') + sx(x).toFixed(2) + ' ' + sy(y).toFixed(2) + ' ';
+                pen = true;
+            }
+            if (!d) { return; }
+            PVX.svg.el('path', {
+                d: d, fill: 'none', stroke: color, 'stroke-width': 1.8,
+                'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'class': 'pvx-xy-fit'
+            }, g);
+        }
+
+        /** "y = 0.82x + 3.1" as before; a polynomial highest power first. */
+        function equationText(fit, numOpts) {
+            if (fit.degree === 1) {
+                return 'y = ' + PVX.fmt.number(fit.coef[1], numOpts) + 'x ' +
+                    (fit.coef[0] < 0 ? '- ' : '+ ') + PVX.fmt.number(Math.abs(fit.coef[0]), numOpts);
+            }
+            var sup = ['', '', '\u00b2', '\u00b3', '\u2074'];
+            // Zero terms are left out (polyfit zeroes rounding residue), so an
+            // exact quadratic reads y = 1.00x² rather than carrying + 0x + 0.
+            var out = 'y = ', first = true;
+            for (var i = fit.degree; i >= 0; i--) {
+                var c = fit.coef[i];
+                if (c === 0 && !(i === 0 && first)) { continue; }
+                var mag = Math.abs(c) !== 0 && (Math.abs(c) < 0.001 || Math.abs(c) >= 1e6)
+                    ? Math.abs(c).toExponential(3) : PVX.fmt.number(Math.abs(c), numOpts);
+                out += (first ? (c < 0 ? '-' : '') : (c < 0 ? ' - ' : ' + ')) + mag +
+                    (i > 0 ? 'x' + sup[i] : '');
+                first = false;
+            }
+            return out;
+        }
+
+        /** Swatch and name per series, above the plot. */
+        function drawSeriesLegend(svgRoot, plot, list, colors, t, font) {
+            var x = plot.x, y = Math.max(2, plot.y - font - 4) + font / 2;
+            var maxX = plot.x + plot.w;
+            for (var i = 0; i < list.length; i++) {
+                var name = list[i].series.label || ('Y' + (i + 1));
+                var w = 10 + Math.min(name.length, 22) * font * 0.58 + 10;
+                if (x + w > maxX && i > 0) {
+                    PVX.svg.text(svgRoot, x.toFixed(2), y.toFixed(2), '+' + (list.length - i), {
+                        'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted
+                    });
+                    break;
+                }
+                PVX.svg.el('circle', { cx: (x + 4).toFixed(2), cy: y.toFixed(2), r: 3.5, fill: colors[i], 'class': 'pvx-xy-legend' }, svgRoot);
+                PVX.svg.text(svgRoot, (x + 10).toFixed(2), y.toFixed(2), name.length > 22 ? name.slice(0, 21) + '\u2026' : name, {
+                    'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted
+                });
+                x += w;
+            }
+        }
+
+        /** Polygon envelope corners "x,y; x,y; ..." (or | or one per line). */
+        function parsePolygon(text) {
+            var out = { pts: [], bad: 0 };
+            String(text === null || text === undefined ? '' : text).split(/[;|\n]/).forEach(function (chunk) {
+                var c = chunk.trim();
+                if (!c) { return; }
+                var m = /^(-?[\d.]+(?:[eE][+\-]?\d+)?)\s*[,\s]\s*(-?[\d.]+(?:[eE][+\-]?\d+)?)$/.exec(c);
+                var x = m ? parseFloat(m[1]) : NaN, y = m ? parseFloat(m[2]) : NaN;
+                if (!isFinite(x) || !isFinite(y)) { out.bad++; return; }
+                out.pts.push([x, y]);
+            });
+            return out;
+        }
+
         /** Park the equation/R² card in whichever quadrant holds fewest markers. */
-        function drawStatsBox(svgRoot, plot, lines, quad, t, font, cfg) {
+        function drawStatsBox(svgRoot, plot, lines, quad, t, font, colors) {
             var best = 0;
             for (var i = 1; i < 4; i++) { if (quad[i] < quad[best]) { best = i; } }
 
@@ -747,7 +992,7 @@
                         'class': 'pvx-svg-label pvx-num',
                         'font-size': font,
                         'font-weight': i === 0 ? '600' : '400',
-                        fill: i === 0 ? (cfg.RegressionColor || t.text) : t.text
+                        fill: colors[i] || t.text
                     });
             }
         }

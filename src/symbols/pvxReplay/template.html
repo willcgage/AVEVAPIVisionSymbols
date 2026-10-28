@@ -1,0 +1,17 @@
+<div class="pvx pvx-replay"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-replay-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-replay-header" ng-if="config.ShowTitle && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <!-- Built imperatively by symbol.js; Angular owns nothing inside
+             .pvx-replay-body, so a digest never resets a slider being dragged. -->
+        <div class="pvx-body pvx-replay-bodywrap">
+            <div class="pvx-replay-body"></div>
+        </div>
+
+    </div>
+</div>

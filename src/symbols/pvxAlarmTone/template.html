@@ -1,0 +1,19 @@
+<div class="pvx pvx-tone"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-tone-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-tone-header" ng-if="config.ShowTitle && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <!-- Built by symbol.js: the button must exist outside Angular's digest
+             so a click reaches the sound code directly, which browsers
+             require before a page may make sound. -->
+        <div class="pvx-body pvx-tone-bodywrap">
+            <div class="pvx-tone-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-tone-footer pvx-truncate" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</div>
+    </div>
+</div>

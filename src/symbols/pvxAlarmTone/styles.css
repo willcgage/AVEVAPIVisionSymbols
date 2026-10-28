@@ -1,0 +1,95 @@
+/* pvxAlarmTone — every selector under .pvx-tone */
+
+.pvx-tone .pvx-tone-surface {
+    background: var(--pvx-surface);
+}
+
+.pvx-tone .pvx-tone-bodywrap {
+    padding: 6px 8px;
+}
+
+.pvx-tone .pvx-tone-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    gap: 4px 6px;
+    position: relative;
+}
+
+.pvx-tone .pvx-tone-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid;
+    border-radius: 6px;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pvx-tone .pvx-tone-btn:disabled { cursor: default; }
+
+.pvx-tone .pvx-tone-sounding {
+    animation: pvx-tone-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pvx-tone-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200, 69, 47, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(200, 69, 47, 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pvx-tone .pvx-tone-sounding { animation: none; }
+}
+
+.pvx-tone .pvx-tone-icon {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+}
+
+.pvx-tone .pvx-tone-words {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.pvx-tone .pvx-tone-main {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pvx-tone .pvx-tone-sub {
+    font-size: 11px;
+    color: var(--pvx-muted);
+}
+
+.pvx-tone .pvx-tone-off {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+.pvx-tone .pvx-tone-list {
+    flex: 1 0 100%;
+    font-size: 11px;
+    color: var(--pvx-muted);
+}
+
+.pvx-tone .pvx-tone-footer {
+    display: block;
+    color: var(--pvx-muted);
+}

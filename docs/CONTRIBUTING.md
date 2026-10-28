@@ -22,7 +22,7 @@ a dependency crept into the build path.
 
 ## The inner loop
 
-Do not run the full verify while iterating — it renders 40 symbols 18 ways and
+Do not run the full verify while iterating — it renders 44 symbols 18 ways and
 takes a while. Use the probe:
 
 ```bash
@@ -38,7 +38,7 @@ values contain commas.
 ## Before opening a pull request
 
 ```bash
-npm run verify        # 720 render checks — the gate
+npm run verify        # 792 render checks — the gate
 npm run test:api      # PI Web API layer against six misconfigured mocks
 node tools/docgen.js  # regenerate the option reference if you changed a default
 ```

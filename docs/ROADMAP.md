@@ -15,13 +15,13 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **40 symbols**.
+> [After the plan](#after-the-plan). The library is at **44 symbols**.
 
 ## On originality
 
 This roadmap was informed by surveying what the commercial PI Vision symbol
 market sells — chiefly [Software Athlete's Vision Library+](https://www.software-athlete.com/pages/pi-vision-custom-widgets-collection)
-(42 symbols) and the individual symbols on
+(44 symbols) and the individual symbols on
 [Cedric Canguilhem's store](https://cedriccanguilhem.gumroad.com/l/all-custom-symbols) —
 alongside AVEVA's own documentation for what PI Vision 2025 ships natively.
 
@@ -510,16 +510,24 @@ Done so far, in order:
 | 9 | pvxAssetTree | A flat list and a drop-down layout beside the tree, and an attribute's value on every row with a dot coloured by threshold bands or digital state. |
 | 10 | Settings kept in AF | `PVX.af` reads AF limit traits and string attributes. The Control Chart can take its control limits (Hi/Lo, Target as centre) and its spec (LoLo/HiHi) from the charted attribute's traits; the KPI Card's plan can be the attribute's Target; the Navigation Panel's buttons can come from one AF string attribute shared by every display. Each re-reads once a minute and names what is missing. |
 | 11 | **pvxGasTriangle**, new | Duval's Triangle 1 from IEC 60599 for dissolved gas analysis: methane, ethylene and acetylene as shares of their total, plotted in the seven fault zones with a fading trail over the time range and the zone named in the footer. Gases are matched to sources by name; a minimum total withholds the diagnosis when the levels are too low to mean anything. The zone rules are tested against the drawn outlines at 20,100 points. |
-
 | 12 | pvxKpiCard | A typed target beside data source 2 and AF; a tolerance within which the change reads On target with no arrow; progress toward the plan as a bar or ring, measured from a chosen zero; time-weighted average, total over time for a rate, standard deviation and percent good as headline or footer statistics; the timestamp as a date, a time with seconds, or an age. |
-
 | 13 | pvxRadialGauge, pvxBarIndicator, **pvxMultiGauge**, new | Both gauges can dim every band but the value's, put major ticks and labels on the band limits, draw minor ticks and run the scale the other way; the bar adds a thermometer style. Several pointers on one scale is a new symbol rather than an option: the two gauges keep PI Vision's Gauge data shape, single-source, which is what lets them follow the scale PI Vision derives from an attribute, and changing that would put every saved gauge at risk. PVX Multi-Pointer Gauge takes several sources on the Table shape the library's other multi-source symbols already use, as needles, markers or rings on a dial or markers or bars on a bar. |
-
 | 14 | pvxPeriodOverlay | Each period as its change, or percent change, from a baseline at the same point in the period (the median of the older periods, or the period before), around a zero line; calendar months as a period, on a day-of-month axis; and further data sources, each drawing its current period on the same axis in its own colour, against its own baseline when change is shown. The symbol took one source until now; a display saved with one draws as before. |
+| 15 | **pvxHistoryTable**, new | A row per time and a column per data source, from recorded values: the value at clock-aligned times (linear or held), a statistic per interval (time-weighted, as PI's own summaries are, so an interval with no sample still has edges), or every archived value. Grouping by day, week or month, a totals row that suits the statistic, threshold colours, and a CSV button that saves the rows shown, made in the browser by a new `PVX.download`. Values that are not numbers are shown as text and counted out of statistics. |
+| 16 | Every symbol | Three options in every format pane, all off: a save button for the symbol as a PNG image, its drawing as SVG, or its data as CSV, made in the browser; a Stale badge when the newest value is older than a set number of minutes, left off while the display looks at the past; and hiding the symbol while none of its sources has a good value. Built once in `PVX.overlay`, so no symbol opts in. |
+| 17 | **pvxReplay**, new | Plays history back through the whole display: a window of set length slides over a chosen stretch a step at a time, by the same address change as the Time Range symbol, so every symbol follows and Back undoes a step. Play, pause, step, jump to either end, a slider, keyboard keys, and a loop; it pauses itself when the time is changed any other way, and Exit returns to the range shown before. One second between steps is the least, because each step reloads the display. |
 
-The rest of the order is in the comparison document; next is a new
-`pvxHistoryTable` (a row per time, interpolated or summarised, totals,
-grouping by time, threshold colours, CSV).
+| 18 | **pvxXYScatter** | Every source after X can be plotted against it, each in its own colour with its own fit, instead of the second alone; a gate source keeps only the points taken while it is in a range (a pump running, a unit on line) and is not plotted; a fit of degree 2 or 3 beside the straight line, solved on scaled X so process values near 1500 keep their digits; and an envelope drawn as any polygon, with the points outside it counted. The defaults draw the chart as before. |
+
+| 19 | **pvxAlarmBanner**, **pvxAnnunciator** | A deadband on both, in units or as a percentage of the limit: a band is entered at once and left only that far below its limit, so a value sitting on a limit no longer raises and clears on every update. A History mode on the Exception Banner lists each excursion in the display's time range, newest first, with its start, end (or active), duration, worst band and peak, from each source's recorded values read through PI Web API and run through the same bands, state map and deadband. A start before the range is marked as such, and a source it cannot read is named. |
+
+| 20 | **pvxAlarmTone**, new | A tone made with the browser's Web Audio API when a source goes into alarm, by the same bands, state map and deadband as the other alarm symbols: five tones, another for the highest band if wanted, a volume and a repeat. Browsers allow sound only after a click, so it asks for one and arms on it. A click silences this screen only; with shared acknowledgement on it reads the Annunciator's AF record, read only, so an acknowledgement anywhere silences every screen. Rising to a worse band sounds again. No sound files, so no web.config change. |
+
+| 21 | **pvxSpectrum**, new | Which cycles are in a tag and how big each is: recorded values resampled onto an even grid (the footer says how many values made it), the level or slope removed, a Hann, Hamming or Blackman window, and an FFT, with amplitude in the tag's own units or in decibels. Frequency in Hz, per minute or per hour, chosen by the data unless set, on a linear or log axis. The largest peaks are marked with frequency and period; bands with an optional limit turn red and are named in the footer when anything in them is larger. The save button writes the spectrum as CSV. |
+
+The rest of the order is in the comparison document; next is a
+cross-direction profile, one tag per position across the sheet,
+`pvxCrossProfile`.
 
 ## What next
 

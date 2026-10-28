@@ -351,6 +351,28 @@
             return { Data: sData };
         }
 
+        // A spectrum of a generic sine shows one line and tests nothing. This
+        // is a pressure loop hunting with a 20 minute period, a 7 minute
+        // ripple from a recycle, and noise, recorded every 20 seconds or so
+        // (unevenly, as exception reporting stores it).
+        if (shape === 'TimeSeries' && opts.profile === 'spectrum') {
+            var fData = [];
+            for (var fs = 0; fs < count; fs++) {
+                var fv = [];
+                var ft = now - span;
+                while (ft <= now) {
+                    var ph = (ft - (now - span)) / 60000;
+                    var fval = 52 + 4 * Math.sin(2 * Math.PI * ph / 20 + fs) + 1.5 * Math.sin(2 * Math.PI * ph / 7) +
+                        (rand() - 0.5) * 1.2;
+                    fv.push({ Time: new Date(ft).toISOString(), Value: round(fval, 3) });
+                    ft += 15000 + Math.floor(rand() * 10000);
+                }
+                fData.push({ Label: fs ? tags[fs].name : 'Reactor 2 Pressure', Units: fs ? tags[fs].units : 'kPa',
+                    Path: '\\\\AF\\Reactor 2|Pressure', IsGood: opts.badIndex === fs ? false : true, Value: fv });
+            }
+            return { Data: fData };
+        }
+
         // A Duval triangle on three sines lands anywhere. This is a unit
         // with a thermal fault that is getting hotter and starting to arc:
         // methane falls, ethylene and acetylene rise, so the trail runs from

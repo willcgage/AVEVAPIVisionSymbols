@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="History table">
+    <title>PVX History Table</title>
+    <!-- A header bar, a time column with a clock on it, and four rows of
+         values, one of them past a limit. Flat and transparent like the
+         other icons, so it reads at palette size. -->
+    <g>
+        <rect x="40" y="56" width="432" height="56" rx="12" fill="#5c6570"/>
+        <rect x="40" y="140" width="128" height="316" rx="12" fill="#8a8f96"/>
+        <circle cx="104" cy="200" r="34" fill="none" stroke="#ffffff" stroke-width="12"/>
+        <path d="M104 182 V202 L118 212" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="188" y="148" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="342" y="148" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="224" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="342" y="224" width="130" height="44" rx="10" fill="#d99024"/>
+        <rect x="188" y="300" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="342" y="300" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="376" width="130" height="44" rx="10" fill="#3b82c4"/>
+        <rect x="342" y="376" width="130" height="44" rx="10" fill="#3b82c4"/>
+    </g>
+</svg>

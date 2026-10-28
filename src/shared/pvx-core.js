@@ -690,6 +690,100 @@
     };
 
     /**
+     * Alarm deadband: '2' (engineering units) or '2%' (of each limit's own
+     * size). Returns {amount, percent}, null for blank, or {bad:true} for
+     * something it cannot read, so a symbol can say so instead of quietly
+     * alarming without one.
+     */
+    thresholds.parseDeadband = function (spec) {
+        var s = String(spec === null || spec === undefined ? '' : spec).trim();
+        if (!s) { return null; }
+        var pct = /%$/.test(s);
+        var n = util.num(pct ? s.slice(0, -1).trim() : s);
+        if (n === null || n < 0) { return { bad: true }; }
+        if (n === 0) { return null; }
+        return { amount: n, percent: pct };
+    };
+
+    /** The deadband below one limit, in engineering units. */
+    thresholds.deadbandAt = function (db, limit) {
+        if (!db || db.bad) { return 0; }
+        return db.percent ? Math.abs(limit) * db.amount / 100 : db.amount;
+    };
+
+    /**
+     * Band index with a deadband applied: rising into a band is immediate,
+     * leaving it downward waits until the value is a deadband below that
+     * band's limit. Without it a value hovering at the limit raises and
+     * clears an alarm on every poll, which is the chatter a deadband is for.
+     * Only numbers are held; a digital state maps straight to its band.
+     *
+     * @param value   the number, or null
+     * @param bands   parse() output, ascending
+     * @param rawSev  the band the value is in, ignoring the deadband
+     * @param prevSev the band reported last time (-1 for none)
+     */
+    thresholds.hold = function (value, bands, rawSev, prevSev, db) {
+        if (!db || db.bad || value === null || value === undefined || !(prevSev > rawSev)) { return rawSev; }
+        for (var j = Math.min(prevSev, bands.length - 1); j > rawSev; j--) {
+            if (value >= bands[j].value - thresholds.deadbandAt(db, bands[j].value)) { return j; }
+        }
+        return rawSev;
+    };
+
+    /**
+     * Past alarms from recorded values: one entry per excursion at or above
+     * band `minBand`, with the worst band it reached.
+     *
+     * An excursion starts at the first recorded value in alarm and ends at
+     * the first one out of it. That is how PI's own analyses timestamp an
+     * event, and the most a list of samples can honestly say: the true
+     * crossing lies between two of them. A value of bad quality says nothing
+     * about the process, so it neither starts nor ends anything.
+     *
+     * @param points [{t (ms), v (number or null), raw, good}] in time order
+     * @param opts {minBand, deadband (parseDeadband), stateBands, from, to}
+     * @returns [{sev, firstSev, start, end (null while still in), openStart,
+     *            peak, startValue, endValue}]
+     */
+    thresholds.excursions = function (points, bands, opts) {
+        opts = opts || {};
+        var minBand = Math.max(0, parseInt(opts.minBand, 10) || 0);
+        var out = [], cur = null, prev = -1, seen = false;
+        for (var i = 0; i < (points || []).length; i++) {
+            var p = points[i];
+            if (!p || p.good === false) { continue; }
+            var raw = -1;
+            var key = opts.stateBands ? states.text(p.raw).toLowerCase() : '';
+            if (key && opts.stateBands[key] !== undefined) {
+                raw = opts.stateBands[key];
+            } else if (p.v !== null && p.v !== undefined) {
+                for (var b = 0; b < bands.length; b++) { if (p.v >= bands[b].value) { raw = b; } else { break; } }
+            }
+            var sev = thresholds.hold(p.v, bands, raw, prev, opts.deadband);
+            prev = sev;
+            var inAlarm = sev >= minBand && sev >= 0;
+            if (inAlarm && !cur) {
+                cur = { sev: sev, firstSev: sev, start: p.t, end: null,
+                    // Already in alarm at the first good value: it began
+                    // before the window, at a time these values cannot show.
+                    openStart: !seen,
+                    peak: p.v, startValue: p.raw !== undefined ? p.raw : p.v, endValue: null };
+                out.push(cur);
+            } else if (inAlarm) {
+                if (sev > cur.sev) { cur.sev = sev; }
+                if (p.v !== null && (cur.peak === null || p.v > cur.peak)) { cur.peak = p.v; }
+            } else if (cur) {
+                cur.end = p.t;
+                cur.endValue = p.raw !== undefined ? p.raw : p.v;
+                cur = null;
+            }
+            seen = true;
+        }
+        return out;
+    };
+
+    /**
      * Row editor for config.Thresholds, behind the "Threshold bands" fields
      * build.js injects into a format pane (src/shared/config-bands.html).
      *
@@ -2532,6 +2626,240 @@
         return { slope: slope, intercept: intercept, r: r, r2: r * r, n: n };
     };
 
+    /**
+     * Least-squares polynomial y = c0 + c1 x + ... + cd x^d over [{x, y}],
+     * degree 1 to 4. Returns {coef, r2, n} or null.
+     *
+     * Solved on x centred and scaled to about -1..1: the normal equations of
+     * a cubic in raw process values (x near 1500) hold x^6 near 1e19, and
+     * the solve loses every digit that matters. The coefficients are mapped
+     * back to raw x afterwards, so callers evaluate them directly.
+     */
+    stats.polyfit = function (pts, degree) {
+        var d = Math.max(1, Math.min(4, parseInt(degree, 10) || 1));
+        var xs = [], ys = [], i, j, k;
+        for (i = 0; i < (pts || []).length; i++) {
+            var x = util.num(pts[i].x), y = util.num(pts[i].y);
+            if (x === null || y === null) { continue; }
+            xs.push(x); ys.push(y);
+        }
+        var n = xs.length;
+        if (n < d + 1) { return null; }
+        var lo = Math.min.apply(null, xs), hi = Math.max.apply(null, xs);
+        if (!(hi > lo)) { return null; }
+        var mid = (lo + hi) / 2, half = (hi - lo) / 2;
+        var m = d + 1;
+        var A = [], b = [];
+        for (i = 0; i < m; i++) { A.push([]); b.push(0); for (j = 0; j < m; j++) { A[i].push(0); } }
+        for (k = 0; k < n; k++) {
+            var u = (xs[k] - mid) / half, pw = [1];
+            for (i = 1; i < 2 * m; i++) { pw.push(pw[i - 1] * u); }
+            for (i = 0; i < m; i++) {
+                b[i] += pw[i] * ys[k];
+                for (j = 0; j < m; j++) { A[i][j] += pw[i + j]; }
+            }
+        }
+        // Gaussian elimination with partial pivoting.
+        for (i = 0; i < m; i++) {
+            var p = i;
+            for (k = i + 1; k < m; k++) { if (Math.abs(A[k][i]) > Math.abs(A[p][i])) { p = k; } }
+            if (Math.abs(A[p][i]) < 1e-12) { return null; }
+            var tmp = A[i]; A[i] = A[p]; A[p] = tmp;
+            var tb = b[i]; b[i] = b[p]; b[p] = tb;
+            for (k = i + 1; k < m; k++) {
+                var f = A[k][i] / A[i][i];
+                for (j = i; j < m; j++) { A[k][j] -= f * A[i][j]; }
+                b[k] -= f * b[i];
+            }
+        }
+        var cu = [];
+        for (i = m - 1; i >= 0; i--) {
+            var s = b[i];
+            for (j = i + 1; j < m; j++) { s -= A[i][j] * cu[j]; }
+            cu[i] = s / A[i][i];
+        }
+        // Back to raw x: sum cu_i ((x - mid)/half)^i, expanded binomially.
+        var coef = [];
+        for (i = 0; i < m; i++) { coef.push(0); }
+        for (i = 0; i < m; i++) {
+            var scale = cu[i] / Math.pow(half, i);
+            var binom = 1;
+            for (j = 0; j <= i; j++) {
+                // term: C(i,j) x^j (-mid)^(i-j)
+                coef[j] += scale * binom * Math.pow(-mid, i - j);
+                binom = binom * (i - j) / (j + 1);
+            }
+        }
+        // The expansion leaves rounding residue (an exact x^2 comes back with
+        // -5e-15 x). A term worth less than a billionth of the data across
+        // the whole range is that residue; shown, it reads as a real term.
+        var yMag = 0, xMag = Math.max(Math.abs(lo), Math.abs(hi));
+        for (k = 0; k < n; k++) { yMag = Math.max(yMag, Math.abs(ys[k])); }
+        for (j = 0; j < m; j++) {
+            if (Math.abs(coef[j]) * Math.pow(xMag, j) < 1e-9 * (yMag || 1)) { coef[j] = 0; }
+        }
+        var mean = 0;
+        for (k = 0; k < n; k++) { mean += ys[k]; }
+        mean /= n;
+        var ssr = 0, sst = 0;
+        for (k = 0; k < n; k++) {
+            var uu = (xs[k] - mid) / half, fit = 0;
+            for (i = m - 1; i >= 0; i--) { fit = fit * uu + cu[i]; }
+            ssr += (ys[k] - fit) * (ys[k] - fit);
+            sst += (ys[k] - mean) * (ys[k] - mean);
+        }
+        return { coef: coef, r2: sst > 0 ? 1 - ssr / sst : 0, n: n, degree: d };
+    };
+
+    /** A polynomial's value: coef[0] + coef[1] x + ... */
+    stats.polyval = function (coef, x) {
+        var y = 0;
+        for (var i = coef.length - 1; i >= 0; i--) { y = y * x + coef[i]; }
+        return y;
+    };
+
+    /** Is the point inside the polygon [[x, y], ...]? Even-odd rule. */
+    stats.inPolygon = function (x, y, poly) {
+        var inside = false;
+        for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) { inside = !inside; }
+        }
+        return inside;
+    };
+
+    /**
+     * In-place radix-2 FFT of re[] / im[]; the length must be a power of two.
+     * Iterative Cooley-Tukey: fast enough for 8192 points on every refresh.
+     */
+    stats.fft = function (re, im) {
+        var n = re.length, i, j, k, len;
+        for (i = 1, j = 0; i < n; i++) {
+            var bit = n >> 1;
+            for (; j & bit; bit >>= 1) { j ^= bit; }
+            j ^= bit;
+            if (i < j) {
+                var tr = re[i]; re[i] = re[j]; re[j] = tr;
+                var ti = im[i]; im[i] = im[j]; im[j] = ti;
+            }
+        }
+        for (len = 2; len <= n; len <<= 1) {
+            var ang = -2 * Math.PI / len;
+            var wr = Math.cos(ang), wi = Math.sin(ang);
+            for (i = 0; i < n; i += len) {
+                var cr = 1, ci = 0;
+                for (k = 0; k < len / 2; k++) {
+                    var a = i + k, b = a + len / 2;
+                    var xr = re[b] * cr - im[b] * ci;
+                    var xi = re[b] * ci + im[b] * cr;
+                    re[b] = re[a] - xr; im[b] = im[a] - xi;
+                    re[a] += xr; im[a] += xi;
+                    var nr = cr * wr - ci * wi;
+                    ci = cr * wi + ci * wr;
+                    cr = nr;
+                }
+            }
+        }
+    };
+
+    /**
+     * Single-sided amplitude spectrum of a time series.
+     *
+     * Process data is not evenly sampled (exception reporting and compression
+     * store a value only when it changes), and an FFT assumes it is. So the
+     * values are first resampled onto n evenly spaced times across their own
+     * span, by linear interpolation or by holding each value, and the result
+     * says how many recorded values that grid was made from: a grid much
+     * finer than the data shows the interpolation, not the process.
+     *
+     * Amplitude is in the tag's own units: a sine of amplitude A at a bin's
+     * frequency reads A, whatever the window, because each window is
+     * corrected by its own coherent gain.
+     *
+     * @param pts  [{t (ms), v}] in time order; non-numbers are counted out
+     * @param opts {n (power of two, default 512), window hann|hamming|blackman|rect,
+     *              detrend mean|linear|none, interp linear|step}
+     * @returns {freq: [Hz], amp: [], dt (s), n, used, excluded, span (s)} or null
+     */
+    stats.spectrum = function (pts, opts) {
+        opts = opts || {};
+        var n = 512;
+        var want = parseInt(opts.n, 10);
+        if (want > 0) { n = 16; while (n < want && n < 65536) { n *= 2; } }
+        var xs = [], excluded = 0, i;
+        for (i = 0; i < (pts || []).length; i++) {
+            var p = pts[i];
+            var v = p ? util.num(p.v) : null;
+            if (!p || v === null || !isFinite(p.t)) { excluded += 1; continue; }
+            if (xs.length && p.t <= xs[xs.length - 1].t) {
+                // Two values at one time: keep the later, as PI does.
+                if (p.t === xs[xs.length - 1].t) { xs[xs.length - 1].v = v; }
+                continue;
+            }
+            xs.push({ t: p.t, v: v });
+        }
+        if (xs.length < 4) { return null; }
+        var t0 = xs[0].t, span = xs[xs.length - 1].t - t0;
+        if (!(span > 0)) { return null; }
+        var dt = span / n;
+        var re = [], im = [], j = 0;
+        for (i = 0; i < n; i++) {
+            var t = t0 + i * dt;
+            while (j < xs.length - 2 && xs[j + 1].t <= t) { j++; }
+            var a = xs[j], b = xs[j + 1];
+            var y = opts.interp === 'step' || t <= a.t ? a.v
+                : (t >= b.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t));
+            re.push(y);
+            im.push(0);
+        }
+        // Remove the level (and slope): left in, it fills the lowest bins
+        // and the window spreads it into everything near them.
+        var det = opts.detrend || 'mean';
+        if (det !== 'none') {
+            var sx = 0, sy = 0, sxx = 0, sxy = 0;
+            for (i = 0; i < n; i++) { sx += i; sy += re[i]; sxx += i * i; sxy += i * re[i]; }
+            var slope = det === 'linear' ? (n * sxy - sx * sy) / (n * sxx - sx * sx) : 0;
+            var icpt = (sy - slope * sx) / n;
+            for (i = 0; i < n; i++) { re[i] -= icpt + slope * i; }
+        }
+        var win = opts.window || 'hann', wsum = 0;
+        for (i = 0; i < n; i++) {
+            var x = 2 * Math.PI * i / (n - 1), w = 1;
+            if (win === 'hann') { w = 0.5 - 0.5 * Math.cos(x); }
+            else if (win === 'hamming') { w = 0.54 - 0.46 * Math.cos(x); }
+            else if (win === 'blackman') { w = 0.42 - 0.5 * Math.cos(x) + 0.08 * Math.cos(2 * x); }
+            re[i] *= w;
+            wsum += w;
+        }
+        stats.fft(re, im);
+        var freq = [], amp = [], dtS = dt / 1000;
+        for (i = 0; i <= n / 2; i++) {
+            var mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / wsum;
+            freq.push(i / (n * dtS));
+            amp.push(i === 0 || i === n / 2 ? mag : 2 * mag);
+        }
+        return { freq: freq, amp: amp, dt: dtS, n: n, used: xs.length, excluded: excluded, span: span / 1000 };
+    };
+
+    /**
+     * The k largest local maxima of a spectrum, above bin `from`, largest
+     * first, each refined between bins by a parabola through its neighbours.
+     */
+    stats.spectrumPeaks = function (freq, amp, k, from) {
+        var out = [];
+        for (var i = Math.max(1, from || 1); i < amp.length - 1; i++) {
+            if (amp[i] > amp[i - 1] && amp[i] >= amp[i + 1] && amp[i] > 0) {
+                var a = amp[i - 1], b = amp[i], c = amp[i + 1];
+                var den = a - 2 * b + c;
+                var off = den !== 0 ? 0.5 * (a - c) / den : 0;
+                off = Math.max(-0.5, Math.min(0.5, off));
+                out.push({ index: i, freq: freq[i] + off * (freq[1] - freq[0]), amp: b - 0.25 * (a - c) * off });
+            }
+        }
+        out.sort(function (p, q) { return q.amp - p.amp; });
+        return out.slice(0, Math.max(0, k));
+    };
+
     /** Simple moving average over normalized points. */
     stats.sma = function (points, window) {
         var w = Math.max(1, parseInt(window, 10) || 1);
@@ -3262,6 +3590,24 @@
         return pos === rest.length ? ms : null;
     };
 
+    /**
+     * A length of time, "10m", "1h 30m", "2d", to ms, or null. Fixed units
+     * only: a span is added to clock times many times over, and a month has
+     * no fixed length to add.
+     */
+    nav.parseSpan = function (spec) {
+        var s = String(spec === null || spec === undefined ? '' : spec).trim();
+        if (!s) { return null; }
+        var re = /\s*(\d+(?:\.\d+)?)\s*(sec|min|hr|[smhdw])\s*/gi;
+        var pos = 0, ms = 0, hit;
+        while ((hit = re.exec(s)) !== null) {
+            if (hit.index !== pos) { return null; }
+            ms += parseFloat(hit[1]) * TIME_UNIT[hit[2].toLowerCase()];
+            pos = re.lastIndex;
+        }
+        return pos === s.length && ms > 0 ? ms : null;
+    };
+
     /** Current asset (AF element path) driving the display, if any. */
     nav.currentAsset = function () {
         return nav.parseHash().params.asset || '';
@@ -3442,6 +3788,80 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * download — hand the viewer a file built in the browser
+     * ------------------------------------------------------------------ *
+     * Nothing leaves the page: the file is made from what the symbol already
+     * shows and saved by the browser. PI Vision's own export goes through its
+     * server and only covers its own symbols.
+     */
+    var download = PVX.download = {};
+
+    /**
+     * One CSV cell. Quoted when it holds a comma, quote or line break. A text
+     * cell that starts with = + - or @ gets a leading apostrophe, because a
+     * spreadsheet runs it as a formula otherwise; a number never does, so a
+     * negative reading stays a number.
+     */
+    download.csvCell = function (v) {
+        if (v === null || v === undefined) { return ''; }
+        if (typeof v === 'number') { return isFinite(v) ? String(v) : ''; }
+        var s = String(v);
+        // A strict number test: util.num is lenient and reads "=1+2" as 1.
+        if (/^[=+\-@\t\r]/.test(s) && !/^[+\-]?(\d+\.?\d*|\.\d+)([eE][+\-]?\d+)?$/.test(s)) { s = '\'' + s; }
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+
+    /** Rows (arrays of cells) to CSV text, CRLF between rows as RFC 4180 has it. */
+    download.csvText = function (rows) {
+        return (rows || []).map(function (r) {
+            return (r || []).map(download.csvCell).join(',');
+        }).join('\r\n') + '\r\n';
+    };
+
+    /** A file name with nothing Windows refuses in it. */
+    download.fileName = function (base, ext) {
+        var s = String(base === null || base === undefined ? '' : base)
+            .replace(/[\\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return (s || 'pvx').slice(0, 80) + (ext ? '.' + ext : '');
+    };
+
+    /**
+     * Save text as a file. Returns false when the browser offers no way to,
+     * so the caller can say so instead of the button doing nothing. The BOM
+     * makes Excel read a CSV as UTF-8: without it a degree sign arrives as
+     * two characters.
+     */
+    download.text = function (name, content, mime) {
+        var type = (mime || 'text/plain') + ';charset=utf-8';
+        var body = (/csv/.test(type) ? '﻿' : '') + String(content === null || content === undefined ? '' : content);
+        var blob;
+        try { blob = new window.Blob([body], { type: type }); } catch (e) { return false; }
+        // Legacy Edge and IE: the only route they have.
+        if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+            window.navigator.msSaveOrOpenBlob(blob, name);
+            return true;
+        }
+        if (!window.URL || !window.URL.createObjectURL) { return false; }
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Revoked later, not at once: some browsers start the save after
+        // click() returns and would find the address already gone.
+        window.setTimeout(function () { window.URL.revokeObjectURL(url); }, 4000);
+        return true;
+    };
+
+    /** Rows to a CSV file. */
+    download.csv = function (name, rows) {
+        return download.text(download.fileName(name, 'csv'), download.csvText(rows), 'text/csv');
+    };
+
+    /* ------------------------------------------------------------------ *
      * config — helpers for the configuration pane
      * ------------------------------------------------------------------ */
     var config = PVX.config = {};
@@ -3466,7 +3886,13 @@
             Thresholds: thresholds.DEFAULT,
             UseThresholds: true,
             AccentColor: '#3b82c4',
-            CornerRadius: 6
+            CornerRadius: 6,
+            // Every symbol, applied by PVX.overlay; off, so saved displays
+            // look as they did. Names of their own: pvxDataHealth already
+            // has a StaleMinutes that means something else.
+            ExportMenu: false,
+            StaleBadgeMinutes: 0,
+            HideWhenNoData: false
         };
         if (extra) {
             for (var k in extra) {
@@ -5501,6 +5927,391 @@
     // files in ext load".
     PVX.registered = PVX.registered || [];
 
+    /* ------------------------------------------------------------------ *
+     * overlay: what every symbol offers on top of its own drawing
+     * ------------------------------------------------------------------ *
+     * Three options any PVX symbol has, all off by default so a saved display
+     * looks as it did:
+     *
+     *   ExportMenu         a button, shown on hover, that saves the symbol as
+     *                      a PNG image, its drawing as SVG, or its data as CSV.
+     *   StaleBadgeMinutes  a badge when the newest timestamp PI Vision sent is
+     *                      older than this. 0 is off.
+     *   HideWhenNoData     the symbol hides itself while none of its data
+     *                      sources has a value.
+     *
+     * They live here, wired in by bootstrap, so no symbol has to opt in.
+     * Nothing in this block sends anything anywhere: files are made in the
+     * browser by PVX.download.
+     */
+    var overlay = PVX.overlay = {};
+
+    /** Every value PI Vision sent, whatever the data shape, as {t, v, good, label, units}. */
+    overlay.items = function (d) {
+        var out = [];
+        if (!d) { return out; }
+        var push = function (label, units, p) {
+            if (p === null || p === undefined) { return; }
+            var raw = typeof p === 'object' ? (p.Value !== undefined ? p.Value : p.value) : p;
+            if (raw !== null && typeof raw === 'object') { raw = raw.Name !== undefined ? raw.Name : raw.Value; }
+            var dt = fmt.toDate(typeof p === 'object' ? (p.Time || p.time) : null);
+            out.push({ label: label, units: units, t: dt ? dt.getTime() : null, raw: raw, good: !(p && p.IsGood === false) });
+        };
+        var rows = d.Rows || d.rows;
+        if (rows && rows.length !== undefined) {
+            for (var r = 0; r < rows.length; r++) {
+                var row = rows[r] || {};
+                push(row.Label || ('Row ' + (r + 1)), row.Units || '', row);
+            }
+            return out;
+        }
+        var list = d.Data || d.data;
+        if (!list) {
+            if (d.Value !== undefined || d.Time !== undefined) { push(d.Label || 'Value', d.Units || '', d); }
+            return out;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i] || {};
+            var label = it.Label || ('Source ' + (i + 1));
+            var vals = it.Values || it.Value;
+            if (vals && typeof vals === 'object' && vals.length !== undefined) {
+                for (var j = 0; j < vals.length; j++) {
+                    var v = vals[j];
+                    if (v && it.IsGood === false && v.IsGood === undefined) { v = { Time: v.Time, Value: v.Value, IsGood: false }; }
+                    push(label, it.Units || '', v);
+                }
+            } else {
+                push(label, it.Units || '', it.IsGood === false ? { Time: it.Time, Value: it.Value, IsGood: false } : it);
+            }
+        }
+        return out;
+    };
+
+    /** Has any source a value? Bad-quality values and system states count as none. */
+    overlay.hasData = function (d) {
+        var list = overlay.items(d);
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].good && list[i].raw !== null && list[i].raw !== undefined && list[i].raw !== '') { return true; }
+        }
+        return false;
+    };
+
+    /** The newest timestamp PI Vision sent, or null. */
+    overlay.newest = function (d) {
+        var list = overlay.items(d), best = null;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].t !== null && (best === null || list[i].t > best)) { best = list[i].t; }
+        }
+        return best;
+    };
+
+    /**
+     * Is the display looking at the past? Then old data is what was asked
+     * for, and calling it stale would be wrong.
+     */
+    overlay.historical = function (thresholdMs, nowMs) {
+        var p = nav.parseHash().params || {};
+        if (!p.endtime) { return false; }
+        var end = nav.parseTime(p.endtime, nowMs);
+        return end !== null && end < nowMs - thresholdMs;
+    };
+
+    /** The data as CSV rows, long form: one row per value, lossless. */
+    overlay.csvRows = function (d) {
+        var rows = [['Source', 'Units', 'Time', 'Value', 'Quality']];
+        var list = overlay.items(d);
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i];
+            var n = util.isNum(it.raw) ? it.raw : (typeof it.raw === 'string' && /^-?\d+(\.\d+)?([eE][+\-]?\d+)?$/.test(it.raw) ? parseFloat(it.raw) : it.raw);
+            rows.push([it.label, it.units, it.t === null ? '' : new Date(it.t).toISOString(), n, it.good ? 'Good' : 'Bad']);
+        }
+        return rows;
+    };
+
+    /* The properties copied onto each element of a picture. Computed style in
+     * full is several hundred per element and makes a table megabytes. */
+    var PICTURE_PROPS = ['display', 'position', 'top', 'left', 'right', 'bottom', 'width', 'height',
+        'box-sizing', 'margin', 'padding', 'border', 'border-radius', 'background-color', 'background-image',
+        'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'text-align',
+        'vertical-align', 'white-space', 'overflow', 'text-overflow', 'opacity', 'flex', 'flex-direction',
+        'align-items', 'justify-content', 'gap', 'border-collapse', 'border-spacing', 'box-shadow',
+        'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'text-anchor',
+        'dominant-baseline', 'font-variant-numeric', 'transform', 'visibility', 'z-index'];
+
+    function copyStyles(src, dst) {
+        if (!src || !dst || src.nodeType !== 1) { return; }
+        var cs = root.getComputedStyle ? root.getComputedStyle(src) : null;
+        if (cs) {
+            var parts = [];
+            for (var i = 0; i < PICTURE_PROPS.length; i++) {
+                var v = cs.getPropertyValue(PICTURE_PROPS[i]);
+                if (v) { parts.push(PICTURE_PROPS[i] + ':' + v); }
+            }
+            dst.setAttribute('style', parts.join(';'));
+        }
+        // Scrolled content is pictured where the reader left it.
+        if (src.scrollTop || src.scrollLeft) {
+            dst.style.overflow = 'hidden';
+            var inner = dst.firstElementChild;
+            if (inner) { inner.style.marginTop = (-src.scrollTop) + 'px'; inner.style.marginLeft = (-src.scrollLeft) + 'px'; }
+        }
+        var a = src.children, b = dst.children;
+        for (var k = 0; k < a.length && k < b.length; k++) { copyStyles(a[k], b[k]); }
+    }
+
+    /** The symbol's own drawing: its largest SVG, or null for an HTML symbol. */
+    overlay.mainSvg = function (node) {
+        if (!node || !node.querySelectorAll) { return null; }
+        var all = node.querySelectorAll('svg'), best = null, area = 0;
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].closest && all[i].closest('.pvx-overlay')) { continue; }
+            var r = all[i].getBoundingClientRect();
+            if (r.width * r.height > area) { area = r.width * r.height; best = all[i]; }
+        }
+        // A small icon beside HTML text is not the drawing.
+        var nr = node.getBoundingClientRect();
+        return best && area >= nr.width * nr.height * 0.3 ? best : null;
+    };
+
+    /** The SVG drawing as a standalone file, styles inlined so it opens anywhere. */
+    overlay.svgText = function (svgEl, background) {
+        var clone = svgEl.cloneNode(true);
+        copyStyles(svgEl, clone);
+        var r = svgEl.getBoundingClientRect();
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', String(Math.round(r.width)));
+        clone.setAttribute('height', String(Math.round(r.height)));
+        if (!clone.getAttribute('viewBox')) { clone.setAttribute('viewBox', '0 0 ' + Math.round(r.width) + ' ' + Math.round(r.height)); }
+        if (background && background !== 'transparent') {
+            var bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            var vb = clone.getAttribute('viewBox').split(/[\s,]+/);
+            bg.setAttribute('x', vb[0]); bg.setAttribute('y', vb[1]);
+            bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]);
+            bg.setAttribute('fill', background);
+            clone.insertBefore(bg, clone.firstChild);
+        }
+        return new root.XMLSerializer().serializeToString(clone);
+    };
+
+    /**
+     * The whole symbol, HTML and SVG alike, as a PNG. The symbol is copied
+     * into an SVG foreignObject with its styles inlined and drawn onto a
+     * canvas at twice its size. A browser that refuses (a canvas tainted by
+     * a foreignObject, as older engines do) rejects, and the caller says so.
+     */
+    overlay.png = function (node, background) {
+        return new Promise(function (resolve, reject) {
+            var r = node.getBoundingClientRect();
+            var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+            var clone = node.cloneNode(true);
+            copyStyles(node, clone);
+            var ov = clone.querySelector('.pvx-overlay');
+            if (ov) { ov.parentNode.removeChild(ov); }
+            clone.style.zoom = '';
+            clone.style.width = w + 'px';
+            clone.style.height = h + 'px';
+            if (background && background !== 'transparent') { clone.style.backgroundColor = background; }
+            clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+            var xml = new root.XMLSerializer().serializeToString(clone);
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">' +
+                '<foreignObject x="0" y="0" width="100%" height="100%">' + xml + '</foreignObject></svg>';
+            var img = new root.Image();
+            img.onload = function () {
+                try {
+                    var k = 2;
+                    var c = document.createElement('canvas');
+                    c.width = w * k; c.height = h * k;
+                    var g = c.getContext('2d');
+                    g.scale(k, k);
+                    g.drawImage(img, 0, 0);
+                    resolve(c.toDataURL('image/png'));
+                } catch (e) { reject(e); }
+            };
+            img.onerror = function () { reject(new Error('the browser could not draw the symbol')); };
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        });
+    };
+
+    /** Save a data: URL as a file. */
+    overlay.saveDataUrl = function (name, url) {
+        var a = document.createElement('a');
+        if (typeof a.download !== 'string') { return false; }
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return true;
+    };
+
+    /**
+     * Wire the overlay into one symbol. Called by bootstrap; update() runs
+     * after every render, so a config change shows at once.
+     */
+    overlay.bind = function (ctx, hooks) {
+        var el = null, menu = null, badge = null, note = null;
+        var timer = null, noteTimer = null;
+        var hidden = false;
+
+        function cfg() { return ctx.config || {}; }
+
+        function name() {
+            var c = cfg();
+            var base = c.Title || (ctx.scope && ctx.scope.symbol && ctx.scope.symbol.Name) || 'pvx';
+            var d = new Date();
+            var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+            return base + ' ' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+                ' ' + pad2(d.getHours()) + pad2(d.getMinutes());
+        }
+
+        function say(text) {
+            if (!el) { return; }
+            if (!note) { note = document.createElement('div'); note.className = 'pvx-overlay-note'; el.appendChild(note); }
+            note.textContent = text;
+            note.style.display = text ? '' : 'none';
+            if (noteTimer) { clearTimeout(noteTimer); }
+            if (text) { noteTimer = setTimeout(function () { say(''); }, 6000); }
+        }
+
+        function background() {
+            var t = ctx.theme || {};
+            return cfg().Transparent ? 'transparent' : (cfg().BackgroundColor || t.surface || '#ffffff');
+        }
+
+        function act(kind) {
+            closeMenu();
+            var n = ctx.node;
+            try {
+                if (kind === 'csv') {
+                    var rows = hooks.csv ? hooks.csv(ctx) : overlay.csvRows(ctx.data);
+                    if (!rows || rows.length < 2) { say('No data to save'); return; }
+                    if (!download.csv(name(), rows)) { say('This browser cannot save files from a page'); }
+                    return;
+                }
+                if (kind === 'svg') {
+                    var s = overlay.mainSvg(n);
+                    if (!s) { say('This symbol is not a drawing; save it as an image'); return; }
+                    if (!download.text(download.fileName(name(), 'svg'), overlay.svgText(s, background()), 'image/svg+xml')) {
+                        say('This browser cannot save files from a page');
+                    }
+                    return;
+                }
+                overlay.png(n, background()).then(function (url) {
+                    if (!overlay.saveDataUrl(download.fileName(name(), 'png'), url)) { say('This browser cannot save files from a page'); }
+                }, function (e) {
+                    say('No image: ' + ((e && e.message) || 'the browser refused') + '. Try SVG or CSV, or a screenshot.');
+                });
+            } catch (e) {
+                say('Could not save: ' + ((e && e.message) || e));
+            }
+        }
+
+        function closeMenu() { if (menu) { menu.style.display = 'none'; } }
+
+        function build() {
+            el = document.createElement('div');
+            el.className = 'pvx-overlay';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pvx-overlay-btn';
+            btn.title = 'Save as image or data';
+            btn.setAttribute('aria-label', 'Save as image or data');
+            btn.textContent = '⤓';
+            menu = document.createElement('div');
+            menu.className = 'pvx-overlay-menu';
+            menu.style.display = 'none';
+            var opts = [['png', 'Image (PNG)'], ['svg', 'Drawing (SVG)'], ['csv', 'Data (CSV)']];
+            for (var i = 0; i < opts.length; i++) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'pvx-overlay-item';
+                b.setAttribute('data-kind', opts[i][0]);
+                b.textContent = opts[i][1];
+                b.onclick = (function (k) { return function (ev) { if (ev) { ev.stopPropagation(); } act(k); }; }(opts[i][0]));
+                menu.appendChild(b);
+            }
+            btn.onclick = function (ev) {
+                if (ev) { ev.stopPropagation(); }
+                var open = menu.style.display !== 'none';
+                if (!open) {
+                    // SVG only where there is a drawing to save.
+                    var svgItem = menu.querySelector('[data-kind="svg"]');
+                    if (svgItem) { svgItem.style.display = overlay.mainSvg(ctx.node) ? '' : 'none'; }
+                }
+                menu.style.display = open ? 'none' : '';
+            };
+            el.appendChild(btn);
+            el.appendChild(menu);
+        }
+
+        function attach(want) {
+            var n = ctx.node;
+            if (!want) {
+                if (el && el.parentNode) { el.parentNode.removeChild(el); }
+                return null;
+            }
+            if (!el) { build(); }
+            // The node can be swapped by ng-if; follow it.
+            if (n && el.parentNode !== n) { n.appendChild(el); }
+            return el;
+        }
+
+        function staleCheck() {
+            var c = cfg();
+            var mins = util.num(c.StaleBadgeMinutes);
+            if (!(mins > 0) || !ctx.data) { return null; }
+            var now = Date.now();
+            var th = mins * 60000;
+            if (overlay.historical(th, now)) { return null; }
+            var t = overlay.newest(ctx.data);
+            if (t === null || now - t <= th) { return null; }
+            return t;
+        }
+
+        function update() {
+            var c = cfg();
+            var n = ctx.node;
+            var staleAt = staleCheck();
+            var want = !!c.ExportMenu || staleAt !== null;
+            var host = attach(want);
+            if (host) {
+                var btn = host.querySelector('.pvx-overlay-btn');
+                if (btn) { btn.style.display = c.ExportMenu ? '' : 'none'; }
+                if (!c.ExportMenu) { closeMenu(); }
+                if (staleAt !== null) {
+                    if (!badge) { badge = document.createElement('div'); badge.className = 'pvx-overlay-stale'; host.appendChild(badge); }
+                    badge.textContent = 'Stale · ' + fmt.duration(Date.now() - staleAt, { parts: 1 });
+                    badge.title = 'Newest value ' + fmt.time(staleAt, 'datetime') + ', more than ' +
+                        c.StaleBadgeMinutes + ' min ago. Check the data source and its interface.';
+                    badge.style.display = '';
+                } else if (badge) { badge.style.display = 'none'; }
+            }
+            // Rechecked on a timer as well: a source that stops updating may
+            // stop PI Vision sending anything, and then nothing renders.
+            var mins = util.num(c.StaleBadgeMinutes);
+            if (mins > 0 && !timer) { timer = setInterval(function () { if (!ctx.destroyed) { update(); } }, 30000); }
+            if (!(mins > 0) && timer) { clearInterval(timer); timer = null; }
+
+            // Hidden only once data has arrived and has no value: a symbol
+            // with no data sources, or before the first update, stays.
+            var hide = !!c.HideWhenNoData && ctx.data !== null && !overlay.hasData(ctx.data);
+            if (n && n.style && hide !== hidden) {
+                n.style.visibility = hide ? 'hidden' : '';
+                hidden = hide;
+            }
+        }
+
+        return {
+            update: update,
+            destroy: function () {
+                if (timer) { clearInterval(timer); }
+                if (noteTimer) { clearTimeout(noteTimer); }
+                if (el && el.parentNode) { el.parentNode.removeChild(el); }
+            }
+        };
+    };
+
     /**
      * Show why a symbol could not start, on the symbol itself.
      *
@@ -5696,10 +6507,13 @@
             }
             ctx.theme = theme.tokens(ctx.config, elem);
             if (hooks.render) { hooks.render(ctx); }
+            // After the symbol, so the overlay sits on what it drew.
+            try { ctx.overlay.update(); } catch (e) { if (root.console) { root.console.error('[PVX] overlay failed', e); } }
         });
         ctx.render = renderer.request;
         ctx.renderNow = renderer.flush;
 
+        ctx.overlay = overlay.bind(ctx, hooks);
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
         ctx.bands = thresholds.bind(scope);
         // Other keys in the band grammar, named by the symbol, e.g. LimitBands.
@@ -5767,6 +6581,7 @@
             if (ctx.afpick) { ctx.afpick.destroy(); }
             if (ctx.states) { ctx.states.destroy(); }
             if (ctx.tags) { ctx.tags.destroy(); }
+            ctx.overlay.destroy();
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

@@ -125,6 +125,89 @@
     padding: 8px;
 }
 
+/* --- overlay: save button and stale badge (PVX.overlay) ------------------- */
+
+.pvx-overlay {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.pvx-overlay > * {
+    pointer-events: auto;
+}
+
+.pvx-overlay .pvx-overlay-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid rgba(128, 128, 128, 0.45);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #1d2126;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.pvx:hover .pvx-overlay .pvx-overlay-btn,
+.pvx-overlay .pvx-overlay-btn:focus {
+    opacity: 1;
+}
+
+.pvx-overlay .pvx-overlay-menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 110px;
+    padding: 3px 0;
+    border: 1px solid rgba(128, 128, 128, 0.45);
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.pvx-overlay .pvx-overlay-item {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: #1d2126;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pvx-overlay .pvx-overlay-item:hover,
+.pvx-overlay .pvx-overlay-item:focus {
+    background: #e8eef5;
+}
+
+.pvx-overlay .pvx-overlay-stale {
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #d99024;
+    color: #1d2126;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pvx-overlay .pvx-overlay-note {
+    max-width: 220px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background: #1d2126;
+    color: #ffffff;
+    white-space: normal;
+}
+
 /* --- interactive elements ------------------------------------------------- */
 
 .pvx-btn {

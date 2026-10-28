@@ -1,0 +1,145 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Signal</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-series">Data source</label>
+            <input id="pvxsp-series" type="number" ng-model="config.SeriesIndex" min="1" max="50" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The number of the data source analysed, counting from 1 in the list above.
+            Over the display's time range, from recorded values.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-points">Even samples</label>
+            <select id="pvxsp-points" ng-model="config.Points" ng-options="n for n in [256, 512, 1024, 2048, 4096, 8192]"></select>
+        </div>
+        <div class="pvx-cfg-hint">
+            An FFT needs values at even times, and PI stores them when they change, so the
+            recorded values are resampled onto this many. More gives finer frequencies;
+            the footer says when the grid is finer than the data.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-interp">Between values</label>
+            <select id="pvxsp-interp" ng-model="config.Interpolate">
+                <option value="linear">Interpolate</option>
+                <option value="step">Hold the last value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-window">Window</label>
+            <select id="pvxsp-window" ng-model="config.Window">
+                <option value="hann">Hann</option>
+                <option value="hamming">Hamming</option>
+                <option value="blackman">Blackman</option>
+                <option value="rect">None (rectangular)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A window tapers the ends so a cycle cut off at the edge of the range does not
+            smear across every frequency. Hann suits almost everything; Blackman separates
+            a small peak next to a large one better.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-detrend">Remove</label>
+            <select id="pvxsp-detrend" ng-model="config.Detrend">
+                <option value="mean">The average</option>
+                <option value="linear">The average and any slope</option>
+                <option value="none">Nothing</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-unit">Frequency in</label>
+            <select id="pvxsp-unit" ng-model="config.FreqUnit">
+                <option value="auto">Automatic</option>
+                <option value="hz">Hz (per second)</option>
+                <option value="perMin">Cycles per minute</option>
+                <option value="perHour">Cycles per hour</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-maxf">Highest frequency</label>
+            <input id="pvxsp-maxf" type="text" ng-model="config.MaxFreq" placeholder="all" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-xscale">Frequency axis</label>
+            <select id="pvxsp-xscale" ng-model="config.XScale">
+                <option value="linear">Linear</option>
+                <option value="log">Logarithmic</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-yscale">Height</label>
+            <select id="pvxsp-yscale" ng-model="config.YScale">
+                <option value="amplitude">Amplitude, in the tag's units</option>
+                <option value="db">Decibels</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-grid">Grid</label>
+            <input id="pvxsp-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Peaks and bands</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-peaks">Peaks marked</label>
+            <input id="pvxsp-peaks" type="number" ng-model="config.PeakCount" min="0" max="10" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-peakmin">Smallest peak marked (%)</label>
+            <input id="pvxsp-peakmin" type="number" ng-model="config.PeakMinPercent" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-hint">Of the largest peak: below it is the noise floor.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-period">Show each peak's period</label>
+            <input id="pvxsp-period" type="checkbox" ng-model="config.ShowPeriod" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-bands">Bands</label>
+            <textarea id="pvxsp-bands" rows="4" ng-model="config.Bands"
+                      placeholder="2..4 : 1.5 : Loop hunting"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One per line: <b>low..high : limit : label</b>, in the axis unit. The limit is
+            optional; with one, the band turns red when anything in it is larger, and the
+            footer says by how much. A line it cannot read is named in the footer.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-bandcol">Band colour</label>
+            <input id="pvxsp-bandcol" type="color" ng-model="config.BandColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-alarmcol">Over-limit colour</label>
+            <input id="pvxsp-alarmcol" type="color" ng-model="config.AlarmColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Look</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-line">Line colour</label>
+            <input id="pvxsp-line" type="color" ng-model="config.LineColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-fill">Fill under the line</label>
+            <input id="pvxsp-fill" type="checkbox" ng-model="config.FillArea" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxsp-showlabel">Show title</label>
+            <input id="pvxsp-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxsp-title">Title</label>
+            <input id="pvxsp-title" type="text" ng-model="config.Title" placeholder="Spectrum of the data source" />
+        </div>
+    </div>
+
+</div>

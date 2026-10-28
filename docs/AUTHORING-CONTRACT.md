@@ -181,6 +181,25 @@ must not undo it: lay out from `ctx.width` / `ctx.height`, never write
 `zoom`, `width` or `height` on the root, and never map pointer coordinates
 from `getBoundingClientRect` without dividing by `ctx.fontScale`.
 
+## Save button, stale badge, hide when no data
+
+Every format pane also gets **Saving and data state**
+(`src/shared/config-common.html`): `ExportMenu`, `StaleBadgeMinutes` and
+`HideWhenNoData`, in `config.base` and all off. `PVX.overlay` applies them
+after each render, on an element it appends to the `.pvx` root, so a symbol
+needs nothing for them. The rules a symbol must keep:
+
+- Draw into the host, never over the root's top-right corner with something
+  that must stay clickable: the save button sits there.
+- Never set `visibility` on the root; hiding uses it.
+- The CSV is the raw values PI Vision sent, one row each. A symbol whose own
+  table is the better export passes `csv: function (ctx) { return rows; }` in
+  its bootstrap hooks (an array of arrays, a header row first), as
+  pvxHistoryTable does.
+- The PNG copies the root into an SVG `foreignObject` with computed styles
+  written in. Anything drawn on a `<canvas>` or loaded from another origin
+  will be missing from it.
+
 ## Removing a data source
 
 Every symbol's format pane lists its data sources with a Remove button on each

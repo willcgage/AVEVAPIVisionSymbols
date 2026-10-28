@@ -16,6 +16,14 @@
  * display see the same rows, but "duration" is measured from when *their*
  * browser first saw the row in that band (see durationOf() below).
  *
+ * Two options added later, both off by default:
+ *   Deadband   '2' or '2%': a row leaves a band only once its value is that
+ *              far below the band's limit (PVX.thresholds.hold).
+ *   Mode history  past excursions over the display's time range, from each
+ *              source's recorded values read through PI Web API, through the
+ *              same bands, state map and deadband (PVX.thresholds.excursions).
+ *              The one part of this symbol that makes requests of its own.
+ *
  * Rendering note: rows are built imperatively into `.pvx-alarm-body` rather
  * than with ng-repeat. PI Vision pushes a full data update on every poll (as
  * often as every second on a fast display); an ng-repeat over that would run a
@@ -57,8 +65,17 @@
                 // Digital state -> threshold band, e.g. 'ALARM:Critical'.
                 StateBands: '',
 
+                // An alarm clears only once the value is this far below its
+                // limit: '2' in engineering units, or '2%' of the limit.
+                // Blank: no deadband, as before.
+                Deadband: '',
+
                 // Presentation
-                Mode: 'list',                 // list | ticker | summary
+                Mode: 'list',                 // list | ticker | summary | history
+                // History: past excursions from recorded values over the
+                // display's time range, read through PI Web API.
+                HistoryMaxValues: 10000,      // per data source
+                HistoryRefreshSeconds: 60,
                 DenseMode: false,
                 MaxRows: 12,
                 RowHeight: 24,
@@ -142,6 +159,12 @@
          * accumulates an entry for every tag that ever briefly deviated.
          */
         var durations = {};      // key -> {band, since, pass}
+
+        // History mode: past excursions from recorded values. Everything here
+        // stays untouched, and nothing is asked of PI Web API, in any other mode.
+        var hist = { key: '', at: 0, phase: 'idle', rows: [], notes: [], error: '', gen: 0, win: null };
+        var streamIds = {};      // source path -> Promise(WebId); failures are not kept
+        var histTimer = null;
         var pass = 0;            // incremented per data update, used for pruning
         var seeded = false;      // has the first payload landed yet?
 
@@ -262,6 +285,7 @@
             var now = Date.now();
             var byQuality = cfg.SeverityFrom === 'quality';
             var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
+            var db = PVX.thresholds.parseDeadband(cfg.Deadband);
 
             pass += 1;
 
@@ -278,6 +302,12 @@
                 // "I cannot tell you the value" outranks any known deviation.
                 var isBad = byQuality && !r.good;
                 var sev = isBad ? bands.length : severityOf(r, bands, stateBands);
+                if (!isBad && db) {
+                    // The band shown last time, so a value just under its
+                    // limit stays in it until it is a deadband clear.
+                    var last = durations[keyOf(r)];
+                    sev = PVX.thresholds.hold(r.value, bands, sev, last ? last.band : -1, db);
+                }
                 if (sev < 0) { continue; }
 
                 var e = durationOf(r, sev, now);
@@ -317,6 +347,7 @@
                 // Nothing to compare against, so the empty list means "not
                 // checked", not "all clear" — buildEmpty must say which.
                 noLimits: !byQuality && !bands.length,
+                badDeadband: !!(db && db.bad),
                 all: all,
                 exceptions: exceptions,
                 counts: counts,
@@ -379,7 +410,8 @@
             // as a rendering fault rather than a deliberate omission — so drop
             // them and let the list itself carry the information.
             var pillRoom = c.width - (scope.pvx.title ? 90 : 10);
-            scope.pvx.counts = (cfg.ShowCounts && pillRoom >= 120) ? countPills(model, t) : [];
+            scope.pvx.counts = (cfg.ShowCounts && pillRoom >= 120)
+                ? (cfg.Mode === 'history' ? historyPills(model, t) : countPills(model, t)) : [];
             scope.pvx.showHeader =
                 (!!cfg.ShowLabel && !!scope.pvx.title) || scope.pvx.counts.length > 0;
 
@@ -392,7 +424,10 @@
                 bindClicks(host);
 
                 var mode = cfg.Mode || 'list';
-                if (mode === 'summary') {
+                if (mode === 'history') {
+                    ensureHistory(cfg, model);
+                    buildHistory(host, cfg, t, model);
+                } else if (mode === 'summary') {
                     buildSummary(host, cfg, t, model);
                 } else if (!model.exceptions.length) {
                     buildEmpty(host, cfg, t, model);
@@ -404,6 +439,12 @@
 
                 syncClock(cfg);
             }
+            syncHistoryTimer(cfg);
+
+            var notes = [];
+            if (model.badDeadband) { notes.push('Deadband "' + cfg.Deadband + '" not read, so none applied'); }
+            if (cfg.Mode === 'history') { notes = notes.concat(hist.notes); }
+            scope.pvx.note = notes.join(' \u00b7 ');
 
             // Header bindings were written outside Angular's digest (bootstrap
             // renders inside requestAnimationFrame), so nudge it.
@@ -722,6 +763,300 @@
             host.appendChild(wrap);
         }
 
+        /* ================================================================== *
+         * History mode
+         * ================================================================== *
+         * PI Vision hands a Table-shaped symbol current values only, so past
+         * alarms are read from each source's recorded values through PI Web
+         * API, over the display's time range, and run through the same bands,
+         * state map and deadband as the live list. Read again when the range,
+         * the sources or the limits change, and every HistoryRefreshSeconds.
+         */
+
+        function historyWindow() {
+            var params = {};
+            try { params = PVX.nav.parseHash().params || {}; } catch (e) { params = {}; }
+            var startExpr = params.starttime || params.StartTime || '*-8h';
+            var endExpr = params.endtime || params.EndTime || '*';
+            var now = Date.now();
+            var from = PVX.nav.parseTime(startExpr, now);
+            var to = PVX.nav.parseTime(endExpr, now);
+            var ok = from !== null && to !== null && to > from;
+            return { startExpr: startExpr, endExpr: endExpr, from: ok ? from : null, to: ok ? to : null,
+                // The end is "now" when it is within a minute of it: an
+                // excursion still in progress there is active, not just cut off.
+                live: !ok || now - to < 60000 };
+        }
+
+        function historyKey(cfg) {
+            var w = historyWindow();
+            var paths = [];
+            for (var i = 0; i < rawRows.length; i++) { paths.push(rawRows[i].path || ''); }
+            return [w.startExpr, w.endExpr, paths.join('\n'), cfg.Thresholds, cfg.StateBands, cfg.Deadband,
+                cfg.MinSeverityBand, cfg.SeverityFrom, cfg.HistoryMaxValues].join('|');
+        }
+
+        function ensureHistory(cfg) {
+            if (!rawRows.length) { return; }
+            var key = historyKey(cfg);
+            if (key === hist.key && hist.phase !== 'idle') { return; }
+            hist.key = key;
+            fetchHistory(cfg);
+        }
+
+        function syncHistoryTimer(cfg) {
+            var wanted = cfg.Mode === 'history';
+            if (wanted && !histTimer) {
+                histTimer = setInterval(function () {
+                    if (ctx.destroyed) { return; }
+                    var c = ctx.config || {};
+                    var every = Math.max(10, numOr(c.HistoryRefreshSeconds, 60)) * 1000;
+                    if (Date.now() - hist.at >= every && hist.phase !== 'loading') { fetchHistory(c); }
+                }, 5000);
+            } else if (!wanted && histTimer) {
+                clearInterval(histTimer);
+                histTimer = null;
+            }
+        }
+
+        function numOr(v, d) {
+            var n = parseFloat(v);
+            return isFinite(n) ? n : d;
+        }
+
+        function errText(e) {
+            return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API did not answer.';
+        }
+
+        /** Source path -> stream WebId, an AF attribute or a PI point. */
+        function streamId(path) {
+            var p = PVX.states.sourcePath(path);
+            var k = p.toLowerCase();
+            if (streamIds[k]) { return streamIds[k]; }
+            var job = PVX.api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' +
+                encodeURIComponent(p) + '&selectedFields=WebId').then(function (r) {
+                if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+                return r.WebId;
+            });
+            streamIds[k] = job;
+            job.then(null, function () { if (streamIds[k] === job) { delete streamIds[k]; } });
+            return job;
+        }
+
+        function fetchHistory(cfg) {
+            hist.at = Date.now();
+            var gen = ++hist.gen;
+            if (PVX.api.discovering()) {
+                hist.phase = 'loading';
+                PVX.api.discover().then(function () { if (!ctx.destroyed && gen === hist.gen) { fetchHistory(ctx.config || cfg); } });
+                return;
+            }
+            if (!PVX.api.isConfigured()) {
+                hist.phase = 'unconfigured';
+                hist.rows = [];
+                hist.notes = [];
+                return;
+            }
+            if (cfg.SeverityFrom === 'quality') {
+                hist.phase = 'quality';
+                hist.rows = [];
+                hist.notes = [];
+                return;
+            }
+            var win = historyWindow();
+            var max = Math.max(10, Math.min(150000, Math.floor(numOr(cfg.HistoryMaxValues, 10000))));
+            var bands = bandsFor(cfg);
+            var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
+            var db = PVX.thresholds.parseDeadband(cfg.Deadband);
+            var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
+            var rows = rawRows.slice();
+            if (hist.phase !== 'ok') { hist.phase = 'loading'; }
+
+            var jobs = rows.map(function (r) {
+                if (!r.path) { return Promise.resolve({ row: r, skip: 'nopath' }); }
+                return streamId(r.path).then(function (id) {
+                    return PVX.api.get('streams/' + encodeURIComponent(id) + '/recorded?startTime=' +
+                        encodeURIComponent(win.from !== null ? new Date(win.from).toISOString() : win.startExpr) +
+                        '&endTime=' + encodeURIComponent(win.to !== null ? new Date(win.to).toISOString() : win.endExpr) +
+                        '&maxCount=' + max + '&selectedFields=Items.Timestamp;Items.Value;Items.Good', { cache: false });
+                }).then(function (res) {
+                    return { row: r, items: (res && res.Items) || [] };
+                }, function (e) {
+                    return { row: r, error: errText(e) };
+                });
+            });
+
+            Promise.all(jobs).then(function (results) {
+                if (ctx.destroyed || gen !== hist.gen) { return; }
+                var out = [], noPath = 0, failed = [], capped = [];
+                for (var i = 0; i < results.length; i++) {
+                    var res = results[i];
+                    if (res.skip) { noPath += 1; continue; }
+                    if (res.error) { failed.push(res.row.label + ' (' + res.error + ')'); continue; }
+                    if (res.items.length >= max) { capped.push(res.row.label); }
+                    var pts = [];
+                    for (var j = 0; j < res.items.length; j++) {
+                        var it = res.items[j];
+                        var raw = it.Value;
+                        var d = PVX.fmt.toDate(it.Timestamp);
+                        if (!d) { continue; }
+                        var v = (raw !== null && typeof raw === 'object') ? null : PVX.util.num(raw);
+                        pts.push({ t: d.getTime(), v: v, raw: raw, good: it.Good !== false });
+                    }
+                    var ex = PVX.thresholds.excursions(pts, bands, { minBand: minBand, deadband: db, stateBands: stateBands });
+                    for (var k = 0; k < ex.length; k++) {
+                        var x = ex[k];
+                        out.push({
+                            label: res.row.label, path: res.row.path, units: res.row.units,
+                            sev: x.sev, band: bandLabel(bands, x.sev), color: bands[x.sev].color,
+                            start: x.start, end: x.end, openStart: x.openStart,
+                            active: x.end === null && win.live,
+                            peak: x.peak, startValue: x.startValue,
+                            stop: x.end !== null ? x.end : (win.live ? Date.now() : (win.to || Date.now()))
+                        });
+                    }
+                }
+                // Newest first: the one that just happened is the one asked about.
+                out.sort(function (a, b) { return b.start - a.start || b.sev - a.sev; });
+                var notes = [];
+                if (failed.length) { notes.push(failed.length + ' not read: ' + failed.join('; ')); }
+                if (noPath) { notes.push(noPath + ' with no path to read history by'); }
+                if (capped.length) { notes.push('only the first ' + max + ' values of ' + capped.join(', ') + ' read'); }
+                hist.rows = out;
+                hist.notes = notes;
+                hist.win = win;
+                hist.phase = 'ok';
+                hist.error = '';
+                if (failed.length && failed.length === results.length - noPath) {
+                    hist.phase = 'error';
+                    hist.error = failed[0];
+                }
+                ctx.render();
+            });
+        }
+
+        function historyPills(model, t) {
+            var counts = [];
+            var i;
+            for (i = 0; i < model.bands.length; i++) { counts.push(0); }
+            for (i = 0; i < hist.rows.length; i++) { counts[hist.rows[i].sev] += 1; }
+            var out = [];
+            for (i = counts.length - 1; i >= 0; i--) {
+                if (!counts[i]) { continue; }
+                var col = model.bands[i].color;
+                out.push({ key: 'h' + i, label: bandLabel(model.bands, i), count: counts[i], color: col,
+                    bg: PVX.color.rgba(col, t.dark ? 0.22 : 0.14) });
+            }
+            return out;
+        }
+
+        function statusLine(host, text) {
+            var d = div('pvx-alarm-status');
+            d.textContent = text;
+            host.appendChild(d);
+        }
+
+        function buildHistory(host, cfg, t, model) {
+            if (model.noLimits) { buildEmpty(host, cfg, t, model); return; }
+            if (!rawRows.length) { return; }
+            if (hist.phase === 'unconfigured') {
+                statusLine(host, 'History needs PI Web API. ' + PVX.api.unsetHint() + '.');
+                return;
+            }
+            if (hist.phase === 'quality') {
+                statusLine(host, 'History is read against threshold bands; set "What counts as an exception" to thresholds.');
+                return;
+            }
+            if (hist.phase === 'error') { statusLine(host, 'History could not be read: ' + hist.error); return; }
+            if (hist.phase !== 'ok') { statusLine(host, 'Reading recorded values\u2026'); return; }
+            if (!hist.rows.length) {
+                if (!cfg.ShowEmptyState) { return; }
+                var wrap = div('pvx-alarm-empty');
+                wrap.style.color = cfg.EmptyColor || PVX.color.status.normal;
+                var g = document.createElement('span');
+                g.className = 'pvx-alarm-check';
+                g.textContent = '\u2713';
+                wrap.appendChild(g);
+                var tx = document.createElement('span');
+                tx.textContent = 'No excursions in this time range';
+                wrap.appendChild(tx);
+                host.appendChild(wrap);
+                return;
+            }
+
+            var cols = columns(cfg, ctx.width);
+            var max = Math.max(1, parseInt(cfg.MaxRows, 10) || 12);
+            var rowH = Math.max(14, parseInt(cfg.RowHeight, 10) || 24);
+            var list = div('pvx-alarm-list');
+            var n = Math.min(max, hist.rows.length);
+            for (var i = 0; i < n; i++) {
+                var r = hist.rows[i];
+                visible.push(r);
+                var row = div('pvx-alarm-row pvx-alarm-past');
+                row.setAttribute('data-pvx-idx', String(i));
+                row.style.minHeight = rowH + 'px';
+                row.setAttribute('title', (r.path || r.label) + '\n' + PVX.fmt.time(r.start, 'datetime') +
+                    ' to ' + (r.end !== null ? PVX.fmt.time(r.end, 'datetime') : (r.active ? 'now' : 'the end of the range')));
+                if (cfg.ClickAction === 'navigate' && cfg.NavigateTarget) { row.className += ' pvx-alarm-clickable'; }
+
+                var chip = div('pvx-alarm-chip');
+                chip.style.background = r.color;
+                row.appendChild(chip);
+
+                var name = div('pvx-alarm-name pvx-truncate');
+                name.textContent = r.label;
+                row.appendChild(name);
+
+                if (cols.value && r.peak !== null) {
+                    var val = div('pvx-alarm-value pvx-num');
+                    val.textContent = PVX.fmt.number(r.peak, PVX.config.numberOpts(cfg));
+                    val.setAttribute('title', 'Highest value during the excursion');
+                    val.style.color = r.color;
+                    row.appendChild(val);
+                    if (cols.units && r.units) {
+                        var u = div('pvx-alarm-units');
+                        u.textContent = r.units;
+                        row.appendChild(u);
+                    }
+                }
+
+                if (cols.band && r.band) {
+                    var band = div('pvx-alarm-band pvx-truncate');
+                    band.textContent = r.band;
+                    band.style.color = r.color;
+                    band.style.borderColor = PVX.color.rgba(r.color, 0.45);
+                    row.appendChild(band);
+                }
+
+                // Start and end always: they are what a history is for. A start
+                // before the range began is marked, since the values cannot say
+                // when it really was.
+                var when = div('pvx-alarm-when pvx-num');
+                when.textContent = (r.openStart ? '\u2264 ' : '') + PVX.fmt.time(r.start, 'short') + ' \u2013 ' +
+                    (r.end !== null ? PVX.fmt.time(r.end, 'short') : (r.active ? '' : '\u2026'));
+                if (r.active) {
+                    var act = document.createElement('span');
+                    act.className = 'pvx-alarm-active';
+                    act.textContent = 'active';
+                    when.appendChild(act);
+                }
+                row.appendChild(when);
+
+                if (cols.duration) {
+                    var dur = div('pvx-alarm-dur pvx-num');
+                    dur.textContent = (r.openStart || (r.end === null && !r.active) ? '\u2265 ' : '') + fmtDuration(r.stop - r.start);
+                    row.appendChild(dur);
+                }
+                list.appendChild(row);
+            }
+            if (hist.rows.length > n) {
+                var more = div('pvx-alarm-more');
+                more.textContent = '+' + (hist.rows.length - n) + ' more';
+                list.appendChild(more);
+            }
+            host.appendChild(list);
+        }
+
         /* ---- empty state ---------------------------------------------------- */
 
         function buildEmpty(host, cfg, t, model) {
@@ -838,6 +1173,8 @@
 
         function teardown() {
             stopTicker();
+            if (histTimer) { clearInterval(histTimer); histTimer = null; }
+            hist.gen += 1;
             if (durationTimer) { clearInterval(durationTimer); durationTimer = null; }
             unbindClicks();
             durNodes = [];

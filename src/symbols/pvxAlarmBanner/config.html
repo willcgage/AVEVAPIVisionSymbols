@@ -7,8 +7,8 @@
             Rows are scored by comparing each attribute's <b>live value</b> against the
             threshold bands configured below, and a digital tag by the band its state is
             put in under <em>Digital states</em>. This is not a PI Notifications or AF Event
-            Frames client &mdash; there is no acknowledgement, no priority and no event
-            history behind it.
+            Frames client &mdash; there is no acknowledgement and no priority behind it.
+            <em>History</em> mode reads past excursions from recorded values.
         </div>
 
         <div class="pvx-cfg-row">
@@ -31,6 +31,17 @@
             Band index into the threshold list, counting from 0 at the lowest limit.
             <code>0</code> lists everything including Normal; <code>1</code> hides the
             first band, which is the usual "only show me deviations" setting.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxab-deadband">Deadband</label>
+            <input id="pvxab-deadband" type="text" ng-model="config.Deadband" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How far below its limit a value must fall before it leaves a band:
+            <code>2</code> in the attribute's units, or <code>2%</code> of the limit.
+            It stops a value sitting on a limit raising and clearing on every update.
+            Blank means none.
         </div>
 
         <div class="pvx-cfg-row">
@@ -58,12 +69,24 @@
                 <option value="list">List</option>
                 <option value="ticker">Ticker</option>
                 <option value="summary">Summary counts</option>
+                <option value="history">History</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
             <b>List</b> stacks the active exceptions vertically. <b>Ticker</b> scrolls them
             through a single line and pauses on hover. <b>Summary</b> shows one pill per
             band; it counts every attribute, ignoring the minimum band above.
+            <b>History</b> lists each past excursion in the display's time range, newest
+            first, with when it started and ended, how long it lasted and the highest
+            value it reached, from recorded values read through PI Web API.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Mode === 'history'">
+            <label for="pvxab-hrefresh">Read again every (s)</label>
+            <input id="pvxab-hrefresh" type="number" ng-model="config.HistoryRefreshSeconds" min="10" max="3600" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Mode === 'history'">
+            <label for="pvxab-hmax">Values per attribute</label>
+            <input id="pvxab-hmax" type="number" ng-model="config.HistoryMaxValues" min="10" max="150000" />
         </div>
 
         <div class="pvx-cfg-stack">

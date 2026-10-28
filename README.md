@@ -3,14 +3,15 @@
 [![CI](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml/badge.svg)](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-Forty production-ready custom symbols that fill the gaps in PI Vision's stock
+Forty-four production-ready custom symbols that fill the gaps in PI Vision's stock
 palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
-Twenty-eight of them run entirely on PI Vision's own data pipeline — no PI Web
-API, no server-side prerequisites beyond copying a folder. Five reach further
-(Event Frames, the AF hierarchy, writing values back) and need PI Web API; see
+Thirty-one of them run entirely on PI Vision's own data pipeline — no PI Web
+API, no server-side prerequisites beyond copying a folder. Six reach further
+(Event Frames, the AF hierarchy, writing values back) and need PI Web API, and
+seven more use it for an optional extra; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
 
 Works with PI Vision 2019 through 2025 — the symbol extensibility model
@@ -28,6 +29,7 @@ in ES5 with no third-party libraries.
 |---|---|---|
 | ![](src/symbols/pvxComboChart/icon.svg) | **PVX Combo Chart** | Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands, and optionally the asset's AF event frames shaded behind the traces (PI Web API). The native trend draws every trace the same way; this does not. |
 | ![](src/symbols/pvxHistogram/icon.svg) | **PVX Distribution** | Frequency histogram with a fitted normal curve, spec limits, and **Cp / Cpk / expected ppm**. A capability study, not just a chart. |
+| ![](src/symbols/pvxSpectrum/icon.svg) | **PVX Spectrum** | Which cycles are in a tag and how big each is: a loop hunting every twenty minutes, a recycle rippling every seven. An FFT of recorded values resampled evenly, with the largest peaks marked by frequency and period, and bands that turn red when a peak in them passes a limit. |
 | ![](src/symbols/pvxControlChart/icon.svg) | **PVX Control Chart** | Shewhart I-MR, X̄-R or X̄-S chart with Nelson or Western Electric run rules, each flagged point naming the rule it broke. Limits from the window, a baseline, typed values or data sources; Cpk and Ppk against spec limits; a distribution strip beside the plot. |
 | ![](src/symbols/pvxBoxPlot/icon.svg) | **PVX Variability** | Quartiles, whiskers and outliers, one box per tag. Twenty identical assets side by side — the wide box is the one to go and look at. |
 | ![](src/symbols/pvxDeviation/icon.svg) | **PVX Deviation from Target** | Deviation from setpoint with the tolerance band shaded, excursions coloured by direction, and time-in-band, excursion count and longest excursion computed from real sample intervals. |
@@ -44,7 +46,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxMultiGauge/icon.svg) | **PVX Multi-Pointer Gauge** | Several values on one scale, as a dial (needles, markers or rings) or a bar (markers or side-by-side bars), each in its own colour with a readout row. A value that is not a number or is off the scale is named, not dropped. |
 | ![](src/symbols/pvxSparkline/icon.svg) | **PVX Multi Sparkline** | One dense row per tag — name, micro-trend, current value. Twenty tags at a glance, which the stock trend cannot do. |
 | ![](src/symbols/pvxCompare/icon.svg) | **PVX Condition Compare** | Splits the time range by a rule on one tag ("yield < 92%") and ranks every other tag by how differently it behaves while the rule holds, with paired histograms per tag. What is different about the bad hours, without the trip to Excel. |
-| ![](src/symbols/pvxXYScatter/icon.svg) | **PVX XY Scatter** | Correlation of one tag against another with least-squares regression, R², time-coloured points and an operating-envelope box. A bubble mode lets a third tag set each point's size. |
+| ![](src/symbols/pvxXYScatter/icon.svg) | **PVX XY Scatter** | Correlation of one tag against another with least-squares regression, R², time-coloured points and an operating-envelope box. A bubble mode lets a third tag set each point's size. Optionally several Y tags at once, a gate tag that keeps only points taken while it is in range, a quadratic or cubic fit, and a polygon envelope. |
 | ![](src/symbols/pvxWindRose/icon.svg) | **PVX Wind Rose** | Direction against speed as stacked polar bars: where the wind blows from and how hard, weighted by time rather than sample count. Bars in percent of time, hours, or 100% per direction; with speed bands off it is a plain polar bar chart. |
 | ![](src/symbols/pvxGasTriangle/icon.svg) | **PVX Gas Triangle** | Duval's Triangle 1 (IEC 60599) for transformer oil: methane, ethylene and acetylene as shares of their total, in the seven fault zones, with a fading trail over the time range and the zone named. Gases are matched to sources by name; below a minimum total the zone is not named. |
 | ![](src/symbols/pvxHeatmap/icon.svg) | **PVX Heatmap** | Hour-of-day × day calendar, tag × time-bucket matrix, or value × time density weighted by time spent. Makes diurnal and shift patterns obvious, and shows a hunting valve as two bands where a trend shows a smear. |
@@ -54,14 +56,16 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxAnnunciator/icon.svg) | **PVX Annunciator** | Latching alarm tiles with the ISA-18.2 ringback state, so an excursion that starts and clears between two refreshes is still there when someone looks. First-out marking for cascades. |
+| ![](src/symbols/pvxAnnunciator/icon.svg) | **PVX Annunciator** | Latching alarm tiles with the ISA-18.2 ringback state, so an excursion that starts and clears between two refreshes is still there when someone looks. First-out marking for cascades, and an optional deadband so a value sitting on a limit does not ring the tile again and again. |
 | ![](src/symbols/pvxSitePlan/icon.svg) | **PVX Site Plan** | Live values pinned to a plant drawing by percentage coordinates. The offline answer to a map symbol — no tile provider required. |
 | ![](src/symbols/pvxStateDuration/icon.svg) | **PVX Time in State** | Time-in-state timeline or stacked bar per digital tag, with uptime percentage and transition count. Downtime accounting with no Event Frames, no AF templates and no PI Web API. |
 | ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number (latest, averages plain or time-weighted, a rate totalled over time, spread, percent good), delta against earlier in the range or against a plan from a source, AF or typed in, with a tolerance that reads On target, a progress bar or ring toward the plan, inline sparkline with the plan line, footer statistics, and an edge coloured by the headline's band. |
 | ![](src/symbols/pvxAssetTable/icon.svg) | **PVX Asset Table** | One row per asset, one column per attribute, each cell coloured by its own limits or state map, a status dot for the worst cell, and the row opening the unit's display with that unit as the asset. Rows come from the data sources, or from the elements under the current asset so an area with more units gets more rows. |
 | ![](src/symbols/pvxStatusGrid/icon.svg) | **PVX Status Grid** | Responsive tile grid coloured by thresholds or by a digital state map. Four tile styles, optional drill-down. |
-| ![](src/symbols/pvxAlarmBanner/icon.svg) | **PVX Exception Banner** | Shows only the tags currently outside limits, worst first, with dwell time. List, ticker or summary mode. |
+| ![](src/symbols/pvxAlarmBanner/icon.svg) | **PVX Exception Banner** | Shows only the tags currently outside limits, worst first, with dwell time. List, ticker or summary mode, an optional deadband, and a History mode that lists past excursions in the time range (start, end, duration, peak) from recorded values. |
+| ![](src/symbols/pvxAlarmTone/icon.svg) | **PVX Alarm Tone** | Sounds a tone made in the browser when a tag goes into alarm, repeating until it is silenced or clears; five tones, one for the highest band if wanted, and a deadband. Silences on this screen with a click, or on every screen when the alarm is acknowledged on an Annunciator that shares acknowledgements through AF. No sound files and no server change. |
 | ![](src/symbols/pvxDataHealth/icon.svg) | **PVX Data Health** | Lists only the tags that can't be trusted right now: bad, out of instrument range, stale, or flatlined. The healthy rest are a count in the footer, so nothing is silently dropped. |
+| ![](src/symbols/pvxHistoryTable/icon.svg) | **PVX History Table** | A row per time and a column per tag: the value on the hour (or every 15 minutes, or at midnight), a statistic per interval (time-weighted average, minimum, maximum, total, change, count), or every archived value. Grouped by day, week or month with totals, cells coloured by threshold, and a CSV button that saves the rows shown. |
 
 ### Event Frames, AF and data entry · needs PI Web API
 
@@ -80,6 +84,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxNavPanel/icon.svg) | **PVX Navigation Panel** | Button bar that jumps between displays, swaps the asset context, or sets the time range. A hierarchy mode builds Up, a breadcrumb and the siblings from the current asset, opening each level's own display. |
 | ![](src/symbols/pvxSlideshow/icon.svg) | **PVX Display Slideshow** | Rotates a control-room screen through a list of displays. The same config goes on every display in the rotation and each copy works out where it is — pause survives the navigation, and it never rotates while someone is editing the display. |
 | ![](src/symbols/pvxTimeRange/icon.svg) | **PVX Time Range** | Presets, a From / To pair (calendar, or PI time expressions checked as they are typed), step back and forward by the span shown, and Now. Sets the display's time by its address, so the browser's Back button undoes it. |
+| ![](src/symbols/pvxReplay/icon.svg) | **PVX Replay** | Plays a stretch of history back through the whole display: a window of set length slides from start to end a step at a time, and every symbol follows it. Play, pause, step, a position slider and keyboard keys; pauses itself when the time is changed any other way, and Exit returns to the range shown before. Nothing is saved with the display. |
 | ![](src/symbols/pvxEmbeddedPage/icon.svg) | **PVX Embedded Page** | Another PI Vision display, a work instruction or a report in a frame, reloaded on a timer. A display follows this one's asset and time. A page from another site that refuses framing shows blank, and the symbol says so instead of leaving it a mystery, with Open in a new tab beside it. |
 
 Full option reference: **[docs/SYMBOL-REFERENCE.md](docs/SYMBOL-REFERENCE.md)** (generated from the code).
@@ -113,7 +118,7 @@ runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode; pick one and drag an attribute onto the display to place it (any
-attribute for the nine that take their settings from the format pane alone). That is the whole installation for thirty-four of the forty.
+attribute for the ten that take their settings from the format pane alone). That is the whole installation for thirty-eight of the forty-four.
 
 Dropped the wrong attribute on a symbol? Open its format pane: every PVX
 symbol lists its data sources at the top, with **Remove** on each row (click
@@ -122,6 +127,11 @@ Combo Chart trace spec or a Sankey link, are renumbered to match and the pane
 says what changed. A symbol always keeps at least one source. Below the list,
 **Text size** scales everything the symbol draws from 70% to 200%, and the
 symbol lays itself out again for the larger text rather than overflowing.
+Under **Saving and data state**, every symbol can also show a save button
+(the symbol as a PNG, its drawing as SVG, its data as CSV, all made in the
+browser), a **Stale** badge when its newest value is older than a number of
+minutes, and hide itself while none of its sources has a good value. All three
+are off until set.
 
 The other five, and the Asset Table's and Navigation Panel's optional AF
 lookups, need one more step: run `ext/piwebapi-check.html` on the server
@@ -248,7 +258,7 @@ some updates; `PVX.bootstrap` carries them across the rest, per data source.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 720 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 792 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, content clipped out of reach, and a placeholder name
 ("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to
@@ -272,7 +282,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle` and `pvxMultiGauge` from a feature-level comparison with Software Athlete's Vision Library+.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone` and `pvxSpectrum` from a feature-level comparison with Software Athlete's Vision Library+.
 
 ---
 

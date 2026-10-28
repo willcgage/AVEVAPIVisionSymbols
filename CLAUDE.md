@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 40 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 44 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.14.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,7 +17,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 720 render checks — the gate, and slow
+node tools/verify.js                 # 792 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
@@ -25,7 +25,9 @@ node tools/test-states.js            # digital state map editor: rules + built p
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, text zoom vs a mock AF
-node tools/test-charts.js            # Wind Rose, XY bubble, Control Chart numbers vs known answers
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum numbers vs known answers (--only <section>)
+node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data
+node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -34,7 +36,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 40 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 44 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -59,7 +61,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js` and `test-charts.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js`, `test-charts.js`, `test-overlay.js` and `test-alarms.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -125,11 +127,12 @@ silently destroys a site's PI Web API settings on upgrade.
   drifts either way.
 - `src/shared/pvx-core.js` → `ext/libraries/pvx/pvx-core.js`. Namespaces: `util`,
   `fmt`, `color`, `theme`, `thresholds`, `scale`, `svg`, `data`, `stats`, `nav`,
-  `layout`, `config`, `api`, `ack`. Symbols contain only what makes them differ.
+  `layout`, `config`, `api`, `ack`, `download`. Symbols contain only what makes them differ.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
-- Symbols get data through PI Vision's pipeline. Only five reach PI Web API via
-  `PVX.api`, configured once per site in `pvx-config.js`. A blank `baseUrl`
+- Symbols get data through PI Vision's pipeline. Six reach PI Web API via
+  `PVX.api` for their main job and seven more for an option that is off by
+  default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
   (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
   refresh waits on `PVX.api.discovering()` before deciding it is unconfigured.
@@ -155,6 +158,11 @@ silently destroys a site's PI Web API settings on upgrade.
   by the pane's own ng-click, so saved displays are unaffected. Proven
   against a mock AF database, not yet on a server; the AFSearch syntax is
   the least certain part.
+- Every symbol has three options from `config.base`, all off: `ExportMenu`
+  (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`
+  (`src/shared/config-common.html`, applied by `PVX.overlay` after each
+  render). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
+  The PNG goes through an SVG foreignObject; proven in Chromium only.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
@@ -319,7 +327,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–14 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–21 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

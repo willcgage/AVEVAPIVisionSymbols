@@ -1,0 +1,210 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxht-title">Title</label>
+            <input id="pvxht-title" type="text" ng-model="config.Title" placeholder="No title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-mode">One row per</label>
+            <select id="pvxht-mode" ng-model="config.Mode">
+                <option value="interpolated">Time on the clock (value at that time)</option>
+                <option value="summary">Interval (a statistic over it)</option>
+                <option value="recorded">Archived value (as stored)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Mode !== 'recorded'">
+            <label for="pvxht-interval">Every</label>
+            <input id="pvxht-interval" type="text" ng-model="config.Interval" placeholder="1h" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode !== 'recorded'">
+            A number and a unit: <code>15m</code>, <code>1h</code>, <code>8h</code>, <code>1d</code>,
+            <code>1w</code>, <code>1mo</code>. Rows fall on the clock: on the hour, at midnight, on
+            Mondays, on the 1st. A step that does not divide a day starts again at midnight.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Mode !== 'recorded'">
+            <label for="pvxht-interp">Between samples</label>
+            <select id="pvxht-interp" ng-model="config.Interpolate">
+                <option value="linear">Straight line</option>
+                <option value="step">Hold the last value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode !== 'recorded'">
+            A source with no numbers at all, a digital tag, always holds its state.
+        </div>
+
+        <div ng-if="config.Mode === 'summary'">
+            <div class="pvx-cfg-row">
+                <label for="pvxht-stat">Statistic</label>
+                <select id="pvxht-stat" ng-model="config.Statistic">
+                    <option value="twavg">Time-weighted average</option>
+                    <option value="avg">Mean of samples</option>
+                    <option value="min">Minimum</option>
+                    <option value="max">Maximum</option>
+                    <option value="range">Range</option>
+                    <option value="total">Total over time (a rate)</option>
+                    <option value="delta">Change (end minus start)</option>
+                    <option value="start">Value at the start</option>
+                    <option value="end">Value at the end</option>
+                    <option value="count">Count of samples</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row" ng-if="config.Statistic === 'total'">
+                <label for="pvxht-per">The rate is per</label>
+                <select id="pvxht-per" ng-model="config.TotalPer">
+                    <option value="s">Second</option>
+                    <option value="min">Minute</option>
+                    <option value="h">Hour</option>
+                    <option value="d">Day</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-hint">
+                Time-weighted, as PI's own summaries are: the value at each edge of the interval
+                counts, so an hour with no sample in it still has an average, a minimum and a
+                maximum. <em>Change</em> suits a totaliser. Values that are not numbers are left
+                out and counted under the table.
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxht-partial">Cut-off first and last</label>
+                <select id="pvxht-partial" ng-model="config.PartialIntervals">
+                    <option value="show">Show, marked *</option>
+                    <option value="hide">Leave out</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxht-tlabel">Label each row with</label>
+                <select id="pvxht-tlabel" ng-model="config.TimeLabel">
+                    <option value="start">Its start</option>
+                    <option value="end">Its end</option>
+                    <option value="range">Start and end</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxht-newest">Newest first</label>
+            <input id="pvxht-newest" type="checkbox" ng-model="config.NewestFirst" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-max">Most rows</label>
+            <input id="pvxht-max" type="number" ng-model="config.MaxRows" min="1" max="20000" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Over the display's time range. Past the limit the newest rows are kept and the table
+            says how many were not shown.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Groups and totals</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxht-group">Group rows by</label>
+            <select id="pvxht-group" ng-model="config.GroupBy">
+                <option value="none">Nothing</option>
+                <option value="day">Day</option>
+                <option value="week">Week (from Monday)</option>
+                <option value="month">Month</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-totals">Totals row</label>
+            <select id="pvxht-totals" ng-model="config.Totals">
+                <option value="none">None</option>
+                <option value="auto">To suit the statistic</option>
+                <option value="avg">Average</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+                <option value="sum">Sum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Over the rows shown, one per group as well when rows are grouped. <em>To suit the
+            statistic</em> sums totals, counts and changes, and averages the rest.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Cells</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxht-tfmt">Time format</label>
+            <select id="pvxht-tfmt" ng-model="config.TimeFormat">
+                <option value="auto">To suit the interval</option>
+                <option value="datetime">Oct 27 14:00:00</option>
+                <option value="short">10/27 14:00</option>
+                <option value="time">14:00:00</option>
+                <option value="date">Oct 27, 2026</option>
+                <option value="iso">ISO 8601 (UTC)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-decimals">Decimals</label>
+            <select id="pvxht-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto, one per column</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-compact">Compact numbers (1.2k)</label>
+            <input id="pvxht-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-units">Show units</label>
+            <input id="pvxht-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-csv">CSV button</label>
+            <input id="pvxht-csv" type="checkbox" ng-model="config.ShowDownload" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Saves the rows shown, in their order, at full precision, with times in ISO 8601 UTC.
+            The file is made in the browser; nothing is sent anywhere.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-usethresh">Colour cells by threshold</label>
+            <input id="pvxht-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.UseThresholds">
+            <div class="pvx-cfg-label">Threshold bands (every column)</div>
+            <!-- pvx:bands -->
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxht-label">Show title</label>
+            <input id="pvxht-label" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-theme">Theme</label>
+            <select id="pvxht-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-transparent">Transparent background</label>
+            <input id="pvxht-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-bgcolor">Background colour</label>
+            <input id="pvxht-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxht-radius">Corner radius</label>
+            <input id="pvxht-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

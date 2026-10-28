@@ -9,6 +9,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | Symbol | Display name | Data shape | Data sources |
 |---|---|---|---|
 | [`pvxAlarmBanner`](#pvxalarmbanner) | PVX Exception Banner | Table | Multiple |
+| [`pvxAlarmTone`](#pvxalarmtone) | PVX Alarm Tone | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
 | [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | Table | Multiple |
 | [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
@@ -27,6 +28,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
+| [`pvxHistoryTable`](#pvxhistorytable) | PVX History Table | TimeSeries | Multiple |
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Multiple |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
 | [`pvxMultiGauge`](#pvxmultigauge) | PVX Multi-Pointer Gauge | Table | Multiple |
@@ -37,10 +39,12 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
 | [`pvxRadar`](#pvxradar) | PVX Fingerprint | Table | Multiple |
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
+| [`pvxReplay`](#pvxreplay) | PVX Replay | Value | Single |
 | [`pvxSankey`](#pvxsankey) | PVX Flow | Table | Multiple |
 | [`pvxSitePlan`](#pvxsiteplan) | PVX Site Plan | Table | Multiple |
 | [`pvxSlideshow`](#pvxslideshow) | PVX Display Slideshow | Value | Single |
 | [`pvxSparkline`](#pvxsparkline) | PVX Multi Sparkline | TimeSeries | Multiple |
+| [`pvxSpectrum`](#pvxspectrum) | PVX Spectrum | TimeSeries | Multiple |
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
 | [`pvxTimeRange`](#pvxtimerange) | PVX Time Range | Value | Single |
@@ -73,7 +77,10 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `Columns` | `["Value"]` |  |
 | `Title` | `"Exceptions"` |  |
 | `StateBands` | `""` |  |
-| `Mode` | `"list"` | list \| ticker \| summary |
+| `Deadband` | `""` |  |
+| `Mode` | `"list"` | list \| ticker \| summary \| history |
+| `HistoryMaxValues` | `10000` | per data source |
+| `HistoryRefreshSeconds` | `60` |  |
 | `DenseMode` | `false` |  |
 | `MaxRows` | `12` |  |
 | `RowHeight` | `24` |  |
@@ -92,6 +99,46 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `TickerSpeed` | `60` | px/sec |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxAlarmTone
+
+**PVX Alarm Tone** · data shape `Table` · multiple data sources · collections not supported
+
+Sounds a tone when one of its data sources goes into alarm, and keeps sounding until the alarm is silenced, acknowledged or clears. The same threshold bands, digital state map and deadband as the Annunciator and the Exception Banner decide what an alarm is.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `StateBands` | `""` |  |
+| `SeverityFrom` | `"thresholds"` | thresholds \| quality |
+| `MinSeverityBand` | `1` | sound from this band up |
+| `Deadband` | `""` |  |
+| `Tone` | `"beep"` | beep \| twoTone \| pulse \| chime \| siren |
+| `TopBandTone` | `"same"` | same, or a tone for the highest band |
+| `Volume` | `60` | 0-100 |
+| `RepeatSeconds` | `10` | 0 = once per alarm |
+| `ResoundOnEscalation` | `true` |  |
+| `SoundStanding` | `true` |  |
+| `ShowList` | `true` |  |
+| `MaxListed` | `3` |  |
+| `SharedAck` | `false` |  |
+| `AckAttributePath` | `""` |  |
+| `AckPollSeconds` | `15` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
 
 ---
 
@@ -123,6 +170,7 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `MaxTiles` | `24` |  |
 | `SeverityFrom` | `"thresholds"` | thresholds \| quality |
 | `MinSeverityBand` | `1` |  |
+| `Deadband` | `""` |  |
 | `ShowValue` | `true` |  |
 | `ShowStateText` | `true` |  |
 | `ShowDuration` | `true` |  |
@@ -942,6 +990,43 @@ A histogram on its own only restates what a trend already showed. What it can do
 
 ---
 
+## pvxHistoryTable
+
+**PVX History Table** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock default
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `false` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `Title` | `""` |  |
+| `Mode` | `"interpolated"` | interpolated \| summary \| recorded |
+| `Interval` | `"1h"` | n s\|m\|h\|d\|w\|mo, aligned to the clock |
+| `Interpolate` | `"linear"` | linear \| step |
+| `Statistic` | `"twavg"` | summary: see STAT_NAMES |
+| `TotalPer` | `"h"` | summary total: rate units are per s\|min\|h\|d |
+| `PartialIntervals` | `"show"` | summary: show \| hide the cut-off first and last |
+| `TimeLabel` | `"start"` | summary: start \| end \| range |
+| `NewestFirst` | `true` |  |
+| `MaxRows` | `1000` |  |
+| `GroupBy` | `"none"` | none \| day \| week \| month |
+| `Totals` | `"none"` | none \| auto \| avg \| min \| max \| sum |
+| `TimeFormat` | `"auto"` | auto \| datetime \| short \| time \| date \| iso |
+| `ShowDownload` | `true` |  |
+
+---
+
 ## pvxKpiCard
 
 **PVX KPI Card** · data shape `TimeSeries` · multiple data sources · collections supported
@@ -1429,6 +1514,40 @@ Features - Configurable sweep angle (full circle through to a shallow arc) - Thr
 
 ---
 
+## pvxReplay
+
+**PVX Replay** · data shape `Value` · single data source · collections not supported
+
+symbol selector. Like pvxTimeRange this is a control.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `ReplayFrom` | `"*-1d"` | PI time: where playback starts |
+| `ReplayTo` | `"*"` | PI time: where it ends |
+| `WindowSpan` | `"1h"` | how much the display shows at each step |
+| `Step` | `"10m"` | how far each step moves |
+| `StepSeconds` | `3` | wall-clock seconds between steps |
+| `Loop` | `false` |  |
+| `ShowSlider` | `true` |  |
+| `ShowReadout` | `true` |  |
+| `ButtonColor` | `"#3b82c4"` |  |
+| `ButtonRadius` | `4` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
+
+---
+
 ## pvxSankey
 
 **PVX Flow** · data shape `Table` · multiple data sources · collections not supported
@@ -1594,6 +1713,49 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 | `LineColor` | `"#3b82c4"` |  |
 | `ShowHeader` | `false` |  |
 | `HeaderText` | `""` |  |
+
+---
+
+## pvxSpectrum
+
+**PVX Spectrum** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock spectrum
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `SeriesIndex` | `1` |  |
+| `Title` | `""` |  |
+| `Points` | `1024` | even samples, a power of two |
+| `Interpolate` | `"linear"` | linear \| step |
+| `Window` | `"hann"` | hann \| hamming \| blackman \| rect |
+| `Detrend` | `"mean"` | mean \| linear \| none |
+| `FreqUnit` | `"auto"` | auto \| hz \| perMin \| perHour |
+| `MaxFreq` | `""` | blank: up to the Nyquist frequency |
+| `XScale` | `"linear"` | linear \| log |
+| `YScale` | `"amplitude"` | amplitude \| db |
+| `PeakCount` | `3` |  |
+| `PeakMinPercent` | `10` |  |
+| `ShowPeriod` | `true` | label a peak with its period too |
+| `Bands` | `""` |  |
+| `BandColor` | `"#3b82c4"` |  |
+| `AlarmColor` | `"#c8452f"` |  |
+| `LineColor` | `"#3b82c4"` |  |
+| `FillArea` | `true` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
 
 ---
 
@@ -1882,6 +2044,10 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `TickCount` | `5` |  |
 | `ShowGrid` | `true` |  |
 | `MaxPairGapSeconds` | `60` |  |
+| `YSources` | `"second"` | second \| all |
+| `GateSource` | `"0"` |  |
+| `GateMin` | `""` |  |
+| `GateMax` | `""` |  |
 | `PointSize` | `3` |  |
 | `PointOpacity` | `0.65` |  |
 | `ColorMode` | `"single"` | single \| time \| threshold |
@@ -1892,6 +2058,7 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `BubbleMaxSize` | `16` | px radius of the largest size value |
 | `ShowRegression` | `true` |  |
 | `RegressionColor` | `"#c8452f"` |  |
+| `FitType` | `"linear"` | linear \| poly2 \| poly3 |
 | `ShowEquation` | `true` |  |
 | `ShowR2` | `true` |  |
 | `ShowEnvelope` | `false` |  |
@@ -1899,6 +2066,8 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `EnvelopeXMax` | `""` |  |
 | `EnvelopeYMin` | `""` |  |
 | `EnvelopeYMax` | `""` |  |
+| `EnvelopeShape` | `"box"` | box \| polygon |
+| `EnvelopePolygon` | `""` | "x,y; x,y; x,y ..." corners in order |
 | `ShowPointCount` | `true` |  |
 
 ---

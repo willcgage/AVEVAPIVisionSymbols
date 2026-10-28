@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Spectrum">
+    <!-- Axes and a spectrum with two peaks, one marked -->
+    <path d="M64 64 L64 448 L464 448" fill="none" stroke="#d6dbe1" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M80 430 L130 420 L160 380 L180 150 L200 380 L240 410 L290 400 L310 300 L330 400 L380 425 L450 432"
+          fill="none" stroke="#3b82c4" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="180" cy="150" r="26" fill="none" stroke="#c8452f" stroke-width="16"/>
+</svg>

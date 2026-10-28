@@ -65,6 +65,8 @@ jobs:
       - run: node tools/test-limits.js
       - run: node tools/test-overview.js
       - run: node tools/test-charts.js
+      - run: node tools/test-overlay.js
+      - run: node tools/test-alarms.js
 
   # --------------------------------------------------------------------------
   # Build the shipping MSI with the official WiX toolset, then assert against

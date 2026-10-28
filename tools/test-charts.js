@@ -97,7 +97,7 @@ function probe(typeName, data, config) {
     }
     const json = JSON.parse(out.slice(out.indexOf('{')));
     const r = json.report || {};
-    return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
+    return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', labels: r.labels || [], rows: r.rows || [], errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
 }
 
 /** The tooltip of the wedge for one direction word, e.g. 'from N ('. */
@@ -539,18 +539,241 @@ function gasTriangle() {
     check('no page errors', errs.length === 0, errs);
 }
 
+function loadSymbol(name) {
+    const vm = require('vm');
+    let def = null;
+    const win = {
+        PIVisualization: {
+            deriveVisualizationFromBase: function () {},
+            Extensibility: { Enums: { DatasourceBehaviors: { Multiple: 'Multiple' } } }
+        },
+        PVX: { register: function (pv, d) { def = d; } }
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'symbols', name, 'symbol.js'), 'utf8'), { window: win });
+    return def.visObjectType;
+}
+
+function loadCore() {
+    const vm = require('vm');
+    const win = { navigator: { userAgent: '' }, location: { href: 'http://x/', hash: '' } };
+    win.window = win;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'pvx-core.js'), 'utf8'),
+        { window: win, document: {}, navigator: win.navigator, setTimeout, clearTimeout, console });
+    return win.PVX;
+}
+
+function spectrum() {
+    console.log('');
+    console.log(C.bold + 'Spectrum: FFT, peaks, bands' + C.reset);
+    const S = loadCore().stats;
+    const near = (a, b, tol) => typeof a === 'number' && Math.abs(a - b) <= (tol === undefined ? 1e-9 : tol);
+    // 8 h of uneven samples: 4 at a 20 min period (on a bin), 1.5 at 7 min.
+    const pts = [];
+    for (let t = 0, k = 0; t <= 8 * 3600000; t += 10000 + (k++ % 7) * 1000) {
+        pts.push({ t: t, v: 50 + 4 * Math.sin(2 * Math.PI * t / 1200000) + 1.5 * Math.sin(2 * Math.PI * t / 420000) });
+    }
+    const r = S.spectrum(pts, { n: 1024 });
+    const pk = S.spectrumPeaks(r.freq, r.amp, 2);
+    check('the 20 minute cycle is found, at its amplitude in the tag\'s units',
+        pk.length === 2 && near(1 / pk[0].freq, 1200, 1) && near(pk[0].amp, 4, 0.02), pk);
+    check('...and the 7 minute one, between bins, close to its amplitude',
+        near(1 / pk[1].freq, 420, 2) && pk[1].amp > 1.35 && pk[1].amp < 1.55, pk[1]);
+    check('the level is removed, not shown as a cycle', r.amp[0] < 0.05, r.amp[0]);
+    const rect = S.spectrum(pts, { n: 1024, window: 'rect' });
+    check('without a window the on-bin cycle still reads true', near(S.spectrumPeaks(rect.freq, rect.amp, 1)[0].amp, 4, 0.02));
+    const withText = pts.slice(0, 50).concat([{ t: 9e9, v: 'Shutdown' }]);
+    check('values that are not numbers are counted out', S.spectrum(withText, {}).excluded === 1);
+    check('a size is rounded up to a power of two', S.spectrum(pts, { n: 600 }).n === 1024);
+    check('fewer than four values: no spectrum', S.spectrum(pts.slice(0, 3), {}) === null);
+    const re = [1, 0, 0, 0, 0, 0, 0, 0], im = [0, 0, 0, 0, 0, 0, 0, 0];
+    S.fft(re, im);
+    check('an impulse transforms to a flat spectrum', re.every((v) => near(v, 1)) && im.every((v) => near(v, 0)));
+
+    const vis = loadSymbol('pvxSpectrum');
+    const b = vis.parseBands('2..4 : 1.5 : Loop hunting\n0.5-1, 1 to 2::Free, 5..3, junk');
+    check('bands: low..high : limit : label, with - or to', b.bands.length === 3 && b.bands[0].limit === 1.5 &&
+        b.bands[0].label === 'Loop hunting' && b.bands[1].limit === null && b.bands[2].label === 'Free', b);
+    check('bands it cannot read are kept for the footer', b.bad.join('|') === '5..3|junk', b.bad);
+    check('periods read in a sensible unit', vis.periodText(1200) === '20.0 min' && vis.periodText(30) === '30.0 s' &&
+        vis.periodText(14400) === '4.00 h');
+
+    const def = probe('pvxSpectrum', null);
+    check('the mock loop: a peak labelled 20 minutes, and the grid said in the footer',
+        def.text.indexOf('20.0 min') !== -1 && /resampled to 1024/.test(def.footer), def.footer);
+    const over = probe('pvxSpectrum', null, 'Bands=0.03..0.07 : 3 : Loop hunting, 0.12..0.16 : 2 : Recycle, bad');
+    check('a band over its limit is named in the footer, one under it is not',
+        /Over limit: Loop hunting 3\.9\d > 3/.test(over.footer) && !/Recycle \d/.test(over.footer), over.footer);
+    check('...and a band it cannot read is named', /Band not read: bad/.test(over.footer), over.footer);
+    const errs = [].concat(def.errors, over.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function xyUpgrades() {
+    console.log('');
+    console.log(C.bold + 'XY Scatter: several Y, gate, polynomial, polygon' + C.reset);
+    const S = loadCore().stats;
+    const near = (a, b, tol) => Math.abs(a - b) <= (tol || 1e-6) * Math.max(1, Math.abs(b));
+
+    // Exact quadratic around x = 1000..1100, where raw normal equations of a
+    // cubic lose every digit: the fit must still recover it.
+    const q = [];
+    for (let x = 1000; x <= 1100; x += 5) { q.push({ x: x, y: 2 * x * x - 3 * x + 5 }); }
+    const f2 = S.polyfit(q, 2);
+    check('quadratic recovered from x near 1000', f2 && near(f2.coef[2], 2, 1e-6) && near(f2.coef[1], -3, 1e-3) && near(f2.r2, 1, 1e-9), f2 && f2.coef);
+    const c = [];
+    for (let x = -5; x <= 5; x += 0.5) { c.push({ x: x, y: 0.5 * x * x * x - x + 1 }); }
+    const f3 = S.polyfit(c, 3);
+    check('cubic recovered', f3 && near(f3.coef[3], 0.5) && near(f3.coef[1], -1) && near(f3.coef[0], 1) && near(S.polyval(f3.coef, 2), 4 - 2 + 1), f3 && f3.coef);
+    check('too few points for the degree: no fit', S.polyfit([{ x: 1, y: 1 }, { x: 2, y: 3 }], 2) === null);
+    const L = [[0, 0], [10, 0], [10, 10], [5, 4], [0, 10]];   // concave
+    check('inside a concave polygon, and outside its notch',
+        S.inPolygon(2, 2, L) && !S.inPolygon(5, 8, L) && !S.inPolygon(11, 5, L), [S.inPolygon(2, 2, L), S.inPolygon(5, 8, L)]);
+
+    const xs = [], ya = [], yb = [], gate = [];
+    for (let m = 0; m < 10; m++) { xs.push([m, m]); ya.push([m, 2 * m]); yb.push([m, 20 - m]); gate.push([m, m < 4 ? 0 : 100]); }
+    const data = [series('Load', 'MW', xs), series('Flow', 't/h', ya), series('Head', 'm', yb), series('Speed', 'rpm', gate)];
+    const dots = (r) => r.tips.filter((t) => /^Load:/.test(t));
+
+    const def = probe('pvxXYScatter', data);
+    check('defaults: one Y, as before, others said to be ignored', dots(def).length === 10 && /2 extra sources ignored/.test(def.footer), def.footer);
+
+    const all = probe('pvxXYScatter', data, 'YSources=all');
+    check('every source after X: each pair drawn, named by its own series',
+        dots(all).length === 30 && dots(all).some((t) => /\nHead: 15/.test(t)) && dots(all).some((t) => /\nSpeed: 100/.test(t)), dots(all).length);
+    check('...and nothing said to be ignored', !/ignored/.test(all.footer), all.footer);
+
+    const gated = probe('pvxXYScatter', data, 'YSources=all;GateSource=4;GateMin=50');
+    check('a gate keeps only the points while it is in range, and is not plotted',
+        dots(gated).length === 12 && !dots(gated).some((t) => /\nSpeed:/.test(t)), dots(gated).length);
+    check('...and says so, with the count left out', /only while Speed ≥ 50/.test(gated.footer) && /8 outside the gate/.test(gated.footer), gated.footer);
+
+    const poly = probe('pvxXYScatter', data, 'ShowEnvelope=true;EnvelopeShape=polygon;EnvelopePolygon=-1,-1 | 5.5,-1 | 5.5,12 | -1,12');
+    check('polygon envelope: points outside counted', /4 outside the envelope/.test(poly.footer), poly.footer);
+    const badPoly = probe('pvxXYScatter', data, 'ShowEnvelope=true;EnvelopeShape=polygon;EnvelopePolygon=1,1 | two,3');
+    check('...a corner it cannot read is named', /1 envelope corner not read/.test(badPoly.footer) && /at least three/.test(badPoly.footer), badPoly.footer);
+
+    const fit = probe('pvxXYScatter', [series('X', '', xs.map((p) => [p[0], p[1]])), series('Y', '', xs.map((p) => [p[0], p[1] * p[1]]))], 'FitType=poly2');
+    const fitLabels = fit.labels.join(' | ');
+    check('quadratic fit: equation without rounding residue, and R²', /y = 1(\.0+)?x²( \||$)/.test(fitLabels) && /R² = 1\.0000/.test(fitLabels), fitLabels.slice(0, 160));
+
+    const errs = [].concat(def.errors, all.errors, gated.errors, poly.errors, badPoly.errors, fit.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function historyTable() {
+    console.log('');
+    console.log(C.bold + 'History table' + C.reset);
+    const vis = loadSymbol('pvxHistoryTable');
+    const H = 3600000;
+    const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-9;
+
+    const iv = vis.parseInterval;
+    check('intervals parse: 1h, 15 min, 2d, 1mo',
+        iv('1h').ms === H && iv('15 min').ms === 15 * MIN && iv('2d').ms === 2 * 24 * H && iv('1mo').unit === 'mo',
+        [iv('1h'), iv('15 min'), iv('2d'), iv('1mo')]);
+    check('a nonsense or zero interval is refused', iv('abc') === null && iv('0h') === null && iv('') === null);
+
+    // Local time throughout: rows fall on the viewer's clock.
+    const L = (y, mo, d, h, mi) => new Date(y, mo, d, h || 0, mi || 0).getTime();
+    const hrs = (list) => list.map((t) => new Date(t).getHours());
+    const from = L(2026, 9, 20, 0, 30);
+    check('hourly rows fall on the hour inside the window',
+        JSON.stringify(hrs(vis.boundaries(from, from + 3 * H, iv('1h')))) === '[1,2,3]',
+        hrs(vis.boundaries(from, from + 3 * H, iv('1h'))));
+    const seven = vis.boundaries(L(2026, 9, 20), L(2026, 9, 21, 23, 59), iv('7h'));
+    check('a 7-hour step starts again at midnight', JSON.stringify(hrs(seven)) === '[0,7,14,21,0,7,14,21]', hrs(seven));
+    const wk = vis.boundaries(L(2026, 9, 21), L(2026, 10, 10), iv('1w'));
+    check('weeks start on Monday', wk.length === 3 && wk.every((t) => new Date(t).getDay() === 1),
+        wk.map((t) => new Date(t).toString().slice(0, 10)));
+    const mo = vis.boundaries(L(2026, 9, 15), L(2027, 0, 10), iv('1mo'));
+    check('months start on the 1st, across a year end',
+        mo.length === 3 && mo.every((t) => new Date(t).getDate() === 1) && new Date(mo[2]).getFullYear() === 2027,
+        mo.map((t) => new Date(t).toString().slice(0, 15)));
+
+    const P = (pairs) => pairs.map((p) => ({ t: p[0] * MIN, v: typeof p[1] === 'number' ? p[1] : null, state: String(p[1]), good: p[2] !== false }));
+    const ramp = P([[0, 0], [60, 60]]);
+    check('linear between samples', near(vis.valueAt(ramp, 30 * MIN, false).v, 30));
+    check('step holds the earlier sample', near(vis.valueAt(ramp, 30 * MIN, true).v, 0));
+    check('no value before the first sample', vis.valueAt(ramp, -1, false) === null);
+    check('the last value holds after it', near(vis.valueAt(ramp, 90 * MIN, false).v, 60));
+    const withText = P([[0, 5], [10, 'I/O Timeout'], [20, 7]]);
+    check('a state that is not a number holds as text', vis.valueAt(withText, 15 * MIN, false).text === 'I/O Timeout');
+    check('a line does not run into a state', near(vis.valueAt(withText, 5 * MIN, false).v, 5));
+
+    const S = (pts, s, e, stat, step) => vis.summarize(pts, s * MIN, e * MIN, stat, { step: step, per: 'h' });
+    check('ramp 0..60 over an hour: time-weighted average 30', near(S(ramp, 0, 60, 'twavg').v, 30));
+    check('...minimum 0, maximum 60, range 60, change 60',
+        near(S(ramp, 0, 60, 'min').v, 0) && near(S(ramp, 0, 60, 'max').v, 60) &&
+        near(S(ramp, 0, 60, 'range').v, 60) && near(S(ramp, 0, 60, 'delta').v, 60));
+    check('...total of a rate per hour over one hour is 30', near(S(ramp, 0, 60, 'total').v, 30));
+    check('...count takes the sample at the start, not the one that ends it', S(ramp, 0, 60, 'count').v === 1);
+    const steps = P([[0, 10], [30, 20], [60, 30]]);
+    check('step: average 15 over [0,60)', near(S(steps, 0, 60, 'twavg', true).v, 15));
+    check('step: the sample at the end belongs to the next interval', near(S(steps, 0, 60, 'max', true).v, 20));
+    const sparse = P([[0, 0], [120, 120]]);
+    check('an interval with no sample inside still has edges: 60..120, average 90',
+        near(S(sparse, 60, 120, 'twavg').v, 90) && near(S(sparse, 60, 120, 'min').v, 60) && near(S(sparse, 60, 120, 'max').v, 120));
+    const late = P([[30, 10], [90, 10]]);
+    check('before the first sample counts for nothing', near(S(late, 0, 60, 'twavg').v, 10) && S(late, 0, 60, 'start').v === null);
+    const dirty = P([[0, 10], [20, 'Shutdown'], [40, 10]]);
+    const sd = S(dirty, 0, 60, 'twavg');
+    check('a state is left out of a statistic and counted', near(sd.v, 10) && sd.skipped === 1, sd);
+    check('totals row: avg, sum, min, max over numbers only',
+        vis.aggregate([1, 2, null, 3], 'avg') === 2 && vis.aggregate([1, 2, 3], 'sum') === 6 &&
+        vis.aggregate([4, 1, 9], 'min') === 1 && vis.aggregate([4, 1, 9], 'max') === 9 && vis.aggregate([null], 'avg') === null);
+
+    const D = loadCore().download;
+    check('CSV: quotes, formula guard, negative numbers stay numbers',
+        D.csvText([['a,b', '=1+2', -5, '-5', 'say "x"', null, '@x']]) === '"a,b",\'=1+2,-5,-5,"say ""x""",,\'@x\r\n',
+        D.csvText([['a,b', '=1+2', -5, '-5', 'say "x"', null, '@x']]));
+    check('CSV file name: nothing Windows refuses', D.fileName('Line 3: shift/report?', 'csv') === 'Line 3 shift report.csv',
+        D.fileName('Line 3: shift/report?', 'csv'));
+
+    // Rendered. probe pins TZ=UTC, and T0 is midnight UTC.
+    const flow = series('Flow', 't/h', [[0, 100], [30, 110], [60, 120], [120, 100], [180, 90]]);
+    const pump = series('Pump', '', [[0, 'Running'], [90, 'Stopped'], [150, 'Running']]);
+    const body = (res) => res.rows.slice(1).map((r) => r.join('|'));
+
+    const interp = probe('pvxHistoryTable', [flow, pump], 'Mode=interpolated;Interval=1h;NewestFirst=false');
+    check('interpolated: a row each hour, line for the number, state held for the tag',
+        JSON.stringify(body(interp)) === JSON.stringify(['Oct 20 00:00|100.0|Running', 'Oct 20 01:00|120.0|Running',
+            'Oct 20 02:00|100.0|Stopped', 'Oct 20 03:00|90.0|Running']), body(interp));
+
+    const total = probe('pvxHistoryTable', [flow, pump], 'Mode=summary;Statistic=total;TotalPer=h;Interval=1h;Totals=auto;NewestFirst=false');
+    check('summary total: 110, 110, 95 t and a summed totals row',
+        JSON.stringify(body(total).map((r) => r.split('|').slice(1, 2).join())) === JSON.stringify(['110.0', '110.0', '95.0', '315.0']),
+        body(total));
+    check('...the header carries the totalled units', /Flow ?t$/.test((total.rows[0] || [])[1] || ''), total.rows[0]);
+    check('...the totals row is named for what it is', /^Total\|/.test(body(total)[3] || ''), body(total)[3]);
+    check('...a digital tag is said to have no total', /Sources with no numbers have no total/.test(total.footer), total.footer);
+
+    const rec = probe('pvxHistoryTable', [flow, pump], 'Mode=recorded;NewestFirst=true');
+    check('recorded: one row per archived time, newest first, blank where a source has none',
+        body(rec).length === 7 && /^Oct 20 03:00:00\|90\.0\|$/.test(body(rec)[0]) && /\|\|Stopped$/.test(body(rec)[3]), body(rec));
+
+    const capped = probe('pvxHistoryTable', [flow, pump], 'Mode=recorded;MaxRows=3');
+    check('past Most rows the footer says how many were kept', body(capped).length === 3 && /newest 3 of 7/.test(capped.footer), capped.footer);
+
+    const long = series('Level', '%', [[0, 10], [1500, 20], [2900, 30]]);
+    const grouped = probe('pvxHistoryTable', [long], 'Mode=interpolated;Interval=12h;GroupBy=day;Totals=max;NewestFirst=false');
+    const labels = grouped.rows.filter((r) => r.length === 1).map((r) => r[0]);
+    check('grouped by day: a header row per day', JSON.stringify(labels) === JSON.stringify(['Tue Oct 20, 2026', 'Wed Oct 21, 2026', 'Thu Oct 22, 2026']), labels);
+    check('...and a maximum per day plus one over all', grouped.rows.filter((r) => /Maximum/.test(r[0] || '')).length === 4,
+        grouped.rows.map((r) => r.join('|')));
+
+    const errs = [].concat(interp.errors, total.errors, rec.errors, capped.errors, grouped.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
+    // `--only spectrum` runs one section, for the inner loop; CI runs all.
+    const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
+        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum };
+    const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
-        windRose();
-        bubble();
-        histogramByTime();
-        sankeyFixed();
-        boxByTime();
-        controlChart();
-        gasTriangle();
-        kpiCard();
-        multiGauge();
-        periodChange();
+        Object.keys(sections).forEach((k) => {
+            if (process.argv.indexOf('--only') === -1 || k === only) { sections[k](); }
+        });
     } catch (e) {
         failures += 1;
         console.log('  ' + C.red + 'FAIL' + C.reset + ' ' + (e.stack || e.message));

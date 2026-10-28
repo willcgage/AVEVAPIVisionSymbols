@@ -18,6 +18,8 @@
     "test:limits": "node tools/build.js && node tools/test-limits.js",
     "test:overview": "node tools/build.js && node tools/test-overview.js",
     "test:charts": "node tools/test-charts.js",
+    "test:overlay": "node tools/test-overlay.js",
+    "test:alarms": "node tools/test-alarms.js",
     "installer": "node tools/build.js --clean --package && node tools/wix.js",
     "verify:msi": "node tools/verify-msi.js",
     "check:text": "node tools/check-text.js"

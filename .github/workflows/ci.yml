@@ -99,6 +99,16 @@ jobs:
       - name: Verify chart arithmetic
         run: node tools/test-charts.js
 
+      # The save button, stale badge and hide-when-no-data every symbol has:
+      # the files the browser saves are read back and checked.
+      - name: Verify save, stale and hide options
+        run: node tools/test-overlay.js
+
+      # Alarm deadband, the Exception Banner's History mode and the Alarm
+      # Tone, against a mock PI Web API.
+      - name: Verify alarm deadband, history and tone
+        run: node tools/test-alarms.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current
