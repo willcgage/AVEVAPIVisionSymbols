@@ -15,11 +15,11 @@ installations only need the first two:
 
 Thirty-nine of the forty-six symbols work the moment phase 1 finishes. Phase 3
 exists only for `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
-`pvxAssetTable`, `pvxManualEntry` and `pvxEntryTable`, and for seven others only
+`pvxAssetTable`, `pvxManualEntry` and `pvxEntryTable`, and for eight others only
 if you turn on the option that needs it: event frames on `pvxComboChart`,
 limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu
 from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` (which
-`pvxAlarmTone` can read to silence itself), History mode on `pvxAlarmBanner`. Skip it
+`pvxAlarmTone` can read to silence itself), History mode on `pvxAlarmBanner`, runs from event frames on `pvxPeriodOverlay`. Skip it
 otherwise; nothing else in the library reads those settings.
 
 ---
@@ -439,7 +439,7 @@ That is the entire installation for thirty-nine of the forty-six symbols.
 ## Phase 3 — Configure PI Web API
 
 Only needed for the seven symbols that reach things PI Vision cannot hand a
-display (Event Frames, the AF hierarchy, writing values back), and for the seven
+display (Event Frames, the AF hierarchy, writing values back), and for the eight
 options listed at the top of this guide.
 
 Full background, including what AVEVA recommends and why, is in
@@ -806,14 +806,14 @@ rotation needs its own copy — see *Configuration notes* above.
 
 ## Security notes
 
-- **Thirty-two of the forty-six symbols make no network calls of their own.** They
+- **Thirty-one of the forty-six symbols make no network calls of their own.** They
   render only the data PI Vision hands them and have no server-side
   prerequisites beyond the file copy.
 - **The save buttons make their files in the browser**: the History Table's
   CSV button, and the optional save button any symbol can show (PNG, SVG,
   CSV). Nothing is uploaded; a file holds only what the user could already
   read on the display.
-- **Fourteen symbols can call PI Web API**: seven for their main job, seven only for
+- **Fifteen symbols can call PI Web API**: seven for their main job, eight only for
   an option that is off by default (the list is under phase 3 above). They ask
   PI Vision's own server for `/piwebapi` when `pvx-config.js` leaves `baseUrl`
   blank, and stay quiet when `autoDiscover` is off and no `baseUrl` is set. Requests carry the signed-in user's identity under the configured

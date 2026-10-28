@@ -9,7 +9,8 @@
  * the Navigation Panel's hierarchy strip, the Asset Table, the Event
  * Timeline scoped to the current asset, and the text size control. Also
  * the Event List: its columns, filter, sort, groups and totals, and where
- * a click on a row goes. Also the
+ * a click on a row goes. And Period Comparison's runs from event frames:
+ * the query, the three alignments, golden runs and their tolerance. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
  * and the Navigation Panel's icons, tooltips and {value} addresses.
  *
@@ -308,8 +309,10 @@ function route(method, url, via) {
             return { status: 200, body: { Items: list.slice(0, max).map(elementOut) } };
         }
         // The database holds each frame once, however many elements it references.
-        const frames = m[1] === 'elements' ? (FRAMES[o.path] || [])
+        const frames0 = m[1] === 'elements' ? (FRAMES[o.path] || [])
             : Object.keys(FRAMES).reduce((all, k) => all.concat(FRAMES[k].filter((f) => PRIMARY[f.self] === k)), []);
+        const tpl = q.get('templateName');
+        const frames = frames0.filter((f) => !tpl || (f.template || 'Downtime').toLowerCase() === tpl.toLowerCase());
         const wantPrimary = /PrimaryReferencedElement/.test(q.get('selectedFields') || '');
         return { status: 200, body: { Items: frames.slice(0, max).map((f) => {
             const links = { Self: 'http://x/piwebapi/eventframes/' + f.self };
@@ -544,6 +547,106 @@ async function eventList(open, texts, hash, settle) {
     await open('pvxEventList', { asset: '', config: EL, configured: false });
     const msg = await pg.$eval('#box', (n) => n.textContent);
     check('event list: unconfigured says what to do', /PI Web API is not configured/.test(msg) && /piwebapi-check\.html/.test(msg), msg.slice(0, 200));
+}
+
+/**
+ * One minute samples over eight hours: zero between events, and inside each
+ * Downtime run 100 plus the minutes since it started, so every run lies on
+ * the same line when they are lined up at their start. "K-302 high
+ * vibration" runs 20 higher: the bad batch.
+ */
+function runPayload() {
+    const seen = {};
+    const runs = [];
+    Object.keys(FRAMES).forEach((k) => FRAMES[k].forEach((f) => {
+        if (seen[f.self] || f.template) { return; }
+        seen[f.self] = true;
+        const e = Date.parse(f.EndTime);
+        runs.push({ name: f.Name, s: Date.parse(f.StartTime), e: e > Date.UTC(9000, 0, 1) ? Infinity : e });
+    }));
+    const end = Date.now();
+    const vals = [];
+    for (let m = 480; m >= 0; m--) {
+        const t = end - m * 60000;
+        const r = runs.find((x) => t >= x.s && t <= x.e);
+        const v = r ? 100 + (t - r.s) / 60000 + (r.name === 'K-302 high vibration' ? 20 : 0) : 0;
+        vals.push({ Time: new Date(t).toISOString(), Value: v });
+    }
+    return { Data: [{ Label: 'Pressure', Units: 'psig', Path: 'af:' + K301 + '|Discharge Pressure?x', IsGood: true, Values: vals }] };
+}
+
+/** Period Comparison with runs from event frames. */
+async function eventRuns(open, settle) {
+    const pg = eventList.pg;
+    const RUNS = { PeriodMode: 'events', EventTemplate: 'Downtime', ShowStats: true };
+    const body = () => pg.$eval('#box', (n) => n.textContent);
+    const labels = () => pg.$$eval('#box svg text', (ns) => ns.map((n) => n.textContent));
+    const go = async (cfg, extra) => {
+        await open('pvxPeriodOverlay', Object.assign({ asset: '', config: Object.assign({}, RUNS, cfg), payload: runPayload() }, extra || {}));
+        await settle();
+    };
+
+    await go({ ColorMode: 'palette' });
+    const ask = requests.filter((r) => /eventframes/.test(r));
+    check('runs: one event frame query over the data\'s window, template and the three fields',
+        ask.length === 1 && /^GET assetdatabases\/Wd:[^?]*\/eventframes\?/.test(ask[0]) && /templateName=Downtime/.test(ask[0]) &&
+        /selectedFields=Items.Name;Items.StartTime;Items.EndTime(&|$)/.test(ask[0]) && /searchMode=Overlapped/.test(ask[0]), ask);
+    let b = await body();
+    let l = await labels();
+    check('runs: five runs, the database from the data source', /5 runs · aligned at the start/.test(b) &&
+        b.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, b.slice(-300));
+    check('runs: the legend names each run', l.indexOf('K-303 surge') !== -1 && l.indexOf('K-301 trip') !== -1, l);
+    check('runs: the axis is time since the start', l.indexOf('0') !== -1 && b.indexOf('Since the start') !== -1, l);
+    check('runs: says the current run is still active', /the current run is still active/.test(b), b.slice(-300));
+
+    await go({ GoldenEvents: 'seal leak, K-301 TRIP', GoldenTolerance: '5%' });
+    b = await body();
+    l = await labels();
+    check('runs: two golden runs, matched without case, are the reference',
+        l.indexOf('golden (avg of 2)') !== -1 && l.indexOf('±5%') !== -1 && l.indexOf('2 golden runs') !== -1, l);
+    check('runs: the current run on the golden line is 100% in tolerance',
+        l.indexOf('In tolerance') !== -1 && l.indexOf('100%') !== -1, l);
+
+    await go({ GoldenEvents: 'K-302*', GoldenTolerance: '5%' });
+    l = await labels();
+    check('runs: against a bad batch the current run leaves the band',
+        l.indexOf('In tolerance') !== -1 && l.indexOf('100%') === -1 && l.indexOf('0%') !== -1, l);
+
+    await go({ GoldenEvents: 'Batch 9', GoldenTolerance: '5%' });
+    b = await body();
+    check('runs: a golden name that matches nothing is said', /no run matches the golden runs "Batch 9"/.test(b), b.slice(-300));
+
+    await go({ GoldenEvents: 'Seal leak', GoldenTolerance: 'lots' });
+    b = await body();
+    check('runs: a tolerance it cannot read is said, and 5% used', /tolerance "lots" not read, 5% used/.test(b), b.slice(-300));
+
+    await go({ GoldenEvents: 'Seal leak', GoldenTolerance: '2s' });
+    b = await body();
+    check('runs: standard deviations need two golden runs', /needs two golden runs/.test(b), b.slice(-300));
+
+    await go({ EventAlign: 'normalized' });
+    l = await labels();
+    b = await body();
+    check('runs: 0 to 100% of each run', l.indexOf('0%') !== -1 && l.indexOf('100%') !== -1 && /0 to 100% of each run/.test(b), l);
+
+    await go({ EventAlign: 'end' });
+    l = await labels();
+    check('runs: at the end, the axis counts back to 0', l[l.length - 1] !== undefined && l.some((x) => /^-\d/.test(x)) && /aligned at the end/.test(await body()), l);
+
+    await go({ MaxPeriods: 2, GoldenEvents: 'K-301 trip' });
+    b = await body();
+    check('runs: a golden run is kept past the limit, the others counted',
+        /3 runs/.test(b) && /2 older runs not shown/.test(b), b.slice(0, 400));
+
+    await go({ EventScope: 'asset' }, { asset: K302 });
+    check('runs: the display\'s asset only', requests.some((r) => /^GET elements\/We:.*K-302\/eventframes\?/.test(r)), requests);
+
+    await go({}, { configured: false });
+    b = await body();
+    check('runs: no PI Web API says so', /PI Web API is not configured/.test(b), b.slice(0, 200));
+
+    await open('pvxPeriodOverlay', { asset: '', config: { PeriodMode: 'day' }, payload: runPayload() });
+    check('runs: the clock periods ask PI Web API nothing', !requests.some((r) => /piwebapi|eventframes|assetdatabases/.test(r)), requests);
 }
 
 async function page() {
@@ -789,6 +892,7 @@ async function page() {
             body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
 
         await eventList(open, texts, hash, settle);
+        await eventRuns(open, settle);
 
         /* ---- Asset Navigator --------------------------------------------- *
          * Nothing configured: PI Web API beside PI Vision, the database the

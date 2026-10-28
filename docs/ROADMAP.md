@@ -529,8 +529,10 @@ Done so far, in order:
 
 | 23 | **pvxEventList**, new | One row per event frame, read only, from PI Web API: name, asset, template, start, end, duration and any event attributes, in the columns and order set in the pane. Rows can be filtered by typing, sorted by any heading, and grouped by template, asset or an attribute value, with a subtotal per group and a total; attribute columns can total their numbers. A click shows the event's time range or its asset on this display, or opens another display at both. Each row keeps the event's whole duration, so the total is the sum of the rows and the footer says how much of it overlapping events count twice; Event Analytics still merges and clips for a downtime figure. |
 
-The rest of the order is in the comparison document; next is batch
-comparison.
+| 24 | **pvxPeriodOverlay** | Runs from event frames: with the period set to *Runs from event frames*, each batch, campaign or start-up in the display's time range is one trace, cut from the first source's values at its start and end. Runs line up at their start, at their end, or stretched to 0..100% of their own length. Runs named as golden (names, with wildcards) are always shown, and their average with a tolerance of a percentage, a fixed amount or standard deviations replaces the envelope; the current run is measured against it. Only the event frames come from PI Web API; the values are the pipeline's, so a run that began before the time range is drawn from where it starts and counted in the footer. The clock periods are unchanged. |
+
+The rest of the order is in the comparison document; next is
+`pvxAssetRollup`, roll-up cards across assets.
 
 ## What next
 

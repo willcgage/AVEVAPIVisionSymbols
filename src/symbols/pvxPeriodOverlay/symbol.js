@@ -55,6 +55,18 @@
  *   measured from its own baseline. (Until this was added the symbol took one
  *   source; a display saved then has one and draws exactly as before.)
  *
+ * RUNS FROM EVENT FRAMES
+ *   PeriodMode 'events' takes the periods from AF event frames instead of
+ *   the clock: each batch, run or campaign in the display's time range is one
+ *   trace, cut from the first source's values at its start and end. Runs line
+ *   up at their start, at their end, or stretched to 0..100% of their own
+ *   length. Runs named as golden become the reference: their average, with a
+ *   tolerance band of a percentage, a fixed amount or standard deviations,
+ *   replaces the envelope, and the current run is measured against it. Only
+ *   the event frames come from PI Web API; the values are still the
+ *   pipeline's, so a run that began before the time range is drawn from where
+ *   the range starts, and the footer counts it.
+ *
  * Everything inside `.pvx-po-body` is one imperative SVG. Only the header
  * title, the period caption, the footer note and the quality badge are Angular
  * bindings.
@@ -75,6 +87,9 @@
     var HOUR = 3600000;
     var DAY = 86400000;
     var WEEK = 7 * DAY;
+
+    /** PI marks an event frame still running with an end far in the future. */
+    var OPEN_AFTER_MS = Date.UTC(9000, 0, 1);
 
     var WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -110,12 +125,23 @@
                 ShowLabel: true,
 
                 // Folding
-                PeriodMode: 'auto',          // auto | hour | shift | day | week | month | custom
+                PeriodMode: 'auto',          // auto | hour | shift | day | week | month | custom | events
                 ShiftHours: 8,
                 ShiftStartHour: 6,
                 CustomPeriodHours: 24,
                 AlignTo: 'clock',            // clock | windowEnd
                 MaxPeriods: 8,
+
+                // Runs from event frames (PeriodMode 'events'), through PI Web API
+                EventDatabasePath: '',       // blank = the first source's database
+                EventTemplate: '',
+                EventNameFilter: '',
+                EventElementFilter: '',
+                EventScope: 'none',          // none | asset (the display's asset)
+                EventAlign: 'start',         // start | end | normalized
+                MaxEvents: 200,
+                GoldenEvents: '',            // names, * and ? allowed, comma separated
+                GoldenTolerance: '5%',       // 5% | 2 (units) | 2s (standard deviations)
 
                 // What is drawn
                 ShowAs: 'values',            // values | delta | pctdelta
@@ -179,12 +205,15 @@
             tooShort: false     // the display window is shorter than one period
         };
 
+        var sourceAsset = '';     // element of the first source, for the event database
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-po-body',
 
             onData: function (d) {
                 var list = PVX.data.series(d) || [];
                 model.series = list.length ? list[0] : null;
+                sourceAsset = model.series ? PVX.nav.assetOf(model.series.path) : '';
                 model.list = list;
                 model.points = model.series ? (model.series.points || []) : [];
                 fold(ctx.config || scope.config || {});
@@ -192,8 +221,363 @@
 
             onConfigChange: function (newCfg) { fold(newCfg || {}); },
 
+            // A reply after the symbol is gone is dropped.
+            onDestroy: function () { evState.gen += 1; },
+
             render: render
         });
+
+        /* ================================================================== *
+         * runs from event frames (PeriodMode 'events')
+         * ================================================================== *
+         * The event frames come from PI Web API; the VALUES still come from
+         * PI Vision's pipeline, cut at each event's start and end. So a run
+         * is only as complete as the display's time range: one that began
+         * before it is drawn from where the range starts, and the footer
+         * counts it. Asking PI Web API for each run's values would lift that
+         * limit, at one request per run per source.
+         */
+
+        var evState = {
+            phase: 'idle',        // idle | loading | ok | error | unconfigured | nodb | noasset
+            key: '',              // what the current events were asked for
+            events: [],           // [{name, start, end|null, open}]
+            capped: false,
+            max: 0,
+            error: null,
+            db: { path: '', from: '' },
+            gen: 0
+        };
+        var dbCache = {};
+        var elCache = {};
+
+        function isEvents(cfg) { return cfg.PeriodMode === 'events'; }
+
+        function trim(s) {
+            return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, '');
+        }
+
+        function eventAlign(cfg) {
+            var a = cfg.EventAlign;
+            return a === 'end' || a === 'normalized' ? a : 'start';
+        }
+
+        function databaseFor(cfg) {
+            var typed = trim(cfg.EventDatabasePath);
+            if (typed) { return { path: typed, from: '' }; }
+            return PVX.nav.defaultDatabase ? PVX.nav.defaultDatabase(scope, sourceAsset) : { path: '', from: '' };
+        }
+
+        function scopeAsset() { return trim(PVX.nav.currentAsset()) || sourceAsset; }
+
+        /* The window is in whole minutes: a live display's window moves on
+         * every update, and asking again each time would be one request per
+         * update for the same answer. Once a minute also notices a run that
+         * has ended. */
+        function eventKey(cfg, db) {
+            return [db.path, trim(cfg.EventTemplate), trim(cfg.EventNameFilter), trim(cfg.EventElementFilter),
+                cfg.EventScope === 'asset' ? scopeAsset() : '', cfg.MaxEvents,
+                Math.floor(model.windowStart / 60000), Math.floor(model.windowEnd / 60000)].join('|');
+        }
+
+        function resolveDatabase(path) {
+            if (dbCache[path]) { return dbCache[path]; }
+            var p = PVX.api.get('assetdatabases?path=' + encodeURIComponent(path)).then(function (db) {
+                if (!db || !db.WebId) {
+                    throw { pvxError: { code: 'no-database',
+                        message: 'PI Web API answered, but there is no AF database at "' + path + '".',
+                        check: 'the AF database path, written \\\\<AF server>\\<database>' } };
+                }
+                return db.WebId;
+            });
+            // A failure is not remembered: a passing outage would stay for
+            // as long as the display is open.
+            p['catch'](function () { if (dbCache[path] === p) { delete dbCache[path]; } });
+            dbCache[path] = p;
+            return p;
+        }
+
+        function resolveElement(path) {
+            if (elCache[path]) { return elCache[path]; }
+            var p = PVX.api.elementByPath(path).then(function (el) {
+                if (!el || !el.WebId) {
+                    throw { pvxError: { code: 'no-asset',
+                        message: 'The asset "' + path + '" is not an AF element PI Web API can see.',
+                        check: 'the asset in the URL, or the element of the first data source' } };
+                }
+                return el.WebId;
+            });
+            p['catch'](function () { if (elCache[path] === p) { delete elCache[path]; } });
+            elCache[path] = p;
+            return p;
+        }
+
+        function refoldAndDraw() {
+            if (ctx.destroyed) { return; }
+            fold(ctx.config || scope.config || {});
+            ctx.render();
+        }
+
+        /** Ask for the event frames when what they depend on has changed. */
+        function ensureEvents(cfg) {
+            if (!model.points.length) { return; }
+            if (PVX.api.discovering()) {
+                evState.phase = 'loading';
+                PVX.api.discover().then(function () { evState.key = ''; refoldAndDraw(); });
+                return;
+            }
+            if (!PVX.api.isConfigured()) { evState.phase = 'unconfigured'; evState.key = ''; return; }
+            var db = databaseFor(cfg);
+            evState.db = db;
+            if (!db.path) { evState.phase = 'nodb'; evState.key = ''; return; }
+            if (cfg.EventScope === 'asset' && !scopeAsset()) { evState.phase = 'noasset'; evState.key = ''; return; }
+
+            var key = eventKey(cfg, db);
+            if (key === evState.key) { return; }
+            // Kept on failure too, so a broken query is retried once a
+            // minute rather than on every data update.
+            evState.key = key;
+            var gen = ++evState.gen;
+            if (evState.phase !== 'ok') { evState.phase = 'loading'; }
+            var max = PVX.util.clamp(parseInt(cfg.MaxEvents, 10) || 200, 1, 2000);
+            var q = {
+                startTime: new Date(model.windowStart).toISOString(),
+                endTime: new Date(model.windowEnd).toISOString(),
+                templateName: trim(cfg.EventTemplate),
+                nameFilter: trim(cfg.EventNameFilter),
+                elementNameFilter: trim(cfg.EventElementFilter),
+                searchMode: 'Overlapped',
+                // One more than is kept tells "exactly the limit" from "more".
+                maxCount: max + 1,
+                selectedFields: 'Items.Name;Items.StartTime;Items.EndTime'
+            };
+            resolveDatabase(db.path).then(function (dbId) {
+                q.databaseWebId = dbId;
+                if (cfg.EventScope !== 'asset') { return PVX.api.eventFrames(q, { cache: false }); }
+                return resolveElement(scopeAsset()).then(function (elId) {
+                    q.elementWebId = elId;
+                    return PVX.api.eventFrames(q, { cache: false });
+                });
+            }).then(function (res) {
+                if (gen !== evState.gen || ctx.destroyed) { return; }
+                var items = (res && res.Items) || [];
+                evState.capped = items.length > max;
+                evState.max = max;
+                var out = [];
+                for (var i = 0; i < items.length && i < max; i++) {
+                    var s = PVX.fmt.toDate(items[i].StartTime);
+                    if (!s) { continue; }
+                    var e = PVX.fmt.toDate(items[i].EndTime);
+                    // PI marks a run still going with no end or a year-9999 one.
+                    var open = !e || e.getTime() >= OPEN_AFTER_MS;
+                    out.push({ name: items[i].Name || '(unnamed event)', start: s.getTime(),
+                        end: open ? null : e.getTime(), open: open });
+                }
+                evState.events = out;
+                evState.phase = 'ok';
+                evState.error = null;
+                refoldAndDraw();
+            })['catch'](function (err) {
+                if (gen !== evState.gen || ctx.destroyed) { return; }
+                evState.phase = 'error';
+                evState.error = err;
+                evState.events = [];
+                refoldAndDraw();
+            });
+        }
+
+        /** "Batch 12*, Golden?" -> one case-blind matcher, or null when blank. */
+        function goldenMatcher(spec) {
+            var parts = String(spec === null || spec === undefined ? '' : spec).split(/[,;\n]/);
+            var res = [];
+            for (var i = 0; i < parts.length; i++) {
+                var p = trim(parts[i]);
+                if (!p) { continue; }
+                var src = p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+                res.push(new RegExp('^' + src + '$', 'i'));
+            }
+            if (!res.length) { return null; }
+            return function (name) {
+                for (var j = 0; j < res.length; j++) { if (res[j].test(name)) { return true; } }
+                return false;
+            };
+        }
+
+        /**
+         * The runs shown, newest first: the newest MaxPeriods, and every
+         * golden run however old, since a reference that drops off the chart
+         * when a few more batches run is not a reference.
+         */
+        function chooseRuns(cfg) {
+            var evs = evState.events.slice().sort(function (a, b) { return b.start - a.start; });
+            var isGold = goldenMatcher(cfg.GoldenEvents);
+            var cap = PVX.util.clamp(parseInt(cfg.MaxPeriods, 10) || 8, 1, 24);
+            var runs = [], dropped = 0;
+            for (var i = 0; i < evs.length; i++) {
+                var g = !!(isGold && isGold(evs[i].name));
+                if (runs.length >= cap && !g) { dropped += 1; continue; }
+                var end = evs[i].open ? Math.max(evs[i].start, model.windowEnd) : evs[i].end;
+                runs.push({ ev: evs[i], golden: g, end: end, dur: Math.max(1, end - evs[i].start) });
+            }
+            return { runs: runs, dropped: dropped, matcher: isGold };
+        }
+
+        /**
+         * Each run's samples, placed on the shared axis. Start: time since
+         * the run began. End: time before it ended, so every run finishes on
+         * the right edge. Normalised: percent of the run's own length, so a
+         * short batch and a long one line up phase by phase.
+         */
+        function foldRuns(pts, runs, P, align) {
+            var out = { periods: [], gaps: 0, partial: 0 };
+            for (var r = 0; r < runs.length; r++) {
+                var run = runs[r];
+                var b = { k: r, start: run.ev.start, pts: [], name: run.ev.name, golden: run.golden, open: run.ev.open };
+                for (var i = 0; i < pts.length; i++) {
+                    var t = pts[i].t;
+                    if (t < run.ev.start || t > run.end) { continue; }
+                    var rel = align === 'normalized' ? ((t - run.ev.start) / run.dur) * 100
+                        : align === 'end' ? P - (run.end - t) : t - run.ev.start;
+                    b.pts.push({ t: t, v: pts[i].v, rel: PVX.util.clamp(rel, 0, P) });
+                }
+                if (!b.pts.length) { out.gaps += 1; continue; }
+                b.minRel = b.pts[0].rel;
+                b.maxRel = b.pts[b.pts.length - 1].rel;
+                // Only part of it is in the display's time range.
+                b.partial = run.ev.start < model.windowStart || (!run.ev.open && run.end > model.windowEnd);
+                if (b.partial) { out.partial += 1; }
+                out.periods.push(b);
+            }
+            return out;
+        }
+
+        function foldEvents(cfg) {
+            model.kind = 'events';
+            model.autoKind = false;
+            model.align = eventAlign(cfg);
+            model.tooShort = false;
+            model.runInfo = { dropped: 0, gaps: 0, partial: 0, matcher: null, goldenCount: 0 };
+            ensureEvents(cfg);
+            if (evState.phase !== 'ok') { model.P = 1; return; }
+            var ch = chooseRuns(cfg);
+            var P = 1, i;
+            if (model.align === 'normalized') { P = 100; }
+            else { for (i = 0; i < ch.runs.length; i++) { if (ch.runs[i].dur > P) { P = ch.runs[i].dur; } } }
+            model.P = P;
+            model.newestStart = ch.runs.length ? ch.runs[0].ev.start : model.windowEnd;
+            var f = foldRuns(model.points, ch.runs, P, model.align);
+            model.periods = f.periods;
+            model.dropped = ch.dropped;
+            model.gaps = f.gaps;
+            var golden = 0;
+            for (i = 0; i < ch.runs.length; i++) { if (ch.runs[i].golden) { golden += 1; } }
+            model.runInfo = { dropped: ch.dropped, gaps: f.gaps, partial: f.partial, matcher: ch.matcher, goldenCount: golden };
+            var list = model.list || [];
+            for (i = 1; i < list.length; i++) {
+                model.others.push({ series: list[i], fold: foldRuns(list[i].points || [], ch.runs, P, model.align) });
+            }
+        }
+
+        /** "5%", "2" or "2s": a band around the golden average. */
+        function parseTolerance(spec) {
+            var m = /^\s*(\d+(?:\.\d+)?)\s*(%|s|sd|sigma|σ)?\s*$/i.exec(String(spec === null || spec === undefined ? '' : spec));
+            if (!m) { return null; }
+            var u = (m[2] || '').toLowerCase();
+            return { n: parseFloat(m[1]), kind: u === '%' ? 'pct' : (u ? 'sigma' : 'abs'), text: trim(spec) };
+        }
+
+        /**
+         * The golden reference: per slot, the average of the golden runs, and
+         * the tolerance either side of it. A band in standard deviations needs
+         * two golden runs at that point to have a spread at all.
+         */
+        function goldenEnvelope(gold, G, tol) {
+            var env = [], any = false;
+            for (var i = 0; i < G; i++) {
+                var means = [];
+                for (var j = 0; j < gold.length; j++) { if (gold[j][i]) { means.push(gold[j][i].mean); } }
+                if (!means.length || (tol.kind === 'sigma' && means.length < 2)) { env.push(null); continue; }
+                var mid = PVX.stats.mean(means);
+                var half = tol.kind === 'pct' ? Math.abs(mid) * tol.n / 100
+                    : tol.kind === 'abs' ? tol.n : tol.n * (PVX.stats.stddev(means) || 0);
+                env.push({ lo: mid - half, hi: mid + half, mid: mid });
+                any = true;
+            }
+            return any ? env : null;
+        }
+
+        /** The golden runs other than the current one, and their band. */
+        function goldenOf(cfg, periods, buckets, G) {
+            var out = { env: null, count: 0, currentGolden: false, tol: null, badTol: false, sigmaShort: false };
+            var gold = [];
+            for (var i = 0; i < periods.length; i++) {
+                if (!periods[i].golden) { continue; }
+                // The run being judged cannot be part of what it is judged by.
+                if (periods[i].k === 0) { out.currentGolden = true; continue; }
+                gold.push(buckets[i]);
+            }
+            out.count = gold.length;
+            if (!gold.length) { return out; }
+            out.tol = parseTolerance(cfg.GoldenTolerance === undefined || cfg.GoldenTolerance === '' ? '5%' : cfg.GoldenTolerance);
+            if (!out.tol) { out.badTol = true; out.tol = parseTolerance('5%'); }
+            if (out.tol.kind === 'sigma' && gold.length < 2) { out.sigmaShort = true; return out; }
+            out.env = goldenEnvelope(gold, G, out.tol);
+            return out;
+        }
+
+        function alignName() {
+            return model.align === 'normalized' ? '0 to 100% of each run'
+                : model.align === 'end' ? 'aligned at the end' : 'aligned at the start';
+        }
+
+        function runNotes(cfg, periods, olderCount, gold, cmp) {
+            var n = [], ri = model.runInfo || {};
+            if (periods.length === 1) { n.push('only one run in this time range, so nothing to compare it with'); }
+            else if (!(gold && gold.env) && olderCount === 1) {
+                n.push('one older run; an envelope needs two, so the traces are compared directly');
+            }
+            if (ri.matcher && !ri.goldenCount) { n.push('no run matches the golden runs "' + trim(cfg.GoldenEvents) + '"'); }
+            if (gold && gold.currentGolden) { n.push('the current run is golden and is left out of its own reference'); }
+            if (gold && gold.badTol) { n.push('tolerance "' + trim(cfg.GoldenTolerance) + '" not read, 5% used; write 5%, 2 or 2s'); }
+            if (gold && gold.sigmaShort) { n.push('a tolerance in standard deviations needs two golden runs'); }
+            if (periods.length && periods[0].k === 0 && periods[0].open) {
+                n.push(model.align === 'end' ? 'the current run is still active and ends at its latest value' : 'the current run is still active');
+            }
+            if (ri.partial) {
+                n.push(ri.partial + ' run' + (ri.partial === 1 ? ' is' : 's are') + ' only partly in the time range');
+            }
+            if (ri.dropped) {
+                n.push(ri.dropped + ' older run' + (ri.dropped === 1 ? '' : 's') + ' not shown; Maximum periods is ' +
+                    PVX.util.clamp(parseInt(cfg.MaxPeriods, 10) || 8, 1, 24));
+            }
+            if (ri.gaps) { n.push(ri.gaps + ' run' + (ri.gaps === 1 ? '' : 's') + ' with no samples'); }
+            if (evState.capped) { n.push('only the first ' + evState.max + ' event frames read'); }
+            if (evState.db.from) { n.push('database ' + evState.db.path + ' from ' + evState.db.from); }
+            return n;
+        }
+
+        function runEmptyState(svgRoot, W, H, t) {
+            var head, detail = '';
+            if (evState.phase === 'unconfigured') {
+                head = 'PI Web API is not configured';
+                detail = PVX.api.unsetHint() + ', then confirm it with ext/piwebapi-check.html.';
+            } else if (evState.phase === 'nodb') {
+                head = 'No AF database for the event frames';
+                detail = 'Use an AF attribute as the first data source, or set the event database in the format pane.';
+            } else if (evState.phase === 'noasset') {
+                head = 'No asset to take events from';
+                detail = 'The display names no asset and the first data source is not an AF attribute.';
+            } else if (evState.phase === 'error') {
+                var e = (evState.error && evState.error.pvxError) || null;
+                head = 'Event frames could not be read';
+                detail = e ? e.message + (e.check ? ' Check: ' + e.check + '.' : '') : 'PI Web API returned no diagnosis.';
+            } else {
+                head = 'Loading event frames…';
+            }
+            emptyState(svgRoot, W, H, t, head, detail);
+            // The full text, where a long message is not cut to one line.
+            scope.pvx.note = detail;
+        }
 
         /* ================================================================== *
          * period arithmetic
@@ -322,6 +706,8 @@
             var span = model.windowEnd - model.windowStart;
             if (!(span > 0)) { span = 1; }
             model.span = span;
+
+            if (isEvents(cfg)) { foldEvents(cfg); return; }
 
             var per = resolvePeriod(cfg, span);
             var P = per.ms;
@@ -614,12 +1000,20 @@
         }
 
         function axisLabel(rel, cfg) {
+            if (model.kind === 'events') {
+                if (model.align === 'normalized') { return Math.round(rel) + '%'; }
+                if (model.align === 'end') { return rel >= model.P ? '0' : '-' + elapsedLabel(model.P - rel, model.P); }
+                return elapsedLabel(rel, model.P);
+            }
             return model.align === 'windowEnd'
                 ? elapsedLabel(rel, model.P)
                 : clockLabel(rel, model.P, model.newestStart);
         }
 
         function axisTitleText() {
+            if (model.kind === 'events') {
+                return model.align === 'normalized' ? 'Through each run' : model.align === 'end' ? 'Before the end' : 'Since the start';
+            }
             if (model.align === 'windowEnd') { return 'Elapsed into period'; }
             if (model.kind === 'month') { return 'Day of month'; }
             if (model.P >= 2 * DAY) { return 'Day of week'; }
@@ -652,6 +1046,7 @@
         }
 
         function periodLabel(p, cfg) {
+            if (model.kind === 'events') { return p.name; }
             var style = cfg.LegendLabels || 'auto';
             if (style === 'offset') { return offsetLabel(p.k, model.P); }
             if (style === 'date') { return dateLabel(p.start, model.P); }
@@ -719,7 +1114,7 @@
              * in. (A transparent surface has no colour to mix with, and
              * PVX.color.mix returns the first argument unchanged, so the
              * desaturation still applies and nothing breaks.) */
-            var age = olderCount > 1 ? (k - 1) / (olderCount - 1) : 0;
+            var age = olderCount > 1 ? Math.min(1, (k - 1) / (olderCount - 1)) : 0;
             var base = PVX.color.mix(current, t.textMuted, 0.55);
             return PVX.color.mix(base, t.surface, age * 0.4);
         }
@@ -729,7 +1124,7 @@
             if (cfg.FadeOlder === false) {
                 return cfg.ColorMode === 'palette' ? 0.85 : 0.7;
             }
-            var age = olderCount > 1 ? (k - 1) / (olderCount - 1) : 0;
+            var age = olderCount > 1 ? Math.min(1, (k - 1) / (olderCount - 1)) : 0;
             // Never below 0.22: a trace nobody can see is worse than no trace,
             // because the legend still claims it is there.
             var top = cfg.ColorMode === 'palette' ? 0.9 : 0.78;
@@ -784,6 +1179,18 @@
                 digest();
                 return;
             }
+            if (isEvents(cfg) && model.points.length && evState.phase !== 'ok') {
+                runEmptyState(svgRoot, W, H, t);
+                digest();
+                return;
+            }
+            if (isEvents(cfg) && model.points.length && !model.periods.length) {
+                emptyState(svgRoot, W, H, t, 'No event frames in this time range',
+                    evState.events.length ? 'The runs found hold no samples of this source.'
+                        : 'Widen the display time range, or check the event filters.');
+                digest();
+                return;
+            }
             if (!model.points.length || !model.periods.length) {
                 emptyState(svgRoot, W, H, t, 'No samples in this time range',
                     'Widen the display time range.');
@@ -829,6 +1236,17 @@
             }
             var plotWGuess = Math.max(20, W - 44);
             var G = Math.min(Math.floor(plotWGuess / 2), Math.ceil(densest * 0.9));
+            /* Stretched to 0..100%, a short run has fewer samples per percent
+             * than a long one, and a grid finer than the sparsest run breaks
+             * it into dots and makes a band built across runs zigzag between
+             * them. So the sparsest run sets the grid there. */
+            if (model.kind === 'events' && model.align === 'normalized') {
+                var sparsest = Infinity;
+                for (i = 0; i < periods.length; i++) {
+                    if (periods[i].pts.length >= 4 && periods[i].pts.length < sparsest) { sparsest = periods[i].pts.length; }
+                }
+                if (sparsest < Infinity) { G = Math.min(G, Math.ceil(sparsest * 0.9)); }
+            }
             G = PVX.util.clamp(G, 4, 400);
 
             var slotW = P / G;
@@ -870,8 +1288,13 @@
              * is missing rather than drawing a band that means nothing. */
             var older = buckets.slice(1);
             var env = (olderCount >= 2) ? buildEnvelope(older, G, envMode, lowP, highP) : null;
+            // Golden runs, when named, are the reference instead of the
+            // spread of everything older.
+            var gold = isEvents(cfg) ? goldenOf(cfg, periods, buckets, G) : null;
+            model.gold = gold && gold.env ? gold : null;
+            if (model.gold) { env = gold.env; }
             var wantEnvelope = cfg.ShowEnvelope !== false && env !== null;
-            var wantMedian = !!cfg.ShowMedian && env !== null;
+            var wantMedian = (!!cfg.ShowMedian || !!model.gold) && env !== null;
 
             // ---- value domain -------------------------------------------------------
             var tickCount = PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 10);
@@ -1088,7 +1511,9 @@
 
             // ---- footer notes ---------------------------------------------------------------------------
             var notes = [];
-            if (model.tooShort) {
+            if (isEvents(cfg)) {
+                notes = runNotes(cfg, periods, olderCount, gold, cmp);
+            } else if (model.tooShort) {
                 notes.push('display range (' + PVX.fmt.duration(model.span) +
                     ') is shorter than one ' + periodName(P) + ' period — nothing to compare');
             } else if (periods.length === 1) {
@@ -1114,16 +1539,17 @@
                         '% of the current period — the older periods do not overlap the rest');
                 }
             }
-            if (model.dropped) {
+            if (model.dropped && !isEvents(cfg)) {
                 notes.push(model.dropped + ' older period' + (model.dropped === 1 ? '' : 's') +
                     ' dropped — MaxPeriods is ' + periods.length);
             }
-            if (model.gaps) {
+            if (model.gaps && !isEvents(cfg)) {
                 notes.push(model.gaps + ' period' + (model.gaps === 1 ? '' : 's') + ' had no samples');
             }
             if (showAs !== 'values') {
                 notes.unshift((showAs === 'pctdelta' ? '% change' : 'change') + ' from ' +
-                    (cfg.Baseline === 'previous' ? 'the period before' : 'the median of the older periods'));
+                    (cfg.Baseline === 'previous' ? 'the ' + (isEvents(cfg) ? 'run' : 'period') + ' before'
+                        : 'the median of the older ' + (isEvents(cfg) ? 'runs' : 'periods')));
             }
             if (noBase) {
                 notes.push(noBase + ' slot' + (noBase === 1 ? '' : 's') + ' with no baseline' +
@@ -1233,6 +1659,15 @@
          */
         function buildRelTicks(cfg, P, plotW, font) {
             var want = PVX.util.clamp(parseInt(cfg.TimeTickCount, 10) || 6, 2, 12);
+            if (model.kind === 'events' && model.align === 'normalized') {
+                var pctSteps = [5, 10, 20, 25, 50, 100];
+                var pn = Math.max(2, Math.min(want, Math.floor(plotW / (4 * font * CHAR_W + 10))));
+                var ps = 100;
+                for (var pi = 0; pi < pctSteps.length; pi++) { if (pctSteps[pi] >= 100 / pn) { ps = pctSteps[pi]; break; } }
+                var pout = [];
+                for (var pv = 0; pv <= 100; pv += ps) { pout.push(pv); }
+                return pout;
+            }
             // "Wed 8/12" is about 8 characters; two touching is worse than half
             // as many that can be read.
             var fits = Math.max(2, Math.floor(plotW / (8 * font * CHAR_W + 10)));
@@ -1252,6 +1687,12 @@
              * period were shorter than it is. Only when the gap is wide enough
              * to keep the two labels apart, though. */
             if (out.length && (P - out[out.length - 1]) > step * 0.75) { out.push(P); }
+            // Aligned at the end, the ticks count back from the right edge.
+            if (model.kind === 'events' && model.align === 'end') {
+                var back = [];
+                for (var bi = out.length - 1; bi >= 0; bi--) { back.push(P - out[bi]); }
+                return back;
+            }
             return out;
         }
 
@@ -1376,11 +1817,16 @@
                     });
                 }
             }
-            if (wantEnvelope) {
-                items.push({ label: envLabel(envMode, lowP, highP), color: envColor, band: true });
-            }
-            if (wantMedian) {
-                items.push({ label: 'median', color: envColor, dashed: true });
+            if (model.gold) {
+                items.push({ label: model.gold.count > 1 ? 'golden (avg of ' + model.gold.count + ')' : 'golden', color: envColor, dashed: true });
+                if (wantEnvelope) { items.push({ label: '±' + model.gold.tol.text.replace(/^\s*\+?/, ''), color: envColor, band: true }); }
+            } else {
+                if (wantEnvelope) {
+                    items.push({ label: envLabel(envMode, lowP, highP), color: envColor, band: true });
+                }
+                if (wantMedian) {
+                    items.push({ label: 'median', color: envColor, dashed: true });
+                }
             }
             // With several tags the first one's entries need its name, or
             // "current" could be anyone's.
@@ -1501,7 +1947,7 @@
             var numOpts = PVX.config.numberOpts(cfg);
             var lines = [];
             lines.push({
-                p: 0, k: 'In envelope', fs: font, bold: true,
+                p: 0, k: model.gold ? 'In tolerance' : 'In envelope', fs: font, bold: true,
                 v: cmp.pct === null ? '--' : PVX.fmt.percent(cmp.pct, 0),
                 c: status
             });
@@ -1521,7 +1967,9 @@
             }
             lines.push({
                 p: 2, k: 'Compared', fs: font,
-                v: (model.periods.length - 1) + ' past × ' + periodName(P),
+                v: model.gold ? model.gold.count + ' golden run' + (model.gold.count === 1 ? '' : 's')
+                    : model.kind === 'events' ? (model.periods.length - 1) + ' past runs'
+                    : (model.periods.length - 1) + ' past × ' + periodName(P),
                 c: t.textMuted
             });
 
@@ -1646,11 +2094,15 @@
         function titleText(cfg) {
             if (cfg.Title) { return cfg.Title; }
             if (!model.series) { return 'Period comparison'; }
-            return (model.series.label || 'Value') + ' — period comparison';
+            return (model.series.label || 'Value') + (model.kind === 'events' ? ' — run comparison' : ' — period comparison');
         }
 
         /** The caption states the fold, because the fold is the whole symbol. */
         function periodCaption(full) {
+            if (model.kind === 'events') {
+                var nRuns = model.periods.length + ' run' + (model.periods.length === 1 ? '' : 's');
+                return full ? nRuns + ' · ' + alignName() : nRuns;
+            }
             var align = (model.align === 'windowEnd') ? 'from window end' : 'clock aligned';
             if (!full) { return periodName(model.P) + ' · ' + align; }
             var head = periodName(model.P) + ' periods';

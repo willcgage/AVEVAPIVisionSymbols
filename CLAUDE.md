@@ -24,7 +24,7 @@ node tools/test-afpick.js            # AF search pane: rules + built panes vs a 
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, text zoom vs a mock AF
+node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, runs from event frames, text zoom vs a mock AF
 node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
@@ -131,7 +131,7 @@ silently destroys a site's PI Web API settings on upgrade.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
 - Symbols get data through PI Vision's pipeline. Seven reach PI Web API via
-  `PVX.api` for their main job and seven more for an option that is off by
+  `PVX.api` for their main job and eight more for an option that is off by
   default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
   (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
@@ -327,7 +327,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–23 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–24 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

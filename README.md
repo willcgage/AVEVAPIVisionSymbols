@@ -8,10 +8,10 @@ palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
-Thirty-two of them run entirely on PI Vision's own data pipeline — no PI Web
+Thirty-one of them run entirely on PI Vision's own data pipeline — no PI Web
 API, no server-side prerequisites beyond copying a folder. Seven reach further
 (Event Frames, the AF hierarchy, writing values back) and need PI Web API, and
-seven more use it for an optional extra; see
+eight more use it for an optional extra; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
 
 Works with PI Vision 2019 through 2025 — the symbol extensibility model
@@ -34,7 +34,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxBoxPlot/icon.svg) | **PVX Variability** | Quartiles, whiskers and outliers, one box per tag. Twenty identical assets side by side — the wide box is the one to go and look at. |
 | ![](src/symbols/pvxDeviation/icon.svg) | **PVX Deviation from Target** | Deviation from setpoint with the tolerance band shaded, excursions coloured by direction, and time-in-band, excursion count and longest excursion computed from real sample intervals. |
 | ![](src/symbols/pvxWaterfall/icon.svg) | **PVX Waterfall** | Floating bars bridging a start value to an end value through signed steps, with connectors and running subtotals. Mass and energy balances, yield-loss accounting. |
-| ![](src/symbols/pvxPeriodOverlay/icon.svg) | **PVX Period Comparison** | Folds the window into N periods overlaid on a common relative-time axis, with a min/max envelope from the older ones. Today over yesterday over the golden batch. Hours, shifts, days, weeks or calendar months; values, or change and percent change from a baseline; further tags draw their current period alongside. |
+| ![](src/symbols/pvxPeriodOverlay/icon.svg) | **PVX Period Comparison** | Folds the window into N periods overlaid on a common relative-time axis, with a min/max envelope from the older ones. Today over yesterday over the golden batch. Hours, shifts, days, weeks or calendar months; values, or change and percent change from a baseline; further tags draw their current period alongside. Or runs from AF event frames (batches, campaigns; PI Web API), lined up at their start, their end or 0 to 100% of each run, measured against the average of the golden runs with a tolerance band. |
 | ![](src/symbols/pvxTreemap/icon.svg) | **PVX Treemap** | Squarified rectangles sized by one statistic and coloured by another. Size shows who is big, colour shows who is in trouble; the tile that is both is the one to look at. |
 | ![](src/symbols/pvxSankey/icon.svg) | **PVX Flow** | Weighted ribbons between nodes with per-node balance checking — where inflow and outflow disagree, you have a leak, a bad meter or a missing tag. |
 | ![](src/symbols/pvxRadar/icon.svg) | **PVX Fingerprint** | Normalised multi-axis polygon over a reference profile. Shape recognition: does this asset still look like it used to. |

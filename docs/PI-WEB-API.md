@@ -5,7 +5,7 @@ entirely on PI Vision's own data pipeline. Only the seven that reach things PI
 Vision cannot hand a display — Event Frames, the AF hierarchy, writing values
 back — need it: `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
 `pvxAssetTable`, `pvxManualEntry` and `pvxEntryTable`. Of the rest,
-seven more use it only for an option you turn on: event frames on `pvxComboChart`, limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` and reading it on `pvxAlarmTone`, and History mode on `pvxAlarmBanner`, which reads recorded values.
+eight more use it only for an option you turn on: event frames on `pvxComboChart`, limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` and reading it on `pvxAlarmTone`, History mode on `pvxAlarmBanner`, which reads recorded values, and runs from event frames on `pvxPeriodOverlay`.
 
 ---
 

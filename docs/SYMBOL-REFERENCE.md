@@ -1416,12 +1416,21 @@ any others draw their current period on the same axis)
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `800` |  |
 | `Title` | `""` |  |
-| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| month \| custom |
+| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| month \| custom \| events |
 | `ShiftHours` | `8` |  |
 | `ShiftStartHour` | `6` |  |
 | `CustomPeriodHours` | `24` |  |
 | `AlignTo` | `"clock"` | clock \| windowEnd |
 | `MaxPeriods` | `8` |  |
+| `EventDatabasePath` | `""` | blank = the first source's database |
+| `EventTemplate` | `""` |  |
+| `EventNameFilter` | `""` |  |
+| `EventElementFilter` | `""` |  |
+| `EventScope` | `"none"` | none \| asset (the display's asset) |
+| `EventAlign` | `"start"` | start \| end \| normalized |
+| `MaxEvents` | `200` |  |
+| `GoldenEvents` | `""` | names, * and ? allowed, comma separated |
+| `GoldenTolerance` | `"5%"` | 5% \| 2 (units) \| 2s (standard deviations) |
 | `ShowAs` | `"values"` | values \| delta \| pctdelta |
 | `Baseline` | `"median"` | median (of the older periods) \| previous |
 | `CurrentStyle` | `"bold"` | bold \| same |
