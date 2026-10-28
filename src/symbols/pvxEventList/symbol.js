@@ -5,7 +5,7 @@
  * symbol selector, and gives a blank database path a database (see the
  * definition). Every row comes from PI Web API through PVX.api.
  *
- * One row per event frame, read only: name, asset, template, start, end,
+ * One row per event frame (read only unless Event actions is on): name, asset, template, start, end,
  * duration, and any event attributes asked for (Reason Code, Operator). The
  * operator can filter the rows by typing, sort by any column, and group them
  * with a count and a total per group. A click on a row takes this display to
@@ -509,6 +509,8 @@
             if (cfg.GroupBy === 'element') { return true; }
             if (cfg.ClickAction === 'asset' || cfg.ClickAction === 'navigate' || cfg.ClickAction === 'filter') { return true; }
             if (cfg.FilterObey) { return true; }
+            // A write names the event's asset before it is confirmed.
+            if (cfg.EventActions) { return true; }
             for (var i = 0; i < cols.length; i++) { if (cols[i].kind === 'element') { return true; } }
             return false;
         }

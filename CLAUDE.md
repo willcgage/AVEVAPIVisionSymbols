@@ -24,7 +24,7 @@ node tools/test-afpick.js            # AF search pane: rules + built panes vs a 
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
+node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
 node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
@@ -174,6 +174,11 @@ silently destroys a site's PI Web API settings on upgrade.
   obey (`FilterObey`); `<!-- pvx:filter -->` → `src/shared/config-filter.html`
   needs `PVX.filter.defaults(...)`. A match is the asset or anything under
   it. The overlay shows the badge that clears it. Mock-proven only.
+- **Writes from reading symbols** (`PVX.writer.panel`): the Asset Table's
+  `EditMode` (a cell) and the Event List's `EventActions` (Ack, Note, Edit on
+  an event frame) share one panel: edit, a confirmation that states the value
+  and target in full, then PI Web API's answer. Only changed fields are sent.
+  All off by default. Mock-proven only (`test-overview --only writes`).
 - Every symbol has four options from `config.base`, all off: `ExportMenu`
   (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`,
   `QuickTrend` (`src/shared/config-common.html`, applied by `PVX.overlay`
@@ -350,7 +355,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–36 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). All 37 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

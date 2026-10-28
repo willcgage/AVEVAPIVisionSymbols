@@ -4509,10 +4509,14 @@
             };
         }
         if (status === 403) {
+            // A refused write says which object refused it ("No Write Access -
+            // Secure Object"), which is the line an administrator needs.
+            var why = piErrorText(err);
             return {
                 code: 'forbidden',
                 message: 'Authenticated, but this identity is not permitted. PI and AF security are the ' +
-                         'access control — check the mapping for this user on the AF database.',
+                         'access control — check the mapping for this user on the AF database.' +
+                         (why ? ' PI Web API said: ' + why : ''),
                 check: 'AF / Data Archive mappings'
             };
         }
