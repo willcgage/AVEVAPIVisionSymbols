@@ -436,6 +436,121 @@
         return false;
     };
 
+    /* ---- the site's theme ------------------------------------------------ *
+     * A plant with a corporate look sets it once, in pvx-config.js, rather
+     * than in the format pane of every symbol on every display:
+     *
+     *   theme: {
+     *       palette: ['#00539b', '#f7a800', ...],    series colours, in order
+     *       status:  { normal: '#..', warning: '#..', alarm: '#..' },
+     *       light:   { surface: '#..', text: '#..', border: '#..' },
+     *       dark:    { surface: '#..', text: '#..' },
+     *       font:    '"Arial", sans-serif',
+     *       container: { radius: 4, border: '1px solid #c8ccd0', shadow: '0 1px 2px rgba(0,0,0,.2)' }
+     *   }
+     *
+     * Every key is optional. A symbol's own Background, Text colour and
+     * Theme still win, so nothing set on a display is overridden. A value
+     * that is not a colour is ignored and named in the console rather than
+     * drawing black, and one bad entry does not discard the rest.
+     */
+    var siteTokens = { light: {}, dark: {} };
+    var SITE_TOKEN_KEYS = ['surface', 'surfaceAlt', 'border', 'text', 'textMuted', 'grid', 'axis', 'track'];
+    // Built-ins kept so a second configure() replaces rather than compounds.
+    var builtinPalette = color.categorical.slice();
+    var builtinStatus = {};
+    for (var bsk in color.status) {
+        if (Object.prototype.hasOwnProperty.call(color.status, bsk)) { builtinStatus[bsk] = color.status[bsk]; }
+    }
+
+    function siteWarn(what) {
+        try { root.console.warn('[PVX] pvx-config.js theme: ' + what + ' ignored.'); } catch (e) { /* no console */ }
+    }
+
+    /** A CSS value safe to drop into one declaration: no braces, no ';', no markup. */
+    function cssValue(v) {
+        var str = String(v === null || v === undefined ? '' : v);
+        return /[{};<>]/.test(str) ? '' : str;
+    }
+
+    theme.applySite = function (cfg) {
+        var i, k;
+        cfg = cfg && typeof cfg === 'object' ? cfg : {};
+
+        // In place: symbols and the core hold references to these.
+        var pal = [];
+        if (cfg.palette && cfg.palette.length) {
+            for (i = 0; i < cfg.palette.length; i++) {
+                if (color.toRgb(cfg.palette[i])) { pal.push(cfg.palette[i]); }
+                else { siteWarn('palette entry ' + JSON.stringify(cfg.palette[i])); }
+            }
+            if (pal.length < 2) { siteWarn('a palette of fewer than two colours'); pal = []; }
+        }
+        var usePal = pal.length ? pal : builtinPalette;
+        color.categorical.length = 0;
+        for (i = 0; i < usePal.length; i++) { color.categorical.push(usePal[i]); }
+
+        for (k in builtinStatus) {
+            if (Object.prototype.hasOwnProperty.call(builtinStatus, k)) { color.status[k] = builtinStatus[k]; }
+        }
+        var st = cfg.status && typeof cfg.status === 'object' ? cfg.status : {};
+        for (k in st) {
+            if (!Object.prototype.hasOwnProperty.call(st, k)) { continue; }
+            if (!Object.prototype.hasOwnProperty.call(builtinStatus, k)) { siteWarn('status "' + k + '"'); continue; }
+            if (color.toRgb(st[k])) { color.status[k] = st[k]; } else { siteWarn('status ' + k + ' ' + JSON.stringify(st[k])); }
+        }
+
+        var modes = ['light', 'dark'];
+        for (i = 0; i < modes.length; i++) {
+            var src = cfg[modes[i]] && typeof cfg[modes[i]] === 'object' ? cfg[modes[i]] : {};
+            var out = {};
+            for (k in src) {
+                if (!Object.prototype.hasOwnProperty.call(src, k)) { continue; }
+                if (SITE_TOKEN_KEYS.indexOf(k) === -1) { siteWarn(modes[i] + '.' + k); continue; }
+                if (color.toRgb(src[k])) { out[k] = src[k]; } else { siteWarn(modes[i] + '.' + k + ' ' + JSON.stringify(src[k])); }
+            }
+            siteTokens[modes[i]] = out;
+        }
+
+        // Font and the container are CSS, written once for the page, under
+        // .pvx so PI Vision's own chrome is untouched.
+        var rules = [];
+        // A value cssValue refuses would otherwise vanish without a word, so
+        // say which one it was.
+        function css(v, what) {
+            if (v === undefined || v === null || v === '') { return ''; }
+            var ok = cssValue(v);
+            if (!ok) { siteWarn(what + ' ' + JSON.stringify(v)); }
+            return ok;
+        }
+        var font = css(cfg.font, 'font');
+        if (font) { rules.push('.pvx { font-family: ' + font + '; }'); }
+        var box = cfg.container && typeof cfg.container === 'object' ? cfg.container : {};
+        var decl = [];
+        var radius = util.num(box.radius);
+        if (radius !== null) { decl.push('border-radius: ' + util.clamp(radius, 0, 40) + 'px'); }
+        else if (box.radius !== undefined && box.radius !== null && box.radius !== '') { siteWarn('container.radius ' + JSON.stringify(box.radius)); }
+        var border = css(box.border, 'container.border');
+        if (border) { decl.push('border: ' + border); }
+        var shadow = css(box.shadow, 'container.shadow');
+        if (shadow) { decl.push('box-shadow: ' + shadow); }
+        if (decl.length) { rules.push('.pvx .pvx-surface { ' + decl.join('; ') + '; }'); }
+        theme.siteCss = rules.join('\n');
+        try {
+            var doc = root.document;
+            if (doc && doc.head) {
+                var el = doc.getElementById('pvx-site-theme');
+                if (!el && rules.length) {
+                    el = doc.createElement('style');
+                    el.id = 'pvx-site-theme';
+                    doc.head.appendChild(el);
+                }
+                if (el) { el.textContent = theme.siteCss; }
+            }
+        } catch (e) { /* no document: Node, a test harness */ }
+        return { palette: color.categorical.slice(), status: color.status, light: siteTokens.light, dark: siteTokens.dark, css: theme.siteCss };
+    };
+
     /**
      * Resolve the drawing palette for a symbol instance.
      * @param {Object} config symbol config (may carry explicit overrides)
@@ -469,6 +584,13 @@
             track: 'rgba(0,0,0,0.10)',
             shadow: 'rgba(0,0,0,0.18)'
         };
+
+        // The site's theme, from pvx-config.js, sits between the built-in
+        // tokens and the symbol's own settings.
+        var site = siteTokens[dark ? 'dark' : 'light'];
+        for (var sk in site) {
+            if (Object.prototype.hasOwnProperty.call(site, sk)) { t[sk] = site[sk]; }
+        }
 
         // Explicit config overrides always win.
         if (config.BackgroundColor) { t.surface = config.BackgroundColor; }
@@ -2870,6 +2992,73 @@
         nav.go(nav.buildHash(cur), false);
     };
 
+    var TIME_UNIT = { s: 1000, sec: 1000, m: 60000, min: 60000, h: 3600000, hr: 3600000, d: 86400000, w: 604800000 };
+
+    function localMidnight(ms) {
+        var d = new Date(ms);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+    }
+
+    /** One offset ("-8h", "+1mo") applied to ms, or null if it is not one. */
+    function timeOffset(ms, sign, n, unit) {
+        var u = unit.toLowerCase();
+        if (u === 'mo' || u === 'y') {
+            // Calendar months and years are not a fixed number of milliseconds.
+            var d = new Date(ms);
+            if (u === 'mo') { d.setMonth(d.getMonth() + sign * n); }
+            else { d.setFullYear(d.getFullYear() + sign * n); }
+            return d.getTime();
+        }
+        if (!TIME_UNIT[u]) { return null; }
+        return ms + sign * n * TIME_UNIT[u];
+    }
+
+    /**
+     * Resolve a PI time expression to epoch ms, or null when it is outside
+     * what this knows: *, t, y, today, yesterday, a date, or a bare offset,
+     * each followed by offsets in s m h d w mo y. Months and years are
+     * calendar steps, not fixed lengths. Nothing here talks to PI: a symbol
+     * that steps or replays a range needs it in milliseconds, and the address
+     * holds whatever an operator typed.
+     */
+    nav.parseTime = function (expr, nowMs) {
+        var s = String(expr === null || expr === undefined ? '' : expr).trim();
+        if (!s) { return null; }
+        if (typeof nowMs !== 'number') { nowMs = Date.now(); }
+        // Date() reads a bare "5" as a day in 2001; PI does not.
+        if (/^\d+(\.\d+)?$/.test(s)) { return null; }
+        var base = null;
+        var rest = '';
+        var m = /^(\*|today|yesterday|t|y)(.*)$/i.exec(s);
+        if (m) {
+            var k = m[1].toLowerCase();
+            base = k === '*' ? nowMs :
+                   (k === 't' || k === 'today') ? localMidnight(nowMs) :
+                   localMidnight(nowMs) - 86400000;
+            rest = m[2];
+            // "t", "today" are words; "today5" is not today plus anything.
+            if (rest && !/^\s*[+-]/.test(rest)) { return null; }
+        } else if (/^[+-]/.test(s)) {
+            base = nowMs;                   // a bare offset is relative to now
+            rest = s;
+        } else {
+            var d = new Date(s);
+            return isNaN(d.getTime()) ? null : d.getTime();
+        }
+        var re = /\s*([+-])\s*(\d+(?:\.\d+)?)\s*(mo|min|sec|hr|[smhdwy])\s*/gi;
+        var pos = 0;
+        var hit;
+        var ms = base;
+        while ((hit = re.exec(rest)) !== null) {
+            if (hit.index !== pos) { return null; }
+            ms = timeOffset(ms, hit[1] === '-' ? -1 : 1, parseFloat(hit[2]), hit[3]);
+            if (ms === null) { return null; }
+            pos = re.lastIndex;
+        }
+        return pos === rest.length ? ms : null;
+    };
+
     /** Current asset (AF element path) driving the display, if any. */
     nav.currentAsset = function () {
         return nav.parseHash().params.asset || '';
@@ -3235,6 +3424,9 @@
                 api.settings[k] = settings[k];
             }
         }
+        // The site file carries the theme too; it is not a PI Web API
+        // setting, but it arrives by the same road.
+        if (Object.prototype.hasOwnProperty.call(settings, 'theme')) { theme.applySite(settings.theme); }
         return api.settings;
     };
 

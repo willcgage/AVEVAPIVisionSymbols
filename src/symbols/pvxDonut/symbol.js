@@ -74,7 +74,8 @@
                 // where the total goes, and because it kills the "compare the
                 // wedges by area" illusion.
                 InnerRadiusPct: 58,
-                StartAngle: 0,             // degrees, 0 = 12 o'clock
+                Shape: 'full',             // full | half: a half ring over the top, 9 to 3 o'clock
+                StartAngle: 0,             // degrees, 0 = 12 o'clock; full ring only
                 Clockwise: true,
                 PadAngle: 0.6,             // degrees of gap between slices
 
@@ -287,16 +288,21 @@
             }
 
             // --- angles ------------------------------------------------------
-            var start = numOr(cfg.StartAngle, 0);
+            // A half ring always spans the top, 9 o'clock to 3 o'clock: it is
+            // a gauge-like shape whose flat side is meant to sit on a row of
+            // other symbols, and a start angle would tip it over.
+            var half = cfg.Shape === 'half';
             var dir = cfg.Clockwise === false ? -1 : 1;
+            var span = half ? 180 : 360;
+            var start = half ? -90 * dir : numOr(cfg.StartAngle, 0);
             var cum = 0;
             var minSweep = 360;
             for (i = 0; i < slices.length; i++) {
                 var s = slices[i];
                 s.pct = (s.value / total) * 100;
-                s.a0 = start + dir * (cum / total) * 360;
+                s.a0 = start + dir * (cum / total) * span;
                 cum += s.value;
-                s.a1 = start + dir * (cum / total) * 360;
+                s.a1 = start + dir * (cum / total) * span;
                 s.sweep = Math.abs(s.a1 - s.a0);
                 s.mid = (s.a0 + s.a1) / 2;
                 if (s.sweep < minSweep) { minSweep = s.sweep; }
@@ -662,9 +668,14 @@
             var reserveX = showLabels ? Math.min(plotW * 0.26, font * (wordy ? 6.5 : 4)) : 0;
             var reserveY = showLabels ? Math.min(plotH * 0.16, font * (wordy ? 2.2 : 1.6)) : 0;
 
-            var rOuter = Math.max(8, Math.min((plotW - reserveX * 2) / 2, (plotH - reserveY * 2) / 2));
+            var half = cfg.Shape === 'half';
+            var rOuter = half
+                ? Math.max(8, Math.min((plotW - reserveX * 2) / 2, plotH - reserveY - font * 0.3))
+                : Math.max(8, Math.min((plotW - reserveX * 2) / 2, (plotH - reserveY * 2) / 2));
             var cx = plot.x0 + plotW / 2;
-            var cy = plot.y0 + plotH / 2;
+            // A half ring is centred as the half it is, so its flat side is
+            // not left floating above an empty lower half of the box.
+            var cy = half ? plot.y0 + (plotH + rOuter + reserveY) / 2 : plot.y0 + plotH / 2;
 
             // A ring beside a legend is one visual block, so it is that block —
             // not the ring alone — that gets centred. Otherwise a short, wide
@@ -716,7 +727,8 @@
 
             // ---- centre readout --------------------------------------------------
             if (showCenter) {
-                drawCenter(svgRoot, cfg, t, model, cx, cy, rInner, rOuter, cramped);
+                // In a half ring the hole is the half above the flat side.
+                drawCenter(svgRoot, cfg, t, model, cx, half ? cy - rInner * 0.3 : cy, half ? rInner * 0.72 : rInner, rOuter, cramped);
             }
 
             // ---- legend -----------------------------------------------------------

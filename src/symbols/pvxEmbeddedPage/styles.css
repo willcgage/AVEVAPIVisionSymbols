@@ -1,0 +1,95 @@
+/* pvxEmbeddedPage — everything namespaced under .pvx-embed. */
+
+.pvx-embed {
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-embed-warn: #d99024;
+    color: var(--pvx-text);
+}
+
+.pvx-embed .pvx-embed-surface {
+    background: var(--pvx-surface);
+    border-radius: inherit;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pvx-embed .pvx-embed-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 4px 6px 4px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    font-size: 11px;
+}
+
+.pvx-embed .pvx-embed-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--pvx-muted);
+}
+
+.pvx-embed .pvx-embed-tool {
+    flex: 0 0 auto;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 6px;
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--pvx-text);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pvx-embed .pvx-embed-tool:hover { border-color: var(--pvx-muted); }
+
+.pvx-embed .pvx-embed-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0;
+}
+
+.pvx-embed .pvx-embed-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.pvx-embed .pvx-embed-iframe {
+    display: block;
+    border: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+    background: transparent;
+}
+
+.pvx-embed .pvx-embed-shield {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+}
+
+.pvx-embed .pvx-embed-note {
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    font-size: 11px;
+    line-height: 1.3;
+    color: var(--pvx-muted);
+    border-top: 1px solid var(--pvx-border);
+}
+
+.pvx-embed .pvx-embed-note.pvx-embed-warn { color: var(--pvx-embed-warn); }

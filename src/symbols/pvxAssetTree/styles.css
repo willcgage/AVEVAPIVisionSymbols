@@ -294,3 +294,47 @@
     font-size: 9px;
     color: var(--pvx-muted);
 }
+
+/* --- ValueAttribute: a status dot and the value at the row's end ---------- */
+
+.pvx-tree .pvx-tree-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* No band or state matched: keep the column, show nothing in it, so the
+   names stay aligned. */
+.pvx-tree .pvx-tree-dot.pvx-tree-dot-none { background: transparent; }
+
+.pvx-tree .pvx-tree-value {
+    flex: 0 1 auto;
+    max-width: 45%;
+    font-variant-numeric: tabular-nums;
+    color: var(--pvx-muted);
+    text-align: right;
+}
+
+/* --- drop-down layout ------------------------------------------------------ */
+
+.pvx-tree .pvx-tree-dd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    min-width: 0;
+}
+
+.pvx-tree .pvx-tree-dd-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    height: 26px;
+    padding: 0 4px;
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    background: var(--pvx-surface);
+    color: var(--pvx-text);
+}

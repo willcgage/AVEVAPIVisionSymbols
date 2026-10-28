@@ -63,6 +63,7 @@
 
                 // --- binning ------------------------------------------------
                 Bins: 'auto',               // 'auto' = Freedman-Diaconis
+                Weighting: 'samples',       // samples | time: bars in time held, not sample count
                 BinWidth: '',               // overrides Bins when set
                 RangeMin: '',
                 RangeMax: '',
@@ -84,6 +85,7 @@
                 // --- reference lines ----------------------------------------
                 ShowMeanLine: true,
                 ShowMedianLine: false,
+                Quantiles: '',              // e.g. "5, 50, 95": a marker at each percentile
                 ShowSigmaLines: false,
 
                 // --- specification ------------------------------------------
@@ -219,16 +221,22 @@
             var histLo = cfgMin === null ? ext.lo : cfgMin;
             var histHi = cfgMax === null ? ext.hi : cfgMax;
 
+            var byTime = cfg.Weighting === 'time';
             var hists = [];
             var h0 = PVX.stats.histogram(values, {
                 bins: cfg.Bins, min: histLo, max: histHi, width: cfg.BinWidth
             });
+            if (byTime) { reweigh(h0, timeWeights(sel)); }
             hists.push(h0);
             for (var s = 1; s < drawn.length; s++) {
-                hists.push(PVX.stats.histogram(seriesValues(drawn[s]), {
+                var hs = PVX.stats.histogram(seriesValues(drawn[s]), {
                     bins: h0.bins.length, min: h0.min, max: h0.max
-                }));
+                });
+                if (byTime) { reweigh(hs, timeWeights(drawn[s])); }
+                hists.push(hs);
             }
+            // The curve is scaled to the same total the bars add up to.
+            var curveN = byTime ? h0.n : values.length;
 
             var binW = h0.width;
             var mode = cfg.YAxisMode || 'count';
@@ -273,7 +281,7 @@
             var curveTop = 0;
             var showCurve = cfg.ShowNormalCurve !== false && sd > 0;
             if (showCurve) {
-                curveTop = freqOf(0, 0, 0, mode, PVX.stats.normalPdf(mean, mean, sd), values.length, binW);
+                curveTop = freqOf(0, 0, 0, mode, PVX.stats.normalPdf(mean, mean, sd), curveN, binW);
                 if (curveTop > fMax) { fMax = curveTop; }
             }
             if (!(fMax > 0)) { fMax = 1; }
@@ -301,7 +309,8 @@
             var freqLabel = tickFormatter(freqTicks, mode === 'percent' ? '%' : '');
             var valueTitle = showAxisTitles ? (sel.units || sel.label || '') : '';
             var freqTitle = showAxisTitles
-                ? (mode === 'percent' ? 'Percent' : (mode === 'density' ? 'Density' : 'Count'))
+                ? (mode === 'percent' ? (byTime ? '% of time' : 'Percent')
+                    : (mode === 'density' ? 'Density' : (byTime ? 'Hours' : 'Count')))
                 : '';
 
             // Axis roles swap with the orientation; everything downstream reads
@@ -508,7 +517,9 @@
                 bt.textContent =
                     PVX.fmt.number(bins[i].from, numOpts) + ' – ' +
                     PVX.fmt.number(bins[i].to, numOpts) + unitSuffix + '\n' +
-                    bins[i].count + ' of ' + h0.n + ' samples (' +
+                    (byTime
+                        ? PVX.fmt.duration(bins[i].count * 3600000) + ' of ' + PVX.fmt.duration(h0.n * 3600000)
+                        : bins[i].count + ' of ' + h0.n + ' samples') + ' (' +
                     PVX.fmt.percent(bins[i].fraction * 100, 1) + ')';
             }
 
@@ -534,7 +545,7 @@
             /* ---- fitted normal ---------------------------------------------------- */
             if (showCurve) {
                 PVX.svg.el('path', {
-                    d: PVX.svg.line(curvePoints(mean, sd, values.length, binW, mode,
+                    d: PVX.svg.line(curvePoints(mean, sd, curveN, binW, mode,
                                                 v0, v1, sv, sf, vertical), false),
                     fill: 'none',
                     stroke: cfg.NormalCurveColor || '#c8452f',
@@ -563,6 +574,19 @@
                 refLine(plotG, quart.median, t.text, '4 3', 1.3, 0.65,
                     'Median ' + PVX.fmt.number(quart.median, numOpts) + unitSuffix);
                 markLabel(plotG, quart.median, 'M', t.text);
+            }
+            // Percentile markers, of time held when the bars are.
+            var qList = quantileList(cfg.Quantiles);
+            if (qList.length) {
+                var qPairs = byTime ? timeWeights(sel) : null;
+                for (var qi = 0; qi < qList.length; qi++) {
+                    var qv = byTime ? weightedQuantile(qPairs, qList[qi] / 100)
+                                    : PVX.stats.percentile(values, qList[qi] / 100);
+                    refLine(plotG, qv, t.textMuted, '2 3', 1.2, 0.85,
+                        'P' + qList[qi] + ' ' + PVX.fmt.number(qv, numOpts) + unitSuffix +
+                        (byTime ? '\n' + qList[qi] + '% of the time at or below this' : '\n' + qList[qi] + '% of samples at or below this'));
+                    markLabel(plotG, qv, 'P' + qList[qi], t.textMuted);
+                }
             }
             if (target !== null) {
                 refLine(plotG, target, PVX.color.status.normal, '6 3', 1.5, 0.9,
@@ -601,6 +625,9 @@
             if (boxH0 >= 150) {
                 notes.push(h0.bins.length + (h0.bins.length === 1 ? ' bin' : ' bins'));
                 if (extra) { notes.push(extra + ' more series not shown'); }
+                // The statistics stay per sample, so Cp and Cpk mean what they
+                // always mean; only the bars and percentile markers move.
+                if (byTime) { notes.push('bars weighted by time held; statistics per sample'); }
                 if (cap && cap.degenerate) { notes.push('no variation'); }
             }
             scope.pvx.note = notes.join(' · ');
@@ -908,6 +935,71 @@
             if (!node || !node.style || !node.style.setProperty) { return; }
             node.style.setProperty('--pvx-text', t.text);
             node.style.setProperty('--pvx-muted', t.textMuted);
+        }
+
+        /**
+         * Each numeric sample with the hours it held: until the next sample of
+         * any kind, so a bad value ends the hold before it rather than
+         * crediting an outage to the last good reading. The last sample holds
+         * for the median spacing, the best guess at a stride we cannot see.
+         * @returns {Array} [{v, w}] in time order
+         */
+        function timeWeights(series) {
+            var out = [], pts = (series && series.points) || [], gaps = [], i;
+            for (i = 0; i + 1 < pts.length; i++) {
+                var d = pts[i + 1].t - pts[i].t;
+                if (d > 0) { gaps.push(d); }
+            }
+            var tail = gaps.length ? PVX.stats.percentile(gaps, 0.5) : 0;
+            for (i = 0; i < pts.length; i++) {
+                if (!PVX.util.isNum(pts[i].v)) { continue; }
+                var ms = i + 1 < pts.length ? Math.max(0, pts[i + 1].t - pts[i].t) : tail;
+                out.push({ v: pts[i].v, w: ms / 3600000 });
+            }
+            return out;
+        }
+
+        /** Refill a histogram's bins with weights instead of counts. */
+        function reweigh(h, pairs) {
+            var total = 0, i;
+            for (i = 0; i < h.bins.length; i++) { h.bins[i].count = 0; }
+            for (i = 0; i < pairs.length; i++) {
+                var v = pairs[i].v;
+                if (v < h.min || v > h.max || !(h.width > 0)) { continue; }
+                var idx = PVX.util.clamp(Math.floor((v - h.min) / h.width), 0, h.bins.length - 1);
+                h.bins[idx].count += pairs[i].w;
+                total += pairs[i].w;
+            }
+            h.peak = 0;
+            for (i = 0; i < h.bins.length; i++) {
+                h.bins[i].fraction = total > 0 ? h.bins[i].count / total : 0;
+                if (h.bins[i].count > h.peak) { h.peak = h.bins[i].count; }
+            }
+            h.n = total;
+        }
+
+        /** The value at or below which a fraction q of the time was spent. */
+        function weightedQuantile(pairs, q) {
+            var list = pairs.slice().sort(function (a, b) { return a.v - b.v; });
+            var total = 0, i;
+            for (i = 0; i < list.length; i++) { total += list[i].w; }
+            if (!(total > 0)) { return null; }
+            var cum = 0;
+            for (i = 0; i < list.length; i++) {
+                cum += list[i].w;
+                if (cum >= q * total - 1e-9) { return list[i].v; }
+            }
+            return list[list.length - 1].v;
+        }
+
+        /** "5, 50, 95" -> [5, 50, 95], each 0 < p < 100, at most six. */
+        function quantileList(text) {
+            var out = [], parts = String(text || '').split(/[,;\s]+/);
+            for (var i = 0; i < parts.length && out.length < 6; i++) {
+                var p = PVX.util.num(parts[i]);
+                if (p !== null && p > 0 && p < 100 && out.indexOf(p) === -1) { out.push(p); }
+            }
+            return out;
         }
 
         function seriesValues(series) {

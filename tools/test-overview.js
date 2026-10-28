@@ -7,7 +7,9 @@
  *
  * Built for the PI Vision Overview Build Guide: drill-down to the element,
  * the Navigation Panel's hierarchy strip, the Asset Table, the Event
- * Timeline scoped to the current asset, and the text size control.
+ * Timeline scoped to the current asset, and the text size control. Also the
+ * clicks that move the display's time range (a heatmap cell, an event bar)
+ * and the Navigation Panel's icons, tooltips and {value} addresses.
  *
  *   rules    plain Node, against the BUILT core: element paths split the way
  *            PI Vision's asset= parameter wants them, the text scale clamps,
@@ -86,6 +88,54 @@ function rules() {
     check('text scale: missing or junk is 1', text.scaleOf({}) === 1 && text.scaleOf({ TextScale: 'big' }) === 1);
     check('text scale: clamped to 50%..300%', text.scaleOf({ TextScale: '10' }) === 0.5 && text.scaleOf({ TextScale: '900' }) === 3);
     check('every symbol defaults to 100%', win.PVX.config.base({}).TextScale === '100');
+
+    // PI time, as the Time Range symbol resolves it to step a range.
+    const NOW = Date.parse('2026-10-20T12:34:56Z');
+    const mid = new Date(NOW); mid.setHours(0, 0, 0, 0);
+    const pt = (s) => nav.parseTime(s, NOW);
+    check('time: * is now, *-8h eight hours before', pt('*') === NOW && pt('*-8h') === NOW - 8 * 3600000);
+    check('time: t and today are local midnight, y the one before',
+        pt('t') === mid.getTime() && pt('today') === mid.getTime() && pt('y') === mid.getTime() - 86400000);
+    check('time: offsets chain, with spaces and long units', pt('t + 6h - 30min') === mid.getTime() + 5.5 * 3600000);
+    check('time: a bare offset is relative to now', pt('-15m') === NOW - 900000);
+    const mo = new Date(NOW); mo.setMonth(mo.getMonth() - 1);
+    check('time: a month is a calendar month', pt('*-1mo') === mo.getTime());
+    check('time: an ISO stamp is itself', pt('2026-10-01T06:00:00Z') === Date.parse('2026-10-01T06:00:00Z'));
+    check('time: what it cannot read is null, not a guess',
+        [' ', '5', 'today5', '*-8q', 'next week', '*-'].every((x) => pt(x) === null), [' ', '5', 'today5', '*-8q', 'next week', '*-'].map(pt));
+
+    // Site theme from pvx-config.js: tokens, palette and status in place,
+    // a bad colour ignored without losing the rest, a symbol's own colours
+    // still winning, and none of it left behind when the theme is removed.
+    const PVX = win.PVX;
+    const pal0 = PVX.color.categorical.slice();
+    const warned = [];
+    const warn0 = win.console.warn;
+    win.console = Object.assign({}, console, { warn: (m) => warned.push(m) });
+    PVX.api.configure({ theme: {
+        palette: ['#00539b', 'not a colour', '#f7a800'],
+        status: { alarm: '#aa0000', loud: '#ff00ff' },
+        light: { surface: '#fafafa', text: '#101010', glow: '#fff' },
+        dark: { surface: '#111418' },
+        container: { radius: 3, border: '1px solid #ccc; } body { display:none' }
+    } });
+    win.console.warn = warn0;
+    const lt = PVX.theme.tokens({ Theme: 'light' });
+    const dk = PVX.theme.tokens({ Theme: 'dark' });
+    check('site theme: light tokens from pvx-config.js', lt.surface === '#fafafa' && lt.text === '#101010', lt);
+    check('site theme: dark tokens kept apart', dk.surface === '#111418' && dk.text === '#e8ecf1', dk);
+    check('site theme: a symbol\'s own background still wins', PVX.theme.tokens({ Theme: 'light', BackgroundColor: '#123456' }).surface === '#123456');
+    check('site theme: palette replaced in place, bad entry dropped',
+        JSON.stringify(PVX.color.categorical) === JSON.stringify(['#00539b', '#f7a800']) && lt.categorical === PVX.color.categorical, PVX.color.categorical);
+    check('site theme: status merged', PVX.color.status.alarm === '#aa0000' && PVX.color.status.normal === '#2f9e5f', PVX.color.status);
+    check('site theme: each bad entry is named in the console',
+        warned.length === 4 && warned.every((w) => /^\[PVX\] pvx-config\.js theme: .* ignored\.$/.test(w)), warned);
+    check('site theme: a container value that would break out of its rule is refused',
+        /border-radius: 3px/.test(PVX.theme.siteCss) && !/display:none/.test(PVX.theme.siteCss), PVX.theme.siteCss);
+    PVX.api.configure({ theme: null });
+    check('site theme: removing it restores the built-ins',
+        JSON.stringify(PVX.color.categorical) === JSON.stringify(pal0) && PVX.color.status.alarm === '#c8452f' &&
+        PVX.theme.tokens({ Theme: 'light' }).surface === '#ffffff');
 
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
@@ -285,8 +335,10 @@ async function mount(a) {
     const vis = new def.visObjectType();
     try { vis.init(scope, wrap, undefined); } catch (e) { window.__initThrew = e.message; }
     scope.$digest();
-    if (a.data !== false && vis.onDataUpdate) {
-        vis.onDataUpdate({ Value: 1, Label: 'Name', Path: a.source || 'af:\\\\AF\\Gathering\\Station 1|Name', IsGood: true,
+    if (a.payload && vis.onDataUpdate) {
+        vis.onDataUpdate(a.payload);
+    } else if (a.data !== false && vis.onDataUpdate) {
+        vis.onDataUpdate({ Value: a.value === undefined ? 1 : a.value, Label: 'Name', Path: a.source || 'af:\\\\AF\\Gathering\\Station 1|Name', IsGood: true,
             Rows: a.rows || undefined });
     }
     if (vis.onResize) { vis.onResize(640, 240); }
@@ -470,6 +522,14 @@ async function page() {
 
         /* ---- Event Timeline scoped to the asset ------------------------ */
         const EG = { DatabasePath: DB, AssetScope: 'asset', StartOffset: '*-1d' };
+        await open('pvxEventGantt', { asset: K301, config: Object.assign({}, EG, { ClickAction: 'time' }) });
+        // Dispatched, not clicked: a bar's box includes its label, which
+        // lets clicks through, so its centre can fall on bare SVG.
+        await pg.$eval('#box [data-pvx-i="0"]', (n) => n.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        let zoomed = await hash();
+        check('timeline: a bar can set this display to the event',
+            /^#\/Displays\/101\/Overview\?/.test(zoomed) && /starttime=\d{4}-/.test(zoomed) && /endtime=\d{4}-/.test(zoomed), zoomed);
+
         await open('pvxEventGantt', { asset: K301, config: EG });
         let body = await pg.$eval('#box', (n) => n.textContent);
         check('timeline: the asset\'s own events', /K-301 trip/.test(body) && /Seal leak/.test(body) && !/K-302 high/.test(body), body.slice(0, 200));
@@ -574,6 +634,215 @@ async function page() {
         const mixed = await pg.evaluate(() => (document.querySelector('#box .pvx-fatal') || {}).textContent || '');
         check('register: files from two releases are named as such',
             /two different releases/.test(mixed) && mixed.indexOf('is 1.0.0') !== -1, mixed);
+
+        /* ---- Asset Navigator: list, drop-down, a value per row ------------ */
+        const VAL = Object.assign({}, TREE, { Layout: 'list', ValueAttribute: 'Status', StateMap: 'Running:#2f9e5f, Fault:#c8452f' });
+        // A fresh page: the last checks left this one with a stale core.
+        await pg.goto('about:blank');
+        await open('pvxAssetTree', { asset: '', config: VAL, configured: 'auto' });
+        await settle();
+        await settle();
+        let vrows = await pg.$$eval('#box .pvx-tree-row', (ns) => ns.map((n) => ({
+            name: n.querySelector('.pvx-tree-name').textContent,
+            value: (n.querySelector('.pvx-tree-value') || {}).textContent,
+            vtitle: (n.querySelector('.pvx-tree-value') || {}).title,
+            dot: (n.querySelector('.pvx-tree-dot') || { style: {} }).style.background,
+            twisty: !!n.querySelector('.pvx-tree-twisty-on') })));
+        const vr = (name) => vrows.find((r) => r.name === name) || {};
+        check('tree list: every element in one flat list, no twisties',
+            ['Station 1', 'K-301', 'K-302', 'Tank 1', 'Station 2', 'K-303'].every((n) => !!vr(n).name) && vrows.every((r) => !r.twisty),
+            vrows.map((r) => r.name));
+        check('tree list: ...from a search of the whole hierarchy, not level by level',
+            requests.some((r) => /elements\?searchFullHierarchy=true/.test(r)) &&
+            !requests.some((r) => /\/elements\?selectedFields/.test(r)), requests.slice(0, 6));
+        check('tree values: a digital state with its colour', vr('K-301').value === 'Running' && /47, 158, 95|2f9e5f/.test(vr('K-301').dot), vr('K-301'));
+        check('tree values: a state not in the map gets no colour', vr('K-303').value === 'Stopped' && !vr('K-303').dot, vr('K-303'));
+        check('tree values: an element without the attribute shows a dash and says why',
+            vr('Tank 1').value === '\u2014' && /no attribute "Status"/.test(vr('Tank 1').vtitle), vr('Tank 1'));
+        check('tree values: read in batches', requests.filter((r) => r === 'POST batch').length === 2,
+            requests.filter((r) => /batch/.test(r)).length);
+
+        await open('pvxAssetTree', { asset: K302, config: Object.assign({}, TREE, { Layout: 'dropdown', ValueAttribute: 'Vibration', ValueBands: '0:#2f9e5f, 5:#c8452f' }), configured: 'auto' });
+        await settle();
+        await settle();
+        let dd = await pg.evaluate(() => {
+            const sel = document.querySelector('#box select.pvx-tree-dd-select');
+            return sel ? { picked: sel.options[sel.selectedIndex].textContent.trim(), n: sel.options.length,
+                value: (document.querySelector('#box .pvx-tree-value') || {}).textContent,
+                dot: (document.querySelector('#box .pvx-tree-dot') || { style: {} }).style.background } : null;
+        });
+        check('tree drop-down: on the display\'s asset', dd && dd.picked === 'K-302' && dd.n === 7, dd);
+        check('tree drop-down: its value coloured by the bands', dd && /^6\.20? mils$/.test(dd.value) && /200, 69, 47|c8452f/.test(dd.dot), dd);
+        await pg.selectOption('#box select.pvx-tree-dd-select', { label: '\u00a0\u00a0\u00a0K-303' });
+        await settle();
+        check('tree drop-down: choosing one switches the asset', (await hash()).indexOf('asset=' + K303) !== -1, await hash());
+
+        /* ---- Navigation Panel: icons, tooltips, {value} ------------------ */
+        const ITEMS = '[home] Overview -- Plant overview | 101\n[bogus] Odd | 102\nDetails | {value}';
+        await open('pvxNavPanel', { config: { Mode: 'display', Items: ITEMS, KeepAsset: false, KeepTime: false }, value: '777' });
+        const btns = await pg.$$eval('#box .pvx-nav-btn', (ns) => ns.map((n) => ({
+            text: n.textContent.trim(), title: n.title, icon: !!n.querySelector('svg.pvx-nav-icon') })));
+        check('nav: [home] draws an icon and leaves the label', btns[0] && btns[0].icon && btns[0].text === 'Overview', btns[0]);
+        check('nav: text after -- is the tooltip', btns[0] && btns[0].title === 'Plant overview', btns[0]);
+        check('nav: an unknown icon name stays in the label', btns[1] && !btns[1].icon && btns[1].text === '[bogus] Odd', btns[1]);
+        check('nav: a {value} tooltip names the resolved address', btns[2] && /777/.test(btns[2].title), btns[2]);
+        await pg.click('#box .pvx-nav-btn:has-text("Details")');
+        check('nav: {value} takes the data source\'s value', /^#\/Displays\/777\b/.test(await hash()), await hash());
+
+        /* ---- Heatmap: a cell sets the time range ------------------------ */
+        const T = Date.parse('2026-10-20T00:00:00Z');
+        const heatPts = [];
+        for (let m = 0; m < 180; m += 10) { heatPts.push({ Time: new Date(T + m * 60000).toISOString(), Value: m }); }
+        await open('pvxHeatmap', { config: { Mode: 'matrix', BucketCount: 3, ClickAction: 'time' },
+            payload: { Data: [{ Label: 'Flow', Units: 't/h', Path: '\\\\AF\\T|Flow', IsGood: true, Value: heatPts }] } });
+        await pg.click('#box rect.pvx-heat-cell-link[data-pvx-i="1"]');
+        const cell = await hash();
+        check('heatmap: a cell sets the display to its own slice',
+            cell.indexOf('starttime=2026-10-20T00:56:40.000Z') !== -1 && cell.indexOf('endtime=2026-10-20T01:53:20.000Z') !== -1, cell);
+        await open('pvxHeatmap', { config: { Mode: 'matrix', BucketCount: 3 },
+            payload: { Data: [{ Label: 'Flow', Units: 't/h', Path: '\\\\AF\\T|Flow', IsGood: true, Value: heatPts }] } });
+        const before = await hash();
+        await pg.click('#box rect.pvx-heat-cell');
+        check('heatmap: with clicks off a cell does nothing', (await hash()) === before, await hash());
+
+        /* ---- Time Range: presets, stepping, typed expressions ------------ */
+        await open('pvxTimeRange', { config: {} });
+        await pg.click('#box .pvx-trange-preset:has-text("8 hours")');
+        await settle();
+        let h = await hash();
+        check('time range: a preset sets the display time', h.indexOf('starttime=*-8h') !== -1 && h.indexOf('endtime=*') !== -1, h);
+        let tr = await pg.evaluate(() => ({
+            on: Array.from(document.querySelectorAll('#box .pvx-trange-on')).map((n) => n.textContent),
+            fwd: document.querySelector('#box [data-pvx-act="fwd"]').disabled,
+            read: document.querySelector('#box .pvx-trange-readout').textContent }));
+        check('time range: ...is shown as in force', JSON.stringify(tr.on) === '["8 hours"]' && /^8 hours: .* \(8 h\)$/.test(tr.read), tr);
+        check('time range: forward is off at the present', tr.fwd === true, tr);
+        const t0 = Date.now();
+        await pg.click('#box [data-pvx-act="back"]');
+        await settle();
+        h = await hash();
+        const sm = /starttime=([^&]+)/.exec(h);
+        const em = /endtime=([^&]+)/.exec(h);
+        const s1 = sm ? Date.parse(sm[1]) : NaN;
+        const e1 = em ? Date.parse(em[1]) : NaN;
+        check('time range: back steps by the span, as fixed times',
+            e1 - s1 === 8 * 3600000 && Math.abs(e1 - (t0 - 8 * 3600000)) < 10000, h);
+        await pg.click('#box [data-pvx-act="fwd"]');
+        await settle();
+        h = await hash();
+        check('time range: forward to the present goes back to a relative range',
+            /starttime=\*-28800s/.test(h) && /endtime=\*(&|$)/.test(h), h);
+
+        await open('pvxTimeRange', { config: { CustomInput: 'text', PresetStyle: 'dropdown' } });
+        const before2 = await hash();
+        await pg.fill('#box .pvx-trange-input >> nth=0', '*-2q');
+        await settle();
+        let trMsg = await pg.$eval('#box .pvx-trange-msg', (n) => n.textContent);
+        check('time range: a typed expression is checked as it is typed', /"\*-2q" is not a time/.test(trMsg), trMsg);
+        await pg.click('#box .pvx-trange-apply');
+        await settle();
+        check('time range: ...and a bad one never reaches the display', (await hash()) === before2, await hash());
+        await pg.fill('#box .pvx-trange-input >> nth=0', 't-2h');
+        await pg.fill('#box .pvx-trange-input >> nth=1', 't+6h');
+        await pg.press('#box .pvx-trange-input >> nth=1', 'Enter');
+        await settle();
+        h = await hash();
+        check('time range: Enter applies the expressions as typed', h.indexOf('starttime=t-2h') !== -1 && h.indexOf('endtime=t+6h') !== -1, h);
+        await pg.selectOption('#box .pvx-trange-select', '4');
+        await settle();
+        h = await hash();
+        check('time range: the drop-down applies a preset', h.indexOf('starttime=*-7d') !== -1, h);
+
+        await open('pvxTimeRange', { config: { Presets: '8 hours | *-8h | *\nbroken line' } });
+        trMsg = await pg.$eval('#box .pvx-trange-msg', (n) => n.textContent);
+        check('time range: a malformed preset line is named', /Preset line 2 ignored/.test(trMsg), trMsg);
+        tr = await pg.evaluate(() => document.querySelector('#box [data-pvx-act="back"]').title);
+        check('time range: with no range in the address, stepping says why', /own default range/.test(tr), tr);
+
+        /* ---- Embedded Page ----------------------------------------------- *
+         * A fresh page each time: a frame left loading from the last one
+         * keeps the network busy, and goto waits for it to go quiet.        */
+        await pg.goto('about:blank');
+        await open('pvxEmbeddedPage', { asset: K301, config: { Url: '101' } });
+        await pg.evaluate(() => { location.hash = location.hash + '&starttime=*-2h&endtime=*'; });
+        await settle();
+        let emb = await pg.evaluate(() => {
+            const f = document.querySelector('#box iframe.pvx-embed-iframe');
+            return { src: f ? decodeURIComponent(f.getAttribute('src')) : '', note: (document.querySelector('#box .pvx-embed-note') || {}).textContent || '',
+                title: document.querySelector('#box .pvx-embed-title').textContent,
+                open: (document.querySelector('#box a.pvx-embed-tool') || {}).href || '' };
+        });
+        check('embedded: a display id opens that display on this server, in kiosk mode',
+            /#\/Displays\/101\?/.test(emb.src) && /mode=kiosk/.test(emb.src) && emb.title === 'PI Vision display 101', emb);
+        check('embedded: ...carrying this display\'s asset and time', emb.src.indexOf('asset=' + K301) !== -1 && /starttime=\*-2h/.test(emb.src), emb.src);
+        check('embedded: ...with no warning, since it is the same site', emb.note === '', emb.note);
+        check('embedded: Open in a new tab leaves out kiosk mode', emb.open && !/mode=kiosk/.test(decodeURIComponent(emb.open)), emb.open);
+
+        await pg.goto('about:blank');
+        await open('pvxEmbeddedPage', { config: { Url: 'http://127.0.0.1:1/report' } });
+        emb = await pg.$eval('#box .pvx-embed-note', (n) => n.textContent);
+        check('embedded: another site is flagged as possibly refusing', /Another site/.test(emb) && /new tab/.test(emb), emb);
+
+        await pg.goto('about:blank');
+        await open('pvxEmbeddedPage', { config: { Url: 'javascript:alert(1)' } });
+        emb = await pg.evaluate(() => ({ note: document.querySelector('#box .pvx-embed-note').textContent,
+            frames: document.querySelectorAll('#box iframe').length }));
+        check('embedded: a non-web address is refused and named', /"javascript:" is refused/.test(emb.note) && emb.frames === 0, emb);
+
+        await pg.goto('about:blank');
+        await open('pvxEmbeddedPage', { config: { UrlSource: 'source' }, value: '' });
+        emb = await pg.$eval('#box .pvx-embed-note', (n) => n.textContent);
+        check('embedded: an address from the data source waits for it', /Waiting for the data source/.test(emb), emb);
+
+        await pg.goto('about:blank');
+        await open('pvxEmbeddedPage', { config: { Url: '101' } });
+        await pg.evaluate(() => { window.__scope.runtimeData.isEditMode = true; window.__vis.onConfigChange(window.__scope.config, {}); });
+        await settle();
+        emb = await pg.evaluate(() => !!document.querySelector('#box .pvx-embed-shield'));
+        check('embedded: in the editor a shield keeps the symbol selectable', emb === true, emb);
+
+        /* ---- Combo Chart: event frames behind the traces ------------------ */
+        const comboPts = [];
+        for (let m = 360; m >= 0; m -= 10) { comboPts.push({ Time: iso(m), Value: 100 + m / 10 }); }
+        const comboData = { Data: [{ Label: 'Discharge Pressure', Units: 'psig', Path: 'af:' + K301 + '|Discharge Pressure', IsGood: true, Value: comboPts }] };
+        await open('pvxComboChart', { config: { ShowEvents: true }, payload: comboData });
+        await settle();
+        let combo = await pg.evaluate(() => ({
+            rects: Array.from(document.querySelectorAll('#box rect.pvx-combo-event')).map((r) => r.querySelector('title').textContent),
+            note: (document.querySelector('#box .pvx-combo-note') || {}).textContent || '' }));
+        check('combo: the asset\'s event frames are shaded', combo.rects.length === 2 &&
+            /^K-301 trip \(Downtime\)/.test(combo.rects[0]) && /^Seal leak/.test(combo.rects[1]), combo);
+        check('combo: ...asked for that element only',
+            requests.some((r) => /^GET elements\/We:.*K-301\/eventframes\?.*searchMode=Overlapped/.test(r)), requests);
+        check('combo: ...and counted in the footer', /2 events/.test(combo.note), combo.note);
+        const efAsks = requests.filter((r) => /eventframes/.test(r)).length;
+        await pg.evaluate((d) => window.__vis.onDataUpdate(d), comboData);
+        await settle();
+        check('combo: a data update in the same window does not ask again',
+            requests.filter((r) => /eventframes/.test(r)).length === efAsks, requests.filter((r) => /eventframes/.test(r)));
+
+        await open('pvxComboChart', { config: { ShowEvents: true, EventScope: 'database', EventMax: 3 }, payload: comboData });
+        await settle();
+        combo = await pg.evaluate(() => (document.querySelector('#box .pvx-combo-note') || {}).textContent || '');
+        check('combo: a capped database search says so', /the first 3 only/.test(combo), combo);
+
+        await open('pvxComboChart', { config: { ShowEvents: true, EventClick: 'time' }, payload: comboData });
+        await settle();
+        await pg.evaluate(() => document.querySelector('#box rect.pvx-combo-event').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        let ch = await hash();
+        check('combo: clicking an event shows it, with a margin',
+            /starttime=20\d\d-/.test(ch) && /endtime=20\d\d-/.test(ch), ch);
+
+        await open('pvxComboChart', { config: { ShowEvents: true }, payload: comboData, configured: false });
+        await settle();
+        combo = await pg.evaluate(() => ({ note: (document.querySelector('#box .pvx-combo-note') || {}).textContent || '',
+            lines: document.querySelectorAll('#box path').length }));
+        check('combo: with no PI Web API the traces still draw and the footer says why',
+            /events: /.test(combo.note) && /piwebapi-check\.html/.test(combo.note) && combo.lines > 0, combo);
+
+        await open('pvxComboChart', { config: {}, payload: comboData });
+        await settle();
+        check('combo: events off by default, nothing asked', !requests.some((r) => /eventframes/.test(r)), requests);
 
         /* ---- text size -------------------------------------------------- */
         await open('pvxNavPanel', { asset: K301, config: Object.assign({}, NAV, { TextScale: '150' }) });

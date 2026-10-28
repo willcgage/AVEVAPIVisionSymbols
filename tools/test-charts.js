@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================================
- * PVX charts test — Wind Rose, XY Scatter bubble mode and Control Chart, against
+ * PVX charts test — Wind Rose, XY bubble, Variability by time, Control Chart, against
  * data whose right answer is known.
  * ----------------------------------------------------------------------------
  *   node tools/test-charts.js
@@ -17,6 +17,14 @@
  *               reported, not drawn; "blows to" turns the rose round.
  *   bubble      the third source's value reaches each point's tooltip and
  *               the footer's size range; a pair with no size value is counted.
+ *   histogram   bars by time held give each value its duration, and the P50
+ *               marker follows time, not sample count.
+ *   flow        a fixed link ("=4.5") draws, is named as typed, and a fixed
+ *               value that is not a number is malformed rather than zero.
+ *   box plot    by hour: one box per local hour with the right members; the
+ *               overlay steps with the source's mean in each hour, carrying
+ *               the last value into an hour with none; as a plain overlay a
+ *               source is not drawn as a box, and the footer says so.
  *   control     I-MR and X-bar R limits match the hand calculation; a point
  *               past a fixed limit and a run are flagged by rule number;
  *               limits and spec read from data sources use their latest
@@ -57,12 +65,15 @@ let seq = 0;
 function probe(typeName, data, config) {
     const file = path.join(os.tmpdir(), 'pvx-charts-' + process.pid + '-' + (seq++) + '.json');
     fs.writeFileSync(file, JSON.stringify({ Data: data }));
+    // data null: the probe's own mock, for shapes (Table) built from it.
     const args = [path.join(__dirname, 'probe.js'), typeName, '--w', '520', '--h', '340', '--json',
-        '--payload', file, '--out', file.replace(/\.json$/, '.png')];
+        '--out', file.replace(/\.json$/, '.png')].concat(data === null ? ['--count', '3'] : ['--payload', file]);
     if (config) { args.push('--config', config); }
     let out;
     try {
-        out = execFileSync(process.execPath, args, { encoding: 'utf8', env: process.env });
+        // Boxes by time bucket in local time; pin it so the answers below
+        // hold on any workstation.
+        out = execFileSync(process.execPath, args, { encoding: 'utf8', env: Object.assign({}, process.env, { TZ: 'UTC' }) });
     } catch (e) {
         // probe exits 1 on page errors but still prints its report.
         out = e.stdout || '';
@@ -182,6 +193,71 @@ function evenly(label, units, vals) {
     return series(label, units, vals.map((v, i) => [i, v]));
 }
 
+function histogramByTime() {
+    console.log('');
+    console.log(C.bold + 'Distribution by time held' + C.reset);
+    // Eleven samples of 10, a minute apart, then 20 held for an hour (its
+    // successor) plus the last sample's median hold of a minute: 10 holds
+    // 11 minutes of 72, 20 holds 61. By samples 10 is 11 of 13.
+    const pts = [];
+    for (let m = 0; m <= 10; m++) { pts.push([m, 10]); }
+    pts.push([11, 20], [71, 20]);
+    const data = [series('Level', '%', pts)];
+    const cfg = 'Bins=2;RangeMin=10;RangeMax=20;Quantiles=50;ShowNormalCurve=false';
+    const t = probe('pvxHistogram', data, cfg + ';Weighting=time');
+    const bar = (lo) => t.tips.filter((x) => new RegExp('^' + lo + '(\\.0+)? – ').test(x)).join(' | ');
+    check('time-held bars give each value its time', /1h 1m of 1h 12m/.test(bar('15')) && /11m of 1h 12m/.test(bar('10')), [bar('10'), bar('15')]);
+    check('...and P50 is the value held half the time', t.tips.some((x) => /^P50 20(\.0+)?\b/.test(x) && /of the time/.test(x)), t.tips.filter((x) => /^P50/.test(x)));
+    check('...and the footer says what is weighted', /bars weighted by time held; statistics per sample/.test(t.footer), t.footer);
+    const n = probe('pvxHistogram', data, cfg);
+    check('by samples P50 is the median sample', n.tips.some((x) => /^P50 10(\.0+)?\b/.test(x)), n.tips.filter((x) => /^P50/.test(x)));
+    check('...and the bars count samples', /11 of 13 samples/.test(n.tips.join(' | ')), n.tips.slice(0, 3));
+    const errs = [].concat(t.errors, n.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function sankeyFixed() {
+    console.log('');
+    console.log(C.bold + 'Flow with a fixed link' + C.reset);
+    const links = 'Feed > Reactor : 1 | Reactor > Product : 2 | Reactor > Losses : =4.5 | X > Y : =abc';
+    const r = probe('pvxSankey', null, 'Links=' + links);
+    const fixed = r.tips.filter((t) => t.indexOf('Reactor → Losses') === 0).join(' | ');
+    check('a fixed link draws with its typed value', /— 4\.50?\b/.test(fixed), fixed);
+    check('...and its tooltip says it is not measured', /typed in Links, not measured/.test(fixed), fixed);
+    check('...and the footer counts it', /1 fixed flow, not measured/.test(r.footer), r.footer);
+    check('a fixed value that is not a number is malformed, not zero', /Malformed link: X > Y/.test(r.footer), r.footer);
+    check('no page errors', r.errors.length === 0, r.errors);
+}
+
+function boxByTime() {
+    console.log('');
+    console.log(C.bold + 'Variability by time' + C.reset);
+    // Hour 0 holds 1..5 (median 3), hour 1 holds 10..50 (median 30), hour 2
+    // holds 7 alone. The setpoint is 5 then 7 in hour 0 (mean 6), 20 in hour
+    // 1, and records nothing in hour 2, so it carries 20 forward.
+    const w = series('Weight', 'g', [[0, 1], [10, 2], [20, 3], [30, 4], [40, 5],
+        [60, 10], [70, 20], [80, 30], [90, 40], [100, 50], [130, 7]]);
+    const sp = series('Setpoint', 'g', [[0, 5], [30, 7], [60, 20]]);
+    const r = probe('pvxBoxPlot', [w, sp], 'GroupBy=hour;GroupSource=1;OverlaySource=2;OverlayLabel=SP');
+    const box = (h) => r.tips.filter((t) => t.indexOf('Weight · ') === 0 && t.indexOf(h + ' to ') !== -1).join(' | ');
+    check('one box per hour, named by its hour', /00:00 to 01:00/.test(box('00:00')) && /01:00 to 02:00/.test(box('01:00')), r.tips.slice(0, 3));
+    check('...holding that hour\'s values', /n = 5/.test(box('00:00')) && /median 3(\.0+)? g/.test(box('00:00')) && /median 30(\.0+)? g/.test(box('01:00')), [box('00:00'), box('01:00')]);
+    check('an hour with one value is a tick, not a box', /n = 1\b/.test(box('02:00')), box('02:00'));
+    const ov = r.tips.filter((t) => t.indexOf('SP\n') === 0).join('');
+    check('the overlay is the mean of the source in each hour', /00:00: 6(\.0+)?\b/.test(ov) && /01:00: 20(\.0+)?\b/.test(ov), ov);
+    check('...and carries the last value into an hour with none', /02:00: 20(\.0+)?\b/.test(ov), ov);
+    check('the footer counts boxes', /3 boxes/.test(r.footer), r.footer);
+
+    const flat = probe('pvxBoxPlot', [w, sp], 'OverlaySource=2');
+    check('by source, the overlay source is not a box', flat.tips.every((t) => !(t.indexOf('Setpoint') === 0 && /n = /.test(t))), flat.tips.map((t) => t.split('\n')[0]));
+    check('...and the footer says where it went', /source 2 drawn as the overlay line/.test(flat.footer), flat.footer);
+    const typed = probe('pvxBoxPlot', [w], 'OverlayValue=12.5;OverlayLabel=Limit');
+    check('a typed overlay draws as one line', typed.tips.some((t) => /^Limit\n12\.5/.test(t)), typed.tips.filter((t) => /^Limit/.test(t)));
+
+    const errs = [].concat(r.errors, flat.errors, typed.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
 function controlChart() {
     console.log('');
     console.log(C.bold + 'Control Chart' + C.reset);
@@ -261,6 +337,9 @@ function controlChart() {
     try {
         windRose();
         bubble();
+        histogramByTime();
+        sankeyFixed();
+        boxByTime();
         controlChart();
     } catch (e) {
         failures += 1;

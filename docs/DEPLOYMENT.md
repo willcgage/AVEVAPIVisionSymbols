@@ -30,7 +30,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (648 render checks)
+[ ] npm run verify passes on the build machine        (684 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -67,7 +67,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 36 symbols…
+    …one set of four per symbol, 38 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -115,6 +115,16 @@ Two files in `libraries\pvx` deserve attention:
 - **`pvx-config.js` is yours.** It ships blank and is the only file the deploy
   script refuses to overwrite. Everything else is generated from source and
   replaced on every deployment.
+
+**A site theme also lives in `pvx-config.js`** (from 1.15.0): a series palette,
+status colours, light and dark surface and text colours, a font, and the card's
+corner radius, border and shadow, set once for every PVX symbol on the server.
+The block is documented at the end of the shipped file. Because an upgrade never
+replaces your copy, a server that already has one will not show the new block:
+add a `theme: { ... }` key to its settings object by hand, after `maxBatchSize`.
+Whatever a symbol sets in its own format pane still wins. A colour that is not
+hex or `rgb()` is ignored, and the browser console says which, as
+`[PVX] pvx-config.js theme: ... ignored.` A clean theme logs nothing.
 
 `piwebapi-check.html` ships *inside* `ext` deliberately — it has to run from the
 PI Vision origin to reproduce what a symbol actually faces. Opened from a file
@@ -336,7 +346,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 648 render checks must pass
+npm run verify        # gate: 684 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 

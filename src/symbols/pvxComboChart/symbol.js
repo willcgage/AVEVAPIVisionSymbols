@@ -31,6 +31,15 @@
  * axis, not of a data source: it does not consume a data source, it does not
  * belong in the legend, and it must survive the trace it was drawn for being
  * deleted. So it reuses the threshold grammar against the LEFT axis instead.
+ *
+ * EVENT FRAMES (ShowEvents, off by default) are shaded behind the traces with
+ * their names along the top: a trip, a batch, a grade change, read from AF
+ * through PVX.api because PI Vision's data pipeline does not carry them. They
+ * are fetched for the window the traces cover, again when it moves by more
+ * than a fiftieth of its length, and on a timer, never once per data update.
+ * Whatever stops them from showing (no PI Web API, no asset, a failed query,
+ * more events than the cap) is said in the footer, and the traces draw
+ * regardless: the events are an annotation, not a dependency.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -123,7 +132,20 @@
                 ShowValues: false,
 
                 ShowTooltips: true,
-                MaxPointsPerTrace: 600
+                MaxPointsPerTrace: 600,
+
+                // Event frames behind the traces, from PI Web API.
+                ShowEvents: false,
+                EventScope: 'asset',        // asset | database
+                EventDatabasePath: '',      // blank => the data source's database
+                EventTemplate: '',
+                EventNameFilter: '',
+                EventMax: 50,
+                EventColor: '',             // blank => one colour per template
+                EventOpacity: 0.12,
+                EventLabels: true,
+                EventClick: 'none',         // none | time
+                EventRefreshSeconds: 60
             });
         }
     };
@@ -337,14 +359,261 @@
 
         var traceEditor = bindTraceEditor(scope, PVX);
 
+        // Event frames: what was fetched, and for what.
+        var events = { phase: 'off', items: [], error: null, capped: false, max: 0, key: '', gen: 0,
+            db: null, timer: null, timerSecs: 0 };
+        var dbCache = {};
+        var elementCache = {};
+        var sourceAsset = '';
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-combo-body',
             // LimitBands is the threshold grammar, so it gets the same rows.
             bandKeys: ['LimitBands'],
-            onData: function (d) { series = PVX.data.series(d) || []; },
-            onDestroy: function () { traceEditor.destroy(); },
+            onData: function (d) {
+                series = PVX.data.series(d) || [];
+                sourceAsset = '';
+                for (var i = 0; i < series.length && !sourceAsset; i++) { sourceAsset = PVX.nav.assetOf(series[i].path); }
+                fetchEvents(false);
+            },
+            onConfigChange: function () { fetchEvents(false); },
+            onDestroy: function () {
+                traceEditor.destroy();
+                if (events.timer !== null) { clearInterval(events.timer); events.timer = null; }
+                events.gen += 1;
+            },
             render: render
         });
+
+        /* ------------------------------------------------------------------ *
+         * event frames
+         * ------------------------------------------------------------------ */
+
+        function trim(v) { return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, ''); }
+
+        function isEditMode() {
+            try { if (scope && scope.runtimeData && scope.runtimeData.isEditMode) { return true; } } catch (e) { /* shape differs */ }
+            try { if (scope && scope.$root && scope.$root.isEditMode) { return true; } } catch (e2) { /* ignore */ }
+            return false;
+        }
+
+        /** The window the traces cover, as the render will compute it. */
+        function dataWindow() {
+            var lo = null, hi = null;
+            for (var i = 0; i < series.length; i++) {
+                var pts = series[i].points || [];
+                if (!pts.length) { continue; }
+                if (lo === null || pts[0].t < lo) { lo = pts[0].t; }
+                if (hi === null || pts[pts.length - 1].t > hi) { hi = pts[pts.length - 1].t; }
+            }
+            return lo === null || !(hi > lo) ? null : { from: lo, to: hi };
+        }
+
+        /** A path resolved once; a failure is forgotten so an outage cannot stick. */
+        function cached(store, key, make) {
+            if (store[key]) { return store[key]; }
+            var p = make();
+            p['catch'](function () { if (store[key] === p) { delete store[key]; } });
+            store[key] = p;
+            return p;
+        }
+
+        function ensureTimer(cfg) {
+            var secs = PVX.util.num(cfg.EventRefreshSeconds);
+            secs = cfg.ShowEvents ? PVX.util.clamp(secs === null ? 60 : secs, 10, 86400) : 0;
+            if (secs === events.timerSecs) { return; }
+            if (events.timer !== null) { clearInterval(events.timer); events.timer = null; }
+            events.timerSecs = secs;
+            if (secs) { events.timer = setInterval(function () { fetchEvents(true); }, secs * 1000); }
+        }
+
+        function fetchEvents(force) {
+            if (!ctx || ctx.destroyed) { return; }
+            var cfg = scope.config || {};
+            ensureTimer(cfg);
+            if (!cfg.ShowEvents) {
+                if (events.phase !== 'off') { events.phase = 'off'; events.items = []; events.key = ''; ctx.render(); }
+                return;
+            }
+            var win = dataWindow();
+            if (!win) { return; }
+
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { fetchEvents(true); });
+                return;
+            }
+            if (!PVX.api.isConfigured()) {
+                events.phase = 'unconfigured';
+                events.key = '';
+                ctx.render();
+                return;
+            }
+
+            var byAsset = cfg.EventScope !== 'database';
+            var asset = trim(PVX.nav.currentAsset()) || sourceAsset;
+            var typed = trim(cfg.EventDatabasePath);
+            var db = typed ? { path: typed, from: '' } : PVX.nav.defaultDatabase(scope, sourceAsset);
+            var max = Math.round(PVX.util.clamp(PVX.util.num(cfg.EventMax) || 50, 1, 500));
+
+            // Refetch only when the window has moved by a fiftieth of its
+            // length; a rolling display updates every few seconds.
+            var grain = Math.max(1000, (win.to - win.from) / 50);
+            var key = [byAsset ? 'a:' + asset : 'd:' + db.path, trim(cfg.EventTemplate), trim(cfg.EventNameFilter), max,
+                Math.floor(win.from / grain), Math.floor(win.to / grain)].join('\u0001');
+            if (!force && key === events.key) { return; }
+            events.key = key;
+            events.db = db;
+
+            if (byAsset && !asset) {
+                events.phase = 'error';
+                events.error = { pvxError: { message: 'Events follow the display\'s asset, but the address names none and no data source is an AF attribute.',
+                    check: 'open the display on an asset, or set Events from to the whole database' } };
+                ctx.render();
+                return;
+            }
+            if (!byAsset && !db.path) {
+                events.phase = 'error';
+                events.error = { pvxError: { message: 'No AF database to search for events.',
+                    check: 'set the event database in Format, or drop an AF attribute on the chart' } };
+                ctx.render();
+                return;
+            }
+
+            var gen = ++events.gen;
+            if (events.phase !== 'ok') { events.phase = 'loading'; }
+            var where = byAsset ?
+                cached(elementCache, asset, function () {
+                    return PVX.api.elementByPath(asset).then(function (el) {
+                        if (!el || !el.WebId) { throw { pvxError: { message: 'No AF element at "' + asset + '".', check: 'the display\'s asset' } }; }
+                        return { elementWebId: el.WebId };
+                    });
+                }) :
+                cached(dbCache, db.path, function () {
+                    return PVX.api.get('assetdatabases?path=' + encodeURIComponent(db.path)).then(function (d) {
+                        if (!d || !d.WebId) { throw { pvxError: { message: 'No AF database at "' + db.path + '".', check: 'the event database in Format' } }; }
+                        return { databaseWebId: d.WebId };
+                    });
+                });
+
+            where.then(function (w) {
+                if (gen !== events.gen) { return null; }
+                return PVX.api.eventFrames({
+                    elementWebId: w.elementWebId,
+                    databaseWebId: w.databaseWebId,
+                    startTime: new Date(win.from).toISOString(),
+                    endTime: new Date(win.to).toISOString(),
+                    templateName: trim(cfg.EventTemplate),
+                    nameFilter: trim(cfg.EventNameFilter),
+                    searchMode: 'Overlapped',
+                    maxCount: max + 1,
+                    selectedFields: 'Items.Name;Items.StartTime;Items.EndTime;Items.TemplateName;Items.WebId'
+                }, { cache: false });
+            }).then(function (res) {
+                if (res === null || gen !== events.gen || ctx.destroyed) { return; }
+                var raw = (res && res.Items) || [];
+                events.capped = raw.length > max;
+                events.max = max;
+                if (events.capped) { raw = raw.slice(0, max); }
+                var out = [];
+                for (var i = 0; i < raw.length; i++) {
+                    var st = Date.parse(raw[i].StartTime);
+                    if (isNaN(st)) { continue; }
+                    var en = Date.parse(raw[i].EndTime);
+                    // AF writes an open event's end as 9999-12-31, or leaves it out.
+                    var open = isNaN(en) || new Date(en).getUTCFullYear() >= 9999;
+                    out.push({ name: raw[i].Name || 'Event', start: st, end: open ? null : en,
+                        template: raw[i].TemplateName || '' });
+                }
+                out.sort(function (a, b) { return a.start - b.start; });
+                events.items = out;
+                events.phase = 'ok';
+                events.error = null;
+                ctx.render();
+            })['catch'](function (err) {
+                if (gen !== events.gen || ctx.destroyed) { return; }
+                events.phase = 'error';
+                events.error = err;
+                events.items = [];
+                // Ask again on the next window move or tick, not on every update.
+                ctx.render();
+            });
+        }
+
+        /** Shaded spans behind the traces, with names along the top. */
+        function drawEvents(parent, cfg, plot, sx, tMin, tMax, t, font) {
+            if (events.phase !== 'ok' || !events.items.length) { return 0; }
+            var op = PVX.util.num(cfg.EventOpacity);
+            op = op === null ? 0.12 : PVX.util.clamp(op, 0, 1);
+            var templates = [];
+            events.items.forEach(function (ev) { if (templates.indexOf(ev.template) === -1) { templates.push(ev.template); } });
+            templates.sort();
+            var pal = PVX.color.categorical;
+            var fixed = cfg.EventColor && PVX.color.toRgb(cfg.EventColor) ? cfg.EventColor : '';
+            var clickable = cfg.EventClick === 'time';
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-events' }, parent);
+            var drawn = 0;
+            var lastLabelEnd = -Infinity;
+            for (var i = 0; i < events.items.length; i++) {
+                var ev = events.items[i];
+                var end = ev.end === null ? tMax : ev.end;
+                if (end < tMin || ev.start > tMax) { continue; }
+                var x0 = sx(Math.max(ev.start, tMin));
+                var x1 = Math.max(x0 + 1, sx(Math.min(end, tMax)));
+                var col = fixed || pal[templates.indexOf(ev.template) % pal.length];
+                var tip = ev.name + (ev.template ? ' (' + ev.template + ')' : '') + '\n' +
+                    PVX.fmt.time(ev.start, 'datetime') + ' to ' + (ev.end === null ? 'still running' : PVX.fmt.time(ev.end, 'datetime')) +
+                    (ev.end === null ? '' : ' \u00b7 ' + PVX.fmt.duration(ev.end - ev.start)) +
+                    (clickable ? '\nClick to show this event' : '');
+                var r = PVX.svg.el('rect', {
+                    'class': 'pvx-combo-event' + (clickable ? ' pvx-combo-event-link' : ''),
+                    x: x0.toFixed(2), y: plot.y.toFixed(2), width: (x1 - x0).toFixed(2), height: plot.h.toFixed(2),
+                    fill: col, 'fill-opacity': op
+                }, g);
+                PVX.svg.el('title', null, r).textContent = tip;
+                if (clickable) { bindEventClick(r, ev, tMax); }
+                PVX.svg.el('line', { x1: x0.toFixed(2), y1: plot.y.toFixed(2), x2: x0.toFixed(2), y2: plot.y1.toFixed(2),
+                    stroke: col, 'stroke-opacity': Math.min(1, op * 5), 'stroke-width': 1, 'pointer-events': 'none' }, g);
+                // A name only where there is room for it and it does not run
+                // into the one before; the tooltip always has it.
+                if (cfg.EventLabels !== false && x0 >= lastLabelEnd + 4) {
+                    var room = plot.x1 - x0 - 4;
+                    var label = room > font * 2 ? fitText(ev.name, Math.min(room, Math.max(x1 - x0, font * 10)), font) : '';
+                    if (label) {
+                        PVX.svg.text(g, (x0 + 3).toFixed(2), (plot.y + font * 0.9).toFixed(2), label, {
+                            'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted, 'pointer-events': 'none'
+                        });
+                        lastLabelEnd = x0 + 3 + textW(label, font);
+                    }
+                }
+                drawn += 1;
+            }
+            return drawn;
+        }
+
+        function bindEventClick(rect, ev, tMax) {
+            rect.addEventListener('click', function () {
+                if (isEditMode()) { return; }
+                var end = ev.end === null ? Math.max(tMax, Date.now()) : ev.end;
+                var pad = Math.max(60000, (end - ev.start) * 0.1);
+                PVX.nav.setTimeRange(new Date(ev.start - pad).toISOString(), new Date(end + pad).toISOString());
+            }, false);
+        }
+
+        function eventNote(cfg, drawn) {
+            if (!cfg.ShowEvents) { return ''; }
+            switch (events.phase) {
+                case 'unconfigured': return 'events: ' + PVX.api.unsetHint() + ', then confirm it with ext/piwebapi-check.html';
+                case 'loading': return 'events: loading';
+                case 'error':
+                    var e = (events.error && events.error.pvxError) || {};
+                    return 'events: ' + (e.message || 'the request failed') + (e.check ? ' Check: ' + e.check + '.' : '');
+                case 'ok':
+                    if (!events.items.length) { return 'no events in this window'; }
+                    return drawn + (drawn === 1 ? ' event' : ' events') +
+                        (events.capped ? ', the first ' + events.max + ' only: raise the limit or narrow the template' : '');
+                default: return '';
+            }
+        }
 
         /* ------------------------------------------------------------------ *
          * model
@@ -753,6 +1022,9 @@
                 drawBands(svgRoot, bandSpec, ld, syL, plot, t, bandOpacity, tickFont, showTicks);
             }
 
+            // ---- event frames (under the grid and the traces) ----------------
+            var eventsDrawn = drawEvents(svgRoot, cfg, plot, sx, tMin, tMax, t, tickFont);
+
             // ---- grid ---------------------------------------------------------
             if (cfg.ShowGrid !== false) {
                 // Horizontal lines follow the LEFT axis when it exists: gridlines
@@ -878,6 +1150,8 @@
             if (barTraces.length && slots) {
                 notes.push(slots + (slots === 1 ? ' bar slot' : ' bar slots'));
             }
+            var evNote = eventNote(cfg, eventsDrawn);
+            if (evNote) { notes.push(evNote); }
             scope.pvx.note = showNote ? notes.join(' · ') : '';
 
             digest();

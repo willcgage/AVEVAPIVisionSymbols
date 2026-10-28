@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 36 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 38 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.14.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,7 +17,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 648 render checks — the gate, and slow
+node tools/verify.js                 # 684 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
@@ -34,7 +34,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 36 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 38 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -314,6 +314,16 @@ from a review against Will's overview display build guide, then `pvxWindRose`
 (and a bubble mode on `pvxXYScatter`) from a check of fourteen chart types;
 spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. Do not "finish
 tier 3" — that is a resolved question, not an open task.
+
+**One later list is open: the Software Athlete comparison.** Will asked for all 37
+items of a feature-level comparison with their Vision Library+, built easiest
+first, including the four tier-3 candidates declined above (they come back
+under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
+`pvxGeoView`). Items 1–9 are done (`docs/ROADMAP.md`, *After the plan*). Two
+rules from him: never name a symbol after one of theirs, and never drop a PVX
+behaviour that is already ahead of theirs to match it; upgrades only add
+options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`
+resolves PI time expressions for anything that steps or replays a range.
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs
 the full verification on the tagged commit, the MSI is built with the official

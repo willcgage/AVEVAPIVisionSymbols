@@ -94,3 +94,7 @@
 .pvx-heat .pvx-heat-emptymsg {
     opacity: 0.75;
 }
+
+/* ClickAction 'time': a cell is a way into its own period. */
+.pvx-heat .pvx-heat-cell-link { cursor: pointer; }
+.pvx-heat .pvx-heat-cell-link:hover { stroke: var(--pvx-text); stroke-width: 1; }

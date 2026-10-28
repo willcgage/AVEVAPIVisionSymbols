@@ -95,6 +95,17 @@
             Spaces around the <code>|</code> are trimmed.
         </div>
 
+        <div class="pvx-cfg-hint" ng-if="config.Mode !== 'hierarchy'">
+            <b>Icon and tooltip</b> &mdash; start the label with an icon name in brackets, and put the tooltip
+            after <code>--</code>: <code>[home] Overview -- Plant overview | 101</code>.
+            A label of only an icon, such as <code>[back]</code>, makes an icon button.
+            Icons: home, back, forward, up, trend, alarm, table, gauge, clock, map, list, settings, info,
+            report, power, star.<br />
+            <b>Address from data</b> &mdash; write <code>{value}</code> in a target and the button uses the
+            current value of this symbol's data source there, so an AF attribute can hold the display id or
+            asset path: <code>Details | {value}</code>.
+        </div>
+
         <div class="pvx-cfg-hint">
             <b>Open a display</b> &mdash; <code>target</code> is the display id
             (or <code>id/slug</code>, a path starting with <code>/</code>, or a full

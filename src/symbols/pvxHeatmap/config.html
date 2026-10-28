@@ -19,6 +19,12 @@
             time rather than by sample count.
         </div>
 
+        <div class="pvx-cfg-row" ng-if="config.Mode === 'matrix'">
+            <label for="pvxheat-rowcolors">One colour per tag</label>
+            <input id="pvxheat-rowcolors" type="checkbox" ng-model="config.RowColors" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode === 'matrix'">Each row gets its own colour, from pale at its lowest to full at its highest. Use it when the tags are in different units and one shared scale would leave most rows flat. The legend is hidden, since no single scale applies; each cell's tooltip gives its row's range.</div>
+
         <div class="pvx-cfg-row" ng-if="config.Mode !== 'density'">
             <label for="pvxheat-agg">Cell value</label>
             <select id="pvxheat-agg" ng-model="config.Aggregate">
@@ -148,6 +154,15 @@
             <input id="pvxheat-showvalues" type="checkbox" ng-model="config.ShowValues" />
         </div>
         <div class="pvx-cfg-hint">Only drawn where a cell is at least 28 × 16 px; text colour is contrast-matched to each cell.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxheat-click">Clicking a cell</label>
+            <select id="pvxheat-click" ng-model="config.ClickAction">
+                <option value="none">Does nothing</option>
+                <option value="time">Shows that period on the display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Sets the display's time range to the cell: one hour of one day in hour &times; day mode, the column's slice otherwise. The browser's Back button returns to the previous range. Ignored while editing the display.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxheat-gap">Cell gap (px)</label>

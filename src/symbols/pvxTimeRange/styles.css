@@ -1,0 +1,144 @@
+/* pvxTimeRange — everything namespaced under .pvx-trange.
+   var() values are written by symbol.js at render time; the literals here
+   are only the fallbacks used before the first paint. */
+
+.pvx-trange {
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-trange-color: #3b82c4;
+    --pvx-trange-on-color: #ffffff;
+    --pvx-trange-active: #285885;
+    --pvx-trange-on-active: #ffffff;
+    --pvx-trange-tint: rgba(59, 130, 196, 0.14);
+    --pvx-trange-warn: #c8452f;
+    --pvx-trange-radius: 4px;
+    color: var(--pvx-text);
+}
+
+.pvx-trange .pvx-trange-surface {
+    background: var(--pvx-surface);
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-trange .pvx-trange-header { padding: 5px 8px 0 8px; }
+
+.pvx-trange .pvx-trange-header .pvx-title {
+    color: var(--pvx-muted);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+}
+
+.pvx-trange .pvx-trange-bodywrap { padding: 0; }
+
+.pvx-trange .pvx-trange-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 5px 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+.pvx-trange .pvx-trange-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.pvx-trange .pvx-trange-lay-column .pvx-trange-bar {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.pvx-trange .pvx-trange-presets,
+.pvx-trange .pvx-trange-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.pvx-trange .pvx-trange-btn {
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--pvx-trange-color);
+    border-radius: var(--pvx-trange-radius);
+    background: transparent;
+    color: var(--pvx-trange-color);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pvx-trange .pvx-trange-btn:hover:not([disabled]) { background: var(--pvx-trange-tint); }
+
+.pvx-trange .pvx-trange-btn:focus-visible {
+    outline: 2px solid var(--pvx-trange-color);
+    outline-offset: 1px;
+}
+
+.pvx-trange .pvx-trange-btn.pvx-trange-on,
+.pvx-trange .pvx-trange-btn.pvx-trange-apply {
+    background: var(--pvx-trange-color);
+    color: var(--pvx-trange-on-color);
+}
+
+.pvx-trange .pvx-trange-btn.pvx-trange-on {
+    background: var(--pvx-trange-active);
+    border-color: var(--pvx-trange-active);
+    color: var(--pvx-trange-on-active);
+}
+
+.pvx-trange .pvx-trange-btn[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.pvx-trange .pvx-trange-step { padding: 0 8px; font-size: 10px; }
+
+.pvx-trange .pvx-trange-lab {
+    font-size: 11px;
+    color: var(--pvx-muted);
+}
+
+.pvx-trange .pvx-trange-input,
+.pvx-trange .pvx-trange-select {
+    font: inherit;
+    font-size: 12px;
+    height: 26px;
+    box-sizing: border-box;
+    padding: 0 6px;
+    border: 1px solid var(--pvx-border);
+    border-radius: var(--pvx-trange-radius);
+    background: var(--pvx-surface);
+    color: var(--pvx-text);
+    min-width: 0;
+}
+
+.pvx-trange .pvx-trange-input[type="text"] { width: 9em; }
+
+.pvx-trange .pvx-trange-foot {
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.pvx-trange .pvx-trange-readout { color: var(--pvx-muted); flex: 0 1 auto; min-width: 0; }
+.pvx-trange .pvx-trange-msg { color: var(--pvx-trange-warn); flex: 1 1 auto; min-width: 0; }

@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **36 symbols**.
+> [After the plan](#after-the-plan). The library is at **38 symbols**.
 
 ## On originality
 
@@ -317,9 +317,9 @@ information.
 
 | # | Symbol | Status | Notes |
 |---|---|---|---|
-| 21 | **pvxTimePicker** | not building | Calendar plus a PI-time expression field. PI Vision's own time control already does this competently, and `pvxNavPanel` covers presets. A third way to set the time range is a way to disagree with the other two. |
+| 21 | **pvxTimePicker** | built later as `pvxTimeRange` (see *After the plan*) | Calendar plus a PI-time expression field. PI Vision's own time control already does this competently, and `pvxNavPanel` covers presets. A third way to set the time range is a way to disagree with the other two. |
 | 22 | **pvxSlideshow** | **done** (v1.5) | Rotates a control-room screen through a list of displays with a pause-on-interaction timer. The subtlety is that navigating destroys the symbol, so the same config goes on every display in the rotation and each copy works out where it is. |
-| 23 | **pvxWebView** | not building | An iframe for a work instruction, camera feed or report. Blocked by the target's `X-Frame-Options` more often than not, and when it does work it is a browser feature rather than a PI Vision one. Low value for the support burden it would generate. |
+| 23 | **pvxWebView** | built later as `pvxEmbeddedPage` (see *After the plan*) | An iframe for a work instruction, camera feed or report. Blocked by the target's `X-Frame-Options` more often than not, and when it does work it is a browser feature rather than a PI Vision one. Low value for the support burden it would generate. |
 | 24 | **pvxAlarmSound** | not building | Browsers block autoplay until someone interacts with the page, so it needs a click after every reload — on exactly the unattended kiosk nobody is standing at. And in a control room the DCS annunciator is the right layer. The idea is sound; the platform is wrong for it. |
 | 25 | **pvxMap** | not building | Needs a tile provider most plant networks cannot reach. `pvxSitePlan` (#13) already covers the single-site case better and needs no external service. Revisit only if you have a genuine multi-site geographic need and network access to match. |
 
@@ -487,12 +487,30 @@ answers in a form that is easier to read values from.
 
 A feature-level comparison with Software Athlete's Vision Library+ (49
 widgets, read option by option from their documentation) produced a build
-order of 28 items, pipeline-only work first and anything that writes last.
-The first of them is a new symbol:
+order of 37 items, ranked from easiest to hardest, with pipeline-only work
+before work that needs PI Web API and anything that writes last. Every item
+adds options and keeps the current defaults, so a saved display looks the
+same after an upgrade, and nothing where PVX is already ahead (AF-shared
+acknowledgement, flatline detection, Cp/Cpk on the histogram, the Sankey
+balance check, PI Vision 2019 support) is replaced to match theirs. New
+symbols take PVX names of their own.
 
-| Symbol | Data shape | Why it earns its place |
+Done so far, in order:
+
+| # | Change | What it adds |
 |---|---|---|
-| **pvxControlChart** | TimeSeries, one charted plus optional limit and spec sources | pvxHistogram answers "is this process capable"; a control chart answers "is it still the same process", which needs time order. I-MR, X̄-R and X̄-S, Nelson and Western Electric rules with configurable run lengths, limits from the window, a baseline, typed values or data sources, Cpk from within-subgroup sigma beside Ppk from overall sigma. |
+| 1 | **pvxControlChart**, new | pvxHistogram answers "is this process capable"; a control chart answers "is it still the same process", which needs time order. I-MR, X̄-R and X̄-S, Nelson and Western Electric rules with configurable run lengths, limits from the window, a baseline, typed values or data sources, Cpk from within-subgroup sigma beside Ppk from overall sigma. |
+| 2 | pvxBoxPlot | One box per hour, shift, day or week of one source, with an overlay line for a setpoint or limit (typed, or from a data source). |
+| 3 | pvxHeatmap, pvxEventGantt, pvxNavPanel | Clicking a cell or a bar sets the display time to it; navigation buttons take an icon, a tooltip, and an address from the data source's value. |
+| 4 | pvxDonut, pvxHistogram, pvxSankey, pvxHeatmap | Half donut; time-weighted histogram with quantile markers; fixed flows typed into the Sankey links; one colour scale per heatmap row. |
+| 5 | Site theme | A palette, status colours, surface and text colours, a font and a card style set once in `pvx-config.js` for every symbol on the server. |
+| 6 | **pvxTimeRange**, new | Presets, a From / To pair, stepping by the span, and Now. Reverses the earlier decision against `pvxTimePicker`, on the owner's call to build every item: a time control placed on the display itself, with the site's own presets and an expression checked before it is applied. |
+| 7 | **pvxEmbeddedPage**, new | A page in a frame with a reload timer. Reverses the decision against `pvxWebView` by meeting its objection head on: PI Vision displays always load, and for any other site the symbol names the possibility that it refused framing and offers it in a new tab. |
+| 8 | pvxComboChart | AF event frames shaded behind the traces, named along the top, coloured by template; a click can show the event. Off by default. |
+| 9 | pvxAssetTree | A flat list and a drop-down layout beside the tree, and an attribute's value on every row with a dot coloured by threshold bands or digital state. |
+
+The rest of the order is in the comparison document; next are settings kept in
+AF (a shared navigation menu, KPI targets and control limits from AF traits).
 
 ## What next
 

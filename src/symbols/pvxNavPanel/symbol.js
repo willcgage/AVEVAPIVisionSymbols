@@ -135,6 +135,9 @@
         // click never leaves a button stuck in a scary state.
         var CONFIRM_MS = 4000;
 
+        // The data source's current value, for targets written as {value}.
+        var sourceValue = '';
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-nav-body',
             render: render,
@@ -142,6 +145,13 @@
             // element is where the panel starts when the URL names no asset.
             onData: function (d) {
                 var one = PVX.data.single(d);
+                var raw = one && one.raw !== null && one.raw !== undefined ? trim(one.raw) : '';
+                if (raw !== sourceValue) {
+                    sourceValue = raw;
+                    // Tooltips name the resolved address; rebuild them.
+                    builtSignature = null;
+                    ctx.render();
+                }
                 var a = one ? PVX.nav.assetOf(one.path) : '';
                 if (a !== hier.sourceAsset) {
                     hier.sourceAsset = a;
@@ -161,7 +171,40 @@
          * Blank lines and lines beginning with '#' are comments. Everything is
          * trimmed. Only the first two pipes are structural, so `extra` may
          * itself contain pipes (harmless, but keeps the parser predictable).
+         *
+         * The label may carry two extras, both optional and both kept out of
+         * the pipe fields so every mode's targets read as they always have:
+         *
+         *     [home] Overview -- Plant overview, all units | 101
+         *
+         * `[name]` at the start draws one of the built-in icons (a label of
+         * only an icon makes an icon button), and the text after ` -- ` is the
+         * tooltip. A target of {value} is replaced at click time by the data
+         * source's current value, so an AF attribute can hold the address.
          */
+
+        /*
+         * Built-in icons, drawn here as single stroked paths on a 24-unit grid
+         * so nothing third-party ships and they take the button's text colour.
+         */
+        var ICONS = {
+            home: 'M3 11 L12 3 L21 11 M5 9.5 V21 H10 V15 H14 V21 H19 V9.5',
+            back: 'M15 5 L8 12 L15 19',
+            forward: 'M9 5 L16 12 L9 19',
+            up: 'M5 15 L12 8 L19 15',
+            trend: 'M3 17 L9 11 L13 15 L21 7 M15 7 H21 V13',
+            alarm: 'M12 3 L22 20 H2 Z M12 10 V14 M12 17 V17.5',
+            table: 'M3 5 H21 V19 H3 Z M3 10 H21 M3 15 H21 M9 5 V19',
+            gauge: 'M4 17 A8 8 0 1 1 20 17 M12 13 L16 8',
+            clock: 'M12 3 A9 9 0 1 1 11.99 3 M12 7 V12 L15.5 14',
+            map: 'M3 6 L9 4 L15 6 L21 4 V18 L15 20 L9 18 L3 20 Z M9 4 V18 M15 6 V20',
+            list: 'M8 6 H21 M8 12 H21 M8 18 H21 M3.5 6 H4.5 M3.5 12 H4.5 M3.5 18 H4.5',
+            settings: 'M12 9 A3 3 0 1 1 11.99 9 M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9',
+            info: 'M12 3 A9 9 0 1 1 11.99 3 M12 11 V17 M12 7.5 V8',
+            report: 'M6 3 H15 L19 7 V21 H6 Z M15 3 V7 H19 M9 12 H16 M9 16 H16',
+            power: 'M12 3 V12 M7 6 A8 8 0 1 0 17 6',
+            star: 'M12 3 L14.6 9 L21 9.5 L16 13.8 L17.6 20 L12 16.6 L6.4 20 L8 13.8 L3 9.5 L9.4 9 Z'
+        };
 
         function trim(s) {
             return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, '');
@@ -185,8 +228,21 @@
                     extra = trim(rest.slice(second + 1));
                 }
             }
-            if (!label) { return null; }   // a button with no text is not a button
-            return { label: label, target: target, extra: extra, raw: s };
+            var tip = '', icon = '';
+            var dash = label.indexOf(' -- ');
+            if (dash !== -1) {
+                tip = trim(label.slice(dash + 4));
+                label = trim(label.slice(0, dash));
+            }
+            var im = /^\[([a-z]+)\]\s*/.exec(label);
+            // An unknown name stays in the label as typed: it is visibly
+            // wrong there, where a dropped word would just be missing.
+            if (im && ICONS[im[1]]) {
+                icon = im[1];
+                label = trim(label.slice(im[0].length));
+            }
+            if (!label && !icon) { return null; }   // a button with nothing on it is not a button
+            return { label: label, icon: icon, tip: tip, target: target, extra: extra, raw: s };
         }
 
         /**
@@ -232,8 +288,21 @@
          * target resolution
          * ================================================================ */
 
+        /** {value} in a target or extra, replaced by the data source's value. */
+        function withValue(str) {
+            return String(str || '').replace(/\{value\}/gi, sourceValue);
+        }
+
+        function needsValue(item) {
+            return /\{value\}/i.test(item.target + ' ' + item.extra);
+        }
+
         /** Build the URL a click on this item should navigate to. */
         function targetUrl(item, cfg) {
+            if (needsValue(item)) {
+                if (!sourceValue) { return ''; }
+                item = { label: item.label, target: withValue(item.target), extra: withValue(item.extra) };
+            }
             var mode = cfg.Mode || 'display';
             var opts = {
                 keepAsset: cfg.KeepAsset !== false,
@@ -270,6 +339,10 @@
         function describe(item, cfg) {
             var mode = cfg.Mode || 'display';
             if (item.tip) { return item.tip; }
+            if (needsValue(item)) {
+                if (!sourceValue) { return 'Waiting for the data source to supply the address'; }
+                item = { target: withValue(item.target), extra: withValue(item.extra) };
+            }
             if (mode === 'hierarchy') {
                 return item.target + (item.extra ? '  (display ' + item.extra + ')' : '');
             }
@@ -788,6 +861,18 @@
         // they never take a click or a place in `buttons`.
         var TEXT_KINDS = { sep: 'pvx-nav-sep', div: 'pvx-nav-div', note: 'pvx-nav-note' };
 
+        function iconEl(name) {
+            var NS = 'http://www.w3.org/2000/svg';
+            var svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('class', 'pvx-nav-icon');
+            svg.setAttribute('aria-hidden', 'true');
+            var path = document.createElementNS(NS, 'path');
+            path.setAttribute('d', ICONS[name]);
+            svg.appendChild(path);
+            return svg;
+        }
+
         function build(host, items, cfg) {
             clearConfirm();
             buttons = [];
@@ -827,6 +912,10 @@
 
                 // textContent, not innerHTML: labels are operator-authored text
                 // and must never be interpreted as markup.
+                if (item.icon) {
+                    b.appendChild(iconEl(item.icon));
+                    if (!item.label) { b.setAttribute('aria-label', item.tip || item.icon); }
+                }
                 var labelEl = document.createElement('span');
                 labelEl.className = 'pvx-nav-label';
                 labelEl.textContent = item.label;

@@ -20,6 +20,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
+| [`pvxEmbeddedPage`](#pvxembeddedpage) | PVX Embedded Page | Value | Single |
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
 | [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
@@ -40,6 +41,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxSparkline`](#pvxsparkline) | PVX Multi Sparkline | TimeSeries | Multiple |
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
+| [`pvxTimeRange`](#pvxtimerange) | PVX Time Range | Value | Single |
 | [`pvxTreemap`](#pvxtreemap) | PVX Treemap | Table | Multiple |
 | [`pvxWaterfall`](#pvxwaterfall) | PVX Waterfall | Table | Multiple |
 | [`pvxWindRose`](#pvxwindrose) | PVX Wind Rose | TimeSeries | Multiple |
@@ -224,6 +226,12 @@ symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI 
 | `HighlightCurrent` | `true` |  |
 | `AutoExpandToCurrent` | `true` |  |
 | `RememberExpanded` | `true` |  |
+| `Layout` | `"tree"` | tree \| list \| dropdown |
+| `ValueAttribute` | `""` | an attribute read on every row's element |
+| `ValueBands` | `""` | threshold grammar: colours numeric values |
+| `StateMap` | `""` | State:colour[:label]: colours digital values |
+| `ShowValueDot` | `true` |  |
+| `ValueRefreshSeconds` | `30` |  |
 
 ---
 
@@ -274,7 +282,7 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 
 **PVX Variability** · data shape `TimeSeries` · multiple data sources · collections not supported
 
-The question this symbol answers is "twenty identical assets, which one is misbehaving". A trend of twenty tags is unreadable; twenty boxes side by side are not — the wide box or the long upper whisker is the asset to go and look at. So the symbol is built entirely around COMPARISON: identical geometry per series, one shared value axis, and sort orders that put the outlier asset at the front.
+box per hour, shift, day or week of a single source.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -313,6 +321,13 @@ The question this symbol answers is "twenty identical assets, which one is misbe
 | `TickCount` | `5` |  |
 | `ScaleMin` | `""` |  |
 | `ScaleMax` | `""` |  |
+| `GroupBy` | `"source"` | source \| hour \| shift \| day \| week |
+| `GroupSource` | `1` | by time: the data source cut into buckets |
+| `ShiftHours` | `8` | shift: length, a divisor of 24 |
+| `ShiftStart` | `6` | shift: hour the first shift of the day starts |
+| `OverlayValue` | `""` | a typed setpoint or limit |
+| `OverlaySource` | `"0"` | a data source instead; '0' = none |
+| `OverlayLabel` | `""` |  |
 | `NameWidthPct` | `26` | horizontal orientation only |
 | `SortBy` | `"none"` | none\|name\|medianAsc\|medianDesc\|spreadDesc |
 | `MaxBoxes` | `30` |  |
@@ -368,6 +383,17 @@ PI Vision's native trend draws every trace the same way on one scale, so the mom
 | `ShowValues` | `false` |  |
 | `ShowTooltips` | `true` |  |
 | `MaxPointsPerTrace` | `600` |  |
+| `ShowEvents` | `false` |  |
+| `EventScope` | `"asset"` | asset \| database |
+| `EventDatabasePath` | `""` | blank => the data source's database |
+| `EventTemplate` | `""` |  |
+| `EventNameFilter` | `""` |  |
+| `EventMax` | `50` |  |
+| `EventColor` | `""` | blank => one colour per template |
+| `EventOpacity` | `0.12` |  |
+| `EventLabels` | `true` |  |
+| `EventClick` | `"none"` | none \| time |
+| `EventRefreshSeconds` | `60` |  |
 
 ---
 
@@ -576,7 +602,8 @@ The question this symbol answers is "how is my total split between these sources
 | `Title` | `""` |  |
 | `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
 | `InnerRadiusPct` | `58` |  |
-| `StartAngle` | `0` | degrees, 0 = 12 o'clock |
+| `Shape` | `"full"` | full \| half: a half ring over the top, 9 to 3 o'clock |
+| `StartAngle` | `0` | degrees, 0 = 12 o'clock; full ring only |
 | `Clockwise` | `true` |  |
 | `PadAngle` | `0.6` | degrees of gap between slices |
 | `SortMode` | `"valueDesc"` | valueDesc \| valueAsc \| name \| none |
@@ -598,6 +625,39 @@ The question this symbol answers is "how is my total split between these sources
 | `SliceLabelMode` | `"percent"` | percent \| value \| name \| nameAndPercent |
 | `ShowLeaderLines` | `true` |  |
 | `MinSliceLabelPct` | `5` |  |
+
+---
+
+## pvxEmbeddedPage
+
+**PVX Embedded Page** · data shape `Value` · single data source · collections not supported
+
+come from it, for a URL held in an AF attribute.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Url` | `""` | blank, a PI Vision display id, a path, or http(s):// |
+| `UrlSource` | `"config"` | config \| source (the data source's value is the address) |
+| `KeepAsset` | `true` | PI Vision displays only |
+| `KeepTime` | `true` |  |
+| `Kiosk` | `true` |  |
+| `RefreshMinutes` | `0` | 0 = never |
+| `Zoom` | `100` | percent |
+| `Restrict` | `false` | sandbox the frame |
+| `LoadTimeoutSeconds` | `20` |  |
+| `ShowToolbar` | `true` |  |
+| `Title` | `""` |  |
 
 ---
 
@@ -731,7 +791,7 @@ symbol selector (see the definition). This is the first symbol in the library wh
 | `MinBarPx` | `3` |  |
 | `ShowOpenEvents` | `true` |  |
 | `ShowSummary` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
+| `ClickAction` | `"none"` | none \| navigate \| time |
 | `NavigateTarget` | `""` |  |
 
 ---
@@ -758,6 +818,7 @@ Two ways of folding time into a grid:
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `400` |  |
 | `Mode` | `"calendar"` | calendar \| matrix \| density |
+| `RowColors` | `false` | matrix: each tag its own colour, scaled to its own range |
 | `Aggregate` | `"avg"` | avg \| max \| min \| last \| range \| count |
 | `BucketCount` | `24` | matrix + density: number of time columns |
 | `ValueBins` | `20` | density: number of value rows |
@@ -780,6 +841,7 @@ Two ways of folding time into a grid:
 | `ShowRowLabels` | `true` |  |
 | `ShowColumnLabels` | `true` |  |
 | `RowLabelWidthPct` | `22` |  |
+| `ClickAction` | `"none"` | none \| time: a cell sets the display's time range |
 
 ---
 
@@ -807,6 +869,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `SeriesIndex` | `1` | 1-based, matches the data source list |
 | `Overlay` | `false` |  |
 | `Bins` | `"auto"` | 'auto' = Freedman-Diaconis |
+| `Weighting` | `"samples"` | samples \| time: bars in time held, not sample count |
 | `BinWidth` | `""` | overrides Bins when set |
 | `RangeMin` | `""` |  |
 | `RangeMax` | `""` |  |
@@ -820,6 +883,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `NormalCurveColor` | `"#c8452f"` |  |
 | `ShowMeanLine` | `true` |  |
 | `ShowMedianLine` | `false` |  |
+| `Quantiles` | `""` | e.g. "5, 50, 95": a marker at each percentile |
 | `ShowSigmaLines` | `false` |  |
 | `LSL` | `""` |  |
 | `USL` | `""` |  |
@@ -1510,6 +1574,43 @@ This is the overview panel operators put at the top of a display: every tag gets
 | `ShowBadQuality` | `true` |  |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxTimeRange
+
+**PVX Time Range** · data shape `Value` · single data source · collections not supported
+
+symbol selector. Like pvxNavPanel this is a control, and it sets the display's time range by the same route, PVX.nav.setTimeRange, a hash change that the browser's Back button undoes.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Presets` | `1 hour | *-1h | *
+8 hours | *-8h | *
+Today |…` |  |
+| `ShowPresets` | `true` |  |
+| `PresetStyle` | `"buttons"` | buttons \| dropdown |
+| `ShowCustom` | `true` |  |
+| `CustomInput` | `"calendar"` | calendar \| text |
+| `ShowStep` | `true` |  |
+| `ShowNow` | `true` |  |
+| `ShowReadout` | `true` |  |
+| `Layout` | `"row"` | row \| column |
+| `ButtonColor` | `"#3b82c4"` |  |
+| `ButtonRadius` | `4` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
 
 ---
 

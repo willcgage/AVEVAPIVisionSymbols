@@ -1,0 +1,123 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Presets</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-showpresets">Show presets</label>
+            <input id="pvxtr-showpresets" type="checkbox" ng-model="config.ShowPresets" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-presetstyle">Show them as</label>
+            <select id="pvxtr-presetstyle" ng-model="config.PresetStyle">
+                <option value="buttons">Buttons</option>
+                <option value="dropdown">A drop-down list</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxtr-presets">Presets, one per line</label>
+            <textarea id="pvxtr-presets" rows="6" ng-model="config.Presets"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            <b>Label | start | end</b>, in PI time: <code>8 hours | *-8h | *</code>,
+            <code>Today | t | *</code>, <code>Last shift | t-2h | t+6h</code>. A blank end means
+            now. The preset in force is highlighted. A line that is not in this form is named
+            on the symbol, not skipped silently.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">From and to</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-showcustom">Show From and To</label>
+            <input id="pvxtr-showcustom" type="checkbox" ng-model="config.ShowCustom" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-input">Enter times as</label>
+            <select id="pvxtr-input" ng-model="config.CustomInput">
+                <option value="calendar">Calendar and clock</option>
+                <option value="text">PI time expressions</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Calendar sets a fixed range in the browser's own time zone. Expressions take
+            anything from <code>*-8h</code> to <code>2026-10-01 06:00</code>, are checked as they
+            are typed, and stay relative once applied. Neither reaches the display until
+            <b>Apply</b> or Enter, so a half-typed range never does.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Stepping</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-step">Step back and forward</label>
+            <input id="pvxtr-step" type="checkbox" ng-model="config.ShowStep" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-now">Now button</label>
+            <input id="pvxtr-now" type="checkbox" ng-model="config.ShowNow" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The arrows move the range by its own length: an 8 hour range steps 8 hours.
+            Stepping forward stops at the present. <b>Now</b> keeps the length and ends the
+            range now. All three need a range in the address that this symbol can read, and
+            say so on hover when there is none.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-readout">Show the range in force</label>
+            <input id="pvxtr-readout" type="checkbox" ng-model="config.ShowReadout" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-layout">Layout</label>
+            <select id="pvxtr-layout" ng-model="config.Layout">
+                <option value="row">One row, wrapping</option>
+                <option value="column">A column</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-color">Button colour</label>
+            <input id="pvxtr-color" type="color" ng-model="config.ButtonColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-bradius">Button corner radius</label>
+            <input id="pvxtr-bradius" type="number" ng-model="config.ButtonRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-theme">Theme</label>
+            <select id="pvxtr-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-transparent">Transparent background</label>
+            <input id="pvxtr-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-bgcolor">Background colour</label>
+            <input id="pvxtr-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-radius">Panel corner radius</label>
+            <input id="pvxtr-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtr-showtitle">Show title</label>
+            <input id="pvxtr-showtitle" type="checkbox" ng-model="config.ShowTitle" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxtr-title">Title</label>
+            <input id="pvxtr-title" type="text" ng-model="config.Title" />
+        </div>
+    </div>
+
+</div>

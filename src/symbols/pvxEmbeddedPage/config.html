@@ -1,0 +1,99 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Page</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-src">Address comes from</label>
+            <select id="pvxemb-src" ng-model="config.UrlSource">
+                <option value="config">The box below</option>
+                <option value="source">The data source's value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.UrlSource !== 'source'">
+            <label for="pvxemb-url">Address</label>
+            <input id="pvxemb-url" type="text" ng-model="config.Url" placeholder="101, or https://intranet/work-instruction" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A number, or <code>101/Overview</code>, is a PI Vision display on this server and
+            always shows. Any other <code>http</code> or <code>https</code> address shows only if
+            that site allows framing; many do not, and the browser then leaves the frame blank
+            without saying why, so the symbol says it under any page from another site and
+            offers <b>Open</b> in a new tab. With the data source chosen, an AF attribute holding
+            the address drives it, so an asset swap changes the page.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-asset">Carry this display's asset into it</label>
+            <input id="pvxemb-asset" type="checkbox" ng-model="config.KeepAsset" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-time">Carry this display's time range into it</label>
+            <input id="pvxemb-time" type="checkbox" ng-model="config.KeepTime" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-kiosk">Show it without PI Vision's menus</label>
+            <input id="pvxemb-kiosk" type="checkbox" ng-model="config.Kiosk" />
+        </div>
+        <div class="pvx-cfg-hint">These three apply to PI Vision displays only. The display inside follows this one when its asset or time changes.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Behaviour</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-refresh">Reload every (minutes)</label>
+            <input id="pvxemb-refresh" type="number" ng-model="config.RefreshMinutes" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">0 never reloads. For a page that does not update itself, such as a report or a camera still. Shortest 15 seconds.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-zoom">Zoom (%)</label>
+            <input id="pvxemb-zoom" type="number" ng-model="config.Zoom" min="25" max="400" step="5" />
+        </div>
+        <div class="pvx-cfg-hint">Below 100 fits a whole page into a small symbol.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-restrict">Restrict the page</label>
+            <input id="pvxemb-restrict" type="checkbox" ng-model="config.Restrict" />
+        </div>
+        <div class="pvx-cfg-hint">Stops the page from navigating this display or opening downloads. Some pages will not run restricted.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-timeout">Report no load after (seconds)</label>
+            <input id="pvxemb-timeout" type="number" ng-model="config.LoadTimeoutSeconds" min="3" max="300" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-toolbar">Show the toolbar</label>
+            <input id="pvxemb-toolbar" type="checkbox" ng-model="config.ShowToolbar" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxemb-title">Title</label>
+            <input id="pvxemb-title" type="text" ng-model="config.Title" placeholder="Leave blank to show the address" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-theme">Theme</label>
+            <select id="pvxemb-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-transparent">Transparent background</label>
+            <input id="pvxemb-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-bgcolor">Background colour</label>
+            <input id="pvxemb-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxemb-radius">Corner radius</label>
+            <input id="pvxemb-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

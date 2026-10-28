@@ -189,6 +189,71 @@
     </div>
 
     <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Event frames</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-events">Show event frames</label>
+            <input id="pvxcombo-events" type="checkbox" ng-model="config.ShowEvents" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Shades each AF event frame in the window behind the traces, with its name along the
+            top and its times on hover. Read through PI Web API, so it needs the site's
+            <code>pvx-config.js</code> to reach it; the footer says what is missing if it cannot.
+        </div>
+        <div ng-if="config.ShowEvents">
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evscope">Events from</label>
+                <select id="pvxcombo-evscope" ng-model="config.EventScope">
+                    <option value="asset">The display's asset</option>
+                    <option value="database">The whole database</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-hint">The display's asset is the one in its address, else the element of the first data source. Its events follow an asset swap.</div>
+            <div class="pvx-cfg-stack" ng-if="config.EventScope === 'database'">
+                <label for="pvxcombo-evdb">AF database</label>
+                <input id="pvxcombo-evdb" type="text" ng-model="config.EventDatabasePath" placeholder="Blank: the data source's database" />
+                <!-- pvx:afpicker key=EventDatabasePath kind=database -->
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxcombo-evtpl">Event template</label>
+                <input id="pvxcombo-evtpl" type="text" ng-model="config.EventTemplate" placeholder="Any" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxcombo-evname">Name filter</label>
+                <input id="pvxcombo-evname" type="text" ng-model="config.EventNameFilter" placeholder="Any, or a pattern such as Trip*" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evmax">At most</label>
+                <input id="pvxcombo-evmax" type="number" ng-model="config.EventMax" min="1" max="500" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evcolor">Colour</label>
+                <input id="pvxcombo-evcolor" type="color" ng-model="config.EventColor" />
+                <button type="button" ng-click="config.EventColor = ''" ng-disabled="!config.EventColor" title="One colour per event template again">Auto</button>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evop">Shading opacity</label>
+                <input id="pvxcombo-evop" type="number" ng-model="config.EventOpacity" min="0" max="1" step="0.02" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evlabels">Show names</label>
+                <input id="pvxcombo-evlabels" type="checkbox" ng-model="config.EventLabels" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evclick">Clicking an event</label>
+                <select id="pvxcombo-evclick" ng-model="config.EventClick">
+                    <option value="none">Does nothing</option>
+                    <option value="time">Shows that event on the display</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evrefresh">Check for new events every (s)</label>
+                <input id="pvxcombo-evrefresh" type="number" ng-model="config.EventRefreshSeconds" min="10" />
+            </div>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Grid and legend</div>
 
         <div class="pvx-cfg-row">

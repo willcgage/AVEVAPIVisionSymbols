@@ -120,3 +120,7 @@
     background: none;
     cursor: pointer;
 }
+
+/* Event frames: a click shows the event when EventClick is set. */
+.pvx-combo .pvx-combo-event-link { cursor: pointer; }
+.pvx-combo .pvx-combo-event-link:hover { fill-opacity: 0.28; }
