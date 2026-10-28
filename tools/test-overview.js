@@ -1192,6 +1192,10 @@ async function afSearch(open, settle, hash) {
     check('afsearch: a badge says the rows came from an AF search', /AF search/.test(await badge()) && /3/.test(await badge()), await badge());
 
     await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', Statistic: 'Average' });
+    // A summary goes search, then batch, then render: on a loaded CI runner
+    // that has outlasted the fixed settle and read an empty chart. Wait for
+    // the bars themselves; a chart that never draws still fails below.
+    await pg.waitForSelector('#box .pvx-pareto-bar', { timeout: 5000 }).catch(() => {});
     bars = await titles('#box .pvx-pareto-bar');
     check('afsearch: a statistic is a summary over the range, read from PI Web API',
         requests.some((r) => /^batch: GET streamsets\/We:.*\/summary\?nameFilter=Discharge Pressure.*summaryType=Average/.test(r)) &&
