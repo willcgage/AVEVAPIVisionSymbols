@@ -52,6 +52,10 @@
 
                 // What a click does.
                 Mode: 'time',              // display | asset | time | custom | hierarchy
+                // Where the buttons come from: Items below, or the text of an
+                // AF attribute, so one menu kept in AF serves every display.
+                ItemsFrom: 'config',       // config | af
+                ItemsAttribute: '',
                 Items: '8 hours | *-8h | *\n' +
                        '24 hours | *-24h | *\n' +
                        '7 days | *-7d | *\n' +
@@ -137,6 +141,10 @@
 
         // The data source's current value, for targets written as {value}.
         var sourceValue = '';
+
+        // ItemsFrom 'af': the menu text read from an AF attribute.
+        var menu = { path: '', text: null, error: '', at: 0, gen: 0, timer: null };
+        var MENU_MS = 60000;
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-nav-body',
@@ -576,6 +584,8 @@
             if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
             // A leaked poller on a control-room kiosk runs for weeks.
             if (hier.timer !== null) { clearInterval(hier.timer); hier.timer = null; }
+            if (menu.timer !== null) { clearInterval(menu.timer); menu.timer = null; }
+            menu.gen += 1;
             if (hier.listener) {
                 try { window.removeEventListener('hashchange', hier.listener, false); }
                 catch (e) { /* ignore */ }
@@ -853,7 +863,61 @@
 
         /** The only thing that forces a DOM rebuild. */
         function signature(cfg) {
-            return (cfg.Mode || 'display') + '\u0000' + (cfg.Items || '');
+            return (cfg.Mode || 'display') + '\u0000' + itemsText(cfg) + '\u0000' + menuNote(cfg);
+        }
+
+        function fromAf(cfg) { return cfg.ItemsFrom === 'af' && cfg.Mode !== 'hierarchy'; }
+
+        /** The Items text in force: the AF attribute's once read, else the typed one. */
+        function itemsText(cfg) {
+            if (fromAf(cfg) && menu.path === String(cfg.ItemsAttribute || '').trim() && menu.text !== null) { return menu.text; }
+            return cfg.Items || '';
+        }
+
+        /** Why the typed buttons are showing in place of the AF menu, or ''. */
+        function menuNote(cfg) {
+            if (!fromAf(cfg)) { return ''; }
+            if (!String(cfg.ItemsAttribute || '').trim()) { return 'Menu from AF: no attribute set in Format; showing the typed buttons.'; }
+            if (menu.error) { return 'Menu from AF: ' + menu.error + '; showing the typed buttons.'; }
+            return '';
+        }
+
+        /** Read the menu attribute when its path changes, and once a minute. */
+        function askMenu(cfg) {
+            if (!fromAf(cfg)) {
+                if (menu.timer !== null) { clearInterval(menu.timer); menu.timer = null; }
+                return;
+            }
+            if (menu.timer === null) { menu.timer = setInterval(function () { askMenu(ctx.config || {}); }, MENU_MS); }
+            var path = String(cfg.ItemsAttribute || '').trim();
+            var now = (new Date()).getTime();
+            if (!path) { menu.path = ''; menu.text = null; menu.error = ''; return; }
+            if (path === menu.path && now - menu.at < MENU_MS - 1000) { return; }
+            if (path !== menu.path) { menu.text = null; menu.error = ''; }
+            menu.path = path;
+            menu.at = now;
+            if (PVX.api.discovering()) {
+                menu.at = 0;
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { askMenu(ctx.config || {}); } });
+                return;
+            }
+            if (!PVX.api.isConfigured()) {
+                menu.error = PVX.api.unsetHint();
+                ctx.render();
+                return;
+            }
+            var gen = ++menu.gen;
+            PVX.af.text(path).then(function (text) {
+                if (gen !== menu.gen || ctx.destroyed) { return; }
+                menu.error = String(text).replace(/^\s+|\s+$/g, '') ? '' : 'the attribute is empty';
+                menu.text = menu.error ? null : text;
+                ctx.render();
+            }, function (err) {
+                if (gen !== menu.gen || ctx.destroyed) { return; }
+                menu.error = (err && err.pvxError && err.pvxError.message) || 'the attribute could not be read';
+                menu.text = null;
+                ctx.render();
+            });
         }
 
         // Hierarchy mode puts text between the buttons: the breadcrumb's
@@ -1021,7 +1085,10 @@
 
                 var hierarchy = cfg.Mode === 'hierarchy';
                 if (hierarchy) { ensureRelatives(cfg); }
-                var items = hierarchy ? hierarchyItems(cfg) : parseItems(cfg.Items, cfg.Mode || 'display');
+                if (!hierarchy) { askMenu(cfg); }
+                var items = hierarchy ? hierarchyItems(cfg) : parseItems(itemsText(cfg), cfg.Mode || 'display');
+                var mnote = hierarchy ? '' : menuNote(cfg);
+                if (mnote) { items = items.concat([{ kind: 'note', label: '\u26a0 AF menu', tip: mnote }]); }
                 var sig = hierarchy ? 'hierarchy\u0000' + itemsKey(items) : signature(cfg);
                 if (sig !== builtSignature) {
                     build(host, items, cfg);

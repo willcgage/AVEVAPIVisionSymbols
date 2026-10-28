@@ -82,6 +82,28 @@
             </div>
         </div>
 
+        <div class="pvx-cfg-row" ng-if="config.Mode !== 'hierarchy'">
+            <label for="pvxnav-itemsfrom">Buttons come from</label>
+            <select id="pvxnav-itemsfrom" ng-model="config.ItemsFrom">
+                <option value="config">The list below</option>
+                <option value="af">An AF attribute</option>
+            </select>
+        </div>
+        <div ng-if="config.Mode !== 'hierarchy' && config.ItemsFrom === 'af'">
+            <div class="pvx-cfg-stack">
+                <label for="pvxnav-itemsattr">AF attribute holding the menu</label>
+                <input id="pvxnav-itemsattr" type="text" ng-model="config.ItemsAttribute"
+                       placeholder="\\AF server\Database\Site|Navigation Menu" />
+                <!-- pvx:afpicker key=ItemsAttribute kind=attribute -->
+            </div>
+            <div class="pvx-cfg-hint">
+                A string attribute whose value is the menu, in the same one-button-per-line form as
+                the list below. Every display that names it shows the same buttons, and a change in AF
+                reaches all of them within a minute, without editing a display. Until it is read, or
+                if it cannot be, the list below is used and the panel says why.
+            </div>
+        </div>
+
         <div class="pvx-cfg-stack" ng-if="config.Mode !== 'hierarchy'">
             <label for="pvxnav-items">Items &mdash; one button per line</label>
             <textarea id="pvxnav-items" ng-model="config.Items" rows="7"

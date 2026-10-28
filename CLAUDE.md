@@ -319,11 +319,13 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–9 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–10 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`
-resolves PI time expressions for anything that steps or replays a range.
+resolves PI time expressions for anything that steps or replays a range;
+`PVX.af.traits` / `PVX.af.text` / `PVX.af.watcher` read settings kept in AF
+(limit traits, a menu in a string attribute), at most once a minute per value.
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs
 the full verification on the tagged commit, the MSI is built with the official

@@ -80,7 +80,37 @@
                 <option value="baseline">A baseline at the start of the range</option>
                 <option value="fixed">Values typed here</option>
                 <option value="sources">Other data sources</option>
+                <option value="af">The attribute's limits in AF</option>
             </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'af'">
+            <label for="pvxspc-afucl">Upper control limit</label>
+            <select id="pvxspc-afucl" ng-model="config.AfUclTrait">
+                <option value="Maximum">Maximum</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Hi">Hi</option>
+                <option value="Target">Target</option>
+                <option value="Lo">Lo</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Minimum">Minimum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'af'">
+            <label for="pvxspc-aflcl">Lower control limit</label>
+            <select id="pvxspc-aflcl" ng-model="config.AfLclTrait">
+                <option value="Maximum">Maximum</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Hi">Hi</option>
+                <option value="Target">Target</option>
+                <option value="Lo">Lo</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Minimum">Minimum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'af'">
+            Read from the limit traits of the charted attribute through PI Web API, so a limit changed
+            in AF reaches every display at once. The Target trait is the centre line; without one, the
+            centre is midway between the two limits. Re-read every minute.
         </div>
         <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'window' || !config.LimitSource">
             Limits recomputed from everything shown. Good for a first look; a sustained shift then
@@ -205,6 +235,30 @@
                 <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
                         value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
             </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-specaf">Take the spec from AF</label>
+            <input id="pvxspc-specaf" type="checkbox" ng-model="config.SpecFromAf" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.SpecFromAf">
+            <label for="pvxspc-aflsl">LSL trait</label>
+            <select id="pvxspc-aflsl" ng-model="config.AfLslTrait">
+                <option value="Minimum">Minimum</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Lo">Lo</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.SpecFromAf">
+            <label for="pvxspc-afusl">USL trait</label>
+            <select id="pvxspc-afusl" ng-model="config.AfUslTrait">
+                <option value="Hi">Hi</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Maximum">Maximum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.SpecFromAf">
+            A trait the attribute has replaces the value above; one it lacks leaves the typed value.
+            The Target trait, when there is one, is the target.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxspc-target">Target</label>

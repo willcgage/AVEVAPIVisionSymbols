@@ -65,12 +65,21 @@
             <label for="pvxkpi-basis">Compare with</label>
             <select id="pvxkpi-basis" ng-model="config.DeltaBasis">
                 <option value="window">Earlier in the time range</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-planfrom">The plan is</label>
+            <select id="pvxkpi-planfrom" ng-model="config.PlanFrom">
+                <option value="source">Data source 2</option>
+                <option value="af">The attribute's Target in AF</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
-            <em>Plan</em> compares the headline with the second data source, reduced by the same
-            statistic. Drop the plan or target attribute onto the card after the KPI itself.
+            <em>Plan</em> compares the headline with the plan, reduced by the same statistic. As data
+            source 2, drop the plan or target attribute onto the card after the KPI itself. From AF,
+            the KPI attribute's own Target limit trait is read through PI Web API once a minute, so a
+            target changed in AF reaches every card at once; it draws as a level on the sparkline.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-deltamode">Display as</label>
@@ -159,7 +168,7 @@
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
@@ -172,7 +181,7 @@
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
             </select>
         </div>
     </div>

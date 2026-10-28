@@ -460,7 +460,7 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `SampleMode` | `"interval"` | interval \| recorded |
 | `Intervals` | `120` | interval mode: points across the time range |
 | `Sigma` | `3` | limit width, 2 to 4 |
-| `LimitSource` | `"window"` | window \| baseline \| fixed \| sources |
+| `LimitSource` | `"window"` | window \| baseline \| fixed \| sources \| af |
 | `BaselinePoints` | `25` | baseline: the first N plotted points |
 | `FixedCenter` | `""` |  |
 | `FixedUCL` | `""` |  |
@@ -468,6 +468,8 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `CenterSource` | `"0"` |  |
 | `UclSource` | `"0"` |  |
 | `LclSource` | `"0"` |  |
+| `AfUclTrait` | `"Hi"` |  |
+| `AfLclTrait` | `"Lo"` |  |
 | `RuleSet` | `"nelson"` | nelson \| we \| limits \| custom \| none |
 | `CustomRules` | `"1, 2, 5, 6"` |  |
 | `RunLength` | `9` | custom: points in a row for rule 2 |
@@ -478,6 +480,9 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `Target` | `""` |  |
 | `LslSource` | `"0"` | a data source overrides the typed LSL |
 | `UslSource` | `"0"` |  |
+| `SpecFromAf` | `false` | LSL, USL and Target from AF limit traits |
+| `AfLslTrait` | `"LoLo"` |  |
+| `AfUslTrait` | `"HiHi"` |  |
 | `ShowCapability` | `true` |  |
 | `ShowSecondary` | `true` |  |
 | `ShowHistogram` | `true` |  |
@@ -926,6 +931,7 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `SmoothLine` | `true` |  |
 | `ShowDelta` | `true` |  |
 | `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) |
+| `PlanFrom` | `"source"` | source (data source 2) \| af (the KPI's Target trait) |
 | `DeltaMode` | `"percent"` | percent \| absolute \| both |
 | `DeltaLookback` | `0.25` | fraction of the window used as the baseline |
 | `DeltaGoodDirection` | `"up"` | up \| down \| none |
@@ -1003,6 +1009,8 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
 | `Mode` | `"time"` | display \| asset \| time \| custom \| hierarchy |
+| `ItemsFrom` | `"config"` | config \| af |
+| `ItemsAttribute` | `""` |  |
 | `Items` | `8 hours | *-8h | *
 24 hours | *-24h | *
 7 da…` |  |

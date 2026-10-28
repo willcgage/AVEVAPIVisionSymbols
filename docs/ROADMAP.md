@@ -508,9 +508,10 @@ Done so far, in order:
 | 7 | **pvxEmbeddedPage**, new | A page in a frame with a reload timer. Reverses the decision against `pvxWebView` by meeting its objection head on: PI Vision displays always load, and for any other site the symbol names the possibility that it refused framing and offers it in a new tab. |
 | 8 | pvxComboChart | AF event frames shaded behind the traces, named along the top, coloured by template; a click can show the event. Off by default. |
 | 9 | pvxAssetTree | A flat list and a drop-down layout beside the tree, and an attribute's value on every row with a dot coloured by threshold bands or digital state. |
+| 10 | Settings kept in AF | `PVX.af` reads AF limit traits and string attributes. The Control Chart can take its control limits (Hi/Lo, Target as centre) and its spec (LoLo/HiHi) from the charted attribute's traits; the KPI Card's plan can be the attribute's Target; the Navigation Panel's buttons can come from one AF string attribute shared by every display. Each re-reads once a minute and names what is missing. |
 
-The rest of the order is in the comparison document; next are settings kept in
-AF (a shared navigation menu, KPI targets and control limits from AF traits).
+The rest of the order is in the comparison document; next is the Duval
+triangle (`pvxGasTriangle`).
 
 ## What next
 

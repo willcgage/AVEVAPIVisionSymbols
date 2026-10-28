@@ -156,7 +156,7 @@ const K303 = S2 + '\\K-303';
 
 // [path, template, attributes {name: [value, units]}]
 const ELEMENTS = [
-    [S1, 'Station', {}],
+    [S1, 'Station', { 'Navigation Menu': ['Overview | 101\nDetails | 102', ''] }],
     [K301, 'Compressor', { 'Discharge Pressure': [1081, 'psig'], 'Vibration': [3.9, 'mils'], 'Status': [{ Name: 'Running', Value: 1 }, ''] }],
     [K302, 'Compressor', { 'Discharge Pressure': [1169, 'psig'], 'Vibration': [6.2, 'mils'], 'Status': [{ Name: 'Fault', Value: 3 }, ''] }],
     [TANK, 'Tank', { 'Level': [62, '%'] }],
@@ -175,6 +175,10 @@ FRAMES[K302] = [{ Name: 'Seal leak', StartTime: iso(200), EndTime: iso(150), sel
     { Name: 'K-302 high vibration', StartTime: iso(90), EndTime: iso(60), self: 'ef3' }];
 FRAMES[S1] = [{ Name: 'Station 1 ESD test', StartTime: iso(400), EndTime: iso(390), self: 'ef4' }];
 FRAMES[K303] = [{ Name: 'K-303 start', StartTime: iso(100), EndTime: iso(95), self: 'ef5' }];
+
+// AF limit traits, by attribute path.
+const TRAITS = {};
+TRAITS[K301 + '|Discharge Pressure'] = { Hi: 1150, Lo: 1000, Target: 1080, HiHi: 1200, LoLo: 950 };
 
 const wid = (kind, p) => 'W' + kind + ':' + p;
 const byWebId = {};
@@ -223,7 +227,19 @@ function route(method, url, via) {
         const name = o && Object.keys(o.attrs).find((a) => a.toLowerCase() === p.slice(bar + 1).toLowerCase());
         return name ? { status: 200, body: { Name: name, WebId: wid('a', o.path + '|' + name) } } : notFound;
     }
-    let m = /^streams\/([^/]+)\/value$/.exec(rel);
+    let m = /^attributes\/([^/]+)\/attributes$/.exec(rel);
+    if (m && q.get('trait')) {
+        const a = byWebId[m[1]];
+        if (!a || a.kind !== 'attribute') { return notFound; }
+        const tv = (TRAITS[a.path] || {})[q.get('trait')];
+        return { status: 200, body: { Items: tv === undefined ? [] : [{ WebId: wid('t', a.path + '|' + q.get('trait')) }] } };
+    }
+    m = /^streams\/Wt:(.+)\|(\w+)\/value$/.exec(rel);
+    if (m) {
+        const tv = (TRAITS[m[1]] || {})[m[2]];
+        return tv === undefined ? notFound : { status: 200, body: { Timestamp: iso(1), Value: tv, Good: true } };
+    }
+    m = /^streams\/([^/]+)\/value$/.exec(rel);
     if (m) {
         const a = byWebId[m[1]];
         if (!a || a.kind !== 'attribute') { return notFound; }
@@ -843,6 +859,39 @@ async function page() {
         await open('pvxComboChart', { config: {}, payload: comboData });
         await settle();
         check('combo: events off by default, nothing asked', !requests.some((r) => /eventframes/.test(r)), requests);
+
+        /* ---- settings kept in AF ----------------------------------------- */
+        const spcPts = [];
+        for (let m = 120; m >= 0; m -= 2) { spcPts.push({ Time: iso(m), Value: 1080 + ((m * 7) % 23) - 11 }); }
+        const spcData = { Data: [{ Label: 'Discharge Pressure', Units: 'psig', Path: 'af:' + K301 + '|Discharge Pressure', IsGood: true, Value: spcPts }] };
+        const spcSrc = 'af:' + K301 + '|Discharge Pressure?x';
+        await open('pvxControlChart', { config: { LimitSource: 'af', SpecFromAf: true, ChartType: 'imr' }, payload: spcData, source: spcSrc });
+        await settle();
+        let spc = await pg.evaluate(() => document.getElementById('box').textContent);
+        check('control chart: limits from the attribute\'s Hi/Lo traits, Target as the centre',
+            /UCL 1,?150/.test(spc) && /LCL 1,?000/.test(spc) && /CL 1,?080/.test(spc), spc.slice(0, 300));
+        check('control chart: ...and the spec from LoLo/HiHi, said in the footer',
+            /limits from AF Hi\/Lo\/Target/.test(spc) && /LSL, USL, target from AF/.test(spc), spc.slice(-300));
+        await open('pvxControlChart', { config: { LimitSource: 'af', AfUclTrait: 'Maximum' }, payload: spcData, source: spcSrc });
+        await settle();
+        spc = await pg.evaluate(() => document.getElementById('box').textContent);
+        check('control chart: a trait the attribute lacks is named', /no Maximum limit trait in AF/.test(spc), spc.slice(0, 300));
+
+        await open('pvxKpiCard', { config: { PlanFrom: 'af', DeltaBasis: 'plan', Statistic: 'last' }, payload: spcData, source: spcSrc });
+        await settle();
+        const kpi = await pg.evaluate(() => document.getElementById('box').textContent);
+        check('kpi: the plan is the attribute\'s Target in AF', /vs plan/.test(kpi) && !/Target from AF/.test(kpi), kpi);
+
+        await open('pvxNavPanel', { config: { Mode: 'display', ItemsFrom: 'af', ItemsAttribute: S1 + '|Navigation Menu', KeepAsset: false, KeepTime: false } });
+        await settle();
+        let navAf = await texts('#box .pvx-nav-btn');
+        check('nav: the menu comes from the AF attribute', JSON.stringify(navAf) === '["Overview","Details"]', navAf);
+        await open('pvxNavPanel', { config: { Mode: 'display', ItemsFrom: 'af', ItemsAttribute: S1 + '|Nowhere' } });
+        await settle();
+        navAf = await pg.evaluate(() => ({ btns: Array.from(document.querySelectorAll('#box .pvx-nav-btn')).map((n) => n.textContent.trim()),
+            note: (document.querySelector('#box .pvx-nav-note') || {}).title || '' }));
+        check('nav: a missing menu attribute falls back to the typed buttons and says why',
+            navAf.btns.length === 4 && /Menu from AF: .*Nowhere/.test(navAf.note), navAf);
 
         /* ---- text size -------------------------------------------------- */
         await open('pvxNavPanel', { asset: K301, config: Object.assign({}, NAV, { TextScale: '150' }) });

@@ -1553,6 +1553,161 @@
 
     tags.clearCache = function () { spanCache = {}; };
 
+    /* ------------------------------------------------------------------ *
+     * af — settings kept in AF rather than in each display
+     * ------------------------------------------------------------------ *
+     * A target, a limit or a menu typed into a display is copied into every
+     * display that needs it, and goes stale in all but the one someone
+     * remembers to edit. Kept in AF, it is changed once. These read it.
+     */
+    var af = PVX.af = {};
+
+    /** Trait names PI Web API knows for AF limit attributes. */
+    af.TRAITS = ['Minimum', 'LoLo', 'Lo', 'Target', 'Hi', 'HiHi', 'Maximum'];
+
+    var afAttr = {};        // attribute path -> Promise of its WebId
+    var afTrait = {};       // attribute WebId + trait -> Promise of the trait's WebId or ''
+    var afValue = {};       // stream WebId -> {at, job}
+    var AF_VALUE_TTL = 60000;
+
+    function afOnce(store, key, make) {
+        if (store[key]) { return store[key]; }
+        var job = make();
+        store[key] = job;
+        // A failure is forgotten, so an outage does not stick for the life of the page.
+        job.then(null, function () { if (store[key] === job) { delete store[key]; } });
+        return job;
+    }
+
+    function afRead(webId) {
+        var now = (new Date()).getTime();
+        var hit = afValue[webId];
+        if (hit && now - hit.at < AF_VALUE_TTL) { return hit.job; }
+        var job = api.get('streams/' + encodeURIComponent(webId) + '/value?selectedFields=Value;Good', { cache: false });
+        afValue[webId] = { at: now, job: job };
+        job.then(null, function () { if (afValue[webId] && afValue[webId].job === job) { delete afValue[webId]; } });
+        return job;
+    }
+
+    /**
+     * The AF limit traits of the attribute behind a data source, as numbers:
+     * {Hi: 120, Lo: 80, Target: null, ...} for the names asked, null where
+     * the attribute has no such trait or its value is not a number. A PI
+     * point has no traits, and gives every name null. Values are re-read at
+     * most once a minute, however many symbols ask.
+     * @param {String} ds a data source as PI Vision stores it, or an AF attribute path
+     * @param {Array} names trait names from af.TRAITS
+     */
+    af.traits = function (ds, names) {
+        var p = states.sourcePath(ds);
+        var out = {};
+        (names || []).forEach(function (n) { out[n] = null; });
+        if (!p || p.indexOf('|') === -1) { return Promise.resolve(out); }
+        return afOnce(afAttr, p.toLowerCase(), function () {
+            return api.get('attributes?path=' + encodeURIComponent(p) + '&selectedFields=WebId').then(function (a) {
+                if (!a || !a.WebId) { throw { pvxError: { message: 'No AF attribute at "' + p + '".', check: 'the data source' } }; }
+                return a.WebId;
+            });
+        }).then(function (attrId) {
+            return Promise.all((names || []).map(function (n) {
+                return afOnce(afTrait, attrId + '|' + n, function () {
+                    return api.get('attributes/' + encodeURIComponent(attrId) + '/attributes?trait=' + encodeURIComponent(n) +
+                        '&selectedFields=Items.WebId').then(function (r) {
+                            var it = ((r && r.Items) || [])[0];
+                            return it && it.WebId ? it.WebId : '';
+                        });
+                }).then(function (traitId) {
+                    if (!traitId) { return null; }
+                    return afRead(traitId).then(function (v) { return v && v.Good !== false ? util.num(v.Value) : null; });
+                });
+            })).then(function (vals) {
+                (names || []).forEach(function (n, i) { out[n] = vals[i]; });
+                return out;
+            });
+        });
+    };
+
+    /**
+     * The current value of one AF attribute, by path, as text: for a menu,
+     * a list or a setting kept as a string attribute. Re-read at most once a
+     * minute. Rejects when the attribute is not there, so the caller can say so.
+     */
+    af.text = function (path) {
+        var p = stTrim(path);
+        if (!p) { return Promise.resolve(''); }
+        return afOnce(afAttr, p.toLowerCase(), function () {
+            return api.get('attributes?path=' + encodeURIComponent(p) + '&selectedFields=WebId').then(function (a) {
+                if (!a || !a.WebId) { throw { pvxError: { message: 'No AF attribute at "' + p + '".', check: 'the attribute path' } }; }
+                return a.WebId;
+            });
+        }).then(afRead).then(function (v) {
+            var raw = v ? v.Value : '';
+            if (raw && typeof raw === 'object') { raw = raw.Name !== undefined ? raw.Name : raw.Value; }
+            return raw === null || raw === undefined ? '' : String(raw);
+        });
+    };
+
+    af.clearCache = function () { afAttr = {}; afTrait = {}; afValue = {}; };
+
+    /**
+     * Trait reading for one symbol: ask() on every data update and config
+     * change, get() in render. It asks PI Web API only when the attribute or
+     * the names change, else once a minute, and calls onChange when an answer
+     * (or a reason there is none) arrives, so the symbol re-renders.
+     *   phase: 'off' | 'loading' | 'ok' | 'error', with error worded for a footer.
+     */
+    af.watcher = function (onChange) {
+        var w = { key: '', at: 0, vals: null, error: '', phase: 'off', gen: 0 };
+        var changed = function () { if (onChange) { onChange(); } };
+        w.ask = function (ds, names) {
+            names = (names || []).filter(function (n, i, all) { return af.TRAITS.indexOf(n) !== -1 && all.indexOf(n) === i; });
+            if (!names.length) { w.phase = 'off'; w.key = ''; return; }
+            var path = states.sourcePath(ds);
+            var key = path + '\u0001' + names.join(',');
+            var now = (new Date()).getTime();
+            if (key === w.key && now - w.at < AF_VALUE_TTL) { return; }
+            w.key = key;
+            w.at = now;
+            if (path.indexOf('|') === -1) {
+                w.phase = 'error';
+                w.error = path ? 'the data source is a PI point, which has no AF limit traits' : 'no data source';
+                changed();
+                return;
+            }
+            if (api.discovering()) {
+                w.key = '';
+                api.discover().then(function () { w.ask(ds, names); });
+                return;
+            }
+            if (!api.isConfigured()) {
+                w.phase = 'error';
+                w.error = api.unsetHint() + ', then confirm it with ext/piwebapi-check.html';
+                changed();
+                return;
+            }
+            var gen = ++w.gen;
+            if (w.phase !== 'ok') { w.phase = 'loading'; }
+            af.traits(path, names).then(function (v) {
+                if (gen !== w.gen) { return; }
+                w.vals = v;
+                w.phase = 'ok';
+                w.error = '';
+                changed();
+            }, function (err) {
+                if (gen !== w.gen) { return; }
+                w.phase = 'error';
+                w.error = (err && err.pvxError && err.pvxError.message) || 'the AF limit traits could not be read';
+                w.key = '';
+                changed();
+            });
+        };
+        w.get = function (name) {
+            return w.phase === 'ok' && w.vals && w.vals[name] !== undefined ? w.vals[name] : null;
+        };
+        w.stop = function () { w.gen += 1; onChange = null; };
+        return w;
+    };
+
     /** Labels of a PI Vision data object, in data source order. */
     tags.labelsIn = function (d) {
         var items = d && (d.Data || d.data || d.Rows || d.rows);

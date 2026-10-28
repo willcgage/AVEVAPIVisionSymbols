@@ -15,6 +15,10 @@
  *   second source, and an asset swap re-binds both. The symbol used to be
  *   Single; a display saved then has one source and behaves exactly as before.
  *   Sources beyond the second are not used, and the card says so.
+ *
+ *   Or the plan is the KPI attribute's own Target trait in AF (PlanFrom
+ *   'af'), read through PVX.af once a minute: one place to change a target
+ *   that a dozen cards compare against.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -48,6 +52,7 @@
 
                 ShowDelta: true,
                 DeltaBasis: 'window',       // window | plan (plan = data source 2)
+                PlanFrom: 'source',         // source (data source 2) | af (the KPI's Target trait)
                 DeltaMode: 'percent',       // percent | absolute | both
                 DeltaLookback: 0.25,        // fraction of the window used as the baseline
                 DeltaGoodDirection: 'up',   // up | down | none
@@ -99,7 +104,11 @@
 
         var series = null;
         var plan = null;
+        var sourcePlan = null;
+        var sourceCount = 0;
         var extraSources = 0;
+
+        var traits = PVX.af.watcher(function () { if (ctx && !ctx.destroyed) { ctx.render(); } });
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-kpi-spark',
@@ -107,12 +116,36 @@
             onData: function (d) {
                 var all = PVX.data.series(d);
                 series = all.length ? all[0] : null;
-                plan = all.length > 1 ? all[1] : null;
-                extraSources = Math.max(0, all.length - 2);
+                sourcePlan = all.length > 1 ? all[1] : null;
+                sourceCount = all.length;
+                askTarget();
             },
+            onConfigChange: function () { askTarget(); },
+            onDestroy: function () { traits.stop(); },
 
             render: render
         });
+
+        function fromAf(cfg) { return cfg.PlanFrom === 'af'; }
+
+        function askTarget() {
+            var cfg = scope.config || {};
+            var ds = (scope.symbol && scope.symbol.DataSources) || [];
+            traits.ask(ds[0], fromAf(cfg) ? ['Target'] : []);
+        }
+
+        /** The plan in force: data source 2, or the Target trait as one level. */
+        function resolvePlan(cfg) {
+            if (!fromAf(cfg)) {
+                plan = sourcePlan;
+                extraSources = Math.max(0, sourceCount - 2);
+                return;
+            }
+            extraSources = Math.max(0, sourceCount - 1);
+            var tv = traits.get('Target');
+            var pts = series && series.points.length ? series.points : null;
+            plan = tv === null || !pts ? null : { points: [{ t: pts[pts.length - 1].t, v: tv }] };
+        }
 
         function statValue(stats, key, points) {
             switch (key) {
@@ -163,6 +196,7 @@
             var t = c.theme;
             var host = c.host;
 
+            resolvePlan(cfg);
             scope.pvx.align = cfg.Align === 'center' ? 'center' : 'left';
 
             var points = series ? series.points : [];
@@ -207,7 +241,10 @@
             var target = planValue(cfg);
             var vsPlan = cfg.DeltaBasis === 'plan';
             var notes = [];
-            if (vsPlan && !plan) { notes.push('No plan source: add the plan as data source 2'); }
+            if (fromAf(cfg) && !plan) {
+                notes.push(traits.phase === 'error' ? 'Target from AF: ' + traits.error
+                    : traits.phase === 'ok' ? 'No Target trait on this attribute in AF' : 'Reading the target from AF');
+            } else if (vsPlan && !plan) { notes.push('No plan source: add the plan as data source 2'); }
             else if (vsPlan && target === null) { notes.push('Plan has no value in this time range'); }
             if (extraSources) {
                 notes.push(extraSources + (extraSources === 1 ? ' extra source' : ' extra sources') + ' not used');

@@ -78,7 +78,7 @@
                 Sigma: 3,                   // limit width, 2 to 4
 
                 // --- where the limits come from -----------------------------
-                LimitSource: 'window',      // window | baseline | fixed | sources
+                LimitSource: 'window',      // window | baseline | fixed | sources | af
                 BaselinePoints: 25,         // baseline: the first N plotted points
                 FixedCenter: '',
                 FixedUCL: '',
@@ -88,6 +88,10 @@
                 CenterSource: '0',
                 UclSource: '0',
                 LclSource: '0',
+                // af: limit traits of the charted attribute, kept in AF so a
+                // change there reaches every display at once.
+                AfUclTrait: 'Hi',
+                AfLclTrait: 'Lo',
 
                 // --- run rules ----------------------------------------------
                 RuleSet: 'nelson',          // nelson | we | limits | custom | none
@@ -102,6 +106,9 @@
                 Target: '',
                 LslSource: '0',             // a data source overrides the typed LSL
                 UslSource: '0',
+                SpecFromAf: false,          // LSL, USL and Target from AF limit traits
+                AfLslTrait: 'LoLo',
+                AfUslTrait: 'HiHi',
                 ShowCapability: true,
 
                 // --- chrome -------------------------------------------------
@@ -123,11 +130,33 @@
 
         var model = { all: [], dropped: 0 };
 
+        // AF limit traits of the charted attribute, when asked for.
+        var traits = PVX.af.watcher(function () { if (ctx && !ctx.destroyed) { ctx.render(); } });
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-spc-body',
-            onData: function (d) { model.all = PVX.data.series(d); model.dropped = countDropped(d); },
+            onData: function (d) { model.all = PVX.data.series(d); model.dropped = countDropped(d); askTraits(); },
+            onConfigChange: function () { askTraits(); },
+            onDestroy: function () { traits.stop(); },
             render: render
         });
+
+        function traitNames(cfg) {
+            var out = [];
+            var add = function (n) { if (n && PVX.af.TRAITS.indexOf(n) !== -1 && out.indexOf(n) === -1) { out.push(n); } };
+            if (cfg.LimitSource === 'af') { add(cfg.AfUclTrait || 'Hi'); add(cfg.AfLclTrait || 'Lo'); add('Target'); }
+            if (cfg.SpecFromAf) { add(cfg.AfLslTrait || 'LoLo'); add(cfg.AfUslTrait || 'HiHi'); add('Target'); }
+            return out;
+        }
+
+        function askTraits() {
+            var cfg = scope.config || {};
+            var ds = (scope.symbol && scope.symbol.DataSources) || [];
+            var idx = PVX.util.clamp((parseInt(cfg.SeriesIndex, 10) || 1) - 1, 0, Math.max(0, ds.length - 1));
+            traits.ask(ds[idx], traitNames(cfg));
+        }
+
+        function trait(name) { return traits.get(name); }
 
         /* ================================================================== *
          * render
@@ -198,6 +227,15 @@
             if (src === 'sources') {
                 fixed = { center: latest(all, cfg.CenterSource), ucl: latest(all, cfg.UclSource), lcl: latest(all, cfg.LclSource) };
             }
+            var afUcl = null, afLcl = null;
+            if (src === 'af') {
+                afUcl = trait(cfg.AfUclTrait || 'Hi');
+                afLcl = trait(cfg.AfLclTrait || 'Lo');
+                // No Target: the centre is midway between the two limits.
+                var afC = trait('Target');
+                if (afC === null && afUcl !== null && afLcl !== null) { afC = (afUcl + afLcl) / 2; }
+                fixed = { center: afC, ucl: afUcl, lcl: afLcl };
+            }
             var L = PVX.stats.controlLimits(samples, {
                 chart: chart,
                 size: cfg.SubgroupSize,
@@ -214,12 +252,17 @@
                 digest();
                 return;
             }
-            if ((src === 'fixed' || src === 'sources') && !L.fixed) {
+            if ((src === 'fixed' || src === 'sources' || src === 'af') && !L.fixed) {
                 scope.pvx.stats = '';
                 scope.pvx.note = '';
-                emptyState(svgRoot, W, H, t, 'Limits not set',
+                emptyState(svgRoot, W, H, t, src === 'af' && traits.phase === 'loading' ? 'Reading AF limits\u2026' : 'Limits not set',
                     src === 'fixed' ? 'Fixed limits need at least a centre line and an upper control limit.'
-                        : 'Choose the data sources holding the centre line and the upper control limit.');
+                        : src === 'sources' ? 'Choose the data sources holding the centre line and the upper control limit.'
+                        : traits.phase === 'error' ? 'AF limits: ' + traits.error + '.'
+                        : traits.phase === 'loading' ? 'Asking PI Web API for the attribute\u2019s limit traits.'
+                        : afUcl === null
+                            ? 'The attribute has no ' + (cfg.AfUclTrait || 'Hi') + ' limit trait in AF. Add it there, or choose another trait in Format.'
+                            : 'A centre line needs a Target trait, or a ' + (cfg.AfLclTrait || 'Lo') + ' trait to go midway between.');
                 digest();
                 return;
             }
@@ -251,6 +294,13 @@
             var lslSrc = latest(all, cfg.LslSource), uslSrc = latest(all, cfg.UslSource);
             if (lslSrc !== null) { lsl = lslSrc; }
             if (uslSrc !== null) { usl = uslSrc; }
+            var specAf = [];
+            if (cfg.SpecFromAf) {
+                var tl = trait(cfg.AfLslTrait || 'LoLo'), tu = trait(cfg.AfUslTrait || 'HiHi'), tt = trait('Target');
+                if (tl !== null) { lsl = tl; specAf.push('LSL'); }
+                if (tu !== null) { usl = tu; specAf.push('USL'); }
+                if (tt !== null) { target = tt; specAf.push('target'); }
+            }
             var indiv = [];
             for (p = 0; p < samples.length; p++) { indiv.push(samples[p].v); }
             var cap = (cfg.ShowCapability !== false && (lsl !== null || usl !== null))
@@ -483,6 +533,11 @@
             if (emptyIntervals) { extra.push(emptyIntervals + ' empty interval' + (emptyIntervals === 1 ? '' : 's')); }
             if (model.dropped) { extra.push(model.dropped + ' non-numeric value' + (model.dropped === 1 ? '' : 's') + ' left out'); }
             if (src === 'baseline') { extra.push('limits from the first ' + L.baseline + ' points'); }
+            if (src === 'af') { extra.push('limits from AF ' + (cfg.AfUclTrait || 'Hi') + '/' + (cfg.AfLclTrait || 'Lo') + (trait('Target') !== null ? '/Target' : '')); }
+            if (cfg.SpecFromAf) {
+                extra.push(traits.phase === 'error' ? 'spec from AF: ' + traits.error
+                    : specAf.length ? specAf.join(', ') + ' from AF' : traits.phase === 'loading' ? 'reading the spec from AF' : 'no spec traits in AF');
+            }
             if (src === 'fixed') { extra.push('fixed limits'); }
             if (src === 'sources') { extra.push('limits from data sources'); }
             if (lslSrc !== null || uslSrc !== null) { extra.push('spec from data sources'); }
