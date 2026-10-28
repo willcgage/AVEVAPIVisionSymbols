@@ -93,11 +93,11 @@
 
         <div class="pvx-cfg-row">
             <label for="pvxheat-low">Custom low colour</label>
-            <input id="pvxheat-low" type="color" ng-model="config.CustomLowColor" />
+            <input id="pvxheat-low" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CustomLowColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxheat-high">Custom high colour</label>
-            <input id="pvxheat-high" type="color" ng-model="config.CustomHighColor" />
+            <input id="pvxheat-high" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CustomHighColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxheat-centre">Diverging centre</label>
@@ -223,7 +223,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxheat-accent">Accent colour</label>
-            <input id="pvxheat-accent" type="color" ng-model="config.AccentColor" />
+            <input id="pvxheat-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the hover outline on a cell.</div>
         <div class="pvx-cfg-row">
@@ -232,7 +232,7 @@
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxheat-bgcolor">Background colour</label>
-            <input id="pvxheat-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <input id="pvxheat-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
