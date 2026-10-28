@@ -539,8 +539,10 @@ Done so far, in order:
 
 | 28 | Every time-series symbol, **own time range** | Off by default. On, the symbol shows a range of its own (`*-30d`, `y` to `t`, a date) whatever the display is set to, with a badge saying so ("Last 30 days", "Yesterday"). PI Vision cannot send a custom symbol another range, so the bootstrap swaps the pipeline's values for PI Web API recorded values over that range before the symbol sees them: the nineteen time-series symbols get it with no code of their own, keep the names PI Vision sends, and see each source's start and end set to the range. Read again while the range ends at now (every minute by default), not on every update; at most 10,000 values per source, and the badge warns when a source hit that or could not be read. Without PI Web API the symbol keeps the display's range and the badge says the setting is not in force. |
 
-The rest of the order is in the comparison document; next is form
-layout and controls for data entry.
+| 29 | **pvxManualEntry**, **pvxEntryTable** (Shift Log) | Controls for entry, shared by both through a new `PVX.entry`: a stepper (− and + by a set step, rounded to it and kept inside the limits), a slider (between the minimum and maximum), a switch (True/False, 0/1, or two digital states, with captions), a button per choice, and on Manual Entry a value button that writes one value, which with a write-back value and a delay is a momentary button (1, then 0 two seconds later). A switch or a row of buttons shows the value PI holds until somebody picks; a pick not yet written is outlined. Manual Entry can write as soon as a switch, button, slider or dropdown is used, still through the confirmation. The momentary write-back is sent once with no confirmation of its own, holds the button until it has gone, is sent at once if the display closes in between, and when it fails says what the attribute may still hold. The Shift Log takes a control as a fifth field per row (`switch`, `buttons:Auto/Manual/Off`, `slider:5`, `stepper:0.5`, `select:1=A/2=B`, `text`, with `wide` for a full row), `[Name]` lines as sections, and a form layout of columns that drops a column when the symbol is too narrow for it. Choices that are all numbers are written as numbers, other choices as state names, a plain switch as a Boolean. An untouched slider writes nothing, and a row whose control cannot be read is marked and never written. Defaults draw both symbols as before. |
+
+The rest of the order is in the comparison document; next is the Combo
+Chart upgrade.
 
 ## What next
 

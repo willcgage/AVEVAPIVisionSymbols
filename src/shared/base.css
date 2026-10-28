@@ -895,3 +895,126 @@
 .pvx-qt .pvx-qt-chip-none .pvx-qt-name {
     opacity: 0.45;
 }
+
+/* --- entry controls (PVX.entry): Manual Entry and the Shift Log ---------- *
+ * Real buttons and inputs, sized to be hit with a gloved finger on a panel
+ * PC. --pvx-ctl-accent is set by the symbol from its button colour. */
+
+.pvx .pvx-ctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pvx .pvx-ctl > input:not([type="hidden"]),
+.pvx .pvx-ctl > select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.pvx .pvx-ctl-step,
+.pvx .pvx-ctl-opt {
+    font-family: inherit;
+    color: var(--pvx-text, #1d2126);
+    background: var(--pvx-surface-alt, #f4f6f8);
+    border: 1px solid var(--pvx-border, #d6dbe1);
+    cursor: pointer;
+}
+.pvx .pvx-ctl-step {
+    flex: 0 0 auto;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+}
+.pvx .pvx-ctl-range {
+    flex: 1 1 auto;
+    min-width: 60px;
+    accent-color: var(--pvx-ctl-accent, #3b82c4);
+}
+.pvx .pvx-ctl-readout {
+    flex: 0 0 auto;
+    font-size: 12px;
+    min-width: 3.5em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.pvx .pvx-ctl-sw {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 22px;
+    padding: 0;
+    border-radius: 11px;
+    border: 1px solid var(--pvx-border, #d6dbe1);
+    background: var(--pvx-surface-alt, #f4f6f8);
+    cursor: pointer;
+}
+.pvx .pvx-ctl-sw::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--pvx-muted, #5c6570);
+    transition: left 0.12s;
+}
+.pvx .pvx-ctl-sw[aria-checked="true"] {
+    background: var(--pvx-ctl-accent, #3b82c4);
+    border-color: transparent;
+}
+.pvx .pvx-ctl-sw[aria-checked="true"]::after { left: 21px; background: #ffffff; }
+.pvx .pvx-ctl-sw[aria-checked="mixed"]::after { left: 12px; opacity: 0.5; }
+.pvx .pvx-ctl-cap {
+    flex: 1 1 auto;
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pvx .pvx-ctl-seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.pvx .pvx-ctl-opt {
+    font-size: 12px;
+    min-height: 26px;
+    padding: 2px 9px;
+    margin: 0 -1px 0 0;
+    border-radius: 0;
+}
+.pvx .pvx-ctl-opt:first-child { border-radius: 4px 0 0 4px; }
+.pvx .pvx-ctl-opt:last-child { border-radius: 0 4px 4px 0; margin-right: 0; }
+/* What PI holds now: marked, so the row of buttons reads as the plant's state
+   until somebody picks a different one. */
+.pvx .pvx-ctl-opt[data-current="yes"] { font-weight: 700; }
+.pvx .pvx-ctl-opt[aria-pressed="true"] {
+    background: var(--pvx-ctl-accent, #3b82c4);
+    border-color: var(--pvx-ctl-accent, #3b82c4);
+    color: #ffffff;
+    position: relative;
+}
+/* Picked but not yet written: outlined in the warning colour, so a flipped
+   switch is not taken for the state of the plant. */
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-sw,
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-range,
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-seg {
+    outline: 2px solid var(--pvx-warn, #d99024);
+    outline-offset: 2px;
+}
+.pvx .pvx-ctl button:disabled,
+.pvx .pvx-ctl input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.pvx .pvx-ctl button:focus-visible {
+    outline: 2px solid var(--pvx-ctl-accent, #3b82c4);
+    outline-offset: 1px;
+}

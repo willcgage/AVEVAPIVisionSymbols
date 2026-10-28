@@ -5936,6 +5936,303 @@
     PVX.registered = PVX.registered || [];
 
     /* ------------------------------------------------------------------ *
+     * entry: the controls the two write-back symbols put a value in with
+     * ------------------------------------------------------------------ *
+     * Manual Entry and the Shift Log both used to offer one control, a box to
+     * type in. Some values are not typed: a pump is on or off, a grade is one
+     * of four, a setpoint moves in steps of 0.5. These controls are shared so
+     * the two symbols behave the same way.
+     *
+     * Every control keeps the value it will write in one element, `input`,
+     * whose .value is text exactly as a typed box would hold it. The symbols
+     * read, validate and clear that element as before, so they do not need a
+     * separate write path for each control. Controls that cannot start out
+     * empty (a slider always has a position) keep a hidden input instead and
+     * set it only when the operator moves them. If they wrote their starting
+     * position into it, every untouched slider on a rounds sheet would count
+     * as a reading and be written.
+     *
+     * Until the operator picks something, a switch or a button row shows the
+     * value PI holds now. A pending change is outlined, so a switch that has
+     * been flipped but not written does not look like the plant's state.
+     */
+    var entry = PVX.entry = {};
+
+    function decimalsOf(n) {
+        var s = String(n);
+        var e = s.indexOf('e-');
+        if (e !== -1) { return parseInt(s.slice(e + 2), 10) || 0; }
+        var i = s.indexOf('.');
+        return i === -1 ? 0 : s.length - i - 1;
+    }
+
+    /**
+     * One click of a stepper. Rounded to the step's decimals, so ten clicks
+     * of 0.1 give 1, not 0.9999999999999999, which would be written as typed.
+     */
+    entry.step = function (baseText, stepSize, dir, min, max, fallback) {
+        var st = Math.abs(util.num(stepSize) || 0) || 1;
+        var b = /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\s*$/.test(String(baseText === undefined ? '' : baseText))
+            ? parseFloat(baseText) : null;
+        if (b === null) { b = (fallback !== null && fallback !== undefined && isFinite(fallback)) ? fallback : (min !== null && min !== undefined ? min : 0); }
+        var v = b + dir * st;
+        if (min !== null && min !== undefined && v < min) { v = min; }
+        if (max !== null && max !== undefined && v > max) { v = max; }
+        var d = Math.min(10, Math.max(decimalsOf(st), decimalsOf(parseFloat(b.toFixed(6)))));
+        return parseFloat(v.toFixed(d));
+    };
+
+    /** "1=Running" -> {value:'1', label:'Running'}; "Running" -> both the same. */
+    entry.choice = function (text) {
+        var s = String(text === undefined || text === null ? '' : text).replace(/^\s+|\s+$/g, '');
+        var eq = s.indexOf('=');
+        if (eq > 0) {
+            var v = s.slice(0, eq).replace(/\s+$/, ''), l = s.slice(eq + 1).replace(/^\s+/, '');
+            return { value: v, label: l || v };
+        }
+        return { value: s, label: s };
+    };
+
+    /** A list of choices, split on "/" or ",". Blank entries are left out. */
+    entry.choices = function (text) {
+        var out = [];
+        String(text || '').split(/[\/,]/).forEach(function (part) {
+            var c = entry.choice(part);
+            if (c.value) { out.push(c); }
+        });
+        return out;
+    };
+
+    /** True when every choice is a number, so the write sends numbers. */
+    entry.numericChoices = function (list) {
+        if (!list || !list.length) { return false; }
+        for (var i = 0; i < list.length; i++) {
+            if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(list[i].value)) { return false; }
+        }
+        return true;
+    };
+
+    var CONTROL_KINDS = { number: 1, text: 1, stepper: 1, slider: 1, 'switch': 1, buttons: 1, select: 1 };
+
+    /**
+     * A Shift Log row's control field:
+     *   number | text | stepper[:step] | slider[:step] | switch[:off/on] |
+     *   buttons:a/b/c | select:a/b/c     with "wide" anywhere for a full row.
+     * Any choice can be value=caption. Returns {kind, step, choices, wide, error}.
+     */
+    entry.parse = function (spec) {
+        var out = { kind: 'number', step: '', choices: [], wide: false, plain: false, error: '' };
+        var s = String(spec || '').replace(/^\s+|\s+$/g, '');
+        if (!s) { return out; }
+        var words = s.split(/\s+/);
+        var main = '';
+        for (var i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase() === 'wide') { out.wide = true; } else { main += (main ? ' ' : '') + words[i]; }
+        }
+        if (!main) { return out; }
+        var colon = main.indexOf(':');
+        var kind = (colon === -1 ? main : main.slice(0, colon)).toLowerCase();
+        var arg = colon === -1 ? '' : main.slice(colon + 1);
+        if (!CONTROL_KINDS[kind]) {
+            out.error = 'control "' + kind + '" is not one of number, text, stepper, slider, switch, buttons, select';
+            return out;
+        }
+        out.kind = kind;
+        if (kind === 'stepper' || kind === 'slider') {
+            if (arg && !(util.num(arg) > 0)) { out.error = kind + ' step "' + arg + '" is not a positive number'; }
+            out.step = arg;
+        } else if (kind === 'switch') {
+            // No positions given: a Boolean attribute, written as False/True.
+            out.plain = !arg;
+            out.choices = arg ? entry.choices(arg) : [{ value: 'False', label: 'Off' }, { value: 'True', label: 'On' }];
+            if (out.choices.length !== 2) { out.error = 'a switch needs exactly two positions, off/on'; }
+        } else if (kind === 'buttons' || kind === 'select') {
+            out.choices = entry.choices(arg);
+            if (!out.choices.length) { out.error = kind + ' needs its choices, for example ' + kind + ':Low/Normal/High'; }
+        }
+        return out;
+    };
+
+    function sameValue(a, b) {
+        if (a === null || a === undefined || b === null || b === undefined) { return false; }
+        var x = String(a).toLowerCase(), y = String(b).toLowerCase();
+        if (x === y) { return true; }
+        var nx = parseFloat(x), ny = parseFloat(y);
+        return isFinite(nx) && isFinite(ny) && /^[\s+\-.\d eE]+$/.test(x) && /^[\s+\-.\d eE]+$/.test(y) && nx === ny;
+    }
+    entry.same = sameValue;
+
+    /**
+     * Build a control.
+     *   o.kind      number | text | stepper | slider | switch | buttons | select
+     *   o.parent    where it goes; o.inputClass for the typed box
+     *   o.min, o.max, o.step, o.choices ([{value,label}], two for a switch)
+     *   o.listen    (node, type, fn): the symbol's own registrar, so its
+     *               teardown removes these listeners with its others
+     *   o.onPick    (value, commit): the operator changed it. commit is true
+     *               for a choice made in one action (a switch flip, a button,
+     *               letting go of a slider), false while dragging or typing.
+     *   o.format    value -> text for a slider's readout
+     * Returns {input, focus, wrap, sync(state)}; sync takes {current, disabled}.
+     */
+    entry.build = function (o) {
+        var listen = o.listen || function (n, t, f) { n.addEventListener(t, f, false); };
+        function mk(tag, cls, parent) {
+            var n = document.createElement(tag);
+            if (cls) { n.className = cls; }
+            if (parent) { parent.appendChild(n); }
+            return n;
+        }
+        function button(cls, parent, text) {
+            var b = mk('button', cls, parent);
+            b.type = 'button';
+            b.textContent = text;
+            return b;
+        }
+        var kind = o.kind || 'number';
+        var wrap = mk('span', 'pvx-ctl pvx-ctl-' + kind, o.parent);
+        var ctl = { kind: kind, wrap: wrap, input: null, focus: null, parts: [] };
+        var choices = o.choices || [];
+        var min = o.min === undefined ? null : o.min, max = o.max === undefined ? null : o.max;
+        var fmtv = o.format || function (v) { return String(v); };
+        var lastCurrent = null;
+        function pick(v, commit) {
+            ctl.input.value = v;
+            ctl.sync({ current: lastCurrent });
+            if (o.onPick) { o.onPick(v, commit); }
+        }
+        function hidden() {
+            var h = mk('input', null, wrap);
+            h.type = 'hidden';
+            return h;
+        }
+
+        if (kind === 'select') {
+            var sel = mk('select', o.inputClass || '', wrap);
+            var blank = mk('option', null, sel);
+            blank.value = '';
+            blank.textContent = choices.length ? 'Choose…' : 'No choices configured';
+            choices.forEach(function (c) {
+                var opt = mk('option', null, sel);
+                opt.value = c.value;
+                opt.textContent = c.label;
+            });
+            listen(sel, 'change', function () { if (o.onPick) { o.onPick(sel.value, true); } });
+            ctl.input = ctl.focus = sel;
+
+        } else if (kind === 'slider') {
+            ctl.input = hidden();
+            var range = mk('input', 'pvx-ctl-range', wrap);
+            range.type = 'range';
+            if (min !== null) { range.min = min; }
+            if (max !== null) { range.max = max; }
+            range.step = util.num(o.step) > 0 ? String(util.num(o.step)) : 'any';
+            var readout = mk('span', 'pvx-ctl-readout pvx-num', wrap);
+            listen(range, 'input', function () { pick(range.value, false); });
+            listen(range, 'change', function () { pick(range.value, true); });
+            ctl.focus = range;
+            ctl.parts = [range];
+            ctl.range = range;
+            ctl.readout = readout;
+
+        } else if (kind === 'switch') {
+            ctl.input = hidden();
+            var off = choices[0] || { value: 'False', label: 'Off' };
+            var on = choices[1] || { value: 'True', label: 'On' };
+            var sw = button('pvx-ctl-sw', wrap, '');
+            sw.setAttribute('role', 'switch');
+            var cap = mk('span', 'pvx-ctl-cap', wrap);
+            listen(sw, 'click', function () {
+                var eff = ctl.input.value !== '' ? ctl.input.value : lastCurrent;
+                pick(sameValue(eff, on.value) ? off.value : on.value, true);
+            });
+            ctl.focus = sw;
+            ctl.parts = [sw];
+            ctl.sw = sw;
+            ctl.cap = cap;
+            ctl.off = off;
+            ctl.on = on;
+
+        } else if (kind === 'buttons') {
+            ctl.input = hidden();
+            var seg = mk('span', 'pvx-ctl-seg', wrap);
+            seg.setAttribute('role', 'group');
+            ctl.opts = [];
+            choices.forEach(function (c) {
+                var b = button('pvx-ctl-opt', seg, c.label);
+                listen(b, 'click', function () { pick(c.value, true); });
+                ctl.opts.push({ node: b, value: c.value });
+                ctl.parts.push(b);
+            });
+            ctl.focus = ctl.parts[0] || null;
+
+        } else {
+            var box = mk('input', o.inputClass || '', null);
+            box.type = (kind === 'text') ? 'text' : 'number';
+            if (box.type === 'number') {
+                // 'any', or a browser silently refuses decimals on the default
+                // integer step before the symbol's own check sees the text.
+                box.setAttribute('step', 'any');
+            }
+            if (kind === 'stepper') {
+                var down = button('pvx-ctl-step', wrap, '−');
+                down.setAttribute('aria-label', 'Decrease');
+                wrap.appendChild(box);
+                var up = button('pvx-ctl-step', wrap, '+');
+                up.setAttribute('aria-label', 'Increase');
+                var bump = function (dir) {
+                    var cur = util.num(lastCurrent);
+                    box.value = String(entry.step(box.value, o.step, dir, min, max, cur));
+                    // Never a commit: a stepper that wrote on every click would
+                    // put each intermediate value into the archive.
+                    if (o.onPick) { o.onPick(box.value, false); }
+                };
+                listen(down, 'click', function () { bump(-1); });
+                listen(up, 'click', function () { bump(1); });
+                ctl.parts = [down, up];
+            } else {
+                wrap.appendChild(box);
+            }
+            ctl.input = ctl.focus = box;
+        }
+
+        /** Show the pending choice, or what PI holds when nothing is picked. */
+        ctl.sync = function (s) {
+            s = s || {};
+            if (s.current !== undefined) { lastCurrent = s.current; }
+            var v = ctl.input.value;
+            var pending = v !== '';
+            var eff = pending ? v : lastCurrent;
+            wrap.setAttribute('data-pending', pending && kind !== 'number' && kind !== 'text' && kind !== 'select' ? 'yes' : 'no');
+            if (s.disabled !== undefined) {
+                ctl.input.disabled = !!s.disabled;
+                for (var i = 0; i < ctl.parts.length; i++) { ctl.parts[i].disabled = !!s.disabled; }
+            }
+            if (kind === 'slider') {
+                var n = util.num(eff);
+                if (n === null) { n = min !== null ? min : 0; }
+                if (String(ctl.range.value) !== String(n) && document.activeElement !== ctl.range) { ctl.range.value = n; }
+                var txt = pending ? fmtv(v) : (lastCurrent !== null && lastCurrent !== undefined && lastCurrent !== '' ? fmtv(lastCurrent) : '—');
+                if (ctl.readout.textContent !== txt) { ctl.readout.textContent = txt; }
+            } else if (kind === 'switch') {
+                var isOn = sameValue(eff, ctl.on.value), isOff = sameValue(eff, ctl.off.value);
+                ctl.sw.setAttribute('aria-checked', isOn ? 'true' : (isOff ? 'false' : 'mixed'));
+                var c = isOn ? ctl.on.label : (isOff ? ctl.off.label : '—');
+                if (ctl.cap.textContent !== c) { ctl.cap.textContent = c; }
+                ctl.sw.setAttribute('aria-label', ctl.off.label + ' / ' + ctl.on.label + ': ' + c);
+            } else if (kind === 'buttons') {
+                for (var j = 0; j < ctl.opts.length; j++) {
+                    ctl.opts[j].node.setAttribute('aria-pressed', pending && sameValue(v, ctl.opts[j].value) ? 'true' : 'false');
+                    ctl.opts[j].node.setAttribute('data-current', sameValue(lastCurrent, ctl.opts[j].value) ? 'yes' : 'no');
+                }
+            }
+        };
+        ctl.sync({ current: null });
+        return ctl;
+    };
+
+
+    /* ------------------------------------------------------------------ *
      * overlay: what every symbol offers on top of its own drawing
      * ------------------------------------------------------------------ *
      * Four options any PVX symbol has, all off by default so a saved display

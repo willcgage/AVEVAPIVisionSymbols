@@ -28,6 +28,7 @@ node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event 
 node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
+node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout vs a mock PI Web API
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -61,7 +62,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js`, `test-charts.js`, `test-overlay.js` and `test-alarms.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js`, `test-charts.js`, `test-overlay.js`, `test-alarms.js` and `test-entry.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -334,7 +335,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–28 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–29 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

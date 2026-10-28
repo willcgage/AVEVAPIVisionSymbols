@@ -107,6 +107,24 @@
                 Units: '',
                 Decimals: 'auto',
 
+                /* -- how it is entered ------------------------------------------ *
+                 * 'field' is the box or dropdown this symbol always had. The
+                 * rest come from PVX.entry: stepper and slider for a number, a
+                 * switch for two positions, a row of buttons for a few choices,
+                 * and 'value', a button that writes one fixed value. */
+                Control: 'field',         // field | stepper | slider | switch | buttons | value
+                StepSize: '1',            // stepper and slider
+                SwitchOffLabel: '',       // blank = the state's own name
+                SwitchOnLabel: '',
+                // A switch, button row, slider or dropdown writes as soon as it
+                // is used (still through the confirmation when that is on).
+                WriteOnChange: false,
+                // Control 'value': what the button writes, and for a momentary
+                // button what is written back after ResetSeconds.
+                PressValue: '',
+                ResetValue: '',
+                ResetSeconds: 2,
+
                 /* -- guard rails ------------------------------------------------ *
                  * Checked locally, before anything is sent. */
                 MinValue: '',
@@ -160,7 +178,8 @@
             busy: false,          // a write is in flight — the control is locked
             pending: null,        // a validated write awaiting confirmation
             message: null,        // {tone, text, detail}
-            history: []           // writes made from THIS symbol instance
+            history: [],          // writes made from THIS symbol instance
+            reset: null           // a momentary reset waiting to be sent: {v, timer, at}
         };
 
         var liveCfg = scope.config || {};
@@ -181,6 +200,8 @@
         // would blow away the operator's half-typed value and their focus.
         var ui = null;
         var inputSig = '';        // rebuild the control only when its shape changes
+        var ctl = null;           // the PVX.entry control in the form
+        var ctlInfo = null;       // controlOf() for the control that is built
         var listeners = [];       // every one is removed in teardown()
 
         var ctx = PVX.bootstrap(this, scope, elem, {
@@ -252,6 +273,75 @@
             var t = trim(cfg.InputType).toLowerCase();
             if (t === 'text' || t === 'digital' || t === 'boolean') { return t; }
             return 'number';
+        }
+
+        /* Kinds that keep their value in a hidden input: nothing is chosen
+         * until the operator moves them, and they go back to showing what PI
+         * holds once a write has gone through. */
+        var PICKED = { slider: 1, 'switch': 1, buttons: 1 };
+
+        /**
+         * Which PVX.entry control to build for this type and Control setting.
+         * A Control that does not fit the type gives the plain field and a
+         * note saying why, never a quietly different control.
+         * @returns {Object} {kind, choices, note}
+         */
+        function controlOf(cfg) {
+            var type = inputType(cfg);
+            var want = trim(cfg.Control).toLowerCase() || 'field';
+            var states = digitalStates(cfg);
+            var listOf = function (arr) { return arr.map(function (x) { return { value: x, label: x }; }); };
+            var tf = [{ value: 'True', label: 'True' }, { value: 'False', label: 'False' }];
+            var field = function (note) {
+                if (type === 'digital') { return { kind: 'select', choices: listOf(states), note: note || '' }; }
+                if (type === 'boolean') { return { kind: 'select', choices: tf, note: note || '' }; }
+                return { kind: type === 'text' ? 'text' : 'number', choices: [], note: note || '' };
+            };
+            if (want === 'stepper') {
+                return type === 'number' ? { kind: 'stepper', choices: [], note: '' }
+                    : field('A stepper is for numbers, so this ' + type + ' value has the plain field.');
+            }
+            if (want === 'slider') {
+                if (type !== 'number') { return field('A slider is for numbers, so this ' + type + ' value has the plain field.'); }
+                if (PVX.util.num(cfg.MinValue) === null || PVX.util.num(cfg.MaxValue) === null) {
+                    return field('A slider needs a minimum and a maximum, so this has the plain field until both are set.');
+                }
+                return { kind: 'slider', choices: [], note: '' };
+            }
+            if (want === 'switch') {
+                var pair = null;
+                if (type === 'boolean') { pair = [tf[1], tf[0]]; }
+                else if (type === 'number') { pair = [{ value: '0', label: 'Off' }, { value: '1', label: 'On' }]; }
+                else if (type === 'digital' && states.length === 2) { pair = listOf(states); }
+                if (!pair) {
+                    return field(type === 'digital'
+                        ? 'A switch needs exactly two digital states (off first); this has ' + states.length + ', so it has the dropdown.'
+                        : 'A switch is for two positions, so this text value has the plain field.');
+                }
+                return { kind: 'switch', note: '', choices: [
+                    { value: pair[0].value, label: trim(cfg.SwitchOffLabel) || pair[0].label },
+                    { value: pair[1].value, label: trim(cfg.SwitchOnLabel) || pair[1].label }] };
+            }
+            if (want === 'buttons') {
+                var list = type === 'boolean' ? tf : listOf(states);
+                if (!list.length) { return field('Buttons need choices: list them under Choices in the format pane.'); }
+                if (list.length > 12) { return field('Buttons are for a few choices; ' + list.length + ' are listed, so this has the dropdown.'); }
+                return { kind: 'buttons', choices: list, note: '' };
+            }
+            if (want === 'value') {
+                return { kind: 'value', choices: [], note: trim(cfg.PressValue) ? ''
+                    : 'Set the value this button writes (Value written) in the format pane.' };
+            }
+            return field('');
+        }
+
+        function resetConfigured(cfg) {
+            return trim(cfg.Control).toLowerCase() === 'value' && trim(cfg.ResetValue) !== '';
+        }
+
+        function resetSeconds(cfg) {
+            var n = PVX.util.num(cfg.ResetSeconds);
+            return n === null ? 2 : PVX.util.clamp(n, 0.5, 3600);
         }
 
         function targetName(cfg) {
@@ -428,7 +518,7 @@
                 // A refresh mid-confirmation would move the number the operator
                 // is about to approve out from under them. The value being
                 // confirmed is the one they saw.
-                if (state.pending || state.busy) { return; }
+                if (state.pending || state.busy || state.reset) { return; }
                 refresh();
             }, secs * 1000);
         }
@@ -442,6 +532,15 @@
         }
 
         function teardown() {
+            // A display closed during a momentary press still sends the reset,
+            // at once: a start signal left at 1 because somebody navigated
+            // away is worse than a reset a second early.
+            if (state.reset) {
+                var r = state.reset;
+                state.reset = null;
+                if (r.timer !== null) { clearTimeout(r.timer); }
+                try { PVX.api.writeValue(state.webId, r.v.value, '*')['catch'](function () { /* nobody left to tell */ }); } catch (e) { /* ditto */ }
+            }
             if (refreshTimer !== null) { clearInterval(refreshTimer); refreshTimer = null; }
             if (debounceTimer !== null) { clearTimeout(debounceTimer); debounceTimer = null; }
             for (var i = 0; i < listeners.length; i++) {
@@ -508,15 +607,17 @@
          *   display    what the confirmation and the history show
          *   timestamp  '*' or an ISO string
          */
-        function validate(cfg) {
+        function validate(cfg, override) {
             var type = inputType(cfg);
-            var rawText = ui && ui.input ? String(ui.input.value) : '';
+            var rawText = override !== undefined ? String(override)
+                : (ui && ui.input ? String(ui.input.value) : '');
             var text = trim(rawText);
             var value = null;
             var display = '';
+            var picked = ctlInfo && (PICKED[ctlInfo.kind] || ctlInfo.kind === 'select');
 
             if (!text && type !== 'text') {
-                return { ok: false, error: 'Enter a value first.' };
+                return { ok: false, error: picked ? 'Choose a value first.' : 'Enter a value first.' };
             }
 
             if (type === 'number') {
@@ -566,7 +667,7 @@
                 display = text;
 
             } else {
-                if (!text) { return { ok: false, error: 'Enter a value first.' }; }
+                if (!text) { return { ok: false, error: picked ? 'Choose a value first.' : 'Enter a value first.' }; }
                 value = rawText;          // text is stored as typed, spaces and all
                 display = text;
             }
@@ -605,7 +706,7 @@
             // flight. The button is also disabled — this is the belt to that
             // pair of braces, because Enter can reach a disabled button's
             // handler on some browsers.
-            if (state.busy || state.phase !== 'ready') { return; }
+            if (state.busy || state.reset || state.phase !== 'ready') { return; }
 
             if (isPreview(cfg)) {
                 state.message = {
@@ -618,9 +719,16 @@
                 return;
             }
 
-            var v = validate(cfg);
+            var press = ctlInfo && ctlInfo.kind === 'value';
+            if (press && !trim(cfg.PressValue)) {
+                state.message = { tone: 'warn', text: 'No value set for this button', detail: ctlInfo.note };
+                ctx.render();
+                return;
+            }
+            var v = validate(cfg, press ? trim(cfg.PressValue) : undefined);
+            if (v.ok && press) { v.press = true; }
             if (!v.ok) {
-                state.message = { tone: 'error', text: v.error, detail: '' };
+                state.message = { tone: 'error', text: v.error, detail: press ? 'Value written: "' + trim(cfg.PressValue) + '"' : '' };
                 state.pending = null;
                 ctx.render();
                 return;
@@ -645,6 +753,9 @@
 
         function onCancel() {
             state.pending = null;
+            // A switch flipped and then cancelled goes back to showing what PI
+            // holds; leaving it flipped would show a state nobody wrote.
+            if (ui && ui.input && ctlInfo && PICKED[ctlInfo.kind]) { ui.input.value = ''; }
             state.message = { tone: 'info', text: 'Cancelled. Nothing was written.', detail: '' };
             ctx.render();
         }
@@ -672,10 +783,12 @@
                     state.busy = false;
                     state.message = {
                         tone: 'ok',
-                        text: 'Saved ' + v.display + (unitsOf(cfg) ? ' ' + unitsOf(cfg) : ''),
+                        text: (v.isReset ? 'Reset to ' : 'Saved ') + v.display + (unitsOf(cfg) ? ' ' + unitsOf(cfg) : ''),
                         detail: 'to ' + target
                     };
-                    pushHistory(v.display, true, 'saved');
+                    pushHistory(v.display, true, v.isReset ? 'reset' : 'saved');
+                    if (ui && ui.input && ctlInfo && PICKED[ctlInfo.kind]) { ui.input.value = ''; }
+                    if (v.press && resetConfigured(cfg)) { scheduleReset(cfg); }
                     // Read it back so the current-value line shows what PI
                     // actually holds, not what we believe we sent.
                     if (!stale(gen)) { readCurrent(gen, cfg); }
@@ -700,9 +813,48 @@
                             : (e ? e.message + '  Check: ' + e.check
                                  : 'The write failed and returned no diagnosis.')
                     };
-                    pushHistory(v.display, false, forbidden ? 'not permitted' : 'failed');
+                    if (v.isReset) {
+                        // The one failure that leaves the plant in a state
+                        // nobody chose: say what it is still holding.
+                        state.message.text = 'Reset to ' + v.display + ' failed';
+                        state.message.detail = target + ' may still hold ' + trim(cfg.PressValue) +
+                            '. Write ' + v.display + ' to it by hand.  ' + state.message.detail;
+                    }
+                    pushHistory(v.display, false, v.isReset ? 'reset failed' : (forbidden ? 'not permitted' : 'failed'));
                     ctx.render();
                 });
+        }
+
+        /* ================================================================ *
+         * momentary — a value button that puts the old value back
+         * ================================================================ *
+         * A start pulse, a reset request or a sample trigger: write 1, and
+         * after a couple of seconds write 0. The reset is a second write,
+         * sent once with no retry like every other write here, with no
+         * confirmation: the press was the confirmed action. The button stays
+         * locked until the reset has gone, so presses cannot overlap. */
+        function scheduleReset(cfg) {
+            var v = validate(cfg, trim(cfg.ResetValue));
+            if (!v.ok) {
+                state.message = { tone: 'error', text: 'Reset value "' + trim(cfg.ResetValue) + '" not sent',
+                    detail: v.error + '  ' + targetName(cfg) + ' still holds ' + trim(cfg.PressValue) + '.' };
+                pushHistory(trim(cfg.ResetValue), false, 'reset not sent');
+                return;
+            }
+            // The reset is about now, whatever stamp the press carried.
+            v.timestamp = '*';
+            v.isReset = true;
+            var ms = resetSeconds(cfg) * 1000;
+            state.reset = { v: v, at: (new Date()).getTime() + ms, timer: null };
+            state.reset.timer = setTimeout(function () { fireReset(); }, ms);
+        }
+
+        function fireReset() {
+            var r = state.reset;
+            if (!r) { return; }
+            if (r.timer !== null) { clearTimeout(r.timer); }
+            state.reset = null;
+            sendWrite(r.v);
         }
 
         function pushHistory(display, ok, note) {
@@ -742,6 +894,7 @@
             u.inputWrap = el('div', 'pvx-mentry-inputwrap', u.form);
             // The control itself is created by ensureInput(), which knows the
             // configured type.
+            u.note = el('div', 'pvx-mentry-note', u.form);
 
             u.tsRow = el('div', 'pvx-mentry-ts', u.form);
             u.tsLabel = el('label', 'pvx-mentry-ts-label', u.tsRow);
@@ -789,55 +942,69 @@
          * whatever the operator had half-typed.
          */
         function ensureInput(cfg) {
-            var type = inputType(cfg);
-            var states = digitalStates(cfg);
-            var sig = type + '|' + states.join(',');
+            var info = controlOf(cfg);
+            var sig = info.kind + '|' + info.choices.map(function (c) { return c.value + '=' + c.label; }).join(',') +
+                '|' + trim(cfg.StepSize) + '|' + trim(cfg.MinValue) + '|' + trim(cfg.MaxValue);
+            ctlInfo = info;
             if (ui.input && inputSig === sig) { return; }
             inputSig = sig;
 
             ui.inputWrap.innerHTML = '';
-            var node;
-            if (type === 'digital' || type === 'boolean') {
-                node = el('select', 'pvx-mentry-input pvx-mentry-select', ui.inputWrap);
-                var list = type === 'boolean' ? ['True', 'False'] : states;
-                // A blank first option so the control does not arrive with a
-                // value the operator never chose sitting in it.
-                var blank = el('option', null, node);
-                blank.value = '';
-                setText(blank, list.length ? 'Choose\u2026' : 'No states configured');
-                for (var i = 0; i < list.length; i++) {
-                    var o = el('option', null, node);
-                    o.value = list[i];
-                    setText(o, list[i]);
-                }
-            } else {
-                node = el('input', 'pvx-mentry-input', ui.inputWrap);
-                node.type = type === 'number' ? 'number' : 'text';
-                if (type === 'number') {
-                    // 'any' or a browser rejects decimals on an integer step,
-                    // silently, before validate() ever sees the text.
-                    node.setAttribute('step', 'any');
-                }
+            if (info.kind === 'value') {
+                // No field: the button is the control. A hidden input keeps
+                // the rest of the form's code the same for every kind.
+                ui.input = el('input', null, ui.inputWrap);
+                ui.input.type = 'hidden';
+                ui.pressText = el('div', 'pvx-mentry-press', ui.inputWrap);
+                ctl = null;
+                ui.fieldLabel.removeAttribute('for');
+                return;
             }
-            node.id = PVX.util.uid('pvx-me-in');
-            ui.fieldLabel.setAttribute('for', node.id);
-            ui.input = node;
-
-            // Enter submits — the whole point of a keyboard-usable form.
-            on(node, 'keydown', function (ev) {
-                if (ev.key === 'Enter' || ev.keyCode === 13) {
-                    ev.preventDefault();
-                    if (state.pending) { onConfirm(); } else { onSubmit(); }
-                }
-            });
-            // Typing after a rejection clears the rejection: the message
-            // referred to the old text and is now just noise.
-            on(node, 'input', function () {
-                if (state.message && state.message.tone === 'error' && !state.busy) {
-                    state.message = null;
+            ui.pressText = null;
+            ctl = PVX.entry.build({
+                kind: info.kind,
+                parent: ui.inputWrap,
+                inputClass: 'pvx-mentry-input' + (info.kind === 'select' ? ' pvx-mentry-select' : ''),
+                min: PVX.util.num(cfg.MinValue),
+                max: PVX.util.num(cfg.MaxValue),
+                step: trim(cfg.StepSize),
+                choices: info.choices,
+                listen: on,
+                format: function (v) {
+                    var n = PVX.util.num(v);
+                    return n === null ? String(v) : PVX.fmt.number(n, { decimals: liveCfg.Decimals });
+                },
+                onPick: function (v, commit) {
+                    if (state.message && state.message.tone === 'error' && !state.busy) { state.message = null; }
+                    // Stepper clicks never commit; see PVX.entry.
+                    if (commit && liveCfg.WriteOnChange === true && v !== '') { onSubmit(); return; }
                     ctx.render();
                 }
             });
+            var node = ctl.input;
+            ui.input = node;
+            if (ctl.focus) {
+                if (!ctl.focus.id) { ctl.focus.id = PVX.util.uid('pvx-me-in'); }
+                ui.fieldLabel.setAttribute('for', ctl.focus.id);
+            }
+
+            if (info.kind === 'number' || info.kind === 'text' || info.kind === 'stepper' || info.kind === 'select') {
+                // Enter submits — the whole point of a keyboard-usable form.
+                on(node, 'keydown', function (ev) {
+                    if (ev.key === 'Enter' || ev.keyCode === 13) {
+                        ev.preventDefault();
+                        if (state.pending) { onConfirm(); } else { onSubmit(); }
+                    }
+                });
+                // Typing after a rejection clears the rejection: the message
+                // referred to the old text and is now just noise.
+                on(node, 'input', function () {
+                    if (state.message && state.message.tone === 'error' && !state.busy) {
+                        state.message = null;
+                        ctx.render();
+                    }
+                });
+            }
         }
 
         /* ================================================================ *
@@ -949,7 +1116,16 @@
 
             var range = rangeText(cfg);
             ui.input.setAttribute('title', range || '');
-            if (inputType(cfg) === 'number') {
+            setText(ui.note, ctlInfo.note);
+            show(ui.note, !!ctlInfo.note);
+            if (ui.pressText) {
+                var units0 = units ? ' ' + units : '';
+                setText(ui.pressText, trim(cfg.PressValue)
+                    ? 'Writes ' + trim(cfg.PressValue) + units0 +
+                      (resetConfigured(cfg) ? ', then ' + trim(cfg.ResetValue) + units0 + ' after ' + resetSeconds(cfg) + ' s' : '')
+                    : 'No value set');
+            }
+            if (inputType(cfg) === 'number' && ctl && (ctlInfo.kind === 'number' || ctlInfo.kind === 'stepper')) {
                 // Native hints as well as our own check: the browser's spinner
                 // and mobile keyboards use them, and validate() still owns the
                 // decision.
@@ -976,15 +1152,21 @@
                 ui.confirmYes.style.color = PVX.color.readable(trim(cfg.ButtonColor) || '#3b82c4');
             } else {
                 setText(ui.button, state.busy ? 'Writing\u2026'
-                    : (preview ? 'Preview only' : (trim(cfg.ButtonLabel) || 'Write')));
+                    : (state.reset ? 'Resetting\u2026'
+                    : (preview ? 'Preview only' : (trim(cfg.ButtonLabel) || 'Write'))));
                 // Disabled for the whole flight of the request. Re-enabled on
-                // both the success and the failure path, by sendWrite().
-                ui.button.disabled = state.busy || preview;
+                // both the success and the failure path, by sendWrite(). A
+                // momentary press also holds it until its reset has gone.
+                ui.button.disabled = state.busy || preview || !!state.reset;
                 var bg = preview ? t.textMuted : (trim(cfg.ButtonColor) || '#3b82c4');
                 ui.button.style.background = bg;
                 ui.button.style.color = PVX.color.readable(bg);
             }
-            ui.input.disabled = state.busy;
+            if (ctl) {
+                ctl.sync({ current: state.current ? state.current.value : null, disabled: state.busy || !!state.reset });
+            } else {
+                ui.input.disabled = state.busy;
+            }
             ui.tsInput.disabled = state.busy;
 
             /* ---- message ------------------------------------------------------ */
@@ -1083,6 +1265,7 @@
             n.style.setProperty('--pvx-ok', PVX.color.status.normal);
             n.style.setProperty('--pvx-warn', PVX.color.status.warning);
             n.style.setProperty('--pvx-alarm', PVX.color.status.alarm);
+            n.style.setProperty('--pvx-ctl-accent', trim(cfg.ButtonColor) || '#3b82c4');
         }
 
         /* Renders happen in a rAF and answers arrive in Promise callbacks, both

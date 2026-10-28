@@ -109,6 +109,11 @@ jobs:
       - name: Verify alarm deadband, history and tone
         run: node tools/test-alarms.js
 
+      # The entry controls on Manual Entry and the Shift Log's sections and
+      # form layout, against a mock PI Web API that records every write.
+      - name: Verify entry controls and the form layout
+        run: node tools/test-entry.js
+
       # SYMBOL-REFERENCE.md is generated from the sources. If someone changed
       # a default and did not regenerate it, the committed docs are now lying.
       - name: Check generated docs are current

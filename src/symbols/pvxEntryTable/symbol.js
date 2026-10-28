@@ -81,10 +81,19 @@
                 ShowLabel: true,
 
                 /* -- the rows ------------------------------------------------- *
-                 * One row per line:  <path> | <label> | <units> | <min>:<max>
+                 * One row per line:
+                 *   <path> | <label> | <units> | <min>:<max> | <control>
                  * Only the path is required. See parseRows() for why the field
-                 * separator is a pipe with a SPACE beside it. */
+                 * separator is a pipe with a SPACE beside it. A line [Name]
+                 * starts a section. */
                 Rows: '',
+
+                /* -- layout ---------------------------------------------------- *
+                 * 'list' is the sheet this symbol always drew, a row per
+                 * reading. 'form' puts each reading in a cell of a grid of
+                 * FormColumns, section by section. */
+                Layout: 'list',           // list | form
+                FormColumns: 2,
 
                 /* -- optional base -------------------------------------------- *
                  * With this set, a row may be a bare attribute name. It is the
@@ -202,6 +211,12 @@
 
         function isPreview(cfg) { return cfg.ReadOnlyPreview === true; }
 
+        function isForm(cfg) { return trim(cfg.Layout).toLowerCase() === 'form'; }
+
+        /* Kinds that are picked rather than typed. After a write they go
+         * back to showing what PI holds, as in Manual Entry. */
+        var PICKED = { slider: 1, 'switch': 1, buttons: 1 };
+
         /* ================================================================ *
          * the row grammar
          * ================================================================ *
@@ -250,10 +265,15 @@
         function parseRows(cfg) {
             var base = trim(cfg.ElementPath);
             var out = [];
+            var section = '', sectionOpen = false;
             String(cfg.Rows || '').split(/\r?\n/).forEach(function (line) {
                 var raw = trim(line);
                 // '#' comments so a site can leave a note in a rounds sheet.
                 if (!raw || raw.charAt(0) === '#') { return; }
+                // [Pump house] starts a section. No AF path starts with '[',
+                // so a sheet saved before sections existed reads the same.
+                var sec = /^\[(.*)\]$/.exec(raw);
+                if (sec) { section = trim(sec[1]); sectionOpen = true; return; }
 
                 var f = splitFields(raw);
                 var pathText = trim(f[0]);
@@ -262,6 +282,11 @@
                 var absolute = pathText.indexOf('\\\\') === 0;
                 var full = absolute ? pathText : (base ? base + '|' + pathText : '');
                 var range = parseRange(f[3]);
+                var control = PVX.entry.parse(f[4]);
+                var ctlError = control.error;
+                if (!ctlError && control.kind === 'slider' && (range.min === null || range.max === null)) {
+                    ctlError = 'a slider needs a min:max range in the fourth field';
+                }
 
                 out.push({
                     key: 'r' + out.length,
@@ -279,10 +304,22 @@
                         message: 'This row is a relative attribute name, but no element path is set.',
                         check: 'ElementPath'
                     },
+                    // Kept apart from error, which the path lookup clears:
+                    // a row whose path resolves but whose control cannot be
+                    // read must still not be written.
+                    ctlError: ctlError ? {
+                        message: 'Control: ' + ctlError + '.',
+                        check: 'the fifth field of this row',
+                        short: 'bad control'
+                    } : null,
+                    control: control,
+                    section: section,
+                    sectionStart: sectionOpen,
                     current: null,
                     status: '',
                     note: ''
                 });
+                sectionOpen = false;
             });
             return out;
         }
@@ -291,9 +328,13 @@
         function rowSignature(rows, cfg) {
             var parts = [];
             for (var i = 0; i < rows.length; i++) {
-                parts.push(rows[i].path + '\u0002' + rows[i].label + '\u0002' + rows[i].units);
+                var c = rows[i].control;
+                parts.push(rows[i].path + '\u0002' + rows[i].label + '\u0002' + rows[i].units + '\u0002' +
+                    c.kind + ':' + c.step + ':' + c.wide + ':' + c.choices.map(function (x) { return x.value + '=' + x.label; }).join('/') +
+                    '\u0002' + rows[i].min + ':' + rows[i].max + '\u0002' + (rows[i].sectionStart ? rows[i].section : ''));
             }
-            return parts.join('\u0003') + '||' + (cfg.TimestampMode === 'perRow' ? 'per' : 'one');
+            return parts.join('\u0003') + '||' + (cfg.TimestampMode === 'perRow' ? 'per' : 'one') +
+                '||' + (isForm(cfg) ? 'form' : 'list');
         }
 
         /* ================================================================ *
@@ -388,6 +429,7 @@
                     if (!v) { continue; }
                     var raw = unwrap(v.Value);
                     rows[k].current = {
+                        raw: raw,
                         display: displayValue(raw, cfg),
                         timestamp: v.Timestamp,
                         good: v.Good !== false
@@ -607,7 +649,7 @@
         function writableCount() {
             var c = 0;
             for (var i = 0; i < state.rows.length; i++) {
-                if (state.rows[i].webId) { c += 1; }
+                if (state.rows[i].webId && !state.rows[i].ctlError) { c += 1; }
             }
             return c;
         }
@@ -635,8 +677,46 @@
                 var text = trim(r.typed);
                 if (!text) { continue; }               // blank rows are simply not sent
 
+                if (r.ctlError) {
+                    errors.push({ index: i, text: r.label + ': ' + r.ctlError.message });
+                    continue;
+                }
                 if (!r.webId) {
                     errors.push({ index: i, text: r.label + ': this row did not resolve, so it cannot be written.' });
+                    continue;
+                }
+
+                var stamp = setStamp.iso;
+                if (perRow) {
+                    var rs = resolveStamp(r.typedStamp, false);
+                    if (!rs.ok) {
+                        errors.push({ index: i, text: r.label + ': ' + rs.error + '.' });
+                        continue;
+                    }
+                    stamp = rs.iso;
+                }
+
+                var kind = r.control.kind;
+                if (kind === 'text') {
+                    writes.push(writeOf(r, i, r.typed, stamp, text));
+                    continue;
+                }
+                if (r.control.choices.length) {
+                    // Picked from a list, but checked against it anyway: the
+                    // list can be edited while a choice is still in the row.
+                    var found = null;
+                    for (var c = 0; c < r.control.choices.length; c++) {
+                        if (PVX.entry.same(r.control.choices[c].value, text)) { found = r.control.choices[c]; }
+                    }
+                    if (!found) {
+                        errors.push({ index: i, text: r.label + ': "' + text + '" is not one of its choices.' });
+                        continue;
+                    }
+                    // A plain switch writes True/False; choices that are all
+                    // numbers write numbers; anything else is a state name.
+                    var wv = r.control.plain ? (found.value === 'True')
+                        : (PVX.entry.numericChoices(r.control.choices) ? parseFloat(found.value) : found.value);
+                    writes.push(writeOf(r, i, wv, stamp, found.label));
                     continue;
                 }
 
@@ -661,29 +741,23 @@
                     continue;
                 }
 
-                var stamp = setStamp.iso;
-                if (perRow) {
-                    var rs = resolveStamp(r.typedStamp, false);
-                    if (!rs.ok) {
-                        errors.push({ index: i, text: r.label + ': ' + rs.error + '.' });
-                        continue;
-                    }
-                    stamp = rs.iso;
-                }
-
-                writes.push({
-                    key: r.key,
-                    index: i,
-                    webId: r.webId,
-                    value: value,
-                    timestamp: stamp,
-                    label: r.label,
-                    units: r.units,
-                    display: PVX.fmt.number(value, { decimals: cfg.Decimals })
-                });
+                writes.push(writeOf(r, i, value, stamp, PVX.fmt.number(value, { decimals: cfg.Decimals })));
             }
 
             return { ok: errors.length === 0 && writes.length > 0, writes: writes, errors: errors };
+        }
+
+        function writeOf(r, i, value, stamp, display) {
+            return {
+                key: r.key,
+                index: i,
+                webId: r.webId,
+                value: value,
+                timestamp: stamp,
+                label: r.label,
+                units: r.units,
+                display: display
+            };
         }
 
         /* ================================================================ *
@@ -820,7 +894,8 @@
                         // Clear only the rows that ACTUALLY saved. Clearing a
                         // failed row would throw away a reading the operator
                         // still has to send, and they may no longer remember it.
-                        if (cfg.ClearAfterSubmit !== false) {
+                        var picked = PICKED[state.rows[w.index].control.kind];
+                        if (cfg.ClearAfterSubmit !== false || picked) {
                             state.rows[w.index].typed = '';
                             state.rows[w.index].typedStamp = '';
                             if (ui && ui.rowNodes[w.index] && ui.rowNodes[w.index].input) {
@@ -978,22 +1053,53 @@
 
             ui.rows.innerHTML = '';
             ui.rowNodes = [];
+            ui.grids = [];
             var perRow = trim(cfg.TimestampMode) === 'perRow';
+            var form = isForm(cfg);
+            var parent = ui.rows;
 
             for (var i = 0; i < state.rows.length; i++) {
                 var r = state.rows[i];
-                var node = el('div', 'pvx-etable-row', ui.rows);
+
+                // A section is a heading in the list, and a heading over its
+                // own grid in the form, so a wide field never straddles two.
+                if (r.sectionStart || (form && i === 0)) {
+                    if (form) {
+                        var sec = el('div', 'pvx-etable-sec', ui.rows);
+                        if (r.section) { setText(el('div', 'pvx-etable-section', sec), r.section); }
+                        parent = el('div', 'pvx-etable-grid', sec);
+                        ui.grids.push(parent);
+                    } else if (r.section) {
+                        setText(el('div', 'pvx-etable-section', ui.rows), r.section);
+                    }
+                }
+
+                var node = el('div', 'pvx-etable-row', parent);
+                if (r.control.wide) { node.setAttribute('data-wide', 'yes'); }
 
                 var label = el('label', 'pvx-etable-c-label', node);
                 var current = el('span', 'pvx-etable-c-current pvx-num', node);
                 var wrap = el('span', 'pvx-etable-c-input', node);
-                var input = el('input', 'pvx-etable-input', wrap);
-                input.type = 'number';
-                // 'any', or a browser silently refuses decimals on the default
-                // integer step, before validateAll() ever sees the text.
-                input.setAttribute('step', 'any');
-                input.id = PVX.util.uid('pvx-et-in');
-                label.setAttribute('for', input.id);
+                var ctl = PVX.entry.build({
+                    kind: r.control.kind,
+                    parent: wrap,
+                    inputClass: 'pvx-etable-input',
+                    min: r.min,
+                    max: r.max,
+                    step: r.control.step,
+                    choices: r.control.choices,
+                    listen: on,
+                    format: function (v) {
+                        var n = PVX.util.num(v);
+                        return n === null ? String(v) : PVX.fmt.number(n, { decimals: liveCfg.Decimals });
+                    },
+                    onPick: function () { onRowInput(); }
+                });
+                var input = ctl.input;
+                if (ctl.focus) {
+                    ctl.focus.id = PVX.util.uid('pvx-et-in');
+                    label.setAttribute('for', ctl.focus.id);
+                }
                 if (r.typed) { input.value = r.typed; }
 
                 var stamp = null;
@@ -1007,14 +1113,16 @@
 
                 var status = el('span', 'pvx-etable-c-status', node);
 
-                // Enter anywhere in the sheet submits — the operator's hands are
-                // on the keyboard, not the mouse.
-                on(input, 'keydown', onRowKey);
-                on(input, 'input', onRowInput);
+                if (!PICKED[r.control.kind]) {
+                    // Enter anywhere in the sheet submits — the operator's
+                    // hands are on the keyboard, not the mouse.
+                    on(input, 'keydown', onRowKey);
+                    on(input, 'input', onRowInput);
+                }
 
                 ui.rowNodes.push({
                     node: node, label: label, current: current,
-                    input: input, stamp: stamp, status: status
+                    input: input, ctl: ctl, stamp: stamp, status: status
                 });
             }
         }
@@ -1121,12 +1229,23 @@
             var wantCurrent = cfg.ShowCurrentValues !== false && rootW >= CURRENT_W;
             var wantStatus = cfg.ShowRowStatus !== false && rootW >= STATUS_W;
 
+            var form = isForm(cfg);
+            ui.form.setAttribute('data-layout', form ? 'form' : 'list');
+            if (form) {
+                // Fewer columns than asked for when the symbol is too narrow
+                // for them: a cell under about 170px cannot hold a label and
+                // a control side by side with the reading under them.
+                var cols = Math.max(1, Math.min(intIn(cfg.FormColumns, 1, 6, 2), Math.floor((rootW - 16) / 170)));
+                for (var g = 0; g < ui.grids.length; g++) {
+                    ui.grids[g].style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+                }
+            }
             ui.form.setAttribute('data-compact', compact ? 'yes' : 'no');
             ui.form.setAttribute('data-current', wantCurrent ? 'yes' : 'no');
             ui.form.setAttribute('data-status', wantStatus ? 'yes' : 'no');
 
             // The column header earns its line only when there is height for it.
-            show(ui.head, !compact && rootH >= 200);
+            show(ui.head, !form && !compact && rootH >= 200);
 
             var resolving = state.phase === 'resolving';
             var i;
@@ -1138,25 +1257,31 @@
                 setText(n.label, r.label + (r.units ? ' (' + r.units + ')' : ''));
                 n.label.setAttribute('title', r.path || r.label);
 
-                if (r.error) {
+                var bad = r.error || r.ctlError;
+                if (bad) {
                     // A bad row says so in its own status cell and is left
                     // un-writable; the other rows carry on working.
                     setText(n.current, '');
-                    setText(n.status, 'no path');
+                    setText(n.status, bad.short || 'no path');
                     n.node.setAttribute('data-status', 'error');
-                    n.input.disabled = true;
-                    n.input.setAttribute('title', r.error.message + '  Check: ' + r.error.check);
+                    n.ctl.sync({ current: null, disabled: true });
+                    n.input.setAttribute('title', bad.message + '  Check: ' + bad.check);
+                    n.node.setAttribute('title', bad.message + '  Check: ' + bad.check);
                 } else {
-                    setText(n.current, r.current ? r.current.display : (resolving ? '\u2026' : '--'));
+                    n.node.removeAttribute('title');
+                    setText(n.current, r.current ? captionOf(r, r.current) : (resolving ? '\u2026' : '--'));
                     setText(n.status, r.note || '');
                     n.node.setAttribute('data-status', r.status || '');
-                    n.input.disabled = state.busy || preview;
+                    n.ctl.sync({ current: r.current ? r.current.raw : null, disabled: state.busy || preview });
                     n.input.setAttribute('title',
                         r.min !== null || r.max !== null
                             ? rangeText(r) : (r.path || ''));
-                    n.input.setAttribute('placeholder', rangeText(r) || '');
-                    if (r.min !== null) { n.input.setAttribute('min', r.min); } else { n.input.removeAttribute('min'); }
-                    if (r.max !== null) { n.input.setAttribute('max', r.max); } else { n.input.removeAttribute('max'); }
+                    var k = r.control.kind;
+                    if (k === 'number' || k === 'stepper') {
+                        n.input.setAttribute('placeholder', rangeText(r) || '');
+                        if (r.min !== null) { n.input.setAttribute('min', r.min); } else { n.input.removeAttribute('min'); }
+                        if (r.max !== null) { n.input.setAttribute('max', r.max); } else { n.input.removeAttribute('max'); }
+                    }
                 }
                 if (n.stamp) { n.stamp.disabled = state.busy || preview; }
                 if (r.failDetail && r.status === 'failed') {
@@ -1226,6 +1351,15 @@
             }
         }
 
+        /** The value now, by its caption when the row lists one for it. */
+        function captionOf(r, cur) {
+            var list = r.control.choices;
+            for (var i = 0; i < list.length; i++) {
+                if (PVX.entry.same(list[i].value, cur.raw)) { return list[i].label; }
+            }
+            return cur.display;
+        }
+
         function rangeText(r) {
             if (r.min !== null && r.max !== null) { return r.min + ' to ' + r.max; }
             if (r.min !== null) { return 'min ' + r.min; }
@@ -1276,6 +1410,7 @@
             n.style.setProperty('--pvx-ok', PVX.color.status.normal);
             n.style.setProperty('--pvx-warn', PVX.color.status.warning);
             n.style.setProperty('--pvx-alarm', PVX.color.status.alarm);
+            n.style.setProperty('--pvx-ctl-accent', cfg.AccentColor || '#3b82c4');
         }
 
         function digest() {

@@ -239,7 +239,7 @@ npm run verify
 
 `PVX_CHROMIUM` is honoured by `verify.js`, `probe.js`, `test-api.js`,
 `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`,
-`test-overview.js`, `test-charts.js`, `test-overlay.js` and `test-alarms.js`. Note
+`test-overview.js`, `test-charts.js`, `test-overlay.js`, `test-alarms.js` and `test-entry.js`. Note
 that it removes the *browser download*, not the package — `require('playwright')`
 still needs the module present.
 

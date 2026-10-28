@@ -820,6 +820,8 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `CornerRadius` | `6` | *(shared)* |
 | `Title` | `"Shift log"` |  |
 | `Rows` | `""` |  |
+| `Layout` | `"list"` | list \| form |
+| `FormColumns` | `2` |  |
 | `ElementPath` | `""` |  |
 | `ShowCurrentValues` | `true` |  |
 | `RefreshSeconds` | `60` |  |
@@ -1276,6 +1278,14 @@ symbol selector (see the definition). This symbol does not read PI Vision's data
 | `InputType` | `"number"` | number \| text \| digital \| boolean |
 | `DigitalStates` | `""` | comma separated, for InputType digital |
 | `Units` | `""` |  |
+| `Control` | `"field"` | field \| stepper \| slider \| switch \| buttons \| value |
+| `StepSize` | `"1"` | stepper and slider |
+| `SwitchOffLabel` | `""` | blank = the state's own name |
+| `SwitchOnLabel` | `""` |  |
+| `WriteOnChange` | `false` |  |
+| `PressValue` | `""` |  |
+| `ResetValue` | `""` |  |
+| `ResetSeconds` | `2` |  |
 | `MinValue` | `""` |  |
 | `MaxValue` | `""` |  |
 | `RequireConfirm` | `true` |  |

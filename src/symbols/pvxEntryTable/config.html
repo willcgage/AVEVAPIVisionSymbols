@@ -24,9 +24,30 @@
 
         <div class="pvx-cfg-hint">
             <strong>Grammar</strong><br />
-            <code>path | label | units | min:max</code><br />
+            <code>path | label | units | min:max | control</code><br />
             Only the path is required; drop any field from the right. To skip a field but keep a later
             one, leave it empty: <code>Bed Temp | | degC</code>.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>Controls</strong> (the fifth field; blank is a number box):<br />
+            <code>stepper</code> or <code>stepper:0.5</code> &mdash; a number box with &minus; and + buttons<br />
+            <code>slider</code> or <code>slider:5</code> &mdash; needs the <code>min:max</code> field<br />
+            <code>switch</code> &mdash; writes False/True; <code>switch:Stopped/Running</code> writes those
+            two states, off first; <code>switch:0=Off/1=On</code> writes 0 or 1 with those captions<br />
+            <code>buttons:Low/Normal/High</code> &mdash; a button per choice; <code>select:A/B/C</code> &mdash; a dropdown<br />
+            <code>text</code> &mdash; free text<br />
+            Add <code>wide</code> to give a row the full width in the form layout:
+            <code>Shift Notes | Notes | | | text wide</code>.
+            Choices that are all numbers are written as numbers; any other choice is written as the
+            state name. A switch or a row of buttons shows the value PI holds now until somebody picks
+            one, and a pick not yet written is outlined. A control the symbol cannot read is marked
+            <em>bad control</em> on its row, and that row is never written.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>Sections.</strong> A line in square brackets, <code>[Pump house]</code>, starts a
+            section: a heading in the list, and its own block in the form.
         </div>
 
         <div class="pvx-cfg-hint">
@@ -64,6 +85,27 @@
             PI Web API on this PI Vision server needs no setup. If the symbol says it cannot reach PI Web API,
             open <code>ext/piwebapi-check.html</code>, which says what to change.
             <strong>Who may write is decided by PI and AF security, not by this symbol.</strong>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Layout</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-layout">Layout</label>
+            <select id="pvxet-layout" ng-model="config.Layout">
+                <option value="list">List: a line per reading</option>
+                <option value="form">Form: readings in columns</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Layout === 'form'">
+            <label for="pvxet-cols">Columns</label>
+            <input id="pvxet-cols" type="number" ng-model="config.FormColumns" min="1" max="6" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Layout === 'form'">
+            Each reading becomes a box with its label, its control, the value now and the result.
+            When the symbol is too narrow for this many columns it uses fewer: a box needs about
+            170 pixels. The single timestamp and the submit button stay under the whole form.
         </div>
     </div>
 
