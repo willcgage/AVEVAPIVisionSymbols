@@ -538,7 +538,7 @@
 .pvx-cfg-band-warn { opacity: 0.9; }
 
 /* Digital state map editor, expanded from <!-- pvx:states --> markers. A map
-   row needs state, severity, colour and label, which do not fit one line of
+   row needs state, severity, color and label, which do not fit one line of
    a 260px pane, so the label takes a second line under the rest. */
 .pvx-cfg-st-row {
     display: flex;
@@ -753,7 +753,7 @@
 
 /* --- quick trend panel (PVX.trend) --------------------------------------- *
  * On document.body, outside every symbol, so it is namespaced .pvx-qt and
- * takes its colours from the symbol that opened it. */
+ * takes its colors from the symbol that opened it. */
 
 .pvx-qt {
     --pvx-qt-surface: #ffffff;
@@ -912,7 +912,7 @@
 
 /* --- entry controls (PVX.entry): Manual Entry and the Shift Log ---------- *
  * Real buttons and inputs, sized to be hit with a gloved finger on a panel
- * PC. --pvx-ctl-accent is set by the symbol from its button colour. */
+ * PC. --pvx-ctl-accent is set by the symbol from its button color. */
 
 .pvx .pvx-ctl {
     display: inline-flex;
@@ -1015,7 +1015,7 @@
     color: #ffffff;
     position: relative;
 }
-/* Picked but not yet written: outlined in the warning colour, so a flipped
+/* Picked but not yet written: outlined in the warning color, so a flipped
    switch is not taken for the state of the plant. */
 .pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-sw,
 .pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-range,

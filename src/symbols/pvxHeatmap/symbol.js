@@ -14,7 +14,7 @@
  *              when" view.
  *
  *   density  — one data source. Columns are equal time slices, rows are bins
- *              of the tag's OWN value, and a cell's colour is the share of
+ *              of the tag's OWN value, and a cell's color is the share of
  *              that slice the tag spent in that bin. A trend shows a line; this
  *              shows where the line lives. A valve hunting between two
  *              positions is two bands, a pressure that moved after a change
@@ -24,7 +24,7 @@
  * The pipeline is deliberately split into pure steps so the output is a
  * function of (data, config) alone and never of render order:
  *
- *   PVX.data.series -> buildGrid (rows/cols/buckets) -> aggregate -> colour
+ *   PVX.data.series -> buildGrid (rows/cols/buckets) -> aggregate -> color
  *   -> draw
  *
  * buildGrid materialises every bucket up front, including the ones no point
@@ -71,7 +71,7 @@
 
                 // --- shape -----------------------------------------------
                 Mode: 'calendar',            // calendar | matrix | density
-                RowColors: false,            // matrix: each tag its own colour, scaled to its own range
+                RowColors: false,            // matrix: each tag its own color, scaled to its own range
                 Aggregate: 'avg',            // avg | max | min | last | range | count
                 BucketCount: 24,             // matrix + density: number of time columns
                 ValueBins: 20,               // density: number of value rows
@@ -79,7 +79,7 @@
                 ValueMax: '',                // density: blank => data maximum
                 Title: '',                   // blank => attribute label
 
-                // --- colour ----------------------------------------------
+                // --- color ----------------------------------------------
                 ColorScale: 'sequential',    // sequential | diverging | thresholds | custom
                 CustomLowColor: '#e8f0f7',
                 CustomHighColor: '#0d3b66',
@@ -552,7 +552,7 @@
             return grid;
         }
 
-        /** A row's own scale: from a faint tint at its low to its colour at its high. */
+        /** A row's own scale: from a faint tint at its low to its color at its high. */
         function rowColorFn(col, faint, lo, hi) {
             var start = PVX.color.mix(faint, col, 0.12);
             return function (v) {
@@ -582,7 +582,7 @@
             return grid;
         }
 
-        /** Colour domain: data extent, overridden by ScaleMin / ScaleMax. */
+        /** Color domain: data extent, overridden by ScaleMin / ScaleMax. */
         function colorDomain(grid, cfg) {
             var lo = grid.dataMin, hi = grid.dataMax;
             if (lo === null) { lo = 0; hi = 1; }
@@ -595,7 +595,7 @@
         }
 
         /**
-         * Density colour domain: 0 % up to the busiest cell, unless the
+         * Density color domain: 0 % up to the busiest cell, unless the
          * operator fixed it. Starting at zero matters — a scale that starts at
          * the quietest cell would paint "almost never" as if it were "never".
          */
@@ -608,7 +608,7 @@
             return [lo, hi];
         }
 
-        /** The config as the colour code should see it in density mode. */
+        /** The config as the color code should see it in density mode. */
         function densityCfg(cfg) {
             var out = {};
             for (var k in cfg) {
@@ -620,7 +620,7 @@
         }
 
         /**
-         * value -> colour. Returns a plain function so the legend can sample
+         * value -> color. Returns a plain function so the legend can sample
          * exactly the same mapping the cells use.
          */
         function makeColorFn(cfg, t, domain) {
@@ -631,10 +631,10 @@
 
             // In density mode the cell value is a percentage of time, and a
             // threshold band is a statement about the tag's value — applying
-            // one to the other would colour by a meaningless number.
+            // one to the other would color by a meaningless number.
             if (kind === 'thresholds' && !cfg.__density) {
-                // Discrete by definition: no interpolation, the band colour is
-                // the cell colour.
+                // Discrete by definition: no interpolation, the band color is
+                // the cell color.
                 return function (v) {
                     return PVX.thresholds.colorFor(cfg.Thresholds, v, t.track);
                 };
@@ -788,8 +788,8 @@
 
             scope.pvx.range = PVX.fmt.tick(domain[0]) + unitSuffix + ' → ' + PVX.fmt.tick(domain[1]) + unitSuffix;
 
-            // One colour per tag: tags in different units share no scale, so
-            // each row runs from a pale tint to its own palette colour over
+            // One color per tag: tags in different units share no scale, so
+            // each row runs from a pale tint to its own palette color over
             // its own range. A single legend would then be a lie; the range
             // goes in each row's tooltips and the footer says why it is gone.
             var rowFns = null;
@@ -809,7 +809,7 @@
                     grid.rows[rr].range = rlo === null ? '' : PVX.fmt.tick(rlo) + ' – ' + PVX.fmt.tick(rhi);
                 }
                 scope.pvx.range = '';
-                scope.pvx.note = (scope.pvx.note ? scope.pvx.note + ' ' : '') + 'Each row coloured over its own range.';
+                scope.pvx.note = (scope.pvx.note ? scope.pvx.note + ' ' : '') + 'Each row colored over its own range.';
             }
 
             // ---- layout --------------------------------------------------
@@ -893,7 +893,7 @@
 
                 if (showValues && has) {
                     // A sliver of time rounds to "0.0%", which reads as "never"
-                    // on a cell that is coloured precisely because it was not.
+                    // on a cell that is colored precisely because it was not.
                     var txt = (grid.density && b.value < 0.05)
                         ? '<0.1%'
                         : PVX.fmt.number(b.value, numOpts) + unitSuffix;
@@ -978,9 +978,9 @@
         /**
          * Continuous scales get a gradient bar with min/mid/max labels;
          * 'thresholds' gets discrete swatches, because interpolating between
-         * band colours would imply values the scale does not actually produce.
+         * band colors would imply values the scale does not actually produce.
          *
-         * The bar is built from adjacent slices sampled off the same colour
+         * The bar is built from adjacent slices sampled off the same color
          * function the cells use — no <linearGradient>, hence no defs id to
          * collide with other instances of the symbol on the same display.
          */

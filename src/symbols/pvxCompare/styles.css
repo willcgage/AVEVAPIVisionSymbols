@@ -1,6 +1,6 @@
 /* pvxCompare — "PVX Condition Compare"
  * Only the chrome (header, footer, SVG host) is styled here. Histogram and
- * score colours all come from the runtime theme tokens, never from
+ * score colors all come from the runtime theme tokens, never from
  * CSS, so the same stylesheet works on light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */
@@ -79,7 +79,7 @@
     letter-spacing: 0.01em;
 }
 
-/* Hover thickens the selection outline rather than recolouring, so the two
+/* Hover thickens the selection outline rather than recoloring, so the two
    distributions keep their meaning while the row is under the pointer. */
 .pvx-cmp .pvx-cmp-row:hover .pvx-cmp-sel {
     stroke-width: 2.5;

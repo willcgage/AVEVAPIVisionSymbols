@@ -96,7 +96,7 @@
         </div>
         <div class="pvx-cfg-hint" ng-if="!config.Mode || config.Mode === 'band'">
             Deviation around a zero baseline with the tolerance band shaded and excursions
-            coloured.
+            colored.
         </div>
         <div class="pvx-cfg-hint" ng-if="config.Mode === 'bars'">
             One bar per sample from the zero baseline. Reads better than a line for sparse or
@@ -128,7 +128,7 @@
             <input id="pvxdev-maxseries" type="number" ng-model="config.MaxSeries" min="1" max="12" />
         </div>
         <div class="pvx-cfg-hint">
-            Beyond a handful of traces the excursions overlap into one colour. Extra sources are
+            Beyond a handful of traces the excursions overlap into one color. Extra sources are
             dropped and counted in the footer.
         </div>
         <div class="pvx-cfg-row">
@@ -138,7 +138,7 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxdev-bandcolor">Tolerance band</label>
@@ -161,9 +161,9 @@
             <input id="pvxdev-low" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LowColor" />
         </div>
         <div class="pvx-cfg-hint">
-            High and low are deliberately different colours: running hot and running cold are
+            High and low are deliberately different colors: running hot and running cold are
             different problems, and nobody should have to read the axis to tell them apart.
-            With more than one source the in-tolerance colour gives way to the palette so the
+            With more than one source the in-tolerance color gives way to the palette so the
             traces stay distinguishable.
         </div>
     </div>
@@ -262,7 +262,7 @@
             <input id="pvxdev-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxdev-bgcolor">Background colour</label>
+            <label for="pvxdev-bgcolor">Background color</label>
             <input id="pvxdev-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

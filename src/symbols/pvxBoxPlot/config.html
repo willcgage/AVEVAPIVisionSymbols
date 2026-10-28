@@ -210,15 +210,15 @@
         <div class="pvx-cfg-legend">Appearance</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxbox-colormode">Colour mode</label>
+            <label for="pvxbox-colormode">Color mode</label>
             <select id="pvxbox-colormode" ng-model="config.ColorMode">
-                <option value="single">Single colour</option>
+                <option value="single">Single color</option>
                 <option value="palette">Palette per box</option>
                 <option value="threshold">By median vs thresholds</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbox-color">Box colour</label>
+            <label for="pvxbox-color">Box color</label>
             <input id="pvxbox-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BoxColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -234,7 +234,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbox-accent">Accent colour</label>
+            <label for="pvxbox-accent">Accent color</label>
             <input id="pvxbox-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -250,7 +250,7 @@
             <input id="pvxbox-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbox-bgcolor">Background colour</label>
+            <label for="pvxbox-bgcolor">Background color</label>
             <input id="pvxbox-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
@@ -266,7 +266,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Used by the "by median" colour mode, always against the real engineering value even when the axis is normalised.</div>
+        <div class="pvx-cfg-hint">Used by the "by median" color mode, always against the real engineering value even when the axis is normalised.</div>
     </div>
 
 </div>

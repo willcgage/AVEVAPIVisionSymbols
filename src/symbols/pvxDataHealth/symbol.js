@@ -314,7 +314,7 @@
             return st.warning;
         }
 
-        /* Status colours are mid-tones chosen for fills. As text on a light
+        /* Status colors are mid-tones chosen for fills. As text on a light
          * surface several fall under 4.5:1, so darken them there. */
         function textColor(c, t) {
             return t.dark ? c : PVX.color.mix(c, '#000000', 0.38);
@@ -519,9 +519,9 @@
             return endTime !== null ? endTime : Date.now();
         }
 
-        function emptyBox(headline, detail, colour, check) {
+        function emptyBox(headline, detail, color, check) {
             var box = div('pvx-health-empty');
-            box.style.color = colour;
+            box.style.color = color;
             if (check) {
                 var tick = document.createElement('span');
                 tick.className = 'pvx-health-check';

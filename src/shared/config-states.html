@@ -29,12 +29,12 @@
                               ng-style="{'background-color': ed.bandColor(r, config.Thresholds)}"></span>
                         <select class="pvx-cfg-st-sev" ng-if="ed.kind !== 'list' && ed.kind !== 'bands'" ng-model="r.severity"
                                 ng-change="ed.setSeverity(r, config)" aria-label="Severity of state {{$index + 1}}"
-                                title="Sets the colour from the shared status palette">
+                                title="Sets the color from the shared status palette">
                             <option value="">Custom</option>
                             <option ng-repeat="s in runtimeData.pvxStates.severities track by s.name" value="{{s.name}}">{{s.name}}</option>
                         </select>
                         <input type="color" ng-model-options="{ updateOn: 'change' }" class="pvx-cfg-st-color" ng-if="ed.kind !== 'list' && ed.kind !== 'bands'" ng-model="r.hex"
-                               ng-change="ed.setColor(r, config)" aria-label="Colour of state {{$index + 1}}" title="{{r.color}}" />
+                               ng-change="ed.setColor(r, config)" aria-label="Color of state {{$index + 1}}" title="{{r.color}}" />
                         <button type="button" class="pvx-cfg-band-x" ng-click="ed.remove($index, config)"
                                 title="Remove this state" aria-label="Remove state {{$index + 1}}">&times;</button>
                         <input type="text" class="pvx-cfg-st-label" ng-if="ed.kind === 'map'" ng-model="r.label"

@@ -17,9 +17,9 @@
  *     aria-pressed for free; a pile of styled <div>s would not.
  *   - ONE delegated click listener lives on the host, not one per button, so a
  *     50-button panel still costs a single listener and teardown is trivial.
- *   - The DOM is rebuilt only when the Items text or the Mode changes. Colour,
+ *   - The DOM is rebuilt only when the Items text or the Mode changes. Color,
  *     layout, size and active-state changes are applied to the existing nodes,
- *     so dragging a colour picker in the config pane does not thrash the DOM
+ *     so dragging a color picker in the config pane does not thrash the DOM
  *     (and does not blow away an in-flight "Confirm?" state).
  * ==========================================================================*/
 (function (PV) {
@@ -991,7 +991,7 @@
             set('--pvx-nav-on-confirm', PVX.color.readable(confirm));
 
             // Translucent tints for ghost/outline hover, derived from the button
-            // colour so they work on light and dark surfaces alike.
+            // color so they work on light and dark surfaces alike.
             set('--pvx-nav-tint', PVX.color.rgba(base, 0.14));
             set('--pvx-nav-tint-strong', PVX.color.rgba(base, 0.26));
             set('--pvx-nav-focus', PVX.color.rgba(base, 0.55));

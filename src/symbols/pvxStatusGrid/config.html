@@ -1,15 +1,15 @@
 <div class="c-config-content pvx-cfg">
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxgrid-colorsrc">Colour from</label>
+            <label for="pvxgrid-colorsrc">Color from</label>
             <select id="pvxgrid-colorsrc" ng-model="config.ColorSource">
                 <option value="thresholds">Threshold bands</option>
                 <option value="stateMap">Digital state map</option>
                 <option value="quality">Data quality only</option>
-                <option value="none">Accent colour only</option>
+                <option value="none">Accent color only</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
@@ -31,12 +31,12 @@
             <!-- pvx:states key=StateMap kind=map -->
         </div>
         <div class="pvx-cfg-hint">
-            One row per state: pick the state, a severity or colour, and optionally the
+            One row per state: pick the state, a severity or color, and optionally the
             label shown on the tile. Matching is exact and case-insensitive.
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxgrid-accent">Accent colour</label>
+            <label for="pvxgrid-accent">Accent color</label>
             <input id="pvxgrid-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for tiles no band or state matches.</div>
@@ -210,7 +210,7 @@
             <input id="pvxgrid-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxgrid-bgcolor">Background colour</label>
+            <label for="pvxgrid-bgcolor">Background color</label>
             <input id="pvxgrid-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

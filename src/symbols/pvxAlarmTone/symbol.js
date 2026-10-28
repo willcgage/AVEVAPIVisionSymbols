@@ -470,7 +470,7 @@
             }
         }
 
-        /** A speaker, with sound waves or a cross. Drawn, so it takes the state's colour. */
+        /** A speaker, with sound waves or a cross. Drawn, so it takes the state's color. */
         function speaker(col, muted) {
             var NS = 'http://www.w3.org/2000/svg';
             var svg = document.createElementNS(NS, 'svg');

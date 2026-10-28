@@ -86,7 +86,7 @@
                 OtherLabel: 'Other',
                 OtherColor: '#8a8f96',
 
-                // --- colour ------------------------------------------
+                // --- color ------------------------------------------
                 ColorMode: 'palette',      // palette | threshold | single
                 SingleColor: '#3b82c4',
 
@@ -420,14 +420,14 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         function sliceColor(slice, idx, cfg, t) {
             if (slice.isOther) { return cfg.OtherColor || '#8a8f96'; }
             switch (cfg.ColorMode) {
                 case 'threshold':
-                    // Falls back to the flat colour when thresholds are off, so
+                    // Falls back to the flat color when thresholds are off, so
                     // the mode never silently paints the whole ring one band.
                     return cfg.UseThresholds
                         ? PVX.thresholds.colorFor(cfg.Thresholds, slice.value, cfg.SingleColor || '#3b82c4')
@@ -442,8 +442,8 @@
 
         /**
          * Hatched fill for bad quality. Operators must see at a glance that a
-         * slice's size is not trustworthy, and a solid slice in a "stale" colour
-         * still reads as a real measurement. One pattern per colour per render;
+         * slice's size is not trustworthy, and a solid slice in a "stale" color
+         * still reads as a real measurement. One pattern per color per render;
          * ids are unique so several symbol instances cannot collide.
          */
         function hatchFor(defs, cache, fill) {
@@ -640,7 +640,7 @@
             var font = PVX.util.clamp(Math.round(Math.min(W, H) / 22), 8, 12);
             var pad = 5;
 
-            // Colours resolved once: the ring, the legend and the labels must
+            // Colors resolved once: the ring, the legend and the labels must
             // agree, and palette indices follow display order.
             var colors = [];
             for (i = 0; i < n; i++) { colors.push(sliceColor(slices[i], i, cfg, t)); }

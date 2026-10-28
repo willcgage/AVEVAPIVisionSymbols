@@ -4,7 +4,7 @@
             <div class="pvx-cfg-bands" ng-if="runtimeData.pvxBandsFor.__KEY__ && !runtimeData.pvxBandsFor.__KEY__.textMode">
                 <div class="pvx-cfg-band-head">
                     <span class="pvx-cfg-band-v">From</span>
-                    <span class="pvx-cfg-band-c">Colour</span>
+                    <span class="pvx-cfg-band-c">Color</span>
                     <span class="pvx-cfg-band-l">Label</span>
                 </div>
                 <div class="pvx-cfg-band-row" ng-repeat="b in runtimeData.pvxBandsFor.__KEY__.rows track by $index"
@@ -14,7 +14,7 @@
                            aria-label="Lower limit of band {{$index + 1}}" title="Band applies from this value up to the next band" />
                     <input type="color" ng-model-options="{ updateOn: 'change' }" class="pvx-cfg-band-c" ng-model="b.hex"
                            ng-change="runtimeData.pvxBandsFor.__KEY__.setColor(b)"
-                           aria-label="Colour of band {{$index + 1}}" title="{{b.color}}" />
+                           aria-label="Color of band {{$index + 1}}" title="{{b.color}}" />
                     <input type="text" class="pvx-cfg-band-l" ng-model="b.label"
                            ng-change="runtimeData.pvxBandsFor.__KEY__.commit()" placeholder="Label"
                            aria-label="Label of band {{$index + 1}}" />
@@ -38,7 +38,7 @@
                 <textarea class="pvx-cfg-band-text" ng-model="config.__KEY__" rows="3"
                           placeholder="0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical"></textarea>
                 <div class="pvx-cfg-hint">
-                    <code>lowerLimit:colour:label</code>, comma separated.
+                    <code>lowerLimit:color:label</code>, comma separated.
                     <button type="button" class="pvx-cfg-band-link" ng-if="runtimeData.pvxBandsFor.__KEY__"
                             ng-click="runtimeData.pvxBandsFor.__KEY__.toggleText()">Back to fields</button>
                 </div>

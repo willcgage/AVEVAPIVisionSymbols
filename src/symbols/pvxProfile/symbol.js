@@ -608,7 +608,7 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         function pointColor(pt, cfg, t) {
@@ -617,7 +617,7 @@
             // most important thing on the chart and must never be repainted by a
             // threshold band that happens to call it normal.
             if (pt.outHigh || pt.outLow) { return cfg.LimitColor || PVX.color.status.alarm; }
-            // Threshold colouring still honours the shared UseThresholds switch,
+            // Threshold coloring still honours the shared UseThresholds switch,
             // so turning bands off anywhere turns them off here too.
             if (cfg.ColorPointsByThreshold && cfg.UseThresholds !== false) {
                 return PVX.thresholds.colorFor(cfg.Thresholds, pt.value, base);
@@ -626,7 +626,7 @@
         }
 
         /**
-         * Blank ShadowColor derives a muted version of the line colour: mixing
+         * Blank ShadowColor derives a muted version of the line color: mixing
          * toward the surface rather than toward grey keeps the reference profile
          * in the same hue family, so it reads as "the same measurement, earlier"
          * instead of as a second, unrelated series.
@@ -935,9 +935,9 @@
                 PVX.svg.el('path', {
                     d: pathFor(linePts, style),
                     fill: 'none',
-                    // The line keeps LineColor even when the points are coloured
+                    // The line keeps LineColor even when the points are colored
                     // by threshold: it encodes the SHAPE, and a line that changes
-                    // colour along its length reads as a change in the signal.
+                    // color along its length reads as a change in the signal.
                     stroke: lineColor,
                     'stroke-width': lineW,
                     'stroke-linejoin': 'round',
@@ -964,7 +964,7 @@
                         cx: xs[i].toFixed(2), cy: cy.toFixed(2),
                         r: r.toFixed(2),
                         // Bad quality draws HOLLOW. A solid marker in a "stale"
-                        // colour still reads as a real measurement; a ring reads
+                        // color still reads as a real measurement; a ring reads
                         // as "there is no trustworthy number here".
                         fill: pt.good ? col : (t.surface === 'transparent' ? 'none' : t.surface),
                         stroke: col,
@@ -979,7 +979,7 @@
                     }, markersG);
                 }
 
-                // Out-of-band points get a halo as well as the alarm colour, so
+                // Out-of-band points get a halo as well as the alarm color, so
                 // they survive being printed or screenshotted in greyscale.
                 if (pt.outHigh || pt.outLow) {
                     PVX.svg.el('circle', {

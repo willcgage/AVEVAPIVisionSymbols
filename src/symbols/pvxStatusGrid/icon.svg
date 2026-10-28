@@ -2,7 +2,7 @@
      role="img" aria-label="Status grid">
     <title>PVX Status Grid</title>
     <!-- Flat, transparent, no strokes: PI Vision renders symbol icons small and
-         monochrome-ish chrome, so the shape and the status colours have to carry
+         monochrome-ish chrome, so the shape and the status colors have to carry
          the meaning on their own. Four normal tiles, one warning, one alarm. -->
     <g>
         <rect x="40"  y="74"  width="128" height="170" rx="20" fill="#2f9e5f"/>

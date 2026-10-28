@@ -116,7 +116,7 @@
 .pvx-evl .pvx-evl-right { text-align: right; }
 
 /* A still-active event: a bar down its left edge in the status warning
-   colour, so it is found without reading the End column. */
+   color, so it is found without reading the End column. */
 .pvx-evl .pvx-evl-open td:first-child {
     box-shadow: inset 3px 0 0 var(--pvx-open);
 }

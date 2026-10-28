@@ -361,7 +361,7 @@
             without a line of its own, and <code>Total | target</code> the total card and row. A duration
             target is <code>4h</code>, <code>90m</code> or <code>1d</code>, or a bare number in the
             duration unit below (hours on Automatic). Targets add a mark on each bar, target and
-            &Delta; columns to the table, and a verdict on each card; <em>Colour bars by target</em>
+            &Delta; columns to the table, and a verdict on each card; <em>Color bars by target</em>
             makes the bars say it too. A line that cannot be read is counted in the footer.
         </div>
     </div>
@@ -390,16 +390,16 @@
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxea-colormode">Colour bars by</label>
+            <label for="pvxea-colormode">Color bars by</label>
             <select id="pvxea-colormode" ng-model="config.ColorMode">
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
                 <option value="palette">Palette per group</option>
                 <option value="threshold">Threshold bands</option>
                 <option value="target">Target (met or missed)</option>
             </select>
         </div>
         <div class="pvx-cfg-row" ng-if="config.ColorMode === 'single'">
-            <label for="pvxea-barcolor">Bar colour</label>
+            <label for="pvxea-barcolor">Bar color</label>
             <input id="pvxea-barcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BarColor" />
         </div>
         <div class="pvx-cfg-hint" ng-if="config.ColorMode === 'threshold'">
@@ -479,7 +479,7 @@
             <input id="pvxea-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxea-bgcolor">Background colour</label>
+            <label for="pvxea-bgcolor">Background color</label>
             <input id="pvxea-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

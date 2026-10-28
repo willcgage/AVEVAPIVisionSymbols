@@ -1,5 +1,5 @@
 /* ============================================================================
- * pvxGeoView — assets on a map, coloured by state or by value
+ * pvxGeoView — assets on a map, colored by state or by value
  * ----------------------------------------------------------------------------
  * DataShape: Table (multiple data sources), one marker per data source.
  *
@@ -17,7 +17,7 @@
  * longitude grid and the footer says how to add the map: a control room
  * display must not quietly fetch tiles from the internet.
  *
- * Colour follows the value: a digital state through StateMap, a number
+ * Color follows the value: a digital state through StateMap, a number
  * through the threshold bands. Drag to pan, the wheel or + and − to zoom,
  * the fit button to frame every marker again; none of these act while the
  * display is being edited, when a drag is PI Vision's to move the symbol.
@@ -51,7 +51,7 @@
                 LonAttribute: 'Longitude',
                 Locations: '',
 
-                // Colour
+                // Color
                 StateMap: '',
                 UseThresholds: true,
                 Thresholds: '',
@@ -78,7 +78,7 @@
             });
         },
 
-        // No bands until the operator sets some: a map coloured green by the
+        // No bands until the operator sets some: a map colored green by the
         // library's placeholder bands would claim a normal it was never told.
         limitsRequired: true
     };
@@ -231,10 +231,10 @@
         }
 
         /* ================================================================ *
-         * colour
+         * color
          * ================================================================ */
 
-        function colourOf(row, cfg, t) {
+        function colorOf(row, cfg, t) {
             if (!row.good) { return { color: PVX.color.status.stale || t.textMuted, label: 'Bad quality' }; }
             var text = PVX.states.text(row.raw);
             if (row.value === null && text) {
@@ -350,7 +350,7 @@
                 var mk = marks[m];
                 var p = PVX.geo.project(mk.lat, mk.lon, v.z);
                 var sx = p.x - x0, sy = p.y - y0;
-                var col = colourOf(mk.row, cfg, t);
+                var col = colorOf(mk.row, cfg, t);
                 var valText = mk.row.value !== null ? PVX.fmt.number(mk.row.value, PVX.config.numberOpts(cfg)) + unitsOf(mk.row) : PVX.states.text(mk.row.raw);
                 if (col.label && !legend[col.label]) { legend[col.label] = col.color; order.push(col.label); }
                 var g = PVX.svg.el('g', { 'class': 'pvx-geo-mark', 'data-index': String(m) }, svg);

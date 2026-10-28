@@ -104,7 +104,7 @@
         <div class="pvx-cfg-hint">
             Each band starts at its limit, in the speed's own units; set them for m/s, mph or knots as
             the tag reads. A band with no label is named by its range. Turned off, each sector is one
-            bar in the accent colour.
+            bar in the accent color.
         </div>
     </div>
 
@@ -124,7 +124,7 @@
             <input id="pvxwr-showlabel" type="checkbox" ng-model="config.ShowLabel" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxwr-accent">Accent colour</label>
+            <label for="pvxwr-accent">Accent color</label>
             <input id="pvxwr-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -132,7 +132,7 @@
             <input id="pvxwr-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxwr-bgcolor">Background colour</label>
+            <label for="pvxwr-bgcolor">Background color</label>
             <input id="pvxwr-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

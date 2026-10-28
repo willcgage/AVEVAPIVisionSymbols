@@ -86,12 +86,12 @@
             <input id="pvxcmp-showtitle" type="checkbox" ng-model="config.ShowLabel" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxcmp-selcolor">"When true" colour</label>
+            <label for="pvxcmp-selcolor">"When true" color</label>
             <input id="pvxcmp-selcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SelectionColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxcmp-basecolor">"Otherwise" colour</label>
-            <input id="pvxcmp-basecolor" type="text" ng-model="config.BaselineColor" placeholder="Accent colour" />
+            <label for="pvxcmp-basecolor">"Otherwise" color</label>
+            <input id="pvxcmp-basecolor" type="text" ng-model="config.BaselineColor" placeholder="Accent color" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxcmp-units">Show units</label>
@@ -116,7 +116,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxcmp-accent">Accent colour</label>
+            <label for="pvxcmp-accent">Accent color</label>
             <input id="pvxcmp-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -124,7 +124,7 @@
             <input id="pvxcmp-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxcmp-bgcolor">Background colour</label>
+            <label for="pvxcmp-bgcolor">Background color</label>
             <input id="pvxcmp-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

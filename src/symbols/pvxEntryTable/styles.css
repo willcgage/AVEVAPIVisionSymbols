@@ -174,8 +174,8 @@
 
 .pvx-etable .pvx-etable-input:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* Per-row outcome. Colour AND a word: colour alone is not a message, and a
-   colour-blind operator has to be able to read the same answer. */
+/* Per-row outcome. Color AND a word: color alone is not a message, and a
+   color-blind operator has to be able to read the same answer. */
 .pvx-etable .pvx-etable-row[data-status="saved"] .pvx-etable-c-status { color: var(--pvx-ok); font-weight: 600; }
 .pvx-etable .pvx-etable-row[data-status="failed"] .pvx-etable-c-status { color: var(--pvx-alarm); font-weight: 600; }
 .pvx-etable .pvx-etable-row[data-status="failed"] { border-bottom-color: var(--pvx-alarm); }

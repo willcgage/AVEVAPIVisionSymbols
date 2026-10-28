@@ -4,7 +4,7 @@
  * DataShape: Table (multiple data sources)
  *
  * This is the overview panel operators put at the top of a display: every tag
- * gets a tile with its name, its current value, and a colour driven either by
+ * gets a tile with its name, its current value, and a color driven either by
  * the shared PVX threshold spec or by a digital-state map.
  *
  * WHY imperative DOM instead of ng-repeat
@@ -17,7 +17,7 @@
  *      every PI Vision data update (every few seconds on a busy display). At
  *      that point the digest, not the drawing, is the bottleneck.
  * So we patch the DOM ourselves: when the row *count* is unchanged we reuse the
- * existing tile nodes and only rewrite text and colours; we rebuild the tile
+ * existing tile nodes and only rewrite text and colors; we rebuild the tile
  * list only when the count changes. All text goes in through textContent, so
  * PI-supplied strings can never be interpreted as markup.
  * ==========================================================================*/
@@ -52,10 +52,10 @@
 
                 Title: '',                 // blank => no header
 
-                // Colour
+                // Color
                 ColorSource: 'thresholds', // thresholds | stateMap | quality | none
                 // No bands until someone sets them: tiles take the accent
-                // colour. The shared 0 / 70 / 90 placeholder painted every
+                // color. The shared 0 / 70 / 90 placeholder painted every
                 // point above 90 Critical, whatever its units.
                 Thresholds: '',
                 StateMap: 'Running:#2f9e5f, Stopped:#8a8f96, Fault:#c8452f, Alarm:#c8452f',
@@ -127,10 +127,10 @@
         /* ------------------------------------------------------------------ *
          * state map — "Running:#2f9e5f, Stopped:#8a8f96"
          * ------------------------------------------------------------------ *
-         * Same "key:colour[:label]" grammar as PVX.thresholds, but the key is a
+         * Same "key:color[:label]" grammar as PVX.thresholds, but the key is a
          * digital state string rather than a numeric lower bound. Matching is
          * case-insensitive and exact: PI digital states are a closed set, so a
-         * substring match would silently colour "Fault Reset" as "Fault".
+         * substring match would silently color "Fault Reset" as "Fault".
          */
         var stateMapCache = { spec: null, map: null };
 
@@ -167,7 +167,7 @@
         }
 
         /* ------------------------------------------------------------------ *
-         * colour resolution
+         * color resolution
          * ------------------------------------------------------------------ *
          * Order: bad quality -> state map -> threshold band -> accent.
          * Quality wins because a stale tag's *last* value is often still inside
@@ -204,7 +204,7 @@
                     return out;
                 }
                 // Fall through: a numeric tag mixed into a digital grid should
-                // still get a sensible band colour rather than flat accent.
+                // still get a sensible band color rather than flat accent.
             }
 
             if (cfg.UseThresholds) {
@@ -455,7 +455,7 @@
             // DOM so screen readers and the title tooltip still read name-first.
             rec.nameRow.style.order = cfg.NamePosition === 'below' ? '3' : '0';
 
-            // --- colours ---------------------------------------------------
+            // --- colors ---------------------------------------------------
             var fg = t.text, muted = t.textMuted, bg = t.surfaceAlt, border = 'transparent';
             if (m.style === 'filled') {
                 bg = st.color;

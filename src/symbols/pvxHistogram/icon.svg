@@ -14,7 +14,7 @@
         <rect x="415" y="410" width="54" height="42"  rx="6"/>
     </g>
 
-    <!-- The fitted normal, in the same attention colour the symbol uses for the
+    <!-- The fitted normal, in the same attention color the symbol uses for the
          curve and the spec limits, drawn above the bars so the two encodings
          never blur together. -->
     <path d="M30 442 C36.7 434.7 53 421.7 70 398 C87 374.3 111.3 337 132 300

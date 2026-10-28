@@ -112,18 +112,18 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxspk-colormode">Colour rows by</label>
+            <label for="pvxspk-colormode">Color rows by</label>
             <select id="pvxspk-colormode" ng-model="config.ColorMode">
-                <option value="palette">Palette (one colour per row)</option>
-                <option value="single">A single colour</option>
+                <option value="palette">Palette (one color per row)</option>
+                <option value="single">A single color</option>
                 <option value="threshold">Threshold band of latest value</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxspk-linecolor">Line colour</label>
+            <label for="pvxspk-linecolor">Line color</label>
             <input id="pvxspk-linecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-hint">Used for <em>single</em> mode, and as the fallback when a value falls below the first threshold band.</div>
@@ -157,7 +157,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxspk-accent">Accent colour</label>
+            <label for="pvxspk-accent">Accent color</label>
             <input id="pvxspk-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -165,7 +165,7 @@
             <input id="pvxspk-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxspk-bgcolor">Background colour</label>
+            <label for="pvxspk-bgcolor">Background color</label>
             <input id="pvxspk-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

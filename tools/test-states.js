@@ -13,7 +13,7 @@
  *            PI Web API for a PI point and for an AF attribute.
  *   pane     the BUILT format panes in real Chromium: one row per state, the
  *            state list offers the digital set, live states and mapped ones,
- *            choosing, severity, colour, label, add, remove and typing a
+ *            choosing, severity, color, label, add, remove and typing a
  *            state rewrite the stored key, Edit as text round-trips, and a
  *            site with no PI Web API still gets a usable list.
  *
@@ -107,13 +107,13 @@ function rules() {
 
     const map = 'Running:#2f9e5f, Stopped:#8a8f96, Fault:#c8452f:Tripped: see log';
     const pm = S.parse(map, 'map');
-    check('map: state, colour, label (label may hold colons)',
+    check('map: state, color, label (label may hold colons)',
         pm.length === 3 && pm[2].state === 'Fault' && pm[2].color === '#c8452f' && pm[2].label === 'Tripped: see log', pm);
     check('map round-trips', S.stringify(pm, 'map') === map, S.stringify(pm, 'map'));
     check('colors round-trips', S.stringify(S.parse('Running:#2f9e5f, Stop:red', 'colors'), 'colors') === 'Running:#2f9e5f, Stop:red');
     check('list: any separator reads, commas write',
         S.stringify(S.parse('Running\nOn; Open,Auto', 'list'), 'list') === 'Running, On, Open, Auto');
-    check('severity is recovered from a palette colour', S.severityOf('#C8452F') === 'Alarm' && S.severityOf('#123456') === '');
+    check('severity is recovered from a palette color', S.severityOf('#C8452F') === 'Alarm' && S.severityOf('#123456') === '');
 
     check('seenIn: Table rows give their non-numeric values',
         S.seenIn({ Rows: [{ Value: 'Running' }, { Value: '12.5' }, { Value: 'Stopped' }, { Value: 'running' }] }).join() === 'Running,Stopped');
@@ -130,7 +130,7 @@ function rules() {
     check('one row per entry, severity filled in', ed.rows.length === 3 && ed.rows[0].severity === 'Normal', ed.rows);
     ed.rows[1].severity = 'Warning';
     ed.setSeverity(ed.rows[1], scope.config);
-    check('a severity writes its colour', /Stopped:#d99024/.test(scope.config.StateMap), scope.config.StateMap);
+    check('a severity writes its color', /Stopped:#d99024/.test(scope.config.StateMap), scope.config.StateMap);
     ed.rows[0].label = 'Up, running';
     ed.commit(scope.config);
     check('separators in a label are replaced, not split on', /Running:#2f9e5f:Up running,/.test(scope.config.StateMap), scope.config.StateMap);
@@ -327,7 +327,7 @@ async function pane() {
         check('the list offers the digital set, then live states',
             groups[0] === 'Digital state set MotorState:Running/Stopped/Tripped/Maintenance' &&
             groups[1] === 'Seen in live data:Standby', groups);
-        check('row shows severity, colour and label',
+        check('row shows severity, color and label',
             await rows.nth(1).locator('.pvx-cfg-st-sev').inputValue() === 'Alarm' &&
             await rows.nth(1).locator('input[type="color"]').inputValue() === '#c8452f' &&
             await rows.nth(1).locator('.pvx-cfg-st-label').inputValue() === 'Trip');
@@ -335,7 +335,7 @@ async function pane() {
         await rows.nth(1).locator('select.pvx-cfg-st-state').selectOption({ label: 'Stopped' });
         check('choosing a state rewrites StateMap', await cfg('StateMap') === 'Running:#2f9e5f, Stopped:#c8452f:Trip', await cfg('StateMap'));
         await rows.nth(1).locator('.pvx-cfg-st-sev').selectOption('Off / stale');
-        check('a severity sets the colour', await cfg('StateMap') === 'Running:#2f9e5f, Stopped:#8a8f96:Trip', await cfg('StateMap'));
+        check('a severity sets the color', await cfg('StateMap') === 'Running:#2f9e5f, Stopped:#8a8f96:Trip', await cfg('StateMap'));
         await rows.nth(1).locator('.pvx-cfg-st-label').fill('');
         check('an empty label is left out', await cfg('StateMap') === 'Running:#2f9e5f, Stopped:#8a8f96', await cfg('StateMap'));
         await rows.nth(0).locator('input[type="color"]').evaluate((el) => {
@@ -343,7 +343,7 @@ async function pane() {
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        check('picking a colour rewrites it, severity goes to Custom',
+        check('picking a color rewrites it, severity goes to Custom',
             /^Running:#336699,/.test(await cfg('StateMap')) && await rows.nth(0).locator('.pvx-cfg-st-sev').inputValue() === '',
             await cfg('StateMap'));
 
@@ -370,14 +370,14 @@ async function pane() {
         const listRows = page.locator('.pvx-cfg-states-list .pvx-cfg-st-row');
         check('each key gets its own editor', await colorsRows.count() === 2 && await listRows.count() === 2,
             [await colorsRows.count(), await listRows.count()]);
-        check('colours have no label field', await page.locator('.pvx-cfg-states-colors .pvx-cfg-st-label').count() === 0);
+        check('colors have no label field', await page.locator('.pvx-cfg-states-colors .pvx-cfg-st-label').count() === 0);
         check('a state list has only the state', await page.locator('.pvx-cfg-states-list .pvx-cfg-st-sev, .pvx-cfg-states-list input[type="color"]').count() === 0);
         await listRows.nth(1).locator('select.pvx-cfg-st-state').selectOption({ label: 'Maintenance' });
         check('the list editor writes its own key only',
             await cfg('UptimeStates') === 'Running, Maintenance' && await cfg('StateColors') === 'Running:#2f9e5f, Stopped:#8a8f96',
             [await cfg('UptimeStates'), await cfg('StateColors')]);
         await page.locator('.pvx-cfg-states-colors').locator('..').locator('.pvx-cfg-band-add').click();
-        check('Add on the colours editor writes StateColors', await colorsRows.count() === 3 &&
+        check('Add on the colors editor writes StateColors', await colorsRows.count() === 3 &&
             /, Tripped:#2f9e5f$/.test(await cfg('StateColors')), await cfg('StateColors'));
 
         // --- Exception Banner: digital states placed in threshold bands ---
@@ -392,7 +392,7 @@ async function pane() {
         check('banner: the band list is the threshold bands',
             (await bandSel.evaluate((s) => Array.prototype.map.call(s.options, (o) => o.text).join('|'))) ===
             'Choose a band|Normal|High|Critical');
-        check('banner: no colour or severity on a band row',
+        check('banner: no color or severity on a band row',
             await page.locator('.pvx-cfg-states-bands .pvx-cfg-st-sev, .pvx-cfg-states-bands input[type="color"]').count() === 0);
         await bandSel.selectOption({ label: 'High' });
         check('banner: choosing a band rewrites StateBands', await cfg('StateBands') === 'ALARM:High', await cfg('StateBands'));

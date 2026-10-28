@@ -2,7 +2,7 @@
 
 .pvx-po {
     /* Fallbacks only; symbol.js overwrites these from the resolved theme, so
-       every colour decision lives in one place and the template never needs a
+       every color decision lives in one place and the template never needs a
        scope binding to know whether the display is light or dark. */
     --pvx-surface: #ffffff;
     --pvx-text: #1d2126;

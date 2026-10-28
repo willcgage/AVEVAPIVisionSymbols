@@ -135,7 +135,7 @@
                 ShowEightyLine: true,
                 EightyLineValue: 80,
 
-                // --- bar colour --------------------------------------
+                // --- bar color --------------------------------------
                 ColorMode: 'single',         // single | palette | threshold | rank
                 BarColor: '#3b82c4',
 
@@ -344,7 +344,7 @@
                 if (items[i].value !== 0) { allZero = false; }
             }
 
-            // --- colour rank ----------------------------------------------
+            // --- color rank ----------------------------------------------
             // Rank is by magnitude over the *displayed* bars, so the ramp still
             // reads correctly when the list is sorted ascending or by name.
             var byMag = items.slice().sort(function (a, b) {
@@ -487,7 +487,7 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         function barColor(item, model, cfg, t) {
@@ -496,8 +496,8 @@
                 case 'palette':
                     return PVX.color.categorical[item.rank % PVX.color.categorical.length];
                 case 'threshold':
-                    // Falls back to the flat colour when thresholds are off, so
-                    // the mode never silently paints everything one band colour.
+                    // Falls back to the flat color when thresholds are off, so
+                    // the mode never silently paints everything one band color.
                     return cfg.UseThresholds
                         ? PVX.thresholds.colorFor(cfg.Thresholds, item.value, base)
                         : base;
@@ -522,8 +522,8 @@
         /**
          * Hatched fill for bad quality. Operators must be able to see at a
          * glance that a bar's height is not trustworthy, and a solid bar in a
-         * "stale" colour still reads as a real measurement.
-         * One pattern per colour per render; ids are unique so several symbol
+         * "stale" color still reads as a real measurement.
+         * One pattern per color per render; ids are unique so several symbol
          * instances on one display cannot collide.
          */
         function hatchFor(defs, cache, fill) {
@@ -997,7 +997,7 @@
                         items[i].label + ' · cumulative ' + model.cum[i].toFixed(1) + '%';
                 }
 
-                // Secondary axis on the opposite side, in its own colour so it
+                // Secondary axis on the opposite side, in its own color so it
                 // is never mistaken for the value axis.
                 for (i = 0; i < cumTicks.length; i++) {
                     var cq = cs(cumTicks[i]);

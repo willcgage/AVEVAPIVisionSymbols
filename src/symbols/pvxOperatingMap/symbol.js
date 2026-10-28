@@ -601,9 +601,9 @@
             return n;
         }
 
-        function hline(parent, x1, y1, x2, y2, colour) {
+        function hline(parent, x1, y1, x2, y2, color) {
             PVX.svg.el('line', { x1: x1.toFixed(2), y1: y1.toFixed(2), x2: x2.toFixed(2), y2: y2.toFixed(2),
-                stroke: colour, 'stroke-width': 1, 'class': 'pvx-grid-line' }, parent);
+                stroke: color, 'stroke-width': 1, 'class': 'pvx-grid-line' }, parent);
         }
 
         function emptyState(svgRoot, W, H, t, headline, detail) {

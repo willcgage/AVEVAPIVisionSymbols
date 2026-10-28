@@ -12,7 +12,7 @@
  *   rules    in plain Node, against the BUILT files: the placeholder is
  *            recognised however it is spaced or ordered, the three alarm
  *            symbols default to no bands, a saved placeholder is cleared on
- *            load while chosen bands survive, and symbols that only colour
+ *            load while chosen bands survive, and symbols that only color
  *            (a gauge) keep the placeholder as before.
  *   render   each alarm symbol through tools/probe.js in real Chromium, fed
  *            the mock plant (steam flow ~92-96 klb/h, well above 90): with no
@@ -94,7 +94,7 @@ function rules() {
         check(t + ': a display saved without the key loads with no bands', def.loadConfig({}).Thresholds === '');
     });
 
-    // A gauge colouring its arc with the placeholder raises no alarm, and
+    // A gauge coloring its arc with the placeholder raises no alarm, and
     // its saved displays must render exactly as they did.
     const gauge = win.PVMock.get('pvxRadialGauge');
     check('pvxRadialGauge keeps the placeholder default', gauge.getDefaultConfig().Thresholds === PLACEHOLDER);

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
-    <!-- pvxMultiGauge: one dial, three needles in three colours -->
+    <!-- pvxMultiGauge: one dial, three needles in three colors -->
     <path d="M86 380 A190 190 0 1 1 426 380" stroke="#d6dbe1" stroke-width="44" stroke-linecap="butt" />
     <path d="M370 166 A190 190 0 0 1 426 380" stroke="#e8a1a1" stroke-width="44" />
     <path d="M256 310 L132 214 L246 290 Z" fill="#3b82c4" stroke="#3b82c4" stroke-width="16" stroke-linejoin="round" />

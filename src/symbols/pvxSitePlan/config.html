@@ -53,7 +53,7 @@
             <input id="pvxsp-gray" type="checkbox" ng-model="config.ImageGrayscale" />
         </div>
         <div class="pvx-cfg-hint">
-            Draining the colour out of a busy drawing makes the coloured markers pop.
+            Draining the color out of a busy drawing makes the colored markers pop.
             Worth turning on for scanned P&amp;IDs and photographs.
         </div>
     </div>
@@ -121,18 +121,18 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxsp-colormode">Colour from</label>
+            <label for="pvxsp-colormode">Color from</label>
             <select id="pvxsp-colormode" ng-model="config.ColorMode">
                 <option value="threshold">Threshold bands</option>
                 <option value="state">Digital state map</option>
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
-            Bad quality always wins: the marker keeps its colour but is drawn hollow,
+            Bad quality always wins: the marker keeps its color but is drawn hollow,
             because a stale tag's last value is often still inside a &ldquo;normal&rdquo;
             band.
         </div>
@@ -151,13 +151,13 @@
             <!-- pvx:states key=StateMap kind=map -->
         </div>
         <div class="pvx-cfg-hint">
-            One row per state: pick the state, a severity or colour, and optionally the
+            One row per state: pick the state, a severity or color, and optionally the
             label shown in the legend. Matching is exact and case-insensitive. A numeric
             tag mixed into a digital plan falls back to the threshold bands.
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxsp-single">Single colour</label>
+            <label for="pvxsp-single">Single color</label>
             <input id="pvxsp-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
 
@@ -306,12 +306,12 @@
             <input id="pvxsp-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxsp-bgcolor">Background colour</label>
+            <label for="pvxsp-bgcolor">Background color</label>
             <input id="pvxsp-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxsp-accent">Accent colour</label>
+            <label for="pvxsp-accent">Accent color</label>
             <input id="pvxsp-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">

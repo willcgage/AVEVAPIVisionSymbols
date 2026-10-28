@@ -1,6 +1,6 @@
 /* pvxSitePlan — background drawing with data-bound hotspots
  * Only the chrome and a handful of non-data visual affordances live here.
- * Every colour that carries meaning (marker fill, chip border, ruler) comes
+ * Every color that carries meaning (marker fill, chip border, ruler) comes
  * from the runtime theme tokens in symbol.js, so one stylesheet serves both the
  * light and the dark display themes.
  * The custom properties below are fallbacks; symbol.js overwrites them on the

@@ -1,7 +1,7 @@
 /* pvxEventAnalytics — Event Frames grouped and ranked by cost
  *
  * Only the chrome (header, footer, SVG host) is styled here. Every bar, slice
- * and text colour comes from the runtime theme tokens, never from CSS, so the
+ * and text color comes from the runtime theme tokens, never from CSS, so the
  * same stylesheet works on a light and a dark display. The custom properties
  * below are fallbacks; symbol.js overwrites them on the root every render. */
 
@@ -107,7 +107,7 @@
     shape-rendering: crispEdges;
 }
 
-/* Hover brightens rather than recolouring: bar length is the encoded value and
+/* Hover brightens rather than recoloring: bar length is the encoded value and
    nothing about the interaction may appear to change it. */
 .pvx-ea .pvx-ea-bar:hover .pvx-ea-shape,
 .pvx-ea .pvx-ea-slice:hover path {

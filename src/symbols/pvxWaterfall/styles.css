@@ -1,6 +1,6 @@
 /* pvxWaterfall — floating-bar waterfall / bridge
  * Only the chrome (header, footer, SVG host) is styled here. Bar, connector and
- * axis colours all come from the runtime theme tokens and the symbol config,
+ * axis colors all come from the runtime theme tokens and the symbol config,
  * never from CSS, so the same stylesheet works on light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */

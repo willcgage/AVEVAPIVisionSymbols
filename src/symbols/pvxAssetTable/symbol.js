@@ -6,7 +6,7 @@
  *
  * The overview table every area display wants and PI Vision's own table does
  * not draw: compressors down the side, Discharge Pressure / Vibration / Status
- * across the top, each cell coloured by its own limits, a status dot that
+ * across the top, each cell colored by its own limits, a status dot that
  * carries the worst cell in the row, and the row name opening the unit's
  * display with that unit as the asset.
  *
@@ -64,12 +64,12 @@
                 MaxRows: 50,
                 RefreshSeconds: 30,
 
-                // Columns: "Attribute | Header | Colour | Show" per line.
+                // Columns: "Attribute | Header | Color | Show" per line.
                 ColumnSpec: '',
                 RowLabel: 'name',          // name | parentName | path
                 NameHeader: 'Asset',
 
-                // Colour
+                // Color
                 Thresholds: '',
                 StateMap: 'Running:#2f9e5f, Stopped:#8a8f96, Fault:#c8452f, Alarm:#c8452f',
                 CellStyle: 'text',         // text | fill | dot
@@ -198,9 +198,9 @@
         function key(s) { return trim(s).toLowerCase(); }
 
         /* ================================================================ *
-         * column spec — "Attribute | Header | Colour | Show"
+         * column spec — "Attribute | Header | Color | Show"
          * ================================================================ *
-         * Colour: blank = automatic (numbers by the table's bands, states by
+         * Color: blank = automatic (numbers by the table's bands, states by
          * its state map), none, bands, states, or a band list of this
          * column's own, e.g. "0:#2f9e5f:Normal, 1150:#c8452f:High". Show:
          * value (default), label, or both.
@@ -216,12 +216,12 @@
                 var f = line.split('|');
                 var attr = trim(f[0]);
                 if (!attr) { continue; }
-                var colour = trim(f[2]);
+                var color = trim(f[2]);
                 var show = trim(f[3]).toLowerCase();
                 out.push({
                     attr: attr,
                     header: trim(f[1]) || attr,
-                    colour: colour,
+                    color: color,
                     show: SHOWS[show] ? show : 'value'
                 });
             }
@@ -263,7 +263,7 @@
                         if (!unlisted[key(sp.attr)]) { unlisted[key(sp.attr)] = true; unlistedOrder.push(sp.attr); }
                         continue;
                     }
-                    cols.push({ attr: sp.attr, header: sp.leaf, colour: '', show: 'value', auto: true });
+                    cols.push({ attr: sp.attr, header: sp.leaf, color: '', show: 'value', auto: true });
                     c = cols.length - 1;
                 }
 
@@ -356,7 +356,7 @@
 
         // Comparable ranks for "worst in the row". A band's rank is its
         // position from the bottom; a state's comes from the severity its
-        // colour names in the shared palette.
+        // color names in the shared palette.
         var STATE_RANK = { 'normal': 0, 'information': 0, 'off / stale': 0, 'warning': 1, 'alarm': 2, 'critical': 3 };
 
         function statusOf(row, col, cfg) {
@@ -367,7 +367,7 @@
                 out.label = row.errorDescription || 'Bad';
                 return out;
             }
-            var mode = trim(col.colour).toLowerCase();
+            var mode = trim(col.color).toLowerCase();
             if (mode === 'none') { return out; }
 
             var n = row.value;
@@ -382,7 +382,7 @@
                 }
                 return out;
             }
-            var list = (!mode || mode === 'bands') ? bandsOf(cfg.Thresholds || '') : bandsOf(col.colour);
+            var list = (!mode || mode === 'bands') ? bandsOf(cfg.Thresholds || '') : bandsOf(col.color);
             if (n === null || !list.length) { return out; }
             for (var i = 0; i < list.length; i++) {
                 if (n >= list[i].value) { out.rank = i; } else { break; }
@@ -749,7 +749,7 @@
                     var w = els[i].worst;
                     setStyle(rr.dot, 'backgroundColor', w ? w.color : 'transparent', rr.last, 'dot');
                     setStyle(rr.dot, 'borderColor', w ? w.color : t.border, rr.last, 'dotb');
-                    var wt = w ? w.col + ': ' + (w.label || 'band ' + (w.rank + 1)) : 'No coloured cells';
+                    var wt = w ? w.col + ': ' + (w.label || 'band ' + (w.rank + 1)) : 'No colored cells';
                     if (rr.last.wt !== wt) { rr.last.wt = wt; rr.dot.title = wt; }
                 }
                 for (j = 0; j < model.cols.length; j++) {

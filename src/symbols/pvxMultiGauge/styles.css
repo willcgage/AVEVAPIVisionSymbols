@@ -14,7 +14,7 @@
     pointer-events: none;
 }
 
-/* One row per pointer: its colour, its name and its value. The rows wrap
+/* One row per pointer: its color, its name and its value. The rows wrap
    into columns on a wide symbol so a short one still shows them all. */
 .pvx-mg .pvx-mg-readout {
     flex: 0 0 auto;

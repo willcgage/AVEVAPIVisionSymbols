@@ -390,7 +390,7 @@
                 return (invert ? 1 - f : f) * L;
             };
 
-            /* -- colours ---------------------------------------------------- */
+            /* -- colors ---------------------------------------------------- */
             var activeBand = cfg.UseThresholds ? PVX.thresholds.evaluate(cfg.Thresholds, model.value) : null;
             var fillColor;
             if (scope.MultistateColor) {
@@ -515,7 +515,7 @@
                         });
                     } else if (lit > 0.02) {
                         // Fade the boundary cell rather than drawing a part-width
-                        // rect — a sliver of colour reads as a rendering artefact.
+                        // rect — a sliver of color reads as a rendering artefact.
                         addRect(u0, barV0, cell, barThick, {
                             fill: fillPaint, opacity: (0.2 + 0.8 * lit).toFixed(2),
                             rx: cellR.toFixed(2), ry: cellR.toFixed(2),
@@ -600,7 +600,7 @@
                     'class': 'pvx-bar-target'
                 }, svgRoot);
                 // Small notch on the scale-free side so the marker is findable even
-                // when the line sits on top of a same-coloured band.
+                // when the line sits on top of a same-colored band.
                 var nw = Math.max(2.5, barThick * 0.2);
                 var n1 = px(tu2 - nw, mv0), n2 = px(tu2 + nw, mv0), n3 = px(tu2, barV0);
                 PVX.svg.el('path', {
@@ -634,7 +634,7 @@
                     // A segmented bar is a comb, and the gaps between lit cells
                     // punch the symbol background straight through the readout.
                     // A stroked copy of the text underneath haloes each glyph in
-                    // the fill colour, which restores contrast without painting
+                    // the fill color, which restores contrast without painting
                     // over the segments the way a solid backing plate would.
                     if (segmented) {
                         PVX.svg.text(svgRoot, ip.x.toFixed(2), ip.y.toFixed(2), display, {
@@ -653,7 +653,7 @@
                         'class': 'pvx-svg-value pvx-num',
                         'text-anchor': isVert ? 'middle' : (invert ? 'start' : 'end'),
                         'font-size': valueFont.toFixed(1),
-                        // Contrast against the fill, which may be any threshold colour.
+                        // Contrast against the fill, which may be any threshold color.
                         fill: PVX.color.readable(fillColor),
                         opacity: model.good ? null : '0.75'
                     });

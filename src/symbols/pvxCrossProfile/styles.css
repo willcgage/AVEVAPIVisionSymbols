@@ -1,4 +1,4 @@
-/* pvxCrossProfile: only the chrome is styled here; cell and line colours
+/* pvxCrossProfile: only the chrome is styled here; cell and line colors
  * come from the format pane and the runtime theme. The custom properties
  * are fallbacks that symbol.js overwrites on the root every render. */
 

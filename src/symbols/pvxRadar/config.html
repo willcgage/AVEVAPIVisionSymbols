@@ -35,7 +35,7 @@
             <label for="pvxrad-maxshapes">Maximum shapes</label>
             <input id="pvxrad-maxshapes" type="number" ng-model="config.MaxShapes" min="1" max="24" />
         </div>
-        <div class="pvx-cfg-hint" ng-if="config.SourceMode === 'search'">With rows from an AF search naming three or more attributes, the attributes are the axes and every asset found is one outline over the others, in its own colour: a fleet's fingerprints on one web. With one or two attributes the assets are the axes and each attribute is an outline. Assets are paired by path, so an asset missing an attribute shows a dent at the centre and is counted in the footer. <em>Series</em> below does not apply.</div>
+        <div class="pvx-cfg-hint" ng-if="config.SourceMode === 'search'">With rows from an AF search naming three or more attributes, the attributes are the axes and every asset found is one outline over the others, in its own color: a fleet's fingerprints on one web. With one or two attributes the assets are the axes and each attribute is an outline. Assets are paired by path, so an asset missing an attribute shows a dent at the centre and is counted in the footer. <em>Series</em> below does not apply.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -187,21 +187,21 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxrad-curcolor">Current colour</label>
+            <label for="pvxrad-curcolor">Current color</label>
             <input id="pvxrad-curcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CurrentColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxrad-refcolor">Reference colour</label>
+            <label for="pvxrad-refcolor">Reference color</label>
             <input id="pvxrad-refcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ReferenceColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxrad-bythreshold">Colour points by threshold</label>
+            <label for="pvxrad-bythreshold">Color points by threshold</label>
             <input id="pvxrad-bythreshold" type="checkbox" ng-model="config.ColorByThreshold" />
         </div>
-        <div class="pvx-cfg-hint">Turns "the shape changed" into "<em>this</em> axis is abnormal" &mdash; each point takes the colour of the band its raw value falls in, while the outline keeps the profile colour. Needs <em>Enable thresholds</em> below; the bands are compared against the raw value, not the normalised radius.</div>
+        <div class="pvx-cfg-hint">Turns "the shape changed" into "<em>this</em> axis is abnormal" &mdash; each point takes the color of the band its raw value falls in, while the outline keeps the profile color. Needs <em>Enable thresholds</em> below; the bands are compared against the raw value, not the normalised radius.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -220,7 +220,7 @@
             <input id="pvxrad-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxrad-bgcolor">Background colour</label>
+            <label for="pvxrad-bgcolor">Background color</label>
             <input id="pvxrad-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
@@ -236,7 +236,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Named bands also appear in the legend when point colouring is on.</div>
+        <div class="pvx-cfg-hint">Named bands also appear in the legend when point coloring is on.</div>
     </div>
 
 </div>

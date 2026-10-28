@@ -71,7 +71,7 @@
             <input id="pvxgt-op" type="number" ng-model="config.ZoneOpacity" min="0" max="1" step="0.05" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxgt-colors">Zone colours</label>
+            <label for="pvxgt-colors">Zone colors</label>
             <input id="pvxgt-colors" type="text" ng-model="config.ZoneColors" placeholder="T3:#c00000, D2:#1f4e9c" />
         </div>
         <div class="pvx-cfg-hint">
@@ -97,7 +97,7 @@
             <input id="pvxgt-showlabel" type="checkbox" ng-model="config.ShowLabel" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxgt-accent">Point colour</label>
+            <label for="pvxgt-accent">Point color</label>
             <input id="pvxgt-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -105,7 +105,7 @@
             <input id="pvxgt-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxgt-bgcolor">Background colour</label>
+            <label for="pvxgt-bgcolor">Background color</label>
             <input id="pvxgt-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

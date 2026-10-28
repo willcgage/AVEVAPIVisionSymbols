@@ -1,6 +1,6 @@
 /* pvxHeatmap
  * Only the chrome (header, footer, host box) is styled here — the grid itself
- * is SVG whose colours must come from the runtime theme, never from CSS.
+ * is SVG whose colors must come from the runtime theme, never from CSS.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */
 

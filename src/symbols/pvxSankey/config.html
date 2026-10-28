@@ -42,7 +42,7 @@
         <div class="pvx-cfg-hint">
             <strong>Worked example.</strong> A reactor fed by one stream, producing product and venting the rest. Drop three attributes on the symbol: <em>1</em> feed flow, <em>2</em> product flow, <em>3</em> vent flow. Then write:<br />
             <code>Feed &gt; Reactor : 1 | Reactor &gt; Product : 2 | Reactor &gt; Vent : 3</code><br />
-            <em>Feed</em> appears only as a source, so it is drawn as a source node on the left. <em>Product</em> and <em>Vent</em> appear only as targets, so they are sinks on the right. <em>Reactor</em> is in the middle, and its inflow and outflow are compared — see <em>Balance</em> below. Add <code>Vent</code> to <em>Loss / vent nodes</em> to draw it in the alarm colour.
+            <em>Feed</em> appears only as a source, so it is drawn as a source node on the left. <em>Product</em> and <em>Vent</em> appear only as targets, so they are sinks on the right. <em>Reactor</em> is in the middle, and its inflow and outflow are compared — see <em>Balance</em> below. Add <code>Vent</code> to <em>Loss / vent nodes</em> to draw it in the alarm color.
         </div>
         <div class="pvx-cfg-hint">Node names are free text and are matched exactly, so <code>Reactor</code> and <code>reactor </code> are two different nodes. A cycle (a node that ends up feeding itself, directly or through others) has no left-to-right order, so the link that closes it is dropped and named in the footer. Malformed entries, missing data sources and zero or negative flows are all reported there too, never silently discarded.</div>
 
@@ -70,46 +70,46 @@
             <label for="pvxsk-tol">Tolerance (%)</label>
             <input id="pvxsk-tol" type="number" ng-model="config.BalanceTolerance" min="0" max="100" />
         </div>
-        <div class="pvx-cfg-hint">A node whose inflow and outflow differ by more than this is outlined in the alarm colour, flagged with a dot and named in the footer. That difference is real information: a leak, a mis-scaled meter, or a stream nobody has tagged yet. Only nodes with both an inflow and an outflow are checked — a source has nothing coming in and a sink has nothing going out, so neither can be out of balance.</div>
+        <div class="pvx-cfg-hint">A node whose inflow and outflow differ by more than this is outlined in the alarm color, flagged with a dot and named in the footer. That difference is real information: a leak, a mis-scaled meter, or a stream nobody has tagged yet. Only nodes with both an inflow and an outflow are checked — a source has nothing coming in and a sink has nothing going out, so neither can be out of balance.</div>
 
         <div class="pvx-cfg-stack">
             <label for="pvxsk-loss">Loss / vent nodes</label>
             <input id="pvxsk-loss" type="text" ng-model="config.HighlightLoss" placeholder="Vent, Flare, Reject" />
         </div>
-        <div class="pvx-cfg-hint">Comma separated node names, drawn in the alarm colour. Use it for the streams that represent throughput you are paying for and not keeping.</div>
+        <div class="pvx-cfg-hint">Comma separated node names, drawn in the alarm color. Use it for the streams that represent throughput you are paying for and not keeping.</div>
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxsk-colormode">Colour ribbons by</label>
+            <label for="pvxsk-colormode">Color ribbons by</label>
             <select id="pvxsk-colormode" ng-model="config.ColorMode">
                 <option value="node">Source node</option>
                 <option value="link">Gradient, source to target</option>
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
                 <option value="threshold">Threshold band</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint"><em>Source node</em> lets you follow one stream with your eye from where it came from to where it ends up. <em>Gradient</em> shows a stream visibly becoming what it turns into. <em>Threshold band</em> colours each ribbon by its own value, which reads as a rate rather than as a route.</div>
+        <div class="pvx-cfg-hint"><em>Source node</em> lets you follow one stream with your eye from where it came from to where it ends up. <em>Gradient</em> shows a stream visibly becoming what it turns into. <em>Threshold band</em> colors each ribbon by its own value, which reads as a rate rather than as a route.</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxsk-single">Ribbon colour</label>
+            <label for="pvxsk-single">Ribbon color</label>
             <input id="pvxsk-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
 
         <div class="pvx-cfg-stack">
-            <label for="pvxsk-nodecolors">Fixed node colours</label>
+            <label for="pvxsk-nodecolors">Fixed node colors</label>
             <input id="pvxsk-nodecolors" type="text" ng-model="config.NodeColors"
                    placeholder="Vent:#c8452f, Product:#3f9e6a" />
         </div>
-        <div class="pvx-cfg-hint"><code>NodeName:#colour</code>, comma separated. For the handful of nodes that need to be a specific colour — a loss stream in red, the saleable product in green. Everything else takes a palette colour.</div>
+        <div class="pvx-cfg-hint"><code>NodeName:#color</code>, comma separated. For the handful of nodes that need to be a specific color — a loss stream in red, the saleable product in green. Everything else takes a palette color.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxsk-opacity">Ribbon opacity</label>
             <input id="pvxsk-opacity" type="number" ng-model="config.LinkOpacity" min="0.05" max="1" step="0.05" />
         </div>
-        <div class="pvx-cfg-hint">Ribbons overlap where streams cross. Below about 0.6 the overlaps read as shading rather than as a solid block, which is what makes a busy diagram legible. Flows whose source reports bad quality are always drawn hatched, whatever the colour mode.</div>
+        <div class="pvx-cfg-hint">Ribbons overlap where streams cross. Below about 0.6 the overlaps read as shading rather than as a solid block, which is what makes a busy diagram legible. Flows whose source reports bad quality are always drawn hatched, whatever the color mode.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -206,7 +206,7 @@
             <input id="pvxsk-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxsk-bgcolor">Background colour</label>
+            <label for="pvxsk-bgcolor">Background color</label>
             <input id="pvxsk-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
@@ -215,7 +215,7 @@
             <input id="pvxsk-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxsk-accent">Accent colour</label>
+            <label for="pvxsk-accent">Accent color</label>
             <input id="pvxsk-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -226,7 +226,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Used when <em>Colour ribbons by</em> is set to <em>Threshold band</em>.</div>
+        <div class="pvx-cfg-hint">Used when <em>Color ribbons by</em> is set to <em>Threshold band</em>.</div>
     </div>
 
 </div>

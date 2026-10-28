@@ -1,6 +1,6 @@
 /* pvxRadar — "PVX Fingerprint"
  * Only the chrome (header, footer, SVG host) is styled here. Web, polygon and
- * marker colours all come from the runtime theme tokens, never from CSS, so the
+ * marker colors all come from the runtime theme tokens, never from CSS, so the
  * same stylesheet works on light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */
@@ -78,7 +78,7 @@
     pointer-events: all;
 }
 
-/* Lift the whole profile on hover rather than recolouring it: the colour may be
+/* Lift the whole profile on hover rather than recoloring it: the color may be
    carrying a threshold band, and changing it would change the meaning. */
 .pvx-radar .pvx-radar-poly:hover path {
     filter: brightness(1.06);

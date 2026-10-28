@@ -25,10 +25,10 @@
             <input id="pvxmg-max" type="number" ng-model="config.MaxPointers" min="1" max="12" />
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxmg-colors">Pointer colours</label>
+            <label for="pvxmg-colors">Pointer colors</label>
             <input id="pvxmg-colors" type="text" ng-model="config.PointerColors" placeholder="#c8452f, , #3b82c4" />
         </div>
-        <div class="pvx-cfg-hint">One per data source, in order, separated by commas; a blank takes the palette's next colour.</div>
+        <div class="pvx-cfg-hint">One per data source, in order, separated by commas; a blank takes the palette's next color.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -158,7 +158,7 @@
             <input id="pvxmg-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxmg-bgcolor">Background colour</label>
+            <label for="pvxmg-bgcolor">Background color</label>
             <input id="pvxmg-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

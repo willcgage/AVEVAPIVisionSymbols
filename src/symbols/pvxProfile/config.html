@@ -102,7 +102,7 @@
             exact readings matter more than the sweep.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxprof-linecolor">Line colour</label>
+            <label for="pvxprof-linecolor">Line color</label>
             <input id="pvxprof-linecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -120,10 +120,10 @@
                    min="0.5" max="14" step="0.2" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxprof-pointthresh">Colour points by threshold</label>
+            <label for="pvxprof-pointthresh">Color points by threshold</label>
             <input id="pvxprof-pointthresh" type="checkbox" ng-model="config.ColorPointsByThreshold" />
         </div>
-        <div class="pvx-cfg-hint">Each point takes its threshold band colour; the line keeps its own colour so the shape stays readable.</div>
+        <div class="pvx-cfg-hint">Each point takes its threshold band color; the line keeps its own color so the shape stays readable.</div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-showarea">Fill under the line</label>
             <input id="pvxprof-showarea" type="checkbox" ng-model="config.ShowArea" />
@@ -162,9 +162,9 @@
             Same as the charted statistic — the reference profile is hidden until they differ.
         </div>
         <div class="pvx-cfg-stack">
-            <label for="pvxprof-shadowcolor">Reference colour</label>
+            <label for="pvxprof-shadowcolor">Reference color</label>
             <input id="pvxprof-shadowcolor" type="text" ng-model="config.ShadowColor"
-                   placeholder="Blank = muted line colour" />
+                   placeholder="Blank = muted line color" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxprof-shadowop">Reference opacity</label>
@@ -188,9 +188,9 @@
             <label for="pvxprof-lower">Lower limit</label>
             <input id="pvxprof-lower" type="text" ng-model="config.LowerLimit" placeholder="blank = none" />
         </div>
-        <div class="pvx-cfg-hint">Both limits shade a band; one limit alone draws a single line. Points outside are ringed and recoloured.</div>
+        <div class="pvx-cfg-hint">Both limits shade a band; one limit alone draws a single line. Points outside are ringed and recolored.</div>
         <div class="pvx-cfg-row">
-            <label for="pvxprof-limitcolor">Limit colour</label>
+            <label for="pvxprof-limitcolor">Limit color</label>
             <input id="pvxprof-limitcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LimitColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -265,7 +265,7 @@
             <input id="pvxprof-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxprof-bgcolor">Background colour</label>
+            <label for="pvxprof-bgcolor">Background color</label>
             <input id="pvxprof-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

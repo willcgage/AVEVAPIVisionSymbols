@@ -20,8 +20,8 @@
  *
  * A line, step or area outline can also be `dashed` or `dotted` and carry a
  * width such as `1px`: a plan drawn as a thin dashed line beside the actual
- * is the convention high-performance HMI guides use, and colour alone cannot
- * carry that distinction for a colour-blind operator.
+ * is the convention high-performance HMI guides use, and color alone cannot
+ * carry that distinction for a color-blind operator.
  *
  * Anything not mentioned falls back to DefaultType on the left axis, so the
  * symbol is useful the second it lands on a display and only needs editing when
@@ -34,7 +34,7 @@
  *
  * MORE TRACE KINDS, all opt-in through TraceSpec:
  *   states   a digital tag as shaded bands behind the traces, one lane per
- *            such tag, coloured by StateColors. It uses no axis.
+ *            such tag, colored by StateColors. It uses no axis.
  *   range    this source and the NEXT one as the lower and upper edge of a
  *            filled band (a min/max envelope, a spec window). The next source
  *            is used up by it and not drawn on its own.
@@ -152,7 +152,7 @@
                 RightScale: 'linear',
                 Panels: 'shared',           // shared | separate
 
-                // Traces typed "states" in TraceSpec: colours per state,
+                // Traces typed "states" in TraceSpec: colors per state,
                 // "Running:#2f9e5f, Stopped:#c8452f"; others take the palette.
                 StateColors: '',
                 StateOpacity: 0.18,
@@ -179,7 +179,7 @@
                 EventTemplate: '',
                 EventNameFilter: '',
                 EventMax: 50,
-                EventColor: '',             // blank => one colour per template
+                EventColor: '',             // blank => one color per template
                 EventOpacity: 0.12,
                 EventLabels: true,
                 EventClick: 'none',         // none | time
@@ -196,7 +196,7 @@
      * 3px one read as the same pattern. */
     var DASHES = { solid: null, dashed: [4, 3], dotted: [1, 2.5] };
 
-    /** Only #hex is accepted: a bare word that is not a real CSS colour would
+    /** Only #hex is accepted: a bare word that is not a real CSS color would
      *  silently paint the trace black, which is worse than ignoring it. */
     function isColorToken(tok) {
         return /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(tok);
@@ -372,7 +372,7 @@
      * TraceSpec as rows in the format pane, one per data source, published
      * at scope.runtimeData.pvxTraces. The stored value stays the grammar
      * string, so saved displays and the parser above are unaffected; the
-     * operator picks a type, an axis and a colour instead of counting data
+     * operator picks a type, an axis and a color instead of counting data
      * sources and typing "3:line:right:#5aa0d6".
      *
      * Rows follow the data source list, not the string: a trace with no
@@ -1422,7 +1422,7 @@
                         }
                     }
                     // Which trace a strip is, in its corner: the scales differ,
-                    // so the colour key alone is not enough.
+                    // so the color key alone is not enough.
                     if (P.h >= tickFont + 6 && P.w > 80) {
                         PVX.svg.text(svgRoot, (P.x + 4).toFixed(2), (P.y + tickFont * 0.75).toFixed(2),
                             fitText(drawn[i].label + (drawn[i].units ? ' (' + drawn[i].units + ')' : ''), P.w * 0.6, tickFont), {
@@ -1882,9 +1882,9 @@
 
         /**
          * One lane per "states" trace across the plot, each state a shaded
-         * span from its timestamp to the next. Colours come from StateColors,
+         * span from its timestamp to the next. Colors come from StateColors,
          * then the palette in order of first appearance, so the same state
-         * keeps its colour across lanes. Returns a footer note, or ''.
+         * keeps its color across lanes. Returns a footer note, or ''.
          */
         function drawStateLanes(parent, traces, cfg, plot, sx, tMin, tMax, t, font) {
             var lanes = [];
@@ -1893,8 +1893,8 @@
             var fixed = {};
             var list = PVX.states.parse(cfg.StateColors || '', 'colors');
             for (i = 0; i < list.length; i++) { if (list[i].color) { fixed[list[i].state.toLowerCase()] = list[i].color; } }
-            // A state with no colour of its own takes the next palette
-            // colour that is not close to one already given: "Auto" shaded
+            // A state with no color of its own takes the next palette
+            // color that is not close to one already given: "Auto" shaded
             // the same red as a listed "Stopped" reads as the same state.
             var taken = [];
             for (var fk in fixed) { if (fixed.hasOwnProperty(fk)) { taken.push(PVX.color.toRgb(fixed[fk])); } }
@@ -1910,7 +1910,7 @@
             for (var pi = 0; pi < basePal.length; pi++) { if (!near(basePal[(pi + 3) % basePal.length])) { pal.push(basePal[(pi + 3) % basePal.length]); } }
             if (!pal.length) { pal = basePal; }
             var seen = [];
-            var colourOf = function (st) {
+            var colorOf = function (st) {
                 var k = st.toLowerCase();
                 if (fixed[k]) { return fixed[k]; }
                 var n = seen.indexOf(k);
@@ -1926,12 +1926,12 @@
                 var pts = lanes[l].states;
                 var y0 = plot.y + l * laneH;
                 if (!pts.length) { empty += 1; continue; }
-                lanes[l].stateColor = colourOf;
+                lanes[l].stateColor = colorOf;
                 for (var j = 0; j < pts.length; j++) {
                     var a = Math.max(pts[j].t, tMin), b = j + 1 < pts.length ? pts[j + 1].t : tMax;
                     if (!(b > a)) { continue; }
                     var st = pts[j].state;
-                    var col = colourOf(st);
+                    var col = colorOf(st);
                     var x0 = sx(a), x1 = Math.max(x0 + 0.5, sx(b));
                     var r = PVX.svg.el('rect', {
                         x: x0.toFixed(2), y: y0.toFixed(2), width: (x1 - x0).toFixed(2), height: laneH.toFixed(2),
@@ -2197,11 +2197,11 @@
         }
 
         /** The swatch encodes the geometry, so the legend explains the chart's
-         *  grammar as well as its colours. */
+         *  grammar as well as its colors. */
         function drawSwatch(parent, tr, x, cy, size) {
             var col = tr.color;
             if (tr.type === 'states') {
-                // Three stripes: a lane of states, not one colour.
+                // Three stripes: a lane of states, not one color.
                 var pal = PVX.color.categorical;
                 for (var q = 0; q < 3; q++) {
                     PVX.svg.el('rect', {

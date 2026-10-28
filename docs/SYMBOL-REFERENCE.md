@@ -296,8 +296,8 @@ symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI 
 | `RememberExpanded` | `true` |  |
 | `Layout` | `"tree"` | tree \| list \| dropdown |
 | `ValueAttribute` | `""` | an attribute read on every row's element |
-| `ValueBands` | `""` | threshold grammar: colours numeric values |
-| `StateMap` | `""` | State:colour[:label]: colours digital values |
+| `ValueBands` | `""` | threshold grammar: colors numeric values |
+| `StateMap` | `""` | State:color[:label]: colors digital values |
 | `ShowValueDot` | `true` |  |
 | `ValueRefreshSeconds` | `30` |  |
 
@@ -1039,7 +1039,7 @@ Two ways of folding time into a grid:
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `400` |  |
 | `Mode` | `"calendar"` | calendar \| matrix \| density |
-| `RowColors` | `false` | matrix: each tag its own colour, scaled to its own range |
+| `RowColors` | `false` | matrix: each tag its own color, scaled to its own range |
 | `Aggregate` | `"avg"` | avg \| max \| min \| last \| range \| count |
 | `BucketCount` | `24` | matrix + density: number of time columns |
 | `ValueBins` | `20` | density: number of value rows |
@@ -1584,7 +1584,7 @@ The question this symbol answers is "does this asset still LOOK like it used to"
 
 **PVX Radial Gauge** · data shape `Gauge` · single data source · collections supported
 
-Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value colour follows the active threshold band - Auto light/dark theming, fully responsive typography - Options: dim the bands the value is not in, major ticks on the band limits, minor ticks, and a scale that runs the other way
+Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value color follows the active threshold band - Auto light/dark theming, fully responsive typography - Options: dim the bands the value is not in, major ticks on the band limits, minor ticks, and a scale that runs the other way
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1916,7 +1916,7 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 
 **PVX Status Grid** · data shape `Table` · multiple data sources · collections not supported
 
-This is the overview panel operators put at the top of a display: every tag gets a tile with its name, its current value, and a colour driven either by the shared PVX threshold spec or by a digital-state map.
+This is the overview panel operators put at the top of a display: every tag gets a tile with its name, its current value, and a color driven either by the shared PVX threshold spec or by a digital-state map.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -2042,7 +2042,7 @@ The question this symbol answers is "how did we get from A to B" — a mass or e
 | `SubtotalColor` | `"#6f7378"` |  |
 | `InvertColors` | `false` |  |
 | `ShowConnectors` | `true` |  |
-| `ConnectorColor` | `""` | blank => theme line colour |
+| `ConnectorColor` | `""` | blank => theme line color |
 | `ShowValues` | `true` |  |
 | `ValuePosition` | `"outside"` | outside \| inside \| none |
 | `ShowPercentOfStart` | `false` |  |
@@ -2149,16 +2149,16 @@ Y, and in bubble mode the THIRD sets each point's size)
 
 ## Threshold syntax
 
-Every symbol that colours by limits uses the same string:
+Every symbol that colors by limits uses the same string:
 
 ```
 0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical
 ```
 
-Each entry is `lowerLimit:colour:label`, comma separated. A band applies from
+Each entry is `lowerLimit:color:label`, comma separated. A band applies from
 its own limit up to the next band's limit; the last band runs to the top of
 the scale. Values below the first limit match no band and fall back to the
-symbol's accent colour. The label is optional and is what symbols show when
+symbol's accent color. The label is optional and is what symbols show when
 "show band label" is switched on.
 
 The string above is a placeholder on a 0-100 scale, and most symbols start

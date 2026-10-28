@@ -7,7 +7,7 @@
  * The question this symbol answers is "where does it blow from, and how hard".
  * Each sector is a direction, its length is the share of the display's time
  * range the wind held that direction, and the bar is split into speed bands
- * coloured by the shared threshold grammar. A met mast at a compressor
+ * colored by the shared threshold grammar. A met mast at a compressor
  * station, a flare stack, a cooling tower: dispersion, odour and drift
  * questions are direction questions, and a trend of a 0-360 tag cannot answer
  * them because north is at both the top and the bottom of its axis.

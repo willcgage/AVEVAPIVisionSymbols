@@ -298,7 +298,7 @@
             <input id="pvxspc-ticks" type="number" ng-model="config.TickCount" min="2" max="10" step="1" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxspc-accent">Trace colour</label>
+            <label for="pvxspc-accent">Trace color</label>
             <input id="pvxspc-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -332,7 +332,7 @@
             <input id="pvxspc-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxspc-bgcolor">Background colour</label>
+            <label for="pvxspc-bgcolor">Background color</label>
             <input id="pvxspc-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

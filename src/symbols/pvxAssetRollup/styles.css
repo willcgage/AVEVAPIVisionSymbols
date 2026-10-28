@@ -51,7 +51,7 @@
     align-content: start;
 }
 
-/* A bar down the left edge carries the band or target colour; with neither
+/* A bar down the left edge carries the band or target color; with neither
    set it is the accent, so no card looks alarmed by default. */
 .pvx-arl .pvx-arl-card {
     min-width: 0;

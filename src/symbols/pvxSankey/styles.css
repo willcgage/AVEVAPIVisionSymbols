@@ -1,6 +1,6 @@
 /* pvxSankey — weighted flow (Sankey) diagram
  * Only the chrome (header, footer, SVG host) is styled here. Ribbon fills, node
- * colours and label colours all come from the runtime theme tokens, never from
+ * colors and label colors all come from the runtime theme tokens, never from
  * CSS, so the same stylesheet works on light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */
@@ -62,7 +62,7 @@
 /* --- ribbons -------------------------------------------------------------- */
 
 /* Hovering lifts one stream out of the pile without changing its width or its
-   colour: both of those are data, and an interaction may not alter data. */
+   color: both of those are data, and an interaction may not alter data. */
 .pvx-sk .pvx-sk-link path {
     transition: fill-opacity 120ms ease;
 }
@@ -90,7 +90,7 @@
 /* --- labels --------------------------------------------------------------- */
 
 /* Labels sit on top of ribbons, so symbol.js gives them a stroke in the surface
-   colour as a halo. paint-order puts that stroke UNDER the glyph, which is the
+   color as a halo. paint-order puts that stroke UNDER the glyph, which is the
    difference between a legible name and an outlined one. */
 .pvx-sk .pvx-sk-label,
 .pvx-sk .pvx-sk-value,

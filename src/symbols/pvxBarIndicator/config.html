@@ -109,7 +109,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbi-accent">Accent colour</label>
+            <label for="pvxbi-accent">Accent color</label>
             <input id="pvxbi-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -117,7 +117,7 @@
             <input id="pvxbi-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbi-bgcolor">Background colour</label>
+            <label for="pvxbi-bgcolor">Background color</label>
             <input id="pvxbi-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
@@ -152,7 +152,7 @@
             <input id="pvxbi-highlight" type="checkbox" ng-model="config.HighlightActiveBand" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbi-valcolor">Colour bar by band</label>
+            <label for="pvxbi-valcolor">Color bar by band</label>
             <input id="pvxbi-valcolor" type="checkbox" ng-model="config.ValueColorFromThreshold" />
         </div>
     </div>
@@ -169,7 +169,7 @@
             <input id="pvxbi-target" type="number" ng-model="config.TargetValue" step="any" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxbi-targetcolor">Marker colour</label>
+            <label for="pvxbi-targetcolor">Marker color</label>
             <input id="pvxbi-targetcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.TargetColor" />
         </div>
         <div class="pvx-cfg-hint">Hidden automatically when the target falls outside the scale.</div>

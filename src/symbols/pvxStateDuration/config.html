@@ -36,11 +36,11 @@
         <div class="pvx-cfg-legend">States</div>
 
         <div class="pvx-cfg-stack">
-            <div class="pvx-cfg-label">State colours</div>
+            <div class="pvx-cfg-label">State colors</div>
             <!-- pvx:states key=StateColors kind=colors -->
         </div>
         <div class="pvx-cfg-hint">
-            Matched case-insensitively. Any state not listed here gets a colour from the
+            Matched case-insensitively. Any state not listed here gets a color from the
             shared palette, in the order it first appears.
         </div>
 
@@ -153,7 +153,7 @@
             <input id="pvxstate-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxstate-bgcolor">Background colour</label>
+            <label for="pvxstate-bgcolor">Background color</label>
             <input id="pvxstate-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

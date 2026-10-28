@@ -441,7 +441,7 @@
      * than in the format pane of every symbol on every display:
      *
      *   theme: {
-     *       palette: ['#00539b', '#f7a800', ...],    series colours, in order
+     *       palette: ['#00539b', '#f7a800', ...],    series colors, in order
      *       status:  { normal: '#..', warning: '#..', alarm: '#..' },
      *       light:   { surface: '#..', text: '#..', border: '#..' },
      *       dark:    { surface: '#..', text: '#..' },
@@ -449,9 +449,9 @@
      *       container: { radius: 4, border: '1px solid #c8ccd0', shadow: '0 1px 2px rgba(0,0,0,.2)' }
      *   }
      *
-     * Every key is optional. A symbol's own Background, Text colour and
+     * Every key is optional. A symbol's own Background, Text color and
      * Theme still win, so nothing set on a display is overridden. A value
-     * that is not a colour is ignored and named in the console rather than
+     * that is not a color is ignored and named in the console rather than
      * drawing black, and one bad entry does not discard the rest.
      */
     var siteTokens = { light: {}, dark: {} };
@@ -484,7 +484,7 @@
                 if (color.toRgb(cfg.palette[i])) { pal.push(cfg.palette[i]); }
                 else { siteWarn('palette entry ' + JSON.stringify(cfg.palette[i])); }
             }
-            if (pal.length < 2) { siteWarn('a palette of fewer than two colours'); pal = []; }
+            if (pal.length < 2) { siteWarn('a palette of fewer than two colors'); pal = []; }
         }
         var usePal = pal.length ? pal : builtinPalette;
         color.categorical.length = 0;
@@ -645,7 +645,7 @@
     /**
      * Is this spec the shipped placeholder rather than limits someone chose?
      *
-     * DEFAULT is a demonstration on a 0-100 scale, not a limit. Colouring a
+     * DEFAULT is a demonstration on a 0-100 scale, not a limit. Coloring a
      * gauge with it is harmless; an alarm symbol applying it to every point
      * declared steam flow at 118 klb/h "Critical" on a live server, for points
      * with no limits at all. Compared after parse + stringify so spacing and
@@ -789,7 +789,7 @@
      *
      * The stored value stays the grammar string: saved displays load
      * unchanged, every symbol keeps reading it through parse(), and the
-     * operator edits a limit, a colour and a label per band instead of
+     * operator edits a limit, a color and a label per band instead of
      * typing the grammar.
      *
      * Rows are NOT the parse() of the string while the operator is typing.
@@ -824,8 +824,8 @@
             return scope.config || (scope.symbol && scope.symbol.Configuration) || null;
         };
 
-        // The picker only takes #rrggbb. A colour it cannot show (a named
-        // colour typed into the text box, say) is kept as written until the
+        // The picker only takes #rrggbb. A color it cannot show (a named
+        // color typed into the text box, say) is kept as written until the
         // operator picks a new one, rather than being replaced by black.
         var rowFor = function (t) {
             var rgb = color.toRgb(t.color);
@@ -939,22 +939,22 @@
      * states — digital state maps edited as rows in a format pane
      * ================================================================== *
      * Three grammars name digital states in config, all comma separated:
-     *   map     State:colour[:label]   pvxStatusGrid, pvxSitePlan StateMap
-     *   colors  State:colour           pvxStateDuration StateColors
+     *   map     State:color[:label]   pvxStatusGrid, pvxSitePlan StateMap
+     *   colors  State:color           pvxStateDuration StateColors
      *   list    State                  pvxStateDuration UptimeStates
      *   bands   State:band             pvxAlarmBanner, pvxAnnunciator StateBands
      *
      * `bands` puts a digital state into one of the symbol's threshold bands,
      * named by label (or by 0-based index for a band with none), so a state
-     * alarms, latches, sorts and colours exactly as a number in that band
+     * alarms, latches, sorts and colors exactly as a number in that band
      * would, and nothing downstream needs a second notion of severity.
      *
      * Typed by hand, a state map is wrong in the quiet way: "Runing" or
-     * "Fault " matches nothing, and the tile falls back to another colour
+     * "Fault " matches nothing, and the tile falls back to another color
      * with no error anywhere. So build.js expands a marker in config.html
      *   <!-- pvx:states key=StateMap kind=map -->
      * into rows (src/shared/config-states.html) whose state is chosen from a
-     * list, a severity or colour is picked, and the stored value stays the
+     * list, a severity or color is picked, and the stored value stays the
      * grammar string, so saved displays and every symbol's parser are
      * unaffected.
      *
@@ -978,7 +978,7 @@
     states.MAX_OPTIONS = 300;
 
     // Severity names over the shared status palette. A severity is only a
-    // colour in the stored string; the name is recovered from the colour.
+    // color in the stored string; the name is recovered from the color.
     states.SEVERITIES = [
         { name: 'Normal', color: color.status.normal },
         { name: 'Information', color: color.status.info },
@@ -990,7 +990,7 @@
 
     function stTrim(s) { return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, ''); }
 
-    /** Severity name for a colour, or '' when it is not one of the palette's. */
+    /** Severity name for a color, or '' when it is not one of the palette's. */
     states.severityOf = function (c) {
         var rgb = color.toRgb(c);
         if (!rgb) { return ''; }
@@ -1021,7 +1021,7 @@
             }
             out.push({
                 state: key,
-                // colors keeps everything after the first colon as the colour,
+                // colors keeps everything after the first colon as the color,
                 // exactly as pvxStateDuration reads it.
                 color: kind === 'colors' ? stTrim(p.slice(1).join(':')) : stTrim(p[1]),
                 label: kind === 'map' ? stTrim(p.slice(2).join(':')) : ''
@@ -1358,7 +1358,7 @@
             for (var i = 0; i < ed.rows.length; i++) {
                 var r = ed.rows[i];
                 // Separators in a state or label would split the entry; a colon
-                // in a state would move its colour. Fixed where it can be seen.
+                // in a state would move its color. Fixed where it can be seen.
                 if (r.state && /[,;:\r\n]/.test(r.state)) { r.state = r.state.replace(/\s*[,;:\r\n]+\s*/g, ' '); }
                 if (r.label && /[,;\r\n]/.test(r.label)) { r.label = r.label.replace(/\s*[,;\r\n]+\s*/g, ' '); }
                 var st = stTrim(r.state);
@@ -1454,7 +1454,7 @@
             return false;
         };
 
-        /** Colour of the band a row names, for the swatch beside it. */
+        /** Color of the band a row names, for the swatch beside it. */
         ed.bandColor = function (r, spec) {
             var bands = thresholds.parse(spec);
             var b = states.bandOf(r.band, bands);
@@ -3461,7 +3461,7 @@
      * icons — the built-in set the navigation symbols draw
      * ------------------------------------------------------------------ *
      * Single stroked paths on a 24-unit grid, so nothing third-party ships
-     * and each takes the text colour of whatever it sits in.
+     * and each takes the text color of whatever it sits in.
      */
     var icons = PVX.icons = {
         paths: {
@@ -7829,7 +7829,7 @@
      * Rows of an AF search, by attribute: `byAttr[i]` holds the rows of the
      * i-th attribute named in the pane. A symbol that charts one quantity
      * takes byAttr[0] and names the rest in its footer (`unused`); one that
-     * pairs two (size and colour) takes two.
+     * pairs two (size and color) takes two.
      */
     afsource.split = function (rows, cfg, uses) {
         var attrs = afsource.attributes(cfg && cfg.SearchAttributes);

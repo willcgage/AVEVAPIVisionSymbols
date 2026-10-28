@@ -1,6 +1,6 @@
 /* pvxProfile — spatial profile
  * Only the chrome (header, footer, SVG host) is styled here. Line, point, axis
- * and envelope colours all come from the runtime theme tokens or from explicit
+ * and envelope colors all come from the runtime theme tokens or from explicit
  * config, never from CSS, so the same stylesheet works on light and dark
  * displays. The custom properties below are fallbacks; symbol.js overwrites
  * them on the root element every render. */

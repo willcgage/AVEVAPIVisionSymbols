@@ -219,14 +219,14 @@ Reset time here      |      | start=*-24h;end=*</pre>
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxnav-color">Button colour</label>
+            <label for="pvxnav-color">Button color</label>
             <input id="pvxnav-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ButtonColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxnav-activecolor">Selected colour</label>
+            <label for="pvxnav-activecolor">Selected color</label>
             <input id="pvxnav-activecolor" type="text" ng-model="config.ActiveColor" placeholder="auto" />
         </div>
-        <div class="pvx-cfg-hint">Leave blank for a darker shade of the button colour.</div>
+        <div class="pvx-cfg-hint">Leave blank for a darker shade of the button color.</div>
         <div class="pvx-cfg-row">
             <label for="pvxnav-radius">Button corner radius</label>
             <input id="pvxnav-radius" type="number" ng-model="config.ButtonRadius" min="0" max="40" />
@@ -244,7 +244,7 @@ Reset time here      |      | start=*-24h;end=*</pre>
             <input id="pvxnav-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxnav-bgcolor">Background colour</label>
+            <label for="pvxnav-bgcolor">Background color</label>
             <input id="pvxnav-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

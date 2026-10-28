@@ -247,7 +247,7 @@ function validateTemplate(typeName, html) {
     }
 }
 
-/* A colour input fires 'input' on every step of a drag across the picker, and
+/* A color input fires 'input' on every step of a drag across the picker, and
  * ng-model commits on 'input' by default, so each step became its own change
  * to the symbol's config: dragging white to black left hundreds of greys in
  * PI Vision's undo history and buried every earlier edit under them. 'change'
@@ -258,7 +258,7 @@ function validateColorInputs(typeName, html) {
     (html.match(/<input\b[^>]*>/g) || []).forEach((tag) => {
         if (!/type\s*=\s*["']color["']/.test(tag)) return;
         if (!/ng-model-options\s*=\s*"\{\s*updateOn:\s*'change'\s*\}"/.test(tag)) {
-            problem(typeName, 'colour input without ng-model-options="{ updateOn: \'change\' }" — ' +
+            problem(typeName, 'color input without ng-model-options="{ updateOn: \'change\' }" — ' +
                 'every step of a drag would be its own undo entry: ' + tag.replace(/\s+/g, ' ').slice(0, 120));
         }
     });
@@ -480,7 +480,7 @@ function withFilterPane(typeName, config, snippet, js) {
     return config.replace(FILTER_MARKER, snippet);
 }
 
-// Threshold bands are edited as rows (limit, colour, label), not by typing
+// Threshold bands are edited as rows (limit, color, label), not by typing
 // the grammar. A pane asks for that editor with a marker where the control
 // would go:
 //   <!-- pvx:bands -->                  config.Thresholds
@@ -526,7 +526,7 @@ function withBandsEditor(typeName, config, editor, js) {
 }
 
 // Digital state maps are edited as rows (state chosen from a list, severity
-// or colour, label), not by typing the grammar. A pane asks for the editor
+// or color, label), not by typing the grammar. A pane asks for the editor
 // with a marker on its own line where the control goes:
 //   <!-- pvx:states key=StateMap kind=map -->
 // kind says which grammar the key holds. As with the bands, a pane that also
@@ -534,8 +534,8 @@ function withBandsEditor(typeName, config, editor, js) {
 // keeps the old text box beside the new rows.
 const STATES_MARKER = /^[ \t]*<!--\s*pvx:states\b([^>]*?)-->[ \t]*\n/gm;
 const STATES_KINDS = {
-    map: { grammar: 'State:colour:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
-    colors: { grammar: 'State:colour', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
+    map: { grammar: 'State:color:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
+    colors: { grammar: 'State:color', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
     list: { grammar: 'State', example: 'Running, On, Open' },
     bands: { grammar: 'State:band label', example: 'ALARM:Critical, WARN:High, NORMAL:Normal' }
 };

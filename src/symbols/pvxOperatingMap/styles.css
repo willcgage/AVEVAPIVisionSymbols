@@ -13,7 +13,7 @@
 }
 
 /* The margin is the reason the symbol is on the display, so it gets a filled
-   badge in the band colour rather than plain header text. */
+   badge in the band color rather than plain header text. */
 .pvx-opmap .pvx-opmap-badge {
     /* The title truncates before the badge does. */
     flex: 0 0 auto;

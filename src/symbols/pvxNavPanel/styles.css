@@ -180,7 +180,7 @@
     white-space: nowrap;
 }
 
-/* A built-in icon before the label, in the button's own text colour. The
+/* A built-in icon before the label, in the button's own text color. The
    button is a block, so the pair is laid out inline and centred together. */
 .pvx-nav .pvx-nav-btn .pvx-nav-icon {
     display: inline-block;

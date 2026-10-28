@@ -28,9 +28,9 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
         <div class="pvx-cfg-row">
-            <label for="pvxxp-mode">Colour by</label>
+            <label for="pvxxp-mode">Color by</label>
             <select id="pvxxp-mode" ng-model="config.ColorMode">
                 <option value="diverging">Distance from the target</option>
                 <option value="sequential">Value, low to high</option>
@@ -41,12 +41,12 @@
             <input id="pvxxp-target" type="text" ng-model="config.Target" placeholder="the average" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxp-span">Full colour at &plusmn;</label>
+            <label for="pvxxp-span">Full color at &plusmn;</label>
             <input id="pvxxp-span" type="text" ng-model="config.ColorSpan" placeholder="the largest seen" />
         </div>
         <div class="pvx-cfg-hint">
             Blue below the target, red above, white on it. Set the span to the tolerance
-            and anything fully coloured is out of it.
+            and anything fully colored is out of it.
         </div>
     </div>
 
@@ -70,7 +70,7 @@
             position.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxp-line">Line colour</label>
+            <label for="pvxxp-line">Line color</label>
             <input id="pvxxp-line" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.LineColor" />
         </div>
         <div class="pvx-cfg-row">

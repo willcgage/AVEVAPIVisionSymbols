@@ -12,7 +12,7 @@
     </g>
 
     <!-- Cumulative Pareto line, rising and flattening, drawn above the bars in
-         the alarm/attention colour so the two encodings never blur together. -->
+         the alarm/attention color so the two encodings never blur together. -->
     <polyline points="86,306 198,191 310,117 422,76"
               fill="none" stroke="#c8452f" stroke-width="16"
               stroke-linecap="round" stroke-linejoin="round"/>

@@ -97,19 +97,19 @@
         <div class="pvx-cfg-hint">
             The name of an attribute on each element, such as <code>Status</code> or
             <code>Discharge Pressure</code>. Its current value is shown at the end of every row on
-            screen with a coloured dot, read through PI Web API and refreshed on the interval below.
+            screen with a colored dot, read through PI Web API and refreshed on the interval below.
             A row whose element has no such attribute shows a dash.
         </div>
         <div ng-if="config.ValueAttribute">
             <div class="pvx-cfg-stack">
-                <div class="pvx-cfg-label">Colours for numbers</div>
+                <div class="pvx-cfg-label">Colors for numbers</div>
                 <!-- pvx:bands key=ValueBands -->
             </div>
             <div class="pvx-cfg-stack">
-                <div class="pvx-cfg-label">Colours for digital states</div>
+                <div class="pvx-cfg-label">Colors for digital states</div>
                 <!-- pvx:states key=StateMap kind=map -->
             </div>
-            <div class="pvx-cfg-hint">A value no band or state covers gets no dot. Bad quality is shown in the stale colour.</div>
+            <div class="pvx-cfg-hint">A value no band or state covers gets no dot. Bad quality is shown in the stale color.</div>
             <div class="pvx-cfg-row">
                 <label for="pvxtree-valdot">Show the dot</label>
                 <input id="pvxtree-valdot" type="checkbox" ng-model="config.ShowValueDot" />
@@ -259,7 +259,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxat-accent">Accent colour</label>
+            <label for="pvxat-accent">Accent color</label>
             <input id="pvxat-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the selection highlight and the keyboard focus ring.</div>
@@ -268,7 +268,7 @@
             <input id="pvxat-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxat-bgcolor">Background colour</label>
+            <label for="pvxat-bgcolor">Background color</label>
             <input id="pvxat-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

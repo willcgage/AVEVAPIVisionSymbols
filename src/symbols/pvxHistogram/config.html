@@ -97,11 +97,11 @@
             <input id="pvxhist-target" type="text" ng-model="config.Target" placeholder="none" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxhist-colorbyspec">Colour out-of-spec bars</label>
+            <label for="pvxhist-colorbyspec">Color out-of-spec bars</label>
             <input id="pvxhist-colorbyspec" type="checkbox" ng-model="config.ColorBySpec" />
         </div>
         <div class="pvx-cfg-hint">
-            Only bins lying <em>entirely</em> beyond a limit are recoloured &mdash; a bin straddling
+            Only bins lying <em>entirely</em> beyond a limit are recolored &mdash; a bin straddling
             the limit still holds conforming samples.
         </div>
     </div>
@@ -151,7 +151,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxhist-barcolor">Bar colour</label>
+            <label for="pvxhist-barcolor">Bar color</label>
             <input id="pvxhist-barcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BarColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -193,7 +193,7 @@
             not is telling you something &mdash; two peaks, a hard clamp, a skew.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxhist-curvecolor">Curve colour</label>
+            <label for="pvxhist-curvecolor">Curve color</label>
             <input id="pvxhist-curvecolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.NormalCurveColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -255,7 +255,7 @@
             <input id="pvxhist-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxhist-bgcolor">Background colour</label>
+            <label for="pvxhist-bgcolor">Background color</label>
             <input id="pvxhist-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

@@ -116,8 +116,8 @@
         /* -- Site theme, optional ------------------------------------------- *
          * A corporate look set once for every PVX symbol on this server,
          * instead of in each symbol's format pane. Every key is optional, and
-         * whatever a symbol sets for itself (Theme, Background, Text colour)
-         * still wins. Colours are hex or rgb()/rgba(); anything else is
+         * whatever a symbol sets for itself (Theme, Background, Text color)
+         * still wins. Colors are hex or rgb()/rgba(); anything else is
          * ignored and named in the browser console as "[PVX] pvx-config.js
          * theme: ... ignored."
          *
@@ -130,7 +130,7 @@
          *       container: { radius: 4, border: '1px solid #c9ced4', shadow: '0 1px 2px rgba(0,0,0,0.15)' }
          *   },
          *
-         * palette    series colours, in order (at least two)
+         * palette    series colors, in order (at least two)
          * status     normal, info, warning, alarm, critical, stale, unknown
          * light/dark surface, surfaceAlt, border, text, textMuted, grid, axis, track
          * container  every symbol's card: corner radius in px, border, shadow

@@ -81,7 +81,7 @@
                 ToleranceLow: '',
                 ToleranceHigh: '',
 
-                // Colour
+                // Color
                 BandColor: '#2f9e5f',
                 BandOpacity: 0.12,
                 InBandColor: '#3b82c4',
@@ -195,7 +195,7 @@
             }
 
             // Past a handful of traces the excursions overlap into a single
-            // coloured mush; keep the first N and confess in the footer rather
+            // colored mush; keep the first N and confess in the footer rather
             // than drawing something unreadable.
             var cap = PVX.util.clamp(parseInt(cfg.MaxSeries, 10) || 6, 1, 12);
             if (pvList.length > cap) {
@@ -329,11 +329,11 @@
          * Split a deviation trace into contiguous runs of one zone, inserting
          * the exact tolerance crossing between runs.
          *
-         * Colouring whole samples would move every colour change to the NEXT
+         * Coloring whole samples would move every color change to the NEXT
          * sample — minutes late on a compressed tag — so the trace would appear
-         * to change colour somewhere inside the band, and the band would look
+         * to change color somewhere inside the band, and the band would look
          * like it was drawn in the wrong place. Splitting at the interpolated
-         * crossing lands the colour change exactly on the limit, and hands the
+         * crossing lands the color change exactly on the limit, and hands the
          * duration arithmetic the same edges the eye sees.
          */
         function segmentize(pts, tol) {
@@ -589,11 +589,11 @@
         }
 
         /* ================================================================== *
-         * colour
+         * color
          * ================================================================== */
 
         /**
-         * In-band colour for one trace.
+         * In-band color for one trace.
          *
          * With a single trace this is the configured InBandColor. With several
          * it is the categorical palette instead: six identically blue traces
@@ -864,8 +864,8 @@
             var buckets = Math.max(2, Math.floor(plot.w / 2));
 
             for (i = 0; i < rows.length; i++) {
-                /* Bad quality dims the trace rather than recolouring it: the zone
-                 * colour still carries meaning, it just should not command
+                /* Bad quality dims the trace rather than recoloring it: the zone
+                 * color still carries meaning, it just should not command
                  * attention while the value itself is untrustworthy. */
                 var g = PVX.svg.el('g', {
                     'class': 'pvx-dev-series',
@@ -1278,8 +1278,8 @@
                 });
             }
 
-            /* Traces are recoloured by zone, so a legend that showed only the
-             * identity colours would be a lie for every out-of-band stretch: a
+            /* Traces are recolored by zone, so a legend that showed only the
+             * identity colors would be a lie for every out-of-band stretch: a
              * reader seeing an amber trace could not tell whether amber means
              * "pump B" or "below tolerance". The excursion key gets reserved
              * space on the right and is never dropped in favour of one more tag
@@ -1601,7 +1601,7 @@
             var bx = left ? plot.x + 4 : plot.x + plot.w - boxW - 4;
             var by = top ? plot.y + 4 : plot.y + plot.h - boxH - 4;
 
-            // A transparent symbol has no surface colour to borrow, so fall back
+            // A transparent symbol has no surface color to borrow, so fall back
             // to a scrim that keeps the text legible over the trace.
             var fill = (t.surface && t.surface !== 'transparent')
                 ? PVX.color.rgba(t.surface, 0.88)

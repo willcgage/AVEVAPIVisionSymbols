@@ -62,29 +62,29 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxtm-colormode">Colour by</label>
+            <label for="pvxtm-colormode">Color by</label>
             <select id="pvxtm-colormode" ng-model="config.ColorMode">
                 <option value="threshold">Threshold band</option>
                 <option value="value">Value (continuous ramp)</option>
                 <option value="palette">Palette per tile</option>
                 <option value="group">Group</option>
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint">Size shows who is big, colour shows who is in trouble. <em>Threshold band</em> colours by the same statistic the tiles are sized by, which is the combination worth reading. With rows from an AF search naming two attributes, the first sizes the tiles and the second colours them (load by efficiency, say), paired by asset. <em>Palette</em> and <em>Group</em> identify rather than rank, so they carry no legend of magnitude.</div>
+        <div class="pvx-cfg-hint">Size shows who is big, color shows who is in trouble. <em>Threshold band</em> colors by the same statistic the tiles are sized by, which is the combination worth reading. With rows from an AF search naming two attributes, the first sizes the tiles and the second colors them (load by efficiency, say), paired by asset. <em>Palette</em> and <em>Group</em> identify rather than rank, so they carry no legend of magnitude.</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxtm-single">Tile colour</label>
+            <label for="pvxtm-single">Tile color</label>
             <input id="pvxtm-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxtm-legend">Show colour legend</label>
+            <label for="pvxtm-legend">Show color legend</label>
             <input id="pvxtm-legend" type="checkbox" ng-model="config.ShowColorLegend" />
         </div>
-        <div class="pvx-cfg-hint">Tiles whose source reports bad quality are always drawn hatched, whatever the colour mode, and keep their share of the area.</div>
+        <div class="pvx-cfg-hint">Tiles whose source reports bad quality are always drawn hatched, whatever the color mode, and keep their share of the area.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -204,7 +204,7 @@
             <input id="pvxtm-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxtm-bgcolor">Background colour</label>
+            <label for="pvxtm-bgcolor">Background color</label>
             <input id="pvxtm-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
@@ -213,7 +213,7 @@
             <input id="pvxtm-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxtm-accent">Accent colour</label>
+            <label for="pvxtm-accent">Accent color</label>
             <input id="pvxtm-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -224,7 +224,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Used when <em>Colour by</em> is set to <em>Threshold band</em>.</div>
+        <div class="pvx-cfg-hint">Used when <em>Color by</em> is set to <em>Threshold band</em>.</div>
     </div>
 
 </div>

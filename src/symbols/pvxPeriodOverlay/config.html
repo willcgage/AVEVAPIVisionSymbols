@@ -18,7 +18,7 @@
         </div>
         <div class="pvx-cfg-hint">
             The first data source is folded in full. Each further one draws its current period
-            on the same axis in its own colour; for tags in different units, show
+            on the same axis in its own color; for tags in different units, show
             <em>% change</em> below, where each is measured from its own baseline.
         </div>
     </div>
@@ -223,10 +223,10 @@
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxpo-envcolor">Envelope colour</label>
+            <label for="pvxpo-envcolor">Envelope color</label>
             <input id="pvxpo-envcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.EnvelopeColor" />
         </div>
-        <div class="pvx-cfg-hint">Leave unset to use the accent colour.</div>
+        <div class="pvx-cfg-hint">Leave unset to use the accent color.</div>
         <div class="pvx-cfg-row">
             <label for="pvxpo-envop">Envelope opacity</label>
             <input id="pvxpo-envop" type="number" ng-model="config.EnvelopeOpacity" min="0" max="1" step="0.02" />
@@ -241,15 +241,15 @@
         <div class="pvx-cfg-legend">Traces</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxpo-colormode">Colour older periods</label>
+            <label for="pvxpo-colormode">Color older periods</label>
             <select id="pvxpo-colormode" ng-model="config.ColorMode">
-                <option value="fade">Faded shades of one colour</option>
-                <option value="palette">One colour each</option>
+                <option value="fade">Faded shades of one color</option>
+                <option value="palette">One color each</option>
             </select>
         </div>
         <div class="pvx-cfg-hint" ng-if="!config.ColorMode || config.ColorMode === 'fade'">
             The history recedes into the background and only the current period keeps its
-            colour — the fastest way to answer "which line is today". The legend collapses to
+            color — the fastest way to answer "which line is today". The legend collapses to
             current / older / envelope, because faded traces cannot honestly be listed one by
             one.
         </div>
@@ -263,7 +263,7 @@
             <input id="pvxpo-fade" type="checkbox" ng-model="config.FadeOlder" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxpo-currentcolor">Current period colour</label>
+            <label for="pvxpo-currentcolor">Current period color</label>
             <input id="pvxpo-currentcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CurrentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -376,7 +376,7 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxpo-accent">Accent colour</label>
+            <label for="pvxpo-accent">Accent color</label>
             <input id="pvxpo-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
@@ -394,7 +394,7 @@
             <input id="pvxpo-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxpo-bgcolor">Background colour</label>
+            <label for="pvxpo-bgcolor">Background color</label>
             <input id="pvxpo-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>

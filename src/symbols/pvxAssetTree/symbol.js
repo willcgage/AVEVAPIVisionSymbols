@@ -51,7 +51,7 @@
  *   being native, opens outside the symbol's box rather than being clipped.
  *
  *   ValueAttribute names an attribute every row's element is read for, shown
- *   at the end of the row with a status dot coloured by ValueBands (numbers)
+ *   at the end of the row with a status dot colored by ValueBands (numbers)
  *   or StateMap (digital states). Only the rows on screen are read, in two
  *   batched requests, and again on a timer; a row whose element lacks the
  *   attribute shows a dash and says so on hover, rather than vanishing.
@@ -159,8 +159,8 @@
                 /* -- layout and values ------------------------------------------ */
                 Layout: 'tree',            // tree | list | dropdown
                 ValueAttribute: '',        // an attribute read on every row's element
-                ValueBands: '',            // threshold grammar: colours numeric values
-                StateMap: '',              // State:colour[:label]: colours digital values
+                ValueBands: '',            // threshold grammar: colors numeric values
+                StateMap: '',              // State:color[:label]: colors digital values
                 ShowValueDot: true,
                 ValueRefreshSeconds: 30
             });
