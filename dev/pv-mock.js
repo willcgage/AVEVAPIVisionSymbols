@@ -323,6 +323,34 @@
             return { Data: wData };
         }
 
+        // A control chart on a generic sine is out of control everywhere,
+        // which tests nothing. This is a filler in control for most of the
+        // window, with one spike past the limits and a sustained shift of
+        // about 1.5 sigma over the last fifth: rules 1, 2, 5 and 6 each have
+        // something real to find. Sources 2 and 3 are the spec limits as
+        // tags, steady, the way a recipe holds them.
+        if (shape === 'TimeSeries' && opts.profile === 'spc') {
+            var sData = [], fill = [];
+            for (var sp = 0; sp < points; sp++) {
+                var stm = now - span + (span * sp) / (points - 1);
+                var frac = sp / (points - 1);
+                // Sum of uniforms: near-normal, sd about 2.0 g, seeded.
+                var noise = (rand() + rand() + rand() + rand() - 2) * 3.46;
+                var v = 500 + noise + (frac > 0.8 ? 3 : 0) + (sp === Math.round(points * 0.35) ? 9 : 0);
+                fill.push({ Time: new Date(stm).toISOString(), Value: round(v, 2) });
+            }
+            sData.push({ Label: 'Line 3 Fill Weight', Units: 'g', Path: '\\\\AF\\Line 3|Fill Weight',
+                IsGood: opts.badIndex === 0 ? false : true, Value: fill });
+            var specs = [['Line 3 Fill Weight USL', 510], ['Line 3 Fill Weight LSL', 490]];
+            for (var sx2 = 1; sx2 < count; sx2++) {
+                var spec = specs[sx2 - 1] || [tags[sx2].name, tags[sx2].base];
+                sData.push({ Label: spec[0], Units: 'g', Path: '', IsGood: true,
+                    Value: [{ Time: new Date(now - span).toISOString(), Value: spec[1] },
+                        { Time: new Date(now).toISOString(), Value: spec[1] }] });
+            }
+            return { Data: sData };
+        }
+
         if (shape === 'TimeSeries') {
             var data = [];
             for (var s = 0; s < count; s++) {

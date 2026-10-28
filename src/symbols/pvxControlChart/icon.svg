@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Control Chart">
+    <title>PVX Control Chart</title>
+
+    <!-- Dashed control limits around a solid centre line, with one point
+         breaking the upper limit in the alarm colour: the icon has to read as
+         "in control, except here". Background is transparent by design. -->
+    <g stroke="#c8452f" stroke-width="12" stroke-dasharray="30 18" fill="none">
+        <line x1="40" y1="120" x2="472" y2="120"/>
+        <line x1="40" y1="392" x2="472" y2="392"/>
+    </g>
+    <line x1="40" y1="256" x2="472" y2="256" stroke="#5c6570" stroke-width="10"/>
+    <polyline points="56,280 120,220 184,300 248,236 312,276 376,196 440,84"
+              fill="none" stroke="#3b82c4" stroke-width="16" stroke-linejoin="round" stroke-linecap="round"/>
+    <g fill="#3b82c4">
+        <circle cx="56" cy="280" r="20"/>
+        <circle cx="120" cy="220" r="20"/>
+        <circle cx="184" cy="300" r="20"/>
+        <circle cx="248" cy="236" r="20"/>
+        <circle cx="312" cy="276" r="20"/>
+        <circle cx="376" cy="196" r="20"/>
+    </g>
+    <circle cx="440" cy="84" r="30" fill="#c8452f"/>
+</svg>

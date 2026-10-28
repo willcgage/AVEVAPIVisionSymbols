@@ -16,6 +16,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
 | [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
 | [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
+| [`pvxControlChart`](#pvxcontrolchart) | PVX Control Chart | TimeSeries | Multiple |
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
@@ -403,6 +404,61 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `SelectionColor` | `"#d99024"` |  |
 | `BaselineColor` | `""` | blank => AccentColor |
 | `ShowMedians` | `true` |  |
+
+---
+
+## pvxControlChart
+
+**PVX Control Chart** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock spc
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `SeriesIndex` | `1` |  |
+| `Title` | `""` |  |
+| `ChartType` | `"imr"` | imr \| xbarr \| xbars |
+| `SubgroupSize` | `5` | X-bar charts: consecutive points per subgroup |
+| `SampleMode` | `"interval"` | interval \| recorded |
+| `Intervals` | `120` | interval mode: points across the time range |
+| `Sigma` | `3` | limit width, 2 to 4 |
+| `LimitSource` | `"window"` | window \| baseline \| fixed \| sources |
+| `BaselinePoints` | `25` | baseline: the first N plotted points |
+| `FixedCenter` | `""` |  |
+| `FixedUCL` | `""` |  |
+| `FixedLCL` | `""` |  |
+| `CenterSource` | `"0"` |  |
+| `UclSource` | `"0"` |  |
+| `LclSource` | `"0"` |  |
+| `RuleSet` | `"nelson"` | nelson \| we \| limits \| custom \| none |
+| `CustomRules` | `"1, 2, 5, 6"` |  |
+| `RunLength` | `9` | custom: points in a row for rule 2 |
+| `TrendLength` | `6` | custom: points rising or falling for rule 3 |
+| `AlternateLength` | `14` | custom: points alternating for rule 4 |
+| `LSL` | `""` |  |
+| `USL` | `""` |  |
+| `Target` | `""` |  |
+| `LslSource` | `"0"` | a data source overrides the typed LSL |
+| `UslSource` | `"0"` |  |
+| `ShowCapability` | `true` |  |
+| `ShowSecondary` | `true` |  |
+| `ShowHistogram` | `true` |  |
+| `ShowZones` | `true` |  |
+| `ShowSpecLines` | `true` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
 
 ---
 

@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **35 symbols**.
+> [After the plan](#after-the-plan). The library is at **36 symbols**.
 
 ## On originality
 
@@ -484,6 +484,15 @@ rest answered better by an existing symbol. Two additions came of it:
 Spiral charts, funnel, pyramid and chord were declined: each restates a
 question that pvxPeriodOverlay, pvxHeatmap, pvxWaterfall or pvxSankey already
 answers in a form that is easier to read values from.
+
+A feature-level comparison with Software Athlete's Vision Library+ (49
+widgets, read option by option from their documentation) produced a build
+order of 28 items, pipeline-only work first and anything that writes last.
+The first of them is a new symbol:
+
+| Symbol | Data shape | Why it earns its place |
+|---|---|---|
+| **pvxControlChart** | TimeSeries, one charted plus optional limit and spec sources | pvxHistogram answers "is this process capable"; a control chart answers "is it still the same process", which needs time order. I-MR, X̄-R and X̄-S, Nelson and Western Electric rules with configurable run lengths, limits from the window, a baseline, typed values or data sources, Cpk from within-subgroup sigma beside Ppk from overall sigma. |
 
 ## What next
 

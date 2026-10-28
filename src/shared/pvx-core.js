@@ -2447,6 +2447,323 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * stats.spc: control charts
+     * ------------------------------------------------------------------ *
+     * The constants are the standard bias-correction factors for estimating
+     * sigma from subgroup ranges (d2, d3) and standard deviations (c4), for
+     * subgroup sizes 2 to 10. Limits are written as "k sigma" rather than with
+     * the familiar A2/D3/D4 tables, because those tables only exist for k = 3
+     * and the symbol lets an engineer choose 2 to 4.
+     */
+    stats.SPC_D2 = { 2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534, 7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078 };
+    stats.SPC_D3 = { 2: 0.853, 3: 0.888, 4: 0.880, 5: 0.864, 6: 0.848, 7: 0.833, 8: 0.820, 9: 0.808, 10: 0.797 };
+    stats.SPC_C4 = { 2: 0.7979, 3: 0.8862, 4: 0.9213, 5: 0.9400, 6: 0.9515, 7: 0.9594, 8: 0.9650, 9: 0.9693, 10: 0.9727 };
+
+    /**
+     * Interval averages of a time-ordered stream, time-weighted with straight
+     * lines between samples (PI's own interpolation for a non-step tag).
+     *
+     * A control chart cannot use PI Vision's plot values: those are the
+     * minimum and maximum of each pixel column, so consecutive points
+     * alternate by construction and Nelson rule 4 fires on a perfectly
+     * steady process. Recorded values are honest but uneven in time on a
+     * compressed tag; averaging them onto a fixed grid gives the evenly
+     * spaced individuals the rules assume. An interval with no sample inside
+     * it and none either side yields null rather than an invented number.
+     */
+    stats.intervalAverages = function (points, fromMs, toMs, count) {
+        var n = Math.max(1, parseInt(count, 10) || 1);
+        var pts = (points || []).filter(function (p) { return p && util.isNum(p.v) && util.isNum(p.t); });
+        if (!pts.length || !(toMs > fromMs)) { return []; }
+        var step = (toMs - fromMs) / n;
+        var valueAt = function (t) {
+            if (t <= pts[0].t) { return pts[0].v; }
+            if (t >= pts[pts.length - 1].t) { return pts[pts.length - 1].v; }
+            var lo = 0, hi = pts.length - 1;
+            while (hi - lo > 1) {
+                var mid = (lo + hi) >> 1;
+                if (pts[mid].t <= t) { lo = mid; } else { hi = mid; }
+            }
+            var a = pts[lo], b = pts[hi];
+            return b.t === a.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+        };
+        var out = [];
+        for (var i = 0; i < n; i++) {
+            var s = fromMs + i * step, e = s + step;
+            // Outside the span the samples cover there is nothing to average.
+            if (e <= pts[0].t || s >= pts[pts.length - 1].t) { out.push({ t: s + step / 2, v: null }); continue; }
+            var cs = Math.max(s, pts[0].t), ce = Math.min(e, pts[pts.length - 1].t);
+            var knots = [cs];
+            for (var j = 0; j < pts.length; j++) {
+                if (pts[j].t > cs && pts[j].t < ce) { knots.push(pts[j].t); }
+            }
+            knots.push(ce);
+            var area = 0;
+            for (var k = 1; k < knots.length; k++) {
+                area += (valueAt(knots[k - 1]) + valueAt(knots[k])) / 2 * (knots[k] - knots[k - 1]);
+            }
+            out.push({ t: s + step / 2, v: ce > cs ? area / (ce - cs) : valueAt(cs) });
+        }
+        return out;
+    };
+
+    /**
+     * Group a stream into consecutive subgroups of `size`. A trailing partial
+     * subgroup is returned in `dropped` so the caller can say so; averaging
+     * it with fewer samples would give it the wrong limits.
+     */
+    stats.subgroups = function (points, size) {
+        var n = util.clamp(parseInt(size, 10) || 1, 1, 10);
+        var groups = [], cur = [];
+        for (var i = 0; i < points.length; i++) {
+            cur.push(points[i]);
+            if (cur.length === n) { groups.push(cur); cur = []; }
+        }
+        return { groups: groups, dropped: cur.length, size: n };
+    };
+
+    /**
+     * Control limits for an I-MR, X-bar R or X-bar S chart.
+     *
+     * @param {Array} points time-ordered [{t, v}], already evenly spaced
+     * @param {Object} opts {
+     *     chart: 'imr' | 'xbarr' | 'xbars',
+     *     size: subgroup size for the X-bar charts (2 to 10),
+     *     k: limit width in sigmas (default 3),
+     *     baseline: number of plotted points the limits are computed from
+     *               (0 = all of them; "phase I" when set),
+     *     fixed: {center, ucl, lcl} typed limits for the primary chart, or null
+     * }
+     * @returns {Object|null} {
+     *     chart, size, k, sigma (within), s (sigma of the plotted statistic),
+     *     primary: [{t, v, members}], secondary: [{t, v}],
+     *     center, ucl, lcl, secCenter, secUcl, secLcl, secName, dropped
+     * }
+     */
+    stats.controlLimits = function (points, opts) {
+        opts = opts || {};
+        var chart = opts.chart === 'xbarr' || opts.chart === 'xbars' ? opts.chart : 'imr';
+        var k = util.num(opts.k);
+        k = k === null ? 3 : util.clamp(k, 1, 6);
+        var pts = (points || []).filter(function (p) { return p && util.isNum(p.v); });
+        var primary = [], secondary = [], dropped = 0, size = 1, secName;
+        var i;
+
+        if (chart === 'imr') {
+            secName = 'MR';
+            for (i = 0; i < pts.length; i++) {
+                primary.push({ t: pts[i].t, v: pts[i].v, members: [pts[i]] });
+                // The first point has no moving range; it is not dropped, it
+                // simply has no partner yet.
+                if (i > 0) { secondary.push({ t: pts[i].t, v: Math.abs(pts[i].v - pts[i - 1].v) }); }
+            }
+            size = 2;
+        } else {
+            secName = chart === 'xbarr' ? 'R' : 'S';
+            var sg = stats.subgroups(pts, util.clamp(parseInt(opts.size, 10) || 5, 2, 10));
+            size = sg.size;
+            dropped = sg.dropped;
+            for (i = 0; i < sg.groups.length; i++) {
+                var g = sg.groups[i];
+                var vals = [];
+                for (var j = 0; j < g.length; j++) { vals.push(g[j].v); }
+                var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+                primary.push({ t: g[g.length - 1].t, v: stats.mean(vals), members: g });
+                secondary.push({ t: g[g.length - 1].t, v: chart === 'xbarr' ? hi - lo : stats.stddev(vals) });
+            }
+        }
+        if (primary.length < 2) { return null; }
+
+        var base = parseInt(opts.baseline, 10) || 0;
+        var nBase = base > 1 ? Math.min(base, primary.length) : primary.length;
+        var center, secBar, sigma, s;
+        var pv = [], sv = [];
+        for (i = 0; i < nBase; i++) { pv.push(primary[i].v); }
+        center = stats.mean(pv);
+        // The moving range list is one shorter than the individuals.
+        var nSec = chart === 'imr' ? Math.max(1, nBase - 1) : nBase;
+        for (i = 0; i < Math.min(nSec, secondary.length); i++) { sv.push(secondary[i].v); }
+        secBar = stats.mean(sv);
+        if (secBar === null) { secBar = 0; }
+
+        var d2 = stats.SPC_D2[size], d3 = stats.SPC_D3[size], c4 = stats.SPC_C4[size];
+        if (chart === 'xbars') { sigma = secBar / c4; } else { sigma = secBar / d2; }
+        s = chart === 'imr' ? sigma : sigma / Math.sqrt(size);
+
+        var out = {
+            chart: chart, size: chart === 'imr' ? 1 : size, k: k, sigma: sigma, s: s,
+            primary: primary, secondary: secondary, secName: secName,
+            center: center, ucl: center + k * s, lcl: center - k * s,
+            secCenter: secBar, dropped: dropped, baseline: nBase, fixed: false
+        };
+        var spread = chart === 'xbars' ? sigma * Math.sqrt(1 - c4 * c4) : d3 * sigma;
+        out.secUcl = secBar + k * spread;
+        out.secLcl = Math.max(0, secBar - k * spread);
+
+        var fx = opts.fixed;
+        if (fx && util.isNum(util.num(fx.center)) && util.isNum(util.num(fx.ucl))) {
+            out.center = util.num(fx.center);
+            out.ucl = util.num(fx.ucl);
+            var fl = util.num(fx.lcl);
+            out.lcl = fl === null ? 2 * out.center - out.ucl : fl;
+            // The rules are written in sigmas of the plotted statistic; typed
+            // limits imply one, the half-width over k.
+            out.s = Math.abs(out.ucl - out.lcl) / (2 * k);
+            out.sigma = chart === 'imr' ? out.s : out.s * Math.sqrt(size);
+            // The range chart follows the same sigma. Left on the window's
+            // own ranges it would flag a step the typed limits allow for, or
+            // pass one they do not: the two charts would disagree on sigma.
+            out.secCenter = chart === 'xbars' ? c4 * out.sigma : d2 * out.sigma;
+            spread = chart === 'xbars' ? out.sigma * Math.sqrt(1 - c4 * c4) : d3 * out.sigma;
+            out.secUcl = out.secCenter + k * spread;
+            out.secLcl = Math.max(0, out.secCenter - k * spread);
+            out.fixed = true;
+        }
+        return out;
+    };
+
+    /**
+     * Run rules over the plotted statistic.
+     *
+     * Rules 1 to 8 are Nelson's (1984). The Western Electric set is rules 1,
+     * 5 and 6 with an 8-point run for rule 2 (its "8 in a row on one side").
+     * A pattern flags the point that COMPLETES it, the convention in Minitab
+     * and the AIAG manual: the chart says when the evidence arrived, not that
+     * the earlier points were already wrong.
+     *
+     * @param {Array} values plotted statistic, in time order
+     * @param {number} center
+     * @param {number} s sigma of the plotted statistic
+     * @param {Object} opts {rules:[1..8], run2: 9, run3: 6, run4: 14, k: 3}
+     *   run2, run3 and run4 are the points rules 2, 3 and 4 need. Nelson's
+     *   numbers are the defaults; sites copying ProcessBook SQC or an
+     *   in-house standard often shorten rule 3 to 5 or rule 2 to 7.
+     * @returns {Array} per point, the list of rule numbers it breaks
+     */
+    stats.runRules = function (values, center, s, opts) {
+        opts = opts || {};
+        var rules = opts.rules || [1, 2, 3, 4, 5, 6, 7, 8];
+        var on = {};
+        for (var r = 0; r < rules.length; r++) { on[rules[r]] = true; }
+        var run2 = parseInt(opts.run2, 10) || 9;
+        var run3 = util.clamp(parseInt(opts.run3, 10) || 6, 3, 20);
+        var run4 = util.clamp(parseInt(opts.run4, 10) || 14, 4, 30);
+        var k = util.num(opts.k);
+        k = k === null ? 3 : k;
+        var n = values.length;
+        var out = [], i, j;
+        for (i = 0; i < n; i++) { out.push([]); }
+        if (!(s > 0)) { return out; }
+        var z = [];
+        for (i = 0; i < n; i++) { z.push(util.isNum(values[i]) ? (values[i] - center) / s : null); }
+        var flag = function (idx, rule) { if (out[idx].indexOf(rule) === -1) { out[idx].push(rule); } };
+        var side = function (v) { return v === null ? 0 : (v > 0 ? 1 : (v < 0 ? -1 : 0)); };
+
+        for (i = 0; i < n; i++) {
+            if (z[i] === null) { continue; }
+            if (on[1] && Math.abs(z[i]) > k) { flag(i, 1); }
+            if (on[2] && i >= run2 - 1) {
+                var sd2 = side(z[i]), same = sd2 !== 0;
+                for (j = i - run2 + 1; same && j <= i; j++) { if (side(z[j]) !== sd2) { same = false; } }
+                if (same) { flag(i, 2); }
+            }
+            if (on[3] && i >= run3 - 1) {
+                var up = true, down = true;
+                for (j = i - run3 + 2; j <= i; j++) {
+                    if (z[j] === null || z[j - 1] === null) { up = false; down = false; break; }
+                    if (!(z[j] > z[j - 1])) { up = false; }
+                    if (!(z[j] < z[j - 1])) { down = false; }
+                }
+                if (up || down) { flag(i, 3); }
+            }
+            if (on[4] && i >= run4 - 1) {
+                // run4 points make run4 - 2 consecutive pairs of steps, and
+                // every pair must change direction.
+                var alt = true;
+                for (j = i - run4 + 3; j <= i && alt; j++) {
+                    if (z[j] === null || z[j - 1] === null || z[j - 2] === null) { alt = false; break; }
+                    var a = z[j - 1] - z[j - 2], b = z[j] - z[j - 1];
+                    if (!(a * b < 0)) { alt = false; }
+                }
+                if (alt) { flag(i, 4); }
+            }
+            if ((on[5] || on[6]) && i >= 2) {
+                var countBeyond = function (from, lim, sgn) {
+                    var c = 0;
+                    for (var q = from; q <= i; q++) { if (z[q] !== null && z[q] * sgn > lim) { c++; } }
+                    return c;
+                };
+                var sg5 = side(z[i]);
+                // The completing point must itself be in the zone, on the
+                // same side, or the flag lands on an innocent point.
+                if (on[5] && sg5 !== 0 && z[i] * sg5 > 2 && countBeyond(i - 2, 2, sg5) >= 2) { flag(i, 5); }
+                if (on[6] && i >= 4 && sg5 !== 0 && z[i] * sg5 > 1 && countBeyond(i - 4, 1, sg5) >= 4) { flag(i, 6); }
+            }
+            if (on[7] && i >= 14) {
+                var inside = true;
+                for (j = i - 14; j <= i; j++) { if (z[j] === null || Math.abs(z[j]) >= 1) { inside = false; break; } }
+                if (inside) { flag(i, 7); }
+            }
+            if (on[8] && i >= 7) {
+                var outside = true;
+                for (j = i - 7; j <= i; j++) { if (z[j] === null || Math.abs(z[j]) <= 1) { outside = false; break; } }
+                if (outside) { flag(i, 8); }
+            }
+        }
+        return out;
+    };
+
+    /** One line per rule, for tooltips and the configuration pane. */
+    stats.RULE_TEXT = {
+        1: 'a point beyond the control limits',
+        2: 'a run on one side of the centre line',
+        3: 'six points steadily rising or falling',
+        4: 'fourteen points alternating up and down',
+        5: 'two of three points beyond 2 sigma on one side',
+        6: 'four of five points beyond 1 sigma on one side',
+        7: 'fifteen points within 1 sigma (limits too wide, or stratified data)',
+        8: 'eight points beyond 1 sigma on either side'
+    };
+
+    /**
+     * RULE_TEXT with the run lengths actually in force, so a tooltip never
+     * says "six points" on a chart configured for five.
+     * @param {number} rule 1..8
+     * @param {Object} opts the runRules opts (run2, run3, run4)
+     */
+    stats.ruleText = function (rule, opts) {
+        opts = opts || {};
+        var n2 = parseInt(opts.run2, 10) || 9, n3 = parseInt(opts.run3, 10) || 6, n4 = parseInt(opts.run4, 10) || 14;
+        if (rule === 2) { return n2 + ' points in a row on one side of the centre line'; }
+        if (rule === 3) { return n3 + ' points steadily rising or falling'; }
+        if (rule === 4) { return n4 + ' points alternating up and down'; }
+        return stats.RULE_TEXT[rule] || '';
+    };
+
+    /**
+     * Cpk from the within-subgroup sigma and Ppk from the overall one. The
+     * histogram reports Cp = Pp because it has no subgroups; a control chart
+     * does, so here the two differ the way quality staff expect: a Ppk well
+     * below Cpk says the process drifts between subgroups.
+     */
+    stats.spcCapability = function (values, sigmaWithin, lsl, usl) {
+        var overall = stats.capability(values, lsl, usl);
+        if (!overall || overall.degenerate) { return overall; }
+        var lo = util.num(lsl), hi = util.num(usl), mu = overall.mean;
+        var out = {
+            mean: mu, n: overall.n, sdOverall: overall.sd, sdWithin: sigmaWithin,
+            pp: overall.cp, ppk: overall.cpk, percentOut: overall.percentOut, lsl: lo, usl: hi
+        };
+        if (sigmaWithin > 0) {
+            var cpu = hi !== null ? (hi - mu) / (3 * sigmaWithin) : null;
+            var cpl = lo !== null ? (mu - lo) / (3 * sigmaWithin) : null;
+            out.cp = (lo !== null && hi !== null) ? (hi - lo) / (6 * sigmaWithin) : undefined;
+            out.cpk = cpu === null ? cpl : (cpl === null ? cpu : Math.min(cpu, cpl));
+        }
+        return out;
+    };
+
+    /* ------------------------------------------------------------------ *
      * nav — display navigation via PI Vision URL contract
      * ------------------------------------------------------------------ *
      * PI Vision's display URLs are a stable public contract across releases:

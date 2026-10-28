@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================================
- * PVX charts test — Wind Rose arithmetic and XY Scatter bubble mode, against
+ * PVX charts test — Wind Rose, XY Scatter bubble mode and Control Chart, against
  * data whose right answer is known.
  * ----------------------------------------------------------------------------
  *   node tools/test-charts.js
@@ -17,6 +17,10 @@
  *               reported, not drawn; "blows to" turns the rose round.
  *   bubble      the third source's value reaches each point's tooltip and
  *               the footer's size range; a pair with no size value is counted.
+ *   control     I-MR and X-bar R limits match the hand calculation; a point
+ *               past a fixed limit and a run are flagged by rule number;
+ *               limits and spec read from data sources use their latest
+ *               value; a custom trend length reaches the tooltip text.
  *
  * Requires the dev dependency `playwright`. Set PVX_CHROMIUM to use a
  * pre-installed browser.
@@ -65,7 +69,7 @@ function probe(typeName, data, config) {
     }
     const json = JSON.parse(out.slice(out.indexOf('{')));
     const r = json.report || {};
-    return { tips: r.tips || [], footer: r.footer || '', errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
+    return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
 }
 
 /** The tooltip of the wedge for one direction word, e.g. 'from N ('. */
@@ -173,10 +177,91 @@ function bubble() {
     check('no page errors', errs.length === 0, errs);
 }
 
+/** A source of values one minute apart, from minute 0. */
+function evenly(label, units, vals) {
+    return series(label, units, vals.map((v, i) => [i, v]));
+}
+
+function controlChart() {
+    console.log('');
+    console.log(C.bold + 'Control Chart' + C.reset);
+    const all = [];
+    const v = [10, 12, 9, 11, 10, 8, 12, 11, 9, 11];
+
+    // Mean 10.3; moving ranges sum to 19 over 9, so sigma = 2.1111 / 1.128
+    // = 1.8716 and the limits sit 5.6147 either side.
+    const imr = probe('pvxControlChart', [evenly('Weight', 'g', v)], 'SampleMode=recorded;Decimals=3');
+    all.push(imr);
+    check('I-MR centre line is the mean', /CL 10\.300/.test(imr.text), imr.text.slice(0, 80));
+    check('I-MR limits use the average moving range / d2', /UCL 15\.915/.test(imr.text) && /LCL 4\.685/.test(imr.text), imr.text.slice(0, 80));
+    check('...and the footer gives that sigma', /σ 1\.872/.test(imr.footer), imr.footer);
+    check('a stable window breaks no rule', /No rule broken over 10 points/.test(imr.footer), imr.footer);
+
+    // Subgroups of 2: means 11, 10, 9, 11.5 (centre 10.375); ranges average
+    // 1.75, sigma 1.75 / 1.128 = 1.5514, limits 3 x 1.5514 / sqrt 2 = 3.2911.
+    const xbar = probe('pvxControlChart', [evenly('Weight', 'g', [10, 12, 9, 11, 10, 8, 12, 11])],
+        'SampleMode=recorded;Decimals=3;ChartType=xbarr;SubgroupSize=2');
+    all.push(xbar);
+    check('X-bar R centre is the mean of subgroup means', /CL 10\.375/.test(xbar.text), xbar.text.slice(0, 80));
+    check('X-bar R limits use R-bar / d2 over root n', /UCL 13\.666/.test(xbar.text) && /LCL 7\.084/.test(xbar.text), xbar.text.slice(0, 80));
+    check('...and the footer names the subgroup size', /X̄-R n=2/.test(xbar.footer), xbar.footer);
+
+    // Fixed limits 10 +- 3 (sigma 1). Points 2..10 sit above 10, nine in a
+    // row (rule 2 at the ninth); the last is past the UCL (rule 1). Its jump
+    // of 2.4 is inside the MR limit the typed sigma implies (3.69); the
+    // window's own ranges, about 0.6, would have flagged it as well.
+    const run = [9, 10.5, 11, 11.5, 11, 11.2, 11.4, 11.1, 11.3, 11.6, 14];
+    const fixed = probe('pvxControlChart', [evenly('Weight', 'g', run)],
+        'SampleMode=recorded;Decimals=1;LimitSource=fixed;FixedCenter=10;FixedUCL=13;FixedLCL=7');
+    all.push(fixed);
+    const last = fixed.tips.filter((t) => /Value: 14\.0/.test(t)).join(' | ');
+    check('a point past a fixed limit is rule 1', /Rule 1: a point beyond the control limits/.test(last), last);
+    check('...a ninth point on one side is rule 2, with its length', /Rule 2: 9 points in a row/.test(fixed.tips.join(' | ')), fixed.tips);
+    check('...the footer says the limits were fixed', /fixed limits/.test(fixed.footer), fixed.footer);
+    const only1 = probe('pvxControlChart', [evenly('Weight', 'g', run)],
+        'SampleMode=recorded;LimitSource=fixed;FixedCenter=10;FixedUCL=13;FixedLCL=7;RuleSet=limits');
+    all.push(only1);
+    check('limits only: one point, counted in the singular', /1 point breaks a rule: 1× rule 1/.test(only1.footer), only1.footer);
+
+    // Centre and UCL from sources 3 and 2, LCL mirrored. Source 2 moves from
+    // 12 to 13: the latest value is the limit.
+    const fromSrc = probe('pvxControlChart', [
+        evenly('Weight', 'g', v),
+        series('UCL', 'g', [[0, 12], [9, 13]]),
+        series('CL', 'g', [[0, 10], [9, 10]])
+    ], 'SampleMode=recorded;Decimals=1;LimitSource=sources;CenterSource=3;UclSource=2;LclSource=0');
+    all.push(fromSrc);
+    check('limits from sources use the latest value', /UCL 13\.0/.test(fromSrc.text) && /CL 10\.0/.test(fromSrc.text), fromSrc.text.slice(0, 80));
+    check('...a missing LCL mirrors the UCL', /LCL 7\.0/.test(fromSrc.text), fromSrc.text.slice(0, 80));
+    check('...and the footer says where they came from', /limits from data sources/.test(fromSrc.footer), fromSrc.footer);
+
+    // Spec from a source overrides the typed one: USL 13 from source 2,
+    // typed 99. Cpk = (13 - 10.3) / (3 x 1.8716) = 0.48.
+    const spec = probe('pvxControlChart', [
+        evenly('Weight', 'g', v),
+        series('USL', 'g', [[0, 13], [9, 13]])
+    ], 'SampleMode=recorded;USL=99;UslSource=2');
+    all.push(spec);
+    check('a spec limit from a source overrides the typed one', /Cpk 0\.48/.test(spec.footer), spec.footer);
+    check('...and the footer says so', /spec from data sources/.test(spec.footer), spec.footer);
+
+    // A custom trend length of 4: four rising points are flagged, and the
+    // tooltip names four, not the default six.
+    const trend = probe('pvxControlChart', [evenly('Weight', 'g', [10, 9, 10, 11, 12, 10, 9, 10])],
+        'SampleMode=recorded;LimitSource=fixed;FixedCenter=10;FixedUCL=16;FixedLCL=4;RuleSet=custom;CustomRules=3;TrendLength=4');
+    all.push(trend);
+    check('a custom trend length is applied and named', /Rule 3: 4 points steadily rising or falling/.test(trend.tips.join(' | ')), trend.tips);
+    check('...and flags only the end of the run', /1 point breaks a rule: 1× rule 3/.test(trend.footer), trend.footer);
+
+    const errs = [].concat.apply([], all.map((r) => r.errors));
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
     try {
         windRose();
         bubble();
+        controlChart();
     } catch (e) {
         failures += 1;
         console.log('  ' + C.red + 'FAIL' + C.reset + ' ' + (e.stack || e.message));
