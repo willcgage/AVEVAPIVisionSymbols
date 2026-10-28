@@ -394,6 +394,12 @@
             if (host) {
                 bindHost(host);
                 if (!built) { built = build(host); }
+                // A narrow symbol drops the conveniences before the essentials:
+                // first/last and the slider, then single steps (the arrow keys
+                // still step). Play and Exit always stay, and nothing is cut
+                // off half-drawn at the edge.
+                var fit = c.width < 180 ? 'tiny' : (c.width < 260 ? 'narrow' : '');
+                if (host.getAttribute('data-pvx-fit') !== fit) { host.setAttribute('data-pvx-fit', fit); }
                 applyVars(c, cfg, t);
                 update(cfg);
             }

@@ -294,7 +294,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone`, `pvxSpectrum`, `pvxCrossProfile` and `pvxEventList` from a feature-level comparison with Software Athlete's Vision Library+.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone`, `pvxSpectrum`, `pvxCrossProfile` and `pvxEventList` from a feature-level comparison with a commercial widget library.
 
 ---
 

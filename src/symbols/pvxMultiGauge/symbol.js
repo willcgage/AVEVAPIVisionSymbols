@@ -198,10 +198,10 @@
             var g = { svg: svgRoot, t: t, cfg: cfg, W: W, H: H, ptrs: ptrs, bands: bands, ticks: ticks,
                       fracOf: fracOf, bandOpacity: bandOpacity, min: min, max: max };
             if (!ptrs.length) {
-                PVX.svg.text(svgRoot, (W / 2).toFixed(1), (H / 2).toFixed(1), 'Add the values to compare as data sources', {
+                PVX.svg.fit(PVX.svg.text(svgRoot, (W / 2).toFixed(1), (H / 2).toFixed(1), 'Add the values to compare as data sources', {
                     'class': 'pvx-svg-label', 'text-anchor': 'middle', 'dominant-baseline': 'central',
                     'font-size': U.clamp(Math.min(W, H) / 16, 9, 12), fill: t.textMuted
-                });
+                }), W - 8);
             } else if (cfg.Shape === 'linear') {
                 drawLinear(g);
             } else {
@@ -219,7 +219,21 @@
                     flag: p.v === null ? 'not a number: no pointer' : p.pinned ? 'outside the scale' : ''
                 };
             });
+            // The readout may take 40% of the symbol (styles.css). Rows it
+            // cannot hold would be cut by its overflow:hidden with nothing to
+            // say so, so they are left out and counted in the footer.
+            var box = c.node || {};
+            var totW = box.clientWidth || W, totH = box.clientHeight || H;
+            var perCol = Math.floor((totH * 0.4 - 6 + 2) / 18);
+            var cols = Math.max(1, Math.floor((totW - 16 + 12) / 152));
+            var cap = Math.max(0, perCol) * cols;
+            var cut = 0;
+            if (scope.pvx.readout.length > cap) {
+                cut = scope.pvx.readout.length - cap;
+                scope.pvx.readout = scope.pvx.readout.slice(0, cap);
+            }
             var notes = [];
+            if (cut) { notes.push(cut + ' value' + (cut === 1 ? '' : 's') + ' not listed: too small; hover the pointers'); }
             if (bad.length) { notes.push(bad.length + ' not numeric, no pointer'); }
             if (outside.length) { notes.push(outside.length + ' outside the scale, pinned to the end'); }
             if (rows.length > used.length) { notes.push((rows.length - used.length) + ' more sources not shown'); }

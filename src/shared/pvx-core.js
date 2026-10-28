@@ -2198,6 +2198,33 @@
         return t;
     };
 
+    /**
+     * Cut an already-drawn <text> until it measures no wider than maxPx,
+     * ending it with an ellipsis. Measured, not estimated: a centred empty
+     * state that overshoots pokes out of both edges at once, and Segoe UI
+     * runs wider than any per-character guess (see pvxProfile's fitTextTo,
+     * which this generalises). Each pass bites off the measured overshoot,
+     * so it converges in one or two measurements.
+     */
+    svg.fit = function (node, maxPx) {
+        if (!node || !node.getComputedTextLength) { return node; }
+        if (!(maxPx > 0)) { node.textContent = ''; return node; }
+        var measure = function () {
+            try { return node.getComputedTextLength(); } catch (e) { return 0; }
+        };
+        for (var guard = 0; guard < 8; guard++) {
+            var w = measure();
+            if (!(w > maxPx)) { return node; }
+            var cur = node.textContent || '';
+            var core = cur.charAt(cur.length - 1) === '\u2026' ? cur.slice(0, -1) : cur;
+            var keep = Math.min(core.length - 1, Math.floor(core.length * (maxPx / w)) - 1);
+            if (keep < 1) { node.textContent = ''; return node; }
+            node.textContent = core.slice(0, keep) + '\u2026';
+        }
+        if (measure() > maxPx) { node.textContent = ''; }
+        return node;
+    };
+
     /** Point on a circle. Angles in degrees, 0 = 12 o'clock, increasing clockwise. */
     svg.polar = function (cx, cy, r, angleDeg) {
         var rad = (angleDeg - 90) * Math.PI / 180;

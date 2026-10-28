@@ -20,10 +20,8 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 ## On originality
 
 This roadmap was informed by surveying what the commercial PI Vision symbol
-market sells — chiefly [Software Athlete's Vision Library+](https://www.software-athlete.com/pages/pi-vision-custom-widgets-collection)
-(45 symbols) and the individual symbols on
-[Cedric Canguilhem's store](https://cedriccanguilhem.gumroad.com/l/all-custom-symbols) —
-alongside AVEVA's own documentation for what PI Vision 2025 ships natively.
+market sells, alongside AVEVA's own documentation for what PI Vision 2025
+ships natively.
 
 What that survey provides is a **map of what plant staff repeatedly ask for**.
 That is the useful part, and it is not anyone's property. Neither are the chart
@@ -31,9 +29,9 @@ types: box plots (Tukey, 1970), Sankey diagrams (1898), Pareto charts,
 histograms with Cp/Cpk, radar plots and the Duval triangle (IEC 60599) are
 published, decades-old, standard techniques.
 
-What *is* theirs is their source code, their specific visual designs, their
-icons and their branding. None of it has been read, and none of it is
-obtainable — Vision Library+ ships obfuscated to paying customers. Every symbol
+What *is* proprietary is a vendor's source code, specific visual designs,
+icons and branding. None of it has been read, and none of it is obtainable —
+the commercial libraries ship obfuscated to paying customers. Every symbol
 below is specified here from first principles against
 [AVEVA's public extensibility API](https://github.com/AVEVA/AVEVA-Samples-PI-System/blob/main/docs/PI-Vision-Extensibility-Docs/PI%20Vision%20Extensibility%20Guide.md)
 and is implemented the same way every shipped symbol was.
@@ -485,14 +483,14 @@ Spiral charts, funnel, pyramid and chord were declined: each restates a
 question that pvxPeriodOverlay, pvxHeatmap, pvxWaterfall or pvxSankey already
 answers in a form that is easier to read values from.
 
-A feature-level comparison with Software Athlete's Vision Library+ (49
-widgets, read option by option from their documentation) produced a build
+A feature-level comparison with a commercial widget library (read option by
+option from its public documentation) produced a build
 order of 37 items, ranked from easiest to hardest, with pipeline-only work
 before work that needs PI Web API and anything that writes last. Every item
 adds options and keeps the current defaults, so a saved display looks the
 same after an upgrade, and nothing where PVX is already ahead (AF-shared
 acknowledgement, flatline detection, Cp/Cpk on the histogram, the Sankey
-balance check, PI Vision 2019 support) is replaced to match theirs. New
+balance check, PI Vision 2019 support) is replaced to match it. New
 symbols take PVX names of their own.
 
 Done so far, in order:

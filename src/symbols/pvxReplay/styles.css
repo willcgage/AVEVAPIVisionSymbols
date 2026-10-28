@@ -113,3 +113,12 @@
 
 .pvx-replay .pvx-replay-readout { color: var(--pvx-muted); flex: 0 1 auto; min-width: 0; white-space: pre; }
 .pvx-replay .pvx-replay-msg { color: var(--pvx-replay-warn); flex: 1 1 auto; min-width: 0; }
+
+/* Narrow symbols (data-pvx-fit, set by symbol.js from the width). */
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] [data-pvx-act="first"],
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] [data-pvx-act="last"],
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] .pvx-replay-slider,
+.pvx-replay .pvx-replay-body[data-pvx-fit="tiny"] .pvx-replay-small,
+.pvx-replay .pvx-replay-body[data-pvx-fit="tiny"] .pvx-replay-slider {
+    display: none !important;
+}

@@ -351,13 +351,14 @@ from a review against Will's overview display build guide, then `pvxWindRose`
 spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. Do not "finish
 tier 3" — that is a resolved question, not an open task.
 
-**One later list is open: the Software Athlete comparison.** Will asked for all 37
-items of a feature-level comparison with their Vision Library+, built easiest
+**One later list: a feature comparison, now complete.** Will asked for all 37
+items of a feature-level comparison with a commercial widget library, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
 `pvxGeoView`). All 37 are done (`docs/ROADMAP.md`, *After the plan*). Two
-rules from him: never name a symbol after one of theirs, and never drop a PVX
-behaviour that is already ahead of theirs to match it; upgrades only add
+rules from him: never name a symbol after one of the other library's, never
+name that library in the repo, and never drop a PVX behaviour that is already
+ahead of it to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`
 resolves PI time expressions for anything that steps or replays a range;
 `PVX.af.traits` / `PVX.af.text` / `PVX.af.watcher` read settings kept in AF
