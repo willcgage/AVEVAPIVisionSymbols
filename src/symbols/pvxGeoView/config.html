@@ -1,0 +1,176 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Where the markers go</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-from">Locations from</label>
+            <select id="pvxgeo-from" ng-model="config.LocationFrom">
+                <option value="af">AF attributes of each asset</option>
+                <option value="list">The list below</option>
+            </select>
+        </div>
+        <div ng-if="config.LocationFrom !== 'list'">
+            <div class="pvx-cfg-row">
+                <label for="pvxgeo-lat">Latitude attribute</label>
+                <input id="pvxgeo-lat" type="text" ng-model="config.LatAttribute" placeholder="Latitude" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxgeo-lon">Longitude attribute</label>
+                <input id="pvxgeo-lon" type="text" ng-model="config.LonAttribute" placeholder="Longitude" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Each data source's AF element is looked up for these two attributes, in decimal
+                degrees, through PI Web API, once a minute. A PI point has no element, so it needs
+                the list instead.
+            </div>
+        </div>
+        <div ng-if="config.LocationFrom === 'list'">
+            <div class="pvx-cfg-stack">
+                <label for="pvxgeo-locs">Locations</label>
+                <textarea id="pvxgeo-locs" ng-model="config.Locations" rows="6" spellcheck="false"
+                          placeholder="Pump Station 1 | 51.5072 | -0.1276"></textarea>
+            </div>
+            <div class="pvx-cfg-hint">
+                One per line, <code>Name | latitude | longitude</code> in decimal degrees. The name is
+                matched to a data source's label, its element's name or its element's path.
+            </div>
+        </div>
+        <div class="pvx-cfg-hint">Every data source without a place is named in the footer.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">States (a digital value)</div>
+            <!-- pvx:states key=StateMap kind=map -->
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-usethr">Colour numbers by bands</label>
+            <input id="pvxgeo-usethr" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.UseThresholds">
+            <div class="pvx-cfg-label">Threshold bands (a number)</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-accent">Colour otherwise</label>
+            <input id="pvxgeo-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Markers</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-size">Size (px)</label>
+            <input id="pvxgeo-size" type="number" ng-model="config.MarkerSize" min="4" max="60" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-labels">Show names</label>
+            <input id="pvxgeo-labels" type="checkbox" ng-model="config.ShowLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-values">Show values</label>
+            <input id="pvxgeo-values" type="checkbox" ng-model="config.ShowValues" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-legend">Show legend</label>
+            <input id="pvxgeo-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-click">Clicking a marker</label>
+            <select id="pvxgeo-click" ng-model="config.ClickAction">
+                <option value="none">Does nothing</option>
+                <option value="asset">Shows its asset on this display</option>
+                <option value="display">Opens a display for its asset</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'display'">
+            <label for="pvxgeo-clickdisp">Display</label>
+            <input id="pvxgeo-clickdisp" type="text" ng-model="config.ClickDisplay" placeholder="Display id, such as 205" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Map</div>
+
+        <div class="pvx-cfg-hint">
+            The map comes from a tile server your site names once, as <code>map.tileUrl</code> in
+            <code>pvx-config.js</code>. Without one the markers sit on a latitude and longitude grid.
+            Drag to move the map, use the wheel or + and &minus; to zoom, and the frame button to
+            show every marker again.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-view">Start by</label>
+            <select id="pvxgeo-view" ng-model="config.InitialView">
+                <option value="fit">Showing every marker</option>
+                <option value="fixed">A fixed place and zoom</option>
+            </select>
+        </div>
+        <div ng-if="config.InitialView === 'fixed'">
+            <div class="pvx-cfg-row">
+                <label for="pvxgeo-clat">Centre latitude</label>
+                <input id="pvxgeo-clat" type="number" ng-model="config.CenterLat" step="0.0001" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxgeo-clon">Centre longitude</label>
+                <input id="pvxgeo-clon" type="number" ng-model="config.CenterLon" step="0.0001" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxgeo-zoom">Zoom (1 to 18)</label>
+                <input id="pvxgeo-zoom" type="number" ng-model="config.Zoom" min="1" max="22" />
+            </div>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.InitialView !== 'fixed'">
+            <label for="pvxgeo-maxfit">Closest zoom when fitting</label>
+            <input id="pvxgeo-maxfit" type="number" ng-model="config.MaxFitZoom" min="1" max="22" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-tileop">Map opacity</label>
+            <input id="pvxgeo-tileop" type="number" ng-model="config.TileOpacity" min="0" max="1" step="0.05" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxgeo-title">Title</label>
+            <input id="pvxgeo-title" type="text" ng-model="config.Title" placeholder="Leave blank for no header" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-theme">Theme</label>
+            <select id="pvxgeo-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-decimals">Decimals</label>
+            <select id="pvxgeo-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-transparent">Transparent background</label>
+            <input id="pvxgeo-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-bg">Background colour</label>
+            <input id="pvxgeo-bg" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgeo-radius">Corner radius</label>
+            <input id="pvxgeo-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

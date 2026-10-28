@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **48 symbols**.
+> [After the plan](#after-the-plan). The library is at **50 symbols**.
 
 ## On originality
 
@@ -541,8 +541,14 @@ Done so far, in order:
 
 | 29 | **pvxManualEntry**, **pvxEntryTable** (Shift Log) | Controls for entry, shared by both through a new `PVX.entry`: a stepper (− and + by a set step, rounded to it and kept inside the limits), a slider (between the minimum and maximum), a switch (True/False, 0/1, or two digital states, with captions), a button per choice, and on Manual Entry a value button that writes one value, which with a write-back value and a delay is a momentary button (1, then 0 two seconds later). A switch or a row of buttons shows the value PI holds until somebody picks; a pick not yet written is outlined. Manual Entry can write as soon as a switch, button, slider or dropdown is used, still through the confirmation. The momentary write-back is sent once with no confirmation of its own, holds the button until it has gone, is sent at once if the display closes in between, and when it fails says what the attribute may still hold. The Shift Log takes a control as a fifth field per row (`switch`, `buttons:Auto/Manual/Off`, `slider:5`, `stepper:0.5`, `select:1=A/2=B`, `text`, with `wide` for a full row), `[Name]` lines as sections, and a form layout of columns that drops a column when the symbol is too narrow for it. Choices that are all numbers are written as numbers, other choices as state names, a plain switch as a Boolean. An untouched slider writes nothing, and a row whose control cannot be read is marked and never written. Defaults draw both symbols as before. |
 
-The rest of the order is in the comparison document; next is the Combo
-Chart upgrade.
+| 30 | **pvxComboChart** | A digital tag drawn as shaded bands behind the traces, one lane per tag, coloured by state (`StateColors`, edited as rows), with each run's state and length on hover. A range type that shades between a source and the next one, for a minimum and maximum pair. Per trace, a moving average over a count of values or a time (`ma20`, `ma1h`) and a straight-line fit with its slope per hour and R² on hover. One panel per trace (`Panels`), each with its own scale over one time axis, falling back to a shared plot with a note when the symbol is too short. Logarithmic left and right scales, ending on a 1, 2 or 5 and counting the values at or below zero they leave out. Two rulers placed by clicking and moved by dragging, with a table under the chart: both times and the span, then per trace the value at each, the change, and the minimum, maximum, time-weighted average, standard deviation, count and trend between them. The legend already showed the latest value (`ShowValues`), and still does, now also for state bands. Defaults draw the chart as before. |
+
+| 31 | **pvxDisplayMenu** (new) | The site's display tree as a menu: a bar with nested drop-downs (opened by a click or by pointing), or a side menu whose entries fold open in place, nested by indenting the lines of one text field. Entries open a display (keeping or setting the asset and time) or a web page, take an icon and a tooltip, and the current display is marked along with every menu above it. A logo (a link if wanted), a back button, and switches for kiosk mode and PI Vision's toolbar, time bar and side bar, which now stay set as any PVX navigation moves between displays. It collapses to a menu button when the entries do not fit, or always. The menu can be kept in an AF string attribute, one for the site or, written as `|Attribute`, one per asset. Arrow keys and Escape work through the menus. Drop-downs are drawn on the page, so they open over the rest of the display. The icons moved to `PVX.icons`, shared with the Navigation Panel, which gains the new ones. |
+
+| 32 | **pvxGeoView** (new) | Assets on a map, one marker per data source, coloured by digital state (`StateMap`, as rows) or by threshold band, with a legend, names, values and a tooltip of each. A marker is placed from its element's Latitude and Longitude attributes in AF (names are settings; read through PI Web API once a minute) or from a typed list matched by label, element name or path; every source without a place is named in the footer with the reason, and so is a list line that does not read. The map is Web Mercator tiles from a server the site names once as `map.tileUrl` in `pvx-config.js` and from nowhere else; without one, a latitude and longitude grid and a footer saying how to add the map. Starts fitted to every marker or at a fixed place and zoom; drag to pan, the wheel or + and − to zoom, a button to fit again, none of which act while the display is edited. A click on a marker can show its asset or open a display for it. The projection is `PVX.geo`. |
+
+The rest of the order is in the comparison document; next is the event
+analytics engine.
 
 ## What next
 

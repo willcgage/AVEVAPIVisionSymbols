@@ -41,6 +41,12 @@
  *   multi gauge a value that is not a number gets no pointer, a value off
  *               the scale is pinned and named, and sources past the limit
  *               are counted; the readout names each value.
+ *   combo chart  moving averages by count and by time, log ends and ticks,
+ *               a fit's slope per hour, state bands' runs, a range with no
+ *               next source, values a log scale leaves out, panels that fall
+ *               back to one plot; two clicks place the rulers and the table
+ *               gives the trace's value at both, the change, a time-weighted
+ *               average halfway along a ramp, and its slope.
  *   gas triangle the zone rules agree with the drawn outlines at every
  *               point of a fine grid, and with the zone boundaries IEC 60599
  *               tabulates; sources are matched to gases by name in any
@@ -79,13 +85,14 @@ function series(label, units, pts) {
 }
 
 let seq = 0;
-function probe(typeName, data, config) {
+function probe(typeName, data, config, clicks) {
     const file = path.join(os.tmpdir(), 'pvx-charts-' + process.pid + '-' + (seq++) + '.json');
     fs.writeFileSync(file, JSON.stringify({ Data: data }));
     // data null: the probe's own mock, for shapes (Table) built from it.
     const args = [path.join(__dirname, 'probe.js'), typeName, '--w', '520', '--h', '340', '--json',
         '--out', file.replace(/\.json$/, '.png')].concat(data === null ? ['--count', '3'] : ['--payload', file]);
     if (config) { args.push('--config', config); }
+    if (clicks) { args.push('--clicks', clicks); }
     let out;
     try {
         // Boxes by time bucket in local time; pin it so the answers below
@@ -795,10 +802,99 @@ function historyTable() {
     check('no page errors', errs.length === 0, errs);
 }
 
+function comboChart() {
+    console.log('');
+    console.log(C.bold + 'Combo chart: averages, fit, log scale, ranges, states, panels, rulers' + C.reset);
+    const vis = loadSymbol('pvxComboChart');
+
+    const spec = vis.parseTraceSpec('1:line:ma20:fit, 2:range, 3:states, 4:line:ma1h');
+    check('the grammar reads ma20, ma1h, fit, range and states',
+        spec[0].ma === '20' && spec[0].fit === true && spec[1].type === 'range' && spec[2].type === 'states' && spec[3].ma === '1h', spec);
+    check('...and writes them back as read', vis.stringifyTraceSpec(spec) === '1:line:ma20:fit, 2:range, 3:states, 4:line:ma1h',
+        vis.stringifyTraceSpec(spec));
+    check('a moving average is a count or a time, nothing else',
+        vis.parseMa('20').count === 20 && vis.parseMa('1h').ms === 3600000 && vis.parseMa('30m').ms === 1800000 &&
+        vis.parseMa('0') === null && vis.parseMa('abc') === null && vis.parseMa('2x') === null);
+    const pts = [[0, 10], [1, 20], [2, 30], [3, 40]].map((p) => ({ t: p[0] * MIN, v: p[1] }));
+    const by2 = vis.movingAverage(pts, { count: 2 }).map((p) => p.v);
+    check('by count: the mean of the last two', JSON.stringify(by2) === '[10,15,25,35]', by2);
+    const byTime = vis.movingAverage(pts, { ms: 2 * MIN }).map((p) => p.v);
+    check('by time: every sample in the last two minutes', JSON.stringify(byTime) === '[10,15,20,30]', byTime);
+    check('log ends snap out to 1, 2 or 5: 60..120 is 50..200',
+        vis.logSnap(60, false) === 50 && vis.logSnap(120, true) === 200 && vis.logSnap(0.03, false) === 0.02 && vis.logSnap(100, true) === 100);
+    check('log ticks: 1, 2, 5 between few decades, decades only over many',
+        vis.logTicks(50, 200).join() === '50,100,200' && vis.logTicks(1, 1e6).join() === '1,10,100,1000,10000,100000,1000000',
+        [vis.logTicks(50, 200), vis.logTicks(1, 1e6)]);
+    const ramp = [{ t: 0, v: 0 }, { t: 60 * MIN, v: 60 }];
+    check('value at a time: a line interpolates, a step holds',
+        vis.valueAt(ramp, 30 * MIN, false).v === 30 && vis.valueAt(ramp, 30 * MIN, true).v === 0 && vis.valueAt(ramp, -1, false) === null);
+
+    // Rendered. probe pins TZ=UTC, and T0 is midnight UTC. Flow climbs one
+    // klb/h a minute, so a value read anywhere equals its minutes past T0.
+    const flow = series('Flow', 'klb/h', [[0, 0], [30, 30], [60, 60], [90, 90], [120, 120]]);
+    const top = series('Flow max', 'klb/h', [[0, 10], [60, 70], [120, 130]]);
+    const pump = series('Pump', '', [[0, 'Running'], [60, 'Stopped'], [90, 'Running']]);
+
+    const fit = probe('pvxComboChart', [flow, pump], 'TraceSpec=1:line:ma2:fit, 2:states;StateColors=Running:#2f9e5f, Stopped:#c8452f');
+    const fitTip = fit.tips.filter((t) => /trend/.test(t)).join();
+    check('a fit gives its slope per hour and R²', /Flow: trend \+60(\.0+)? klb\/h per hour, R² 1\.00/.test(fitTip), fitTip);
+    check('a moving average names its window', fit.tips.some((t) => /Flow: moving average over 2 samples/.test(t)), fit.tips);
+    const stateTips = fit.tips.filter((t) => /^Pump: /.test(t));
+    check('state bands: one span per run, with its state and length',
+        stateTips.length === 3 && /^Pump: Running\n/.test(stateTips[0]) && /1h/.test(stateTips[0]) &&
+        /^Pump: Stopped\n/.test(stateTips[1]) && /30m/.test(stateTips[1]), stateTips);
+
+    const range = probe('pvxComboChart', [flow, top], 'TraceSpec=1:range');
+    check('a range shades to the next source and names both', range.tips.some((t) => /Flow – Flow max/.test(t)) ||
+        range.text.indexOf('Flow – Flow max') !== -1, range.text);
+    const alone = probe('pvxComboChart', [flow, top], 'TraceSpec=2:range');
+    check('...a range with no next source is a line, and says so', /trace 2 is a range but has no next source/.test(alone.footer), alone.footer);
+
+    const neg = series('Signal', '', [[0, -5], [10, 0], [20, 60], [30, 120]]);
+    const log = probe('pvxComboChart', [neg], 'LeftScale=log');
+    check('log scale: values at or below 0 are counted, not drawn', /2 values at or below 0 not drawn on the log scale/.test(log.footer), log.footer);
+    check('...and the axis runs 50 to 200', ['50', '100', '200'].every((l) => log.labels.indexOf(l) !== -1), log.labels);
+
+    const panels = probe('pvxComboChart', [flow, series('Speed', 'rpm', [[0, 1000], [120, 3000]])], 'Panels=separate');
+    check('separate panels: each trace is labelled with its own units',
+        panels.labels.indexOf('Flow (klb/h)') !== -1 && panels.labels.indexOf('Speed (rpm)') !== -1, panels.labels);
+    const short = probe('pvxComboChart', Array.from({ length: 12 }, (_, i) => Object.assign({}, flow, { Label: 'F' + i })),
+        'Panels=separate;ShowLegend=false');
+    check('...too short for one each, they share and say so', /too short for 12 separate panels/.test(short.footer), short.footer);
+
+    // Rulers: two clicks across the plot, then read the table under it.
+    // A sample every 10 minutes, so several fall between the rulers.
+    const dense = series('Flow', 'klb/h', Array.from({ length: 13 }, (_, i) => [i * 10, i * 10]));
+    const rul = probe('pvxComboChart', [dense, pump], 'TraceSpec=2:states;Rulers=true;Decimals=2', '0.3,0.5;0.8,0.5');
+    const head = rul.rows[0] || [];
+    const body = rul.rows.slice(1);
+    const tr = body.find((r) => r[0] === 'Time') || [];
+    const fr = body.find((r) => /^Flow/.test(r[0])) || [];
+    const pr = body.find((r) => /^Pump/.test(r[0])) || [];
+    const num = (s) => parseFloat(String(s).replace(/[^0-9.+-]/g, ''));
+    const minutesOf = (txt) => { const m = /(\d\d):(\d\d):(\d\d)/.exec(txt || ''); return m ? (+m[1]) * 60 + (+m[2]) + (+m[3]) / 60 : NaN; };
+    const a = num(fr[1]), b = num(fr[2]);
+    check('rulers: the table has every column once both are placed',
+        head.join('|') === 'Source|A|B|Change|Min|Max|Avg|Std dev|Count|Trend', head);
+    check('...a first row gives both times and the span between', /^Oct 20 /.test(tr[1] || '') && /^Oct 20 /.test(tr[2] || '') && /\d/.test(tr[3] || ''), tr);
+    check('...the value at A and B is the trace at those times', Math.abs(a - minutesOf(tr[1])) < 0.05 && Math.abs(b - minutesOf(tr[2])) < 0.05,
+        [fr, tr]);
+    check('...change is B minus A', Math.abs(num(fr[3]) - (b - a)) < 0.02, fr);
+    check('...the average is time-weighted: halfway for a ramp', Math.abs(num(fr[6]) - (a + b) / 2) < 0.05, fr);
+    const inside = Array.from({ length: 13 }, (_, i) => i * 10).filter((m) => m >= a && m <= b);
+    check('...min, max and count are of the samples between', num(fr[4]) === inside[0] && num(fr[5]) === inside[inside.length - 1] &&
+        num(fr[8]) === inside.length, [fr, inside]);
+    check('...the trend is the ramp\'s 60 an hour', /^\+60(\.0+)? klb\/h per hour$/.test(fr[9] || ''), fr);
+    check('...a state source shows its state at each ruler', /Running|Stopped/.test(pr[1] || '') && /Running|Stopped/.test(pr[2] || ''), pr);
+
+    const errs = [].concat(fit.errors, range.errors, alone.errors, log.errors, panels.errors, short.errors, rul.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
     // `--only spectrum` runs one section, for the inner loop; CI runs all.
     const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
-        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile };
+        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart };
     const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
         Object.keys(sections).forEach((k) => {

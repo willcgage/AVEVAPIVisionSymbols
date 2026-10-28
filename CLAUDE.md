@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 45 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 50 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.14.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,7 +17,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 864 render checks — the gate, and slow
+node tools/verify.js                 # 900 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
@@ -25,7 +25,7 @@ node tools/test-states.js            # digital state map editor: rules + built p
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
-node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile numbers vs known answers (--only <section>)
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout vs a mock PI Web API
@@ -37,7 +37,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 48 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 50 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -46,6 +46,7 @@ file used to claim.
 node tools/probe.js pvxHistogram --w 900 --h 480 --config "LSL=100;USL=140"
 node tools/probe.js pvxComboChart --dark --config "TraceSpec=1:bar,2:line:right"
 node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
+node tools/probe.js pvxComboChart --config "Rulers=true" --clicks "0.3,0.5;0.8,0.5"
 ```
 
 Config pairs split on **`;`**, not `,` — values contain commas.
@@ -131,8 +132,8 @@ silently destroys a site's PI Web API settings on upgrade.
   `layout`, `config`, `api`, `ack`, `download`. Symbols contain only what makes them differ.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
-- Symbols get data through PI Vision's pipeline. Nine reach PI Web API via
-  `PVX.api` for their main job and eight more for an option that is off by
+- Symbols get data through PI Vision's pipeline. Ten reach PI Web API via
+  `PVX.api` for their main job and nine more for an option that is off by
   default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
   (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
@@ -335,7 +336,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–29 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–32 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

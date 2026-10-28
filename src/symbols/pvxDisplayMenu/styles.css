@@ -1,0 +1,215 @@
+/* pvxDisplayMenu: the bar inside the symbol, and .pvx-dmenu-layer, the
+   drop-downs symbol.js puts on document.body. Colours come from --pvx-dm-*
+   written on both by symbol.js from the theme and the Format settings. */
+
+.pvx-dmenu {
+    --pvx-dm-bg: #ffffff;
+    --pvx-dm-pop: #ffffff;
+    --pvx-dm-fg: #1d2126;
+    --pvx-dm-muted: #5c6570;
+    --pvx-dm-border: #d6dbe1;
+    --pvx-dm-accent: #3b82c4;
+    --pvx-dm-shadow: rgba(0, 0, 0, 0.18);
+    --pvx-dm-font: 13px;
+    color: var(--pvx-dm-fg);
+    background: var(--pvx-dm-bg);
+    overflow: hidden;
+}
+
+.pvx-dmenu .pvx-dmenu-surface,
+.pvx-dmenu .pvx-dmenu-body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+.pvx-dmenu .pvx-dmenu-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0 4px;
+    font-size: var(--pvx-dm-font);
+}
+
+.pvx-dmenu .pvx-dmenu-side {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 4px 0;
+}
+
+.pvx-dmenu .pvx-dmenu-divided.pvx-dmenu-row { border-bottom: 1px solid var(--pvx-dm-border); }
+.pvx-dmenu .pvx-dmenu-divided.pvx-dmenu-side { border-right: 1px solid var(--pvx-dm-border); }
+
+/* The entries take what is left; overflow is measured to decide on collapsing. */
+.pvx-dmenu .pvx-dmenu-items {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.pvx-dmenu .pvx-dmenu-side .pvx-dmenu-items {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    overflow: auto;
+}
+
+.pvx-dmenu .pvx-dmenu-gap { flex: 0 0 8px; }
+
+.pvx-dmenu .pvx-dmenu-item,
+.pvx-dmenu .pvx-dmenu-tool,
+.pvx-dmenu .pvx-dmenu-logo,
+.pvx-dmenu-layer .pvx-dmenu-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--pvx-dm-font);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.pvx-dmenu .pvx-dmenu-item { height: calc(100% - 8px); max-height: 34px; padding: 0 10px; }
+.pvx-dmenu .pvx-dmenu-side .pvx-dmenu-item { height: 30px; justify-content: flex-start; }
+.pvx-dmenu .pvx-dmenu-tool { width: 30px; height: 30px; justify-content: center; padding: 0; color: var(--pvx-dm-muted); }
+.pvx-dmenu .pvx-dmenu-logo { height: 100%; padding: 4px 6px; cursor: default; }
+.pvx-dmenu button.pvx-dmenu-logo { cursor: pointer; }
+.pvx-dmenu .pvx-dmenu-logo img { height: 100%; max-height: 100%; width: auto; display: block; }
+
+.pvx-dmenu .pvx-dmenu-item:hover,
+.pvx-dmenu .pvx-dmenu-tool:hover,
+.pvx-dmenu .pvx-dmenu-item[aria-expanded="true"],
+.pvx-dmenu-layer .pvx-dmenu-item:hover,
+.pvx-dmenu-layer .pvx-dmenu-item[aria-expanded="true"] {
+    background: rgba(128, 128, 128, 0.16);
+}
+
+.pvx-dmenu .pvx-dmenu-item:focus-visible,
+.pvx-dmenu .pvx-dmenu-tool:focus-visible,
+.pvx-dmenu-layer .pvx-dmenu-item:focus-visible {
+    outline: 2px solid var(--pvx-dm-accent);
+    outline-offset: -2px;
+}
+
+/* The current display, and the menus it sits under. */
+.pvx-dmenu .pvx-dmenu-item[data-active="item"],
+.pvx-dmenu-layer .pvx-dmenu-item[data-active="item"] {
+    color: var(--pvx-dm-accent);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--pvx-dm-accent);
+}
+
+.pvx-dmenu .pvx-dmenu-row .pvx-dmenu-item[data-active="item"],
+.pvx-dmenu .pvx-dmenu-row .pvx-dmenu-item[data-active="parent"] {
+    box-shadow: inset 0 -3px 0 var(--pvx-dm-accent);
+}
+
+.pvx-dmenu .pvx-dmenu-item[data-active="parent"],
+.pvx-dmenu-layer .pvx-dmenu-item[data-active="parent"] { color: var(--pvx-dm-accent); }
+
+.pvx-dmenu .pvx-dmenu-tool[aria-pressed="true"] { color: var(--pvx-dm-accent); background: rgba(128, 128, 128, 0.16); }
+
+.pvx-dmenu .pvx-dmenu-icon,
+.pvx-dmenu-layer .pvx-dmenu-icon { width: 1.25em; height: 1.25em; flex: 0 0 auto; }
+.pvx-dmenu .pvx-dmenu-caret,
+.pvx-dmenu-layer .pvx-dmenu-caret { width: 0.95em; height: 0.95em; flex: 0 0 auto; opacity: 0.7; }
+.pvx-dmenu-layer .pvx-dmenu-caret { margin-left: auto; }
+.pvx-dmenu .pvx-dmenu-side .pvx-dmenu-caret { margin-left: auto; }
+.pvx-dmenu .pvx-dmenu-badge,
+.pvx-dmenu-layer .pvx-dmenu-badge { width: 0.85em; height: 0.85em; opacity: 0.6; }
+
+.pvx-dmenu svg path,
+.pvx-dmenu-layer svg path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.pvx-dmenu .pvx-dmenu-label { overflow: hidden; text-overflow: ellipsis; }
+
+.pvx-dmenu .pvx-dmenu-sep { flex: 0 0 1px; align-self: stretch; margin: 8px 4px; background: var(--pvx-dm-border); }
+.pvx-dmenu .pvx-dmenu-hsep,
+.pvx-dmenu-layer .pvx-dmenu-hsep { height: 1px; margin: 4px 8px; background: var(--pvx-dm-border); }
+
+.pvx-dmenu .pvx-dmenu-empty,
+.pvx-dmenu-layer .pvx-dmenu-empty { color: var(--pvx-dm-muted); font-style: italic; padding: 0 8px; white-space: nowrap; }
+
+/* Something left out or not read: said in the bar, cut short with the
+   whole text on hover, since a footer would take the whole of a slim bar. */
+.pvx-dmenu .pvx-dmenu-note {
+    flex: 0 1 auto;
+    max-width: 40%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #b8741a;
+    font-size: 11px;
+    padding: 0 6px;
+}
+
+.pvx-dmenu .pvx-dmenu-side .pvx-dmenu-note { max-width: none; white-space: normal; padding: 4px 8px; }
+
+/* The drop-downs, on document.body. */
+.pvx-dmenu-layer {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+    z-index: 10000;
+}
+
+.pvx-dmenu-layer .pvx-dmenu-pop {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+    max-width: 360px;
+    max-height: 70vh;
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 4px;
+    background: var(--pvx-dm-pop);
+    color: var(--pvx-dm-fg);
+    border: 1px solid var(--pvx-dm-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px var(--pvx-dm-shadow);
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: var(--pvx-dm-font);
+}
+
+.pvx-dmenu-layer .pvx-dmenu-panel { min-width: 220px; }
+
+.pvx-dmenu-layer .pvx-dmenu-item {
+    width: 100%;
+    height: 30px;
+    padding: 0 10px;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.pvx-dmenu-layer .pvx-dmenu-label { overflow: hidden; text-overflow: ellipsis; }
+
+/* An entry folded open in place points its caret down. */
+.pvx-dmenu .pvx-dmenu-side .pvx-dmenu-item[aria-expanded="true"] .pvx-dmenu-caret,
+.pvx-dmenu-layer .pvx-dmenu-panel .pvx-dmenu-item[aria-expanded="true"] .pvx-dmenu-caret { transform: rotate(90deg); }

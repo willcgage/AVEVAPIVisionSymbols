@@ -453,7 +453,7 @@ async function pane() {
             await page.locator('textarea[ng-model="config.LimitBands"]').count() === 0 &&
             await lbRows.nth(0).locator('input[type="number"]').inputValue() === '80');
         await lbRows.nth(0).locator('input[type="text"]').fill('Hi limit');
-        await page.locator('.pvx-cfg-band-add').click();
+        await page.locator('.pvx-cfg-band-add', { hasText: 'Add band' }).click();
         const lbs = await page.evaluate(() => window.__scope.config.LimitBands);
         check('editing a limit band rewrites config.LimitBands', /^80:#d99024:Hi limit, 90:/.test(lbs), lbs);
         check('...and leaves Thresholds alone', await page.evaluate(() => window.__scope.config.Thresholds) ===

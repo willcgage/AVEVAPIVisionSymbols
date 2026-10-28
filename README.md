@@ -9,9 +9,9 @@ Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
 Thirty-one of them run entirely on PI Vision's own data pipeline — no PI Web
-API, no server-side prerequisites beyond copying a folder. Nine reach further
+API, no server-side prerequisites beyond copying a folder. Ten reach further
 (Event Frames, the AF hierarchy, writing values back) and need PI Web API, and
-eight more use it for an optional extra; see
+nine more use it for an optional extra; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
 
 Works with PI Vision 2019 through 2025 — the symbol extensibility model
@@ -27,7 +27,7 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxComboChart/icon.svg) | **PVX Combo Chart** | Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands, and optionally the asset's AF event frames shaded behind the traces (PI Web API). The native trend draws every trace the same way; this does not. |
+| ![](src/symbols/pvxComboChart/icon.svg) | **PVX Combo Chart** | Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands, and optionally the asset's AF event frames shaded behind the traces (PI Web API). Digital tags as state bands, min-to-max ranges, moving averages and trend lines, one panel per trace, log scales, and two rulers with statistics between them. The native trend draws every trace the same way; this does not. |
 | ![](src/symbols/pvxHistogram/icon.svg) | **PVX Distribution** | Frequency histogram with a fitted normal curve, spec limits, and **Cp / Cpk / expected ppm**. A capability study, not just a chart. |
 | ![](src/symbols/pvxSpectrum/icon.svg) | **PVX Spectrum** | Which cycles are in a tag and how big each is: a loop hunting every twenty minutes, a recycle rippling every seven. An FFT of recorded values resampled evenly, with the largest peaks marked by frequency and period, and bands that turn red when a peak in them passes a limit. |
 | ![](src/symbols/pvxControlChart/icon.svg) | **PVX Control Chart** | Shewhart I-MR, X̄-R or X̄-S chart with Nelson or Western Electric run rules, each flagged point naming the rule it broke. Limits from the window, a baseline, typed values or data sources; Cpk and Ppk against spec limits; a distribution strip beside the plot. |
@@ -85,6 +85,8 @@ in ES5 with no third-party libraries.
 
 | | Symbol | What it's for |
 |---|---|---|
+| ![](src/symbols/pvxGeoView/icon.svg) | **PVX Geo View** | Assets on a map, one marker per data source, coloured by digital state or by threshold band, placed from each element's Latitude and Longitude in AF (PI Web API) or from a typed list. Map tiles come only from a tile server the site names in `pvx-config.js`; without one, a latitude and longitude grid. Drag, zoom, and click a marker to open its asset. |
+| ![](src/symbols/pvxDisplayMenu/icon.svg) | **PVX Display Menu** | The site's display tree as a menu bar with nested drop-downs, or a side menu that opens in place: icons, a logo, a back button, switches for kiosk mode and PI Vision's toolbar, time bar and side bar, and a menu button when space runs out. One menu can be kept in an AF attribute, or one per asset. |
 | ![](src/symbols/pvxNavPanel/icon.svg) | **PVX Navigation Panel** | Button bar that jumps between displays, swaps the asset context, or sets the time range. A hierarchy mode builds Up, a breadcrumb and the siblings from the current asset, opening each level's own display. |
 | ![](src/symbols/pvxSlideshow/icon.svg) | **PVX Display Slideshow** | Rotates a control-room screen through a list of displays. The same config goes on every display in the rotation and each copy works out where it is — pause survives the navigation, and it never rotates while someone is editing the display. |
 | ![](src/symbols/pvxTimeRange/icon.svg) | **PVX Time Range** | Presets, a From / To pair (calendar, or PI time expressions checked as they are typed), step back and forward by the span shown, and Now. Sets the display's time by its address, so the browser's Back button undoes it. |
@@ -122,7 +124,7 @@ runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode; pick one and drag an attribute onto the display to place it (any
-attribute for the thirteen that take their settings from the format pane alone). That is the whole installation for thirty-nine of the forty-eight.
+attribute for the fourteen that take their settings from the format pane alone). That is the whole installation for forty of the fifty.
 
 Dropped the wrong attribute on a symbol? Open its format pane: every PVX
 symbol lists its data sources at the top, with **Remove** on each row (click
@@ -268,7 +270,7 @@ some updates; `PVX.bootstrap` carries them across the rest, per data source.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 864 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 900 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, content clipped out of reach, and a placeholder name
 ("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to

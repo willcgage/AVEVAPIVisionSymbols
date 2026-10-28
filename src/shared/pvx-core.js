@@ -3424,7 +3424,66 @@
      * Driving navigation through the URL avoids depending on private internal
      * Angular services that change between versions.
      */
+    /* ------------------------------------------------------------------ *
+     * icons — the built-in set the navigation symbols draw
+     * ------------------------------------------------------------------ *
+     * Single stroked paths on a 24-unit grid, so nothing third-party ships
+     * and each takes the text colour of whatever it sits in.
+     */
+    var icons = PVX.icons = {
+        paths: {
+            home: 'M3 11 L12 3 L21 11 M5 9.5 V21 H10 V15 H14 V21 H19 V9.5',
+            back: 'M15 5 L8 12 L15 19',
+            forward: 'M9 5 L16 12 L9 19',
+            up: 'M5 15 L12 8 L19 15',
+            down: 'M5 9 L12 16 L19 9',
+            trend: 'M3 17 L9 11 L13 15 L21 7 M15 7 H21 V13',
+            alarm: 'M12 3 L22 20 H2 Z M12 10 V14 M12 17 V17.5',
+            table: 'M3 5 H21 V19 H3 Z M3 10 H21 M3 15 H21 M9 5 V19',
+            gauge: 'M4 17 A8 8 0 1 1 20 17 M12 13 L16 8',
+            clock: 'M12 3 A9 9 0 1 1 11.99 3 M12 7 V12 L15.5 14',
+            map: 'M3 6 L9 4 L15 6 L21 4 V18 L15 20 L9 18 L3 20 Z M9 4 V18 M15 6 V20',
+            list: 'M8 6 H21 M8 12 H21 M8 18 H21 M3.5 6 H4.5 M3.5 12 H4.5 M3.5 18 H4.5',
+            settings: 'M12 9 A3 3 0 1 1 11.99 9 M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9',
+            info: 'M12 3 A9 9 0 1 1 11.99 3 M12 11 V17 M12 7.5 V8',
+            report: 'M6 3 H15 L19 7 V21 H6 Z M15 3 V7 H19 M9 12 H16 M9 16 H16',
+            power: 'M12 3 V12 M7 6 A8 8 0 1 0 17 6',
+            star: 'M12 3 L14.6 9 L21 9.5 L16 13.8 L17.6 20 L12 16.6 L6.4 20 L8 13.8 L3 9.5 L9.4 9 Z',
+            menu: 'M4 6 H20 M4 12 H20 M4 18 H20',
+            external: 'M14 4 H20 V10 M20 4 L11 13 M18 14 V20 H4 V6 H10',
+            kiosk: 'M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15',
+            toolbar: 'M3 4 H21 V20 H3 Z M3 9 H21',
+            timebar: 'M3 4 H21 V20 H3 Z M3 15 H21 M8 15 V20 M13 15 V20',
+            sidebar: 'M3 4 H21 V20 H3 Z M9 4 V20',
+            plant: 'M3 21 V11 L9 14 V11 L15 14 V5 H19 V21 Z M3 21 H21',
+            search: 'M10 4 A6 6 0 1 1 9.99 4 M14.5 14.5 L20 20'
+        }
+    };
+
+    /** An <svg> of one icon, or null for a name not in the set. */
+    icons.el = function (name, cls) {
+        var d = icons.paths[name];
+        if (!d) { return null; }
+        var NS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        if (cls) { svg.setAttribute('class', cls); }
+        svg.setAttribute('aria-hidden', 'true');
+        var path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+        return svg;
+    };
+
     var nav = PVX.nav = {};
+
+    /**
+     * Flags in a display's address that hide parts of PI Vision. They take
+     * no value: present means hidden. hidetoolbar and hidetimebar are the
+     * spellings operators report working; hidesidebar is the same pattern,
+     * not yet seen on a server.
+     */
+    nav.VIEW_FLAGS = ['hidetoolbar', 'hidetimebar', 'hidesidebar'];
 
     nav.currentUrl = function () {
         try { return root.location.href; } catch (e) { return ''; }
@@ -3455,6 +3514,8 @@
             if (Object.prototype.hasOwnProperty.call(parsed.params, k)) {
                 var v = parsed.params[k];
                 if (v === null || v === undefined || v === '') { continue; }
+                // A flag PI Vision reads by its presence, such as hidetoolbar.
+                if (v === true) { qs.push(encodeURIComponent(k)); continue; }
                 qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
             }
         }
@@ -3478,6 +3539,12 @@
             if (cur.params.endtime) { params.endtime = cur.params.endtime; }
         }
         if (cur.params.mode) { params.mode = cur.params.mode; }
+        // Hidden PI Vision chrome stays hidden on the next display, as kiosk
+        // mode always did: an operator who hid the toolbar to free the
+        // screen should not have to hide it again after every click.
+        for (var f = 0; f < nav.VIEW_FLAGS.length; f++) {
+            if (Object.prototype.hasOwnProperty.call(cur.params, nav.VIEW_FLAGS[f])) { params[nav.VIEW_FLAGS[f]] = true; }
+        }
 
         var target = opts.display;
         if (target) {
@@ -3702,6 +3769,119 @@
             .replace(/^\s+|\s+$/g, '');
         if (db) { return { path: db, from: 'pvx-config.js' }; }
         return { path: '', from: '' };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * geo — Web Mercator for pvxGeoView
+     * ------------------------------------------------------------------ *
+     * The projection every web map tile server uses (EPSG:3857), in "world
+     * pixels": at zoom z the world is 256 * 2^z pixels square, x east from
+     * longitude -180, y south from latitude +85.0511. Map tiles come only
+     * from a server the site names in pvx-config.js (map.tileUrl): nothing
+     * in the library knows of one, so nothing reaches the internet unasked.
+     */
+    var geo = PVX.geo = {};
+
+    geo.TILE = 256;
+    geo.MAX_LAT = 85.0511287798;
+
+    /** The site's tile server, or null: {tileUrl, attribution, maxZoom, subdomains}. */
+    geo.site = function () {
+        var m = api.settings && api.settings.map;
+        if (!m || typeof m !== 'object' || !m.tileUrl || !/\{z\}/.test(m.tileUrl) || !/\{x\}/.test(m.tileUrl) || !/\{y\}/.test(m.tileUrl)) {
+            return null;
+        }
+        var mz = util.num(m.maxZoom);
+        return {
+            tileUrl: String(m.tileUrl),
+            attribution: m.attribution ? String(m.attribution) : '',
+            maxZoom: mz === null ? 18 : util.clamp(Math.round(mz), 1, 22),
+            subdomains: m.subdomains ? String(m.subdomains) : ''
+        };
+    };
+
+    /** Latitude and longitude that can be placed: numbers, in range. */
+    geo.valid = function (lat, lon) {
+        return util.isNum(lat) && util.isNum(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    };
+
+    geo.project = function (lat, lon, z) {
+        var size = geo.TILE * Math.pow(2, z);
+        var la = util.clamp(lat, -geo.MAX_LAT, geo.MAX_LAT) * Math.PI / 180;
+        return {
+            x: size * (lon + 180) / 360,
+            y: size * (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2
+        };
+    };
+
+    geo.unproject = function (x, y, z) {
+        var size = geo.TILE * Math.pow(2, z);
+        var n = Math.PI - 2 * Math.PI * y / size;
+        return { lat: 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))), lon: x / size * 360 - 180 };
+    };
+
+    /** One tile's address; x wraps round the world, y does not. */
+    geo.tileUrl = function (tpl, z, x, y, subdomains) {
+        var n = Math.pow(2, z);
+        var wx = ((x % n) + n) % n;
+        var sub = subdomains ? subdomains.charAt(Math.abs(wx + y) % subdomains.length) : '';
+        return String(tpl).replace(/\{z\}/g, z).replace(/\{x\}/g, wx).replace(/\{y\}/g, y).replace(/\{s\}/g, sub);
+    };
+
+    /**
+     * The view that shows every point: the deepest whole zoom at which their
+     * extent fits inside w x h less a margin, centred on it. One point alone
+     * gets `single` (a street-level view by default).
+     * @returns {z, cx, cy} cx/cy in world pixels at zoom z
+     */
+    geo.fit = function (points, w, h, pad, maxZoom, single) {
+        var top = maxZoom === undefined ? 18 : maxZoom;
+        if (!points.length) { return { z: 1, cx: geo.TILE, cy: geo.TILE }; }
+        var z = top;
+        if (points.length > 1) {
+            for (z = top; z > 0; z--) {
+                var b = geo.extent(points, z);
+                if (b.x1 - b.x0 <= w - 2 * pad && b.y1 - b.y0 <= h - 2 * pad) { break; }
+            }
+        } else {
+            z = Math.min(top, single === undefined ? 14 : single);
+        }
+        var e = geo.extent(points, z);
+        return { z: z, cx: (e.x0 + e.x1) / 2, cy: (e.y0 + e.y1) / 2 };
+    };
+
+    geo.extent = function (points, z) {
+        var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (var i = 0; i < points.length; i++) {
+            var p = geo.project(points[i].lat, points[i].lon, z);
+            if (p.x < x0) { x0 = p.x; }
+            if (p.x > x1) { x1 = p.x; }
+            if (p.y < y0) { y0 = p.y; }
+            if (p.y > y1) { y1 = p.y; }
+        }
+        return { x0: x0, y0: y0, x1: x1, y1: y1 };
+    };
+
+    /**
+     * "Name | lat | lon" per line, or "Name | lat, lon". Returns
+     * {list: [{key, lat, lon}], bad: [line]}: a line that does not read is
+     * kept to be named, never quietly skipped.
+     */
+    geo.parseLocations = function (text) {
+        var out = { list: [], bad: [] };
+        var lines = String(text || '').split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/^\s+|\s+$/g, '');
+            if (!line || line.charAt(0) === '#') { continue; }
+            var parts = line.split('|');
+            var key = (parts[0] || '').replace(/^\s+|\s+$/g, '');
+            var rest = parts.length === 2 ? parts[1].split(',') : parts.slice(1);
+            var lat = util.num(rest[0] !== undefined ? String(rest[0]).replace(/^\s+|\s+$/g, '') : null);
+            var lon = util.num(rest[1] !== undefined ? String(rest[1]).replace(/^\s+|\s+$/g, '') : null);
+            if (!key || !geo.valid(lat, lon)) { out.bad.push(line); continue; }
+            out.list.push({ key: key, lat: lat, lon: lon });
+        }
+        return out;
     };
 
     /* ------------------------------------------------------------------ *

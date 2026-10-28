@@ -22,6 +22,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxCrossProfile`](#pvxcrossprofile) | PVX Cross Profile | TimeSeries | Multiple |
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
+| [`pvxDisplayMenu`](#pvxdisplaymenu) | PVX Display Menu | Value | Single |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
 | [`pvxEmbeddedPage`](#pvxembeddedpage) | PVX Embedded Page | Value | Single |
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
@@ -29,6 +30,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
 | [`pvxEventList`](#pvxeventlist) | PVX Event List | Value | Single |
 | [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
+| [`pvxGeoView`](#pvxgeoview) | PVX Geo View | Table | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
 | [`pvxHistoryTable`](#pvxhistorytable) | PVX History Table | TimeSeries | Multiple |
@@ -477,6 +479,12 @@ PI Vision's native trend draws every trace the same way on one scale, so the mom
 | `ShowGrid` | `true` |  |
 | `TickCount` | `5` |  |
 | `TimeTickCount` | `5` |  |
+| `LeftScale` | `"linear"` | linear \| log |
+| `RightScale` | `"linear"` |  |
+| `Panels` | `"shared"` | shared \| separate |
+| `StateColors` | `""` |  |
+| `StateOpacity` | `0.18` |  |
+| `Rulers` | `false` |  |
 | `LimitBands` | `""` |  |
 | `LimitBandOpacity` | `0.14` |  |
 | `ShowLegend` | `true` |  |
@@ -712,6 +720,56 @@ A normal trend answers "what was the value". A control engineer is almost never 
 | `MaxSeries` | `6` |  |
 | `ShowLegend` | `true` |  |
 | `ShowCurrentValue` | `true` |  |
+
+---
+
+## pvxDisplayMenu
+
+**PVX Display Menu** · data shape `Value` · single data source · collections not supported
+
+symbol into the selector and names the asset a relative menu attribute hangs off (see ItemsAttribute).
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `0` | *(shared)* |
+| `ItemsFrom` | `"config"` | config \| af |
+| `ItemsAttribute` | `""` |  |
+| `Items` | `[home] Overview | 101
+Units
+    Unit 1 | 201…` |  |
+| `Layout` | `"bar"` | bar \| side |
+| `SubmenuOpen` | `"click"` | click \| hover |
+| `Collapse` | `"narrow"` | never \| narrow \| always |
+| `MenuLabel` | `"Menu"` |  |
+| `IconPosition` | `"start"` | start \| end |
+| `KeepAsset` | `true` |  |
+| `KeepTime` | `true` |  |
+| `OpenInNewTab` | `false` |  |
+| `ShowActive` | `true` |  |
+| `ShowBack` | `false` |  |
+| `ShowKioskToggle` | `false` |  |
+| `ShowToolbarToggle` | `false` |  |
+| `ShowTimebarToggle` | `false` |  |
+| `ShowSidebarToggle` | `false` |  |
+| `LogoUrl` | `""` |  |
+| `LogoPosition` | `"start"` | start \| end |
+| `LogoHeight` | `0` | 0: the bar's height less padding |
+| `LogoTarget` | `""` |  |
+| `LogoAlt` | `"Logo"` |  |
+| `ItemColor` | `""` | text; blank follows the theme |
+| `HighlightColor` | `""` | active and hover; blank: AccentColor |
+| `FontSize` | `13` |  |
+| `ShowDivider` | `false` |  |
 
 ---
 
@@ -1017,6 +1075,47 @@ acetylene in a transformer's oil, in ppm)
 | `ZoneOpacity` | `0.32` |  |
 | `ZoneColors` | `""` | "T3:#c00000, D2:#1f4e9c" overrides |
 | `LegendPosition` | `"auto"` | auto \| right \| none |
+
+---
+
+## pvxGeoView
+
+**PVX Geo View** · data shape `Table` · multiple data sources · collections supported
+
+Where each marker goes: - 'af' (default): the Latitude and Longitude attributes of the data source's AF element, read through PI Web API once a minute. The names are settings, since sites call them Lat, GPS Latitude, ... - 'list': typed in the format pane, "Name | lat | lon" per line, matched to a data source by its label, its element's name or its element path. A source with no location is named in the footer, never left off quietly.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `LocationFrom` | `"af"` | af \| list |
+| `LatAttribute` | `"Latitude"` |  |
+| `LonAttribute` | `"Longitude"` |  |
+| `Locations` | `""` |  |
+| `StateMap` | `""` |  |
+| `MarkerSize` | `14` |  |
+| `ShowLabels` | `true` |  |
+| `ShowValues` | `false` |  |
+| `ShowLegend` | `true` |  |
+| `InitialView` | `"fit"` | fit \| fixed |
+| `CenterLat` | `0` |  |
+| `CenterLon` | `0` |  |
+| `Zoom` | `4` |  |
+| `MaxFitZoom` | `15` |  |
+| `TileOpacity` | `1` |  |
+| `ClickAction` | `"none"` | none \| asset \| display |
+| `ClickDisplay` | `""` |  |
+| `Title` | `""` |  |
 
 ---
 

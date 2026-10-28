@@ -15,7 +15,10 @@
  * Others, colour from a target or bands, and every asset left out named. The
  * quick trend any symbol can open, and the Lookup Table's AF table. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
- * and the Navigation Panel's icons, tooltips and {value} addresses.
+ * and the Navigation Panel's icons, tooltips and {value} addresses. And the
+ * Display Menu: nesting, drop-downs and where they open, the current display
+ * marked, keys, collapsing, the side menu, a menu from an AF attribute of the
+ * display's asset, and the kiosk and toolbar switches surviving navigation.
  *
  *   rules    plain Node, against the BUILT core: element paths split the way
  *            PI Vision's asset= parameter wants them, the text scale clamps,
@@ -146,12 +149,96 @@ function rules() {
     eventListRules();
     assetRollupRules();
     lookupRules();
+    displayMenuRules();
+    geoRules();
 
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
     check('asset table: defaults to no bands', def.getDefaultConfig().Thresholds === '');
     check('asset table: a saved placeholder is cleared on load',
         def.loadConfig({ Thresholds: win.PVX.thresholds.DEFAULT }).Thresholds === '');
+}
+
+function geoRules() {
+    console.log('');
+    console.log(C.bold + 'Geo View rules' + C.reset);
+    const win = loadBuilt(['pvxGeoView']);
+    const G = win.PVX.geo;
+    const near = (a, b, e) => Math.abs(a - b) < (e || 1e-6);
+    const c0 = G.project(0, 0, 0);
+    check('geo: 0,0 is the middle of the one tile at zoom 0', near(c0.x, 128) && near(c0.y, 128), c0);
+    const lon = G.project(51.5, -0.12, 10);
+    const back = G.unproject(lon.x, lon.y, 10);
+    check('geo: project then unproject gives the place back', near(back.lat, 51.5, 1e-9) && near(back.lon, -0.12, 1e-9), back);
+    check('geo: a zoom level doubles the world', near(G.project(51.5, -0.12, 11).x, lon.x * 2, 1e-6));
+    check('geo: tile addresses wrap east-west, and {s} takes a subdomain',
+        G.tileUrl('https://{s}.t/{z}/{x}/{y}.png', 2, -1, 1, 'abc') === 'https://b.t/2/3/1.png' && G.tileUrl('/t/{z}/{x}/{y}', 2, 4, 0, '') === '/t/2/0/0',
+        G.tileUrl('https://{s}.t/{z}/{x}/{y}.png', 2, -1, 1, 'abc'));
+    const pts = [{ lat: 51.50, lon: -0.12 }, { lat: 51.52, lon: -0.09 }];
+    const f = G.fit(pts, 520, 340, 24, 18);
+    const e = G.extent(pts, f.z);
+    const e1 = G.extent(pts, f.z + 1);
+    check('geo: fit takes the deepest zoom where both fit', e.x1 - e.x0 <= 472 && e.y1 - e.y0 <= 292 && (e1.x1 - e1.x0 > 472 || e1.y1 - e1.y0 > 292), f);
+    check('geo: one place alone gets a close view, no closer than allowed', G.fit([pts[0]], 520, 340, 24, 12).z === 12 && G.fit([pts[0]], 520, 340, 24, 18).z === 14);
+    const L = G.parseLocations('Pump 1 | 51.5 | -0.12\nPump 2 | 51.6, -0.10\n# comment\nNowhere | 95 | 0\nOops');
+    check('geo: locations in either form, and the lines that do not read kept', L.list.length === 2 && L.list[1].lat === 51.6 && L.bad.length === 2, L);
+    check('geo: no tile server unless the site names one', G.site() === null);
+    win.PVX.api.configure({ map: { tileUrl: '/tiles/{z}/{x}/{y}.png', maxZoom: 30 } });
+    check('geo: ...and its zoom kept in range', G.site() && G.site().maxZoom === 22, G.site());
+    win.PVX.api.configure({ map: { tileUrl: '/tiles/no-placeholders.png' } });
+    check('geo: a tile address without {z}, {x} and {y} is no tile server', G.site() === null);
+    const vis = win.PVMock.get('pvxGeoView').visObjectType;
+    const rows = [{ label: 'Flow', path: 'af:\\\\AF\\DB\\Site\\Pump 1|Flow?x' }, { label: 'Level', path: 'af:\\\\AF\\DB\\Site\\Tank 2|Level?x' },
+        { label: 'Speed', path: 'af:\\\\AF\\DB\\Site\\Fan|Speed?x' }, { label: 'PI point', path: 'pi:\\\\PI\\sinusoid?y' }];
+    const m = vis.matchLocations(rows, [{ key: 'FLOW', lat: 1, lon: 1 }, { key: 'tank 2', lat: 2, lon: 2 }, { key: '\\\\AF\\DB\\Site\\Fan', lat: 3, lon: 3 }],
+        win.PVX.nav.assetOf);
+    check('geo: matched by label, element name or element path; a PI point by its label only',
+        m[0].lat === 1 && m[1].lat === 2 && m[2].lat === 3 && m[3] === null, m);
+}
+
+function displayMenuRules() {
+    console.log('');
+    console.log(C.bold + 'Display Menu rules' + C.reset);
+    const win = loadBuilt(['pvxDisplayMenu']);
+    const vis = win.PVMock.get('pvxDisplayMenu').visObjectType;
+    const icons = win.PVX.icons.paths;
+    const m = vis.parseMenu([
+        '[home] Overview -- The plant | 101',
+        'Units',
+        '    Unit 1 | 201',
+        '\tUnit 2 | 202 | asset=X; tab=new',
+        '        Detail | 203',
+        '    ---',
+        '    ---',
+        '    Web | https://intranet/x',
+        '    ---',
+        'Nowhere',
+        '# a comment',
+        'Arrows',
+        '> Deep | 401',
+        '>> Deeper | 402',
+        '[nosuch] Odd | 501'
+    ].join('\n'), icons);
+    const names = (list) => list.map((i) => i.sep ? '---' : i.label);
+    check('menu: top level, a line with no target and nothing under it left out',
+        JSON.stringify(names(m.items)) === '["Overview","Units","Arrows","[nosuch] Odd"]' && m.dropped === 1, names(m.items));
+    check('menu: an icon and a tooltip come off the label', m.items[0].icon === 'home' && m.items[0].tip === 'The plant');
+    const units = m.items[1];
+    check('menu: indentation nests, a tab is four spaces; doubled and trailing separators go',
+        JSON.stringify(names(units.children)) === '["Unit 1","Unit 2","---","Web"]', names(units.children));
+    check('menu: deeper still, under the line above', units.children[1].children[0].label === 'Detail' && units.children[1].children[0].id === '1.1.0');
+    check('menu: options, and a web page told from a display',
+        units.children[1].opts.asset === 'X' && units.children[1].opts.tab === 'new' && units.children[3].kind === 'web' && units.children[0].kind === 'display');
+    check('menu: > marks a level too', m.items[2].children[0].label === 'Deep' && m.items[2].children[0].children[0].label === 'Deeper');
+    check('menu: display keys ignore the slug and the address around them',
+        vis.displayKey('203') === '203' && vis.displayKey('203/Some-Name') === '203' &&
+        vis.displayKey('https://h/PIVision/#/Displays/203/Other?asset=x') === '203');
+    check('menu: the current display and every menu above it', JSON.stringify(vis.activePath(m.items, '203')) === '["1","1.1","1.1.0"]',
+        vis.activePath(m.items, '203'));
+    const nav = win.PVX.nav;
+    win.location = { href: 'http://h/PIVision/#/Displays/1/A?hidetoolbar&mode=kiosk&starttime=*-8h' };
+    check('menu: hidden PI Vision chrome stays hidden on the next display',
+        nav.url({ display: '2' }) === 'http://h/PIVision/#/Displays/2?starttime=*-8h&mode=kiosk&hidetoolbar', nav.url({ display: '2' }));
 }
 
 function eventListRules() {
@@ -268,9 +355,12 @@ const K303 = S2 + '\\K-303';
 
 // [path, template, attributes {name: [value, units]}]
 const ELEMENTS = [
-    [S1, 'Station', { 'Navigation Menu': ['Overview | 101\nDetails | 102', ''] }],
-    [K301, 'Compressor', { 'Discharge Pressure': [1081, 'psig'], 'Vibration': [3.9, 'mils'], 'Status': [{ Name: 'Running', Value: 1 }, ''] }],
-    [K302, 'Compressor', { 'Discharge Pressure': [1169, 'psig'], 'Vibration': [6.2, 'mils'], 'Status': [{ Name: 'Fault', Value: 3 }, ''] }],
+    [S1, 'Station', { 'Navigation Menu': ['Overview | 101\nDetails | 102', ''],
+        'Display Menu': ['Station | 110\nCompressors\n    K-301 | 111\n    K-302 | 112', ''] }],
+    [K301, 'Compressor', { 'Discharge Pressure': [1081, 'psig'], 'Vibration': [3.9, 'mils'], 'Status': [{ Name: 'Running', Value: 1 }, ''],
+        'Latitude': [51.5, ''], 'Longitude': [-0.12, ''] }],
+    [K302, 'Compressor', { 'Discharge Pressure': [1169, 'psig'], 'Vibration': [6.2, 'mils'], 'Status': [{ Name: 'Fault', Value: 3 }, ''],
+        'Latitude': ['51.52', ''], 'Longitude': ['-0.09', ''] }],
     [TANK, 'Tank', { 'Level': [62, '%'] }],
     [S2, 'Station', {}],
     [K303, 'Compressor', { 'Discharge Pressure': [950, 'psig'], 'Status': [{ Name: 'Stopped', Value: 2 }, ''] }]
@@ -336,6 +426,7 @@ const childrenOf = (p, deep) => ELEMENTS.map((e) => e[0]).filter((c) => (deep
 const elementOut = (p) => ({ Name: nameOf(p), Path: p, WebId: wid('e', p), TemplateName: byPath[p.toLowerCase()].template });
 
 let requests = [];
+let tileHits = [];
 
 /** One PI Web API request -> {status, body}. Shared by GET and batch. */
 function route(method, url, via) {
@@ -505,6 +596,13 @@ function serve() {
     return new Promise((resolve) => {
         const s = http.createServer((req, res) => {
             if (req.url.indexOf('/piwebapi') === 0) { api(req, res); return; }
+            // Map tiles for the Geo View: a 1x1 PNG, the address recorded.
+            if (req.url.indexOf('/tiles/') === 0) {
+                tileHits.push(req.url);
+                res.writeHead(200, { 'Content-Type': 'image/png' });
+                res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'));
+                return;
+            }
             const rel = decodeURIComponent(req.url.split('?')[0]);
             const m = /^\/page\/(\w+)$/.exec(rel);
             if (m) {
@@ -530,6 +628,8 @@ async function mount(a) {
     window.PVX.api.configure({ baseUrl: a.configured === false || a.configured === 'auto' ? '' : location.origin + '/piwebapi',
         autoDiscover: a.configured !== false, auth: 'anonymous', timeoutMs: a.timeoutMs || 20000 });
     window.PVX.api.clearCache();
+    // The Geo View's tile server, as pvx-config.js would name it.
+    window.PVX.api.configure({ map: a.map || null });
     // A load that never settles, whatever the reason: the symbol must say so.
     if (a.hang) { window.PVX.api.get = () => new Promise(() => {}); }
     // A runtime from an older release: 1.12.0's core had no defaultDatabase.
@@ -1618,6 +1718,217 @@ async function page() {
             note: (document.querySelector('#box .pvx-nav-note') || {}).title || '' }));
         check('nav: a missing menu attribute falls back to the typed buttons and says why',
             navAf.btns.length === 4 && /Menu from AF: .*Nowhere/.test(navAf.note), navAf);
+
+        /* ---- Display Menu ------------------------------------------------ */
+        const MENU = '[home] Overview | 101\nUnits\n    Unit 1 | 201\n    More\n        Detail | 203\n    ---\n    ' +
+            'Web | https://intranet.example/x\nReports | 301 | keeptime=no; start=*-7d';
+        const openMenu = async (hash, config, extra) => {
+            requests = [];
+            await pg.goto('http://127.0.0.1:' + PORT + '/page/pvxDisplayMenu#' + hash, { waitUntil: 'networkidle' });
+            await pg.evaluate(() => { window.__opened = []; window.open = (u, t) => { window.__opened.push([u, t]); return null; }; });
+            await pg.evaluate(mount, Object.assign({ typeName: 'pvxDisplayMenu', config: Object.assign({ Items: MENU, Collapse: 'never' }, config) }, extra || {}));
+            await settle();
+        };
+        const tops = () => texts('#box .pvx-dmenu-items > button');
+        const pops = () => pg.$$eval('.pvx-dmenu-layer .pvx-dmenu-pop', (ps) => ps.map((p) =>
+            Array.from(p.children).map((n) => n.tagName === 'BUTTON' ? n.textContent.trim() : '---')));
+
+        await openMenu('/Displays/203/Detail?asset=' + encodeURIComponent(K301) + '&starttime=*-2h&endtime=*', {});
+        let mt = await tops();
+        check('menu: the top level as a bar', JSON.stringify(mt) === '["Overview","Units","Reports"]', mt);
+        let act = await pg.$$eval('#box [data-active]', (ns) => ns.map((n) => n.textContent.trim() + ':' + n.getAttribute('data-active')));
+        check('menu: the menu holding the current display is marked', JSON.stringify(act) === '["Units:parent"]', act);
+        check('menu: nothing open, nothing on the page', (await pops()).length === 0);
+        await pg.click('#box button:has-text("Units")');
+        let mp = await pops();
+        check('menu: a click opens its drop-down, on the page, separator kept', JSON.stringify(mp) === '[["Unit 1","More","---","Web"]]', mp);
+        await pg.click('.pvx-dmenu-layer button:has-text("More")');
+        mp = await pops();
+        check('menu: a deeper menu opens beside it', JSON.stringify(mp) === '[["Unit 1","More","---","Web"],["Detail"]]', mp);
+        act = await pg.$$eval('.pvx-dmenu-layer [data-active]', (ns) => ns.map((n) => n.textContent.trim() + ':' + n.getAttribute('data-active')));
+        check('menu: ...the current display marked in it', JSON.stringify(act) === '["More:parent","Detail:item"]', act);
+        const geo = await pg.$$eval('.pvx-dmenu-layer .pvx-dmenu-pop', (ps) => ps.map((p) => p.getBoundingClientRect()).map((r) => [Math.round(r.left), Math.round(r.right), Math.round(r.top)]));
+        check('menu: ...to the right of the first', geo.length === 2 && geo[1][0] >= geo[0][1] - 2, geo);
+        await pg.keyboard.press('Escape');
+        check('menu: Escape closes every menu', (await pops()).length === 0);
+        await pg.click('#box button:has-text("Units")');
+        await pg.mouse.click(900, 500);
+        check('menu: a click elsewhere closes them', (await pops()).length === 0);
+
+        await pg.click('#box button:has-text("Units")');
+        await pg.click('.pvx-dmenu-layer button:has-text("Unit 1")');
+        check('menu: an entry opens its display, keeping asset and time',
+            (await hash()) === '#/Displays/201?asset=' + K301 + '&starttime=*-2h&endtime=*', await hash());
+        check('menu: ...and the menus close', (await pops()).length === 0);
+
+        await openMenu('/Displays/101/A?asset=' + encodeURIComponent(K301) + '&starttime=*-2h&endtime=*', {});
+        await pg.click('#box button:has-text("Reports")');
+        check('menu: an entry\'s own options win: no time kept, its own start', (await hash()) === '#/Displays/301?asset=' + K301 + '&starttime=*-7d', await hash());
+        await openMenu('/Displays/101/A', {});
+        await pg.click('#box button:has-text("Units")');
+        await pg.click('.pvx-dmenu-layer button:has-text("Web")');
+        const opened = await pg.evaluate(() => window.__opened);
+        check('menu: a web page opens in a new tab', JSON.stringify(opened) === '[["https://intranet.example/x","_blank"]]', opened);
+
+        await openMenu('/Displays/101/A', { SubmenuOpen: 'hover' });
+        await pg.hover('#box button:has-text("Units")');
+        await settle();
+        mp = await pops();
+        check('menu: pointing opens a drop-down when set to', JSON.stringify(mp) === '[["Unit 1","More","---","Web"]]', mp);
+        await pg.mouse.move(900, 500);
+        await pg.waitForTimeout(600);
+        check('menu: ...and moving away closes it', (await pops()).length === 0);
+
+        await openMenu('/Displays/101/A', {});
+        await pg.evaluate(() => { window.__scope.runtimeData.isEditMode = true; });
+        await pg.click('#box button:has-text("Overview")');
+        check('menu: nothing navigates while the display is edited', (await hash()) === '#/Displays/101/A', await hash());
+        await pg.click('#box button:has-text("Units")');
+        check('menu: ...though the menus still open', (await pops()).length === 1);
+
+        await pg.focus('#box button:has-text("Units")');
+        await pg.keyboard.press('Escape');
+        await openMenu('/Displays/101/A', {});
+        await pg.focus('#box button:has-text("Units")');
+        await pg.keyboard.press('ArrowDown');
+        await settle();
+        let focused = await pg.evaluate(() => document.activeElement && document.activeElement.textContent.trim());
+        check('menu: ArrowDown opens a menu and moves into it', focused === 'Unit 1', focused);
+        await pg.keyboard.press('ArrowDown');
+        await pg.keyboard.press('ArrowRight');
+        await settle();
+        focused = await pg.evaluate(() => document.activeElement && document.activeElement.textContent.trim());
+        check('menu: ...ArrowRight opens the next level', focused === 'Detail', focused);
+
+        await openMenu('/Displays/203/A', { Collapse: 'always', MenuLabel: 'Go to' });
+        mt = await tops();
+        check('menu: collapsed to one button', JSON.stringify(mt) === '[]' && JSON.stringify(await texts('#box .pvx-dmenu-burger')) === '["Go to"]', mt);
+        await pg.click('#box .pvx-dmenu-burger');
+        mp = await pops();
+        check('menu: it opens the whole menu, the way to the current display already open',
+            JSON.stringify(mp) === '[["Overview","Units","Unit 1","More","Detail","---","Web","Reports"]]', mp);
+        await pg.click('.pvx-dmenu-layer button:has-text("More")');
+        mp = await pops();
+        check('menu: ...an entry in it folds in place', JSON.stringify(mp) === '[["Overview","Units","Unit 1","More","---","Web","Reports"]]', mp);
+
+        const many = Array.from({ length: 14 }, (_, i) => 'Area number ' + (i + 1) + ' | ' + (500 + i)).join('\n');
+        await openMenu('/Displays/101/A', { Items: many, Collapse: 'narrow' });
+        check('menu: too many for the bar, it collapses', (await tops()).length === 0 && (await texts('#box .pvx-dmenu-burger')).length === 1);
+        await openMenu('/Displays/101/A', { Items: many, Collapse: 'never' });
+        check('menu: ...unless told never to', (await tops()).length === 14);
+
+        await openMenu('/Displays/203/A', { Layout: 'side' });
+        mt = await texts('#box .pvx-dmenu-items > button');
+        check('menu: a side menu, open down to the current display', JSON.stringify(mt) === '["Overview","Units","Unit 1","More","Detail","Web","Reports"]', mt);
+        await pg.click('#box button:has-text("Units")');
+        mt = await texts('#box .pvx-dmenu-items > button');
+        check('menu: ...an entry folds in place, with no drop-down', JSON.stringify(mt) === '["Overview","Units","Reports"]' && (await pops()).length === 0, mt);
+
+        await openMenu('/Displays/101/A', { Items: MENU + '\nNot yet' });
+        let mnote = await texts('#box .pvx-dmenu-note');
+        check('menu: a line that goes nowhere is left out and said', mnote.length === 1 && /1 line has no address and nothing under it/.test(mnote[0]), mnote);
+
+        await openMenu('/Displays/101/A?asset=' + encodeURIComponent(S1), { ItemsFrom: 'af', ItemsAttribute: '|Display Menu' });
+        await settle();
+        mt = await tops();
+        check('menu: from an attribute of the display\'s asset', JSON.stringify(mt) === '["Station","Compressors"]', mt);
+        check('menu: ...read by its path under that asset', requests.some((r) => r.indexOf('GET attributes?path=' + S1 + '|Display Menu') === 0), requests);
+        await openMenu('/Displays/101/A?asset=' + encodeURIComponent(S2), { ItemsFrom: 'af', ItemsAttribute: '|Display Menu' });
+        await settle();
+        mnote = await texts('#box .pvx-dmenu-note');
+        check('menu: an asset without one keeps the typed menu and says why',
+            JSON.stringify(await tops()) === '["Overview","Units","Reports"]' && /Menu from AF/.test(mnote.join()), mnote);
+
+        await openMenu('/Displays/101/A?starttime=*-1h', { ShowKioskToggle: true, ShowToolbarToggle: true, ShowBack: true });
+        const tools = await pg.$$eval('#box .pvx-dmenu-tool', (ns) => ns.map((n) => n.getAttribute('data-tool') + ':' + (n.getAttribute('aria-pressed') || '')));
+        check('menu: back, then the switches, showing what is on', JSON.stringify(tools) === '["back:","kiosk:false","hidetoolbar:false"]', tools);
+        // The switch loads the page again: wait for the new one, not the old.
+        const reloadBy = async (sel) => {
+            await pg.evaluate(() => { window.__before = 1; });
+            await pg.click(sel);
+            await pg.waitForFunction(() => !window.__before && window.PVX && window.PVMock && document.readyState === 'complete');
+        };
+        await reloadBy('#box [data-tool="hidetoolbar"]');
+        check('menu: the toolbar switch adds hidetoolbar and loads the display again', (await hash()) === '#/Displays/101/A?starttime=*-1h&hidetoolbar', await hash());
+        await pg.evaluate(mount, { typeName: 'pvxDisplayMenu', config: { Items: MENU, Collapse: 'never', ShowKioskToggle: true, ShowToolbarToggle: true } });
+        await settle();
+        check('menu: ...and shows it as on', await pg.$eval('#box [data-tool="hidetoolbar"]', (n) => n.getAttribute('aria-pressed')) === 'true');
+        await pg.click('#box button:has-text("Overview")');
+        check('menu: moving on keeps the toolbar hidden', (await hash()) === '#/Displays/101?starttime=*-1h&hidetoolbar', await hash());
+        await reloadBy('#box [data-tool="kiosk"]');
+        check('menu: the kiosk switch adds mode=kiosk', (await hash()) === '#/Displays/101?starttime=*-1h&hidetoolbar&mode=kiosk', await hash());
+
+        await openMenu('/Displays/101/A', { LogoUrl: '/nowhere/logo.png' });
+        await pg.waitForTimeout(300);
+        mnote = await texts('#box .pvx-dmenu-note');
+        check('menu: a logo that does not load is said', /logo at "\/nowhere\/logo.png" did not load/.test(mnote.join()), mnote);
+        await openMenu('/Displays/101/A', { LogoUrl: '/tiles/logo.png', LogoTarget: '101' });
+        await pg.waitForTimeout(300);
+        check('menu: a logo that loads, as a link, with nothing to say',
+            (await texts('#box .pvx-dmenu-note')).length === 0 && (await pg.$$('#box button.pvx-dmenu-logo img')).length === 1);
+
+        /* ---- Geo View ---------------------------------------------------- */
+        const GROWS = [[K301, 'Running'], [K302, 'Fault'], [K303, 'Stopped']].map((r) => ({
+            Label: r[0].slice(r[0].lastIndexOf('\\') + 1) + ' Status', Path: 'af:' + r[0] + '|Status?x', Value: r[1], IsGood: true }));
+        const GEO = { StateMap: 'Running:#2f9e5f, Fault:#c8452f' };
+        const TILES = { tileUrl: '/tiles/{z}/{x}/{y}.png', attribution: 'Test tiles' };
+        const geoState = () => pg.evaluate(() => ({
+            marks: Array.from(document.querySelectorAll('#box .pvx-geo-mark circle')).map((c) => [c.getAttribute('fill'), +c.getAttribute('cx'), +c.getAttribute('cy')]),
+            tiles: Array.from(document.querySelectorAll('#box img.pvx-geo-tile')).map((i) => i.getAttribute('src')),
+            note: (document.querySelector('#box .pvx-geo-note') || {}).textContent || '',
+            grid: document.querySelectorAll('#box .pvx-geo-grid line').length,
+            attr: (document.querySelector('#box .pvx-geo-attr') || {}).textContent || ''
+        }));
+        tileHits = [];
+        await open('pvxGeoView', { payload: { Rows: GROWS }, config: GEO, map: TILES });
+        await settle();
+        let gs = await geoState();
+        check('geo: a marker per asset with a place, coloured by its state',
+            JSON.stringify(gs.marks.map((m) => m[0])) === '["#2f9e5f","#c8452f"]', gs.marks);
+        check('geo: places read from each element\'s Latitude and Longitude',
+            requests.some((r) => r.indexOf('GET attributes?path=' + K301 + '|Latitude') === 0) &&
+            requests.some((r) => r.indexOf('GET attributes?path=' + K302 + '|Longitude') === 0), requests);
+        check('geo: the one without is named in the footer', /1 with no location: K-303 Status/.test(gs.note), gs.note);
+        check('geo: north is up and east is right', gs.marks[1][1] > gs.marks[0][1] && gs.marks[1][2] < gs.marks[0][2], gs.marks);
+        check('geo: tiles from the site\'s server, with its credit', gs.tiles.length > 0 && tileHits.length > 0 &&
+            gs.tiles.every((t) => /^\/tiles\/\d+\/\d+\/\d+\.png$/.test(t)) && gs.attr === 'Test tiles', gs);
+        const zOf = (t) => +t.split('/')[2];
+        const z0 = zOf(gs.tiles[0]);
+        await pg.click('#box [data-act="in"]');
+        gs = await geoState();
+        check('geo: + zooms in one level', gs.tiles.every((t) => zOf(t) === z0 + 1), [z0, gs.tiles]);
+        const gBefore = gs.marks[0];
+        const gBox = await pg.$eval('#box .pvx-geo-map', (n) => { const r = n.getBoundingClientRect(); return { x: r.left, y: r.top }; });
+        await pg.mouse.move(gBox.x + 40, gBox.y + 40);
+        await pg.mouse.down();
+        await pg.mouse.move(gBox.x + 100, gBox.y + 70, { steps: 4 });
+        await pg.mouse.up();
+        gs = await geoState();
+        check('geo: a drag moves the map with the pointer', Math.abs(gs.marks[0][1] - gBefore[1] - 60) < 1.5 && Math.abs(gs.marks[0][2] - gBefore[2] - 30) < 1.5,
+            [gBefore, gs.marks[0]]);
+        await pg.click('#box [data-act="fit"]');
+        gs = await geoState();
+        check('geo: the frame button fits every marker again', gs.tiles.every((t) => zOf(t) === z0), gs.tiles);
+
+        await open('pvxGeoView', { asset: S1, payload: { Rows: GROWS }, config: Object.assign({ ClickAction: 'display', ClickDisplay: '205' }, GEO), map: TILES });
+        await settle();
+        await pg.click('#box .pvx-geo-mark:nth-of-type(2) circle', { force: true });
+        check('geo: a click on a marker opens the display for its asset', (await hash()) === '#/Displays/205?asset=' + K302, await hash());
+
+        await open('pvxGeoView', { payload: { Rows: GROWS }, config: GEO });
+        await settle();
+        gs = await geoState();
+        check('geo: without a tile server, a grid, no tiles, and the footer says how to add the map',
+            gs.tiles.length === 0 && gs.grid > 0 && /name a tile server as map.tileUrl in pvx-config.js/.test(gs.note), gs);
+        await open('pvxGeoView', { payload: { Rows: GROWS }, config: GEO, configured: false });
+        await settle();
+        gs = await geoState();
+        check('geo: without PI Web API, no markers and the reason', gs.marks.length === 0 && /locations from AF: /.test(gs.note), gs.note);
+        await open('pvxGeoView', { payload: { Rows: GROWS }, config: Object.assign({ LocationFrom: 'list', Locations: 'K-303 | 51.45 | -0.2\nTypo | 99 | 0' }, GEO), configured: false });
+        await settle();
+        gs = await geoState();
+        check('geo: a typed list needs no PI Web API, matched by element name', gs.marks.length === 1 && gs.marks[0][0] !== '#2f9e5f', gs);
+        check('geo: ...and its line that does not read is named', /1 location line does not read: Typo \| 99 \| 0/.test(gs.note), gs.note);
 
         /* ---- text size -------------------------------------------------- */
         await open('pvxNavPanel', { asset: K301, config: Object.assign({}, NAV, { TextScale: '150' }) });

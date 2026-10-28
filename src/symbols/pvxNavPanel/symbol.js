@@ -191,28 +191,8 @@
          * source's current value, so an AF attribute can hold the address.
          */
 
-        /*
-         * Built-in icons, drawn here as single stroked paths on a 24-unit grid
-         * so nothing third-party ships and they take the button's text colour.
-         */
-        var ICONS = {
-            home: 'M3 11 L12 3 L21 11 M5 9.5 V21 H10 V15 H14 V21 H19 V9.5',
-            back: 'M15 5 L8 12 L15 19',
-            forward: 'M9 5 L16 12 L9 19',
-            up: 'M5 15 L12 8 L19 15',
-            trend: 'M3 17 L9 11 L13 15 L21 7 M15 7 H21 V13',
-            alarm: 'M12 3 L22 20 H2 Z M12 10 V14 M12 17 V17.5',
-            table: 'M3 5 H21 V19 H3 Z M3 10 H21 M3 15 H21 M9 5 V19',
-            gauge: 'M4 17 A8 8 0 1 1 20 17 M12 13 L16 8',
-            clock: 'M12 3 A9 9 0 1 1 11.99 3 M12 7 V12 L15.5 14',
-            map: 'M3 6 L9 4 L15 6 L21 4 V18 L15 20 L9 18 L3 20 Z M9 4 V18 M15 6 V20',
-            list: 'M8 6 H21 M8 12 H21 M8 18 H21 M3.5 6 H4.5 M3.5 12 H4.5 M3.5 18 H4.5',
-            settings: 'M12 9 A3 3 0 1 1 11.99 9 M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9',
-            info: 'M12 3 A9 9 0 1 1 11.99 3 M12 11 V17 M12 7.5 V8',
-            report: 'M6 3 H15 L19 7 V21 H6 Z M15 3 V7 H19 M9 12 H16 M9 16 H16',
-            power: 'M12 3 V12 M7 6 A8 8 0 1 0 17 6',
-            star: 'M12 3 L14.6 9 L21 9.5 L16 13.8 L17.6 20 L12 16.6 L6.4 20 L8 13.8 L3 9.5 L9.4 9 Z'
-        };
+        // Built-in icons, shared with the Display Menu (PVX.icons).
+        var ICONS = PVX.icons.paths;
 
         function trim(s) {
             return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, '');
@@ -925,17 +905,7 @@
         // they never take a click or a place in `buttons`.
         var TEXT_KINDS = { sep: 'pvx-nav-sep', div: 'pvx-nav-div', note: 'pvx-nav-note' };
 
-        function iconEl(name) {
-            var NS = 'http://www.w3.org/2000/svg';
-            var svg = document.createElementNS(NS, 'svg');
-            svg.setAttribute('viewBox', '0 0 24 24');
-            svg.setAttribute('class', 'pvx-nav-icon');
-            svg.setAttribute('aria-hidden', 'true');
-            var path = document.createElementNS(NS, 'path');
-            path.setAttribute('d', ICONS[name]);
-            svg.appendChild(path);
-            return svg;
-        }
+        function iconEl(name) { return PVX.icons.el(name, 'pvx-nav-icon'); }
 
         function build(host, items, cfg) {
             clearConfirm();

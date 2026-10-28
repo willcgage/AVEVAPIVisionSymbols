@@ -135,7 +135,24 @@
          * light/dark surface, surfaceAlt, border, text, textMuted, grid, axis, track
          * container  every symbol's card: corner radius in px, border, shadow
          */
-        theme: null
+        theme: null,
+
+        /* -- Map tiles for pvxGeoView, optional ----------------------------- *
+         * The Geo View draws its map from a tile server named here, and from
+         * nowhere else: without one it shows a latitude and longitude grid.
+         * Any server of Web Mercator tiles addressed {z}/{x}/{y} will do, such
+         * as a GIS server on the site's own network. Each viewer's browser asks
+         * it for the tiles, so it must be reachable from there, and its terms
+         * of use are the site's to meet.
+         *
+         *   map: {
+         *       tileUrl: 'https://gis.example.com/tiles/{z}/{x}/{y}.png',
+         *       attribution: 'Map data (c) Example GIS',
+         *       maxZoom: 18,
+         *       subdomains: ''          // 'abc' fills {s} in the address
+         *   },
+         */
+        map: null
 
     };
 
