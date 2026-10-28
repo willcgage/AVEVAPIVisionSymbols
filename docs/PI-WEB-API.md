@@ -1,10 +1,10 @@
 # Connecting PVX to PI Web API
 
-Most of the library needs none of this. Thirty-nine of the forty-six symbols run
-entirely on PI Vision's own data pipeline. Only the seven that reach things PI
+Most of the library needs none of this. Thirty-nine of the forty-seven symbols run
+entirely on PI Vision's own data pipeline. Only the eight that reach things PI
 Vision cannot hand a display — Event Frames, the AF hierarchy, writing values
 back — need it: `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
-`pvxAssetTable`, `pvxManualEntry` and `pvxEntryTable`. Of the rest,
+`pvxAssetTable`, `pvxAssetRollup`, `pvxManualEntry` and `pvxEntryTable`. Of the rest,
 eight more use it only for an option you turn on: event frames on `pvxComboChart`, limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` and reading it on `pvxAlarmTone`, History mode on `pvxAlarmBanner`, which reads recorded values, and runs from event frames on `pvxPeriodOverlay`.
 
 ---

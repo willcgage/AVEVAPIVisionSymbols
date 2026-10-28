@@ -10,7 +10,9 @@
  * Timeline scoped to the current asset, and the text size control. Also
  * the Event List: its columns, filter, sort, groups and totals, and where
  * a click on a row goes. And Period Comparison's runs from event frames:
- * the query, the three alignments, golden runs and their tolerance. Also the
+ * the query, the three alignments, golden runs and their tolerance. And the
+ * Asset Rollup: its search, the one batch of values, cards per group with
+ * Others, colour from a target or bands, and every asset left out named. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
  * and the Navigation Panel's icons, tooltips and {value} addresses.
  *
@@ -141,6 +143,7 @@ function rules() {
         PVX.theme.tokens({ Theme: 'light' }).surface === '#ffffff');
 
     eventListRules();
+    assetRollupRules();
 
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
@@ -182,6 +185,46 @@ function eventListRules() {
     check('event list: a group\'s duration and union', L.groups[0].durMs === 60 && L.groups[0].union === 60);
     L = V.buildList(evs, Object.assign({}, base, { openOnly: true }));
     check('event list: only active events', L.shown === 1 && L.closedHidden === 3);
+}
+
+function assetRollupRules() {
+    const win = loadBuilt(['pvxAssetRollup']);
+    const V = win.PVMock.get('pvxAssetRollup').visObjectType;
+    const row = (value, group, good) => ({ value, group, good: good !== false });
+    const rows = [row(10, 'A'), row(20, 'A'), row(30, 'B'), row('Running', 'B'), row(null, 'C'), row(5, 'D', false), row(40, '')];
+    let a = V.aggregate(rows, 'sum');
+    check('rollup: a sum leaves out no value, bad quality and text, and counts them', a.v === 100 && a.used === 4 && a.skipped === 3, a);
+    a = V.aggregate(rows, 'avg');
+    check('rollup: an average over the values that went in', a.v === 25, a);
+    a = V.aggregate(rows, 'median');
+    check('rollup: an even median is the mean of the middle two', a.v === 25, a);
+    a = V.aggregate([row(2), row(4), row(4), row(4), row(5), row(5), row(7), row(9)], 'stddev');
+    check('rollup: the sample standard deviation', Math.abs(a.v - 2.138) < 0.001, a);
+    check('rollup: one value has no standard deviation', V.aggregate([row(3)], 'stddev').v === null);
+    check('rollup: counting assets needs no value', V.aggregate(rows, 'count').v === 7);
+    a = V.aggregate([row({}.x), row('running'), row(1), row('Stopped'), row('Fault')], 'count', 'Running, 1');
+    check('rollup: count when, any of a list, a name without case and a number by value', a.v === 2 && a.used === 4 && a.skipped === 1, a);
+    check('rollup: distinct values without case',
+        V.aggregate([row('Running'), row('running'), row('Fault'), row(null)], 'countDistinct').v === 2);
+
+    const o = { groupBy: 'attribute', kind: 'avg', topN: 2, others: true, all: true, sortBy: 'value', desc: true };
+    let b = V.buildCards(rows, o);
+    check('rollup: All first, then the largest groups, Others, unassigned never ahead of a value',
+        b.cards.map((c) => c.label).join(',') === 'All,B,A,Others (3)', b.cards.map((c) => c.label + '=' + c.v));
+    check('rollup: Others is worked out from its own assets, not from the cards',
+        b.cards[3].v === 40 && b.cards[3].n === 3 && b.cards[3].others === true, b.cards[3]);
+    b = V.buildCards(rows, Object.assign({}, o, { others: false, all: false, topN: 10 }));
+    check('rollup: blank groups are one unassigned card, last',
+        b.cards.map((c) => c.label).join(',') === 'B,A,C,D,(unassigned)',
+        b.cards.map((c) => c.label + '=' + c.v));
+    b = V.buildCards(rows, Object.assign({}, o, { others: false, all: false, topN: 1 }));
+    check('rollup: without Others the hidden groups are counted', b.cards.length === 1 && b.folded === 4, b);
+    b = V.buildCards(rows, Object.assign({}, o, { sortBy: 'name', desc: false, all: false, topN: 10 }));
+    check('rollup: by name', b.cards.map((c) => c.label).join(',') === 'A,B,C,D,(unassigned)', b.cards.map((c) => c.label));
+    b = V.buildCards(rows, { groupBy: 'none', kind: 'max', topN: 8 });
+    check('rollup: no grouping is one card', b.cards.length === 1 && b.cards[0].v === 40 && b.cards[0].label === '');
+    check('rollup: defaults colour nothing', win.PVMock.get('pvxAssetRollup').getDefaultConfig().Thresholds === '' &&
+        win.PVMock.get('pvxAssetRollup').getDefaultConfig().Target === '');
 }
 
 /* ------------------------------------------------------------ mock AF ---- */
@@ -306,6 +349,10 @@ function route(method, url, via) {
         if (m[3] === 'elements') {
             let list = childrenOf(o.path, q.get('searchFullHierarchy') === 'true');
             if (q.get('templateName')) { list = list.filter((p) => byPath[p.toLowerCase()].template === q.get('templateName')); }
+            if (q.get('nameFilter')) {
+                const re = new RegExp('^' + q.get('nameFilter').replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
+                list = list.filter((p) => re.test(nameOf(p)));
+            }
             return { status: 200, body: { Items: list.slice(0, max).map(elementOut) } };
         }
         // The database holds each frame once, however many elements it references.
@@ -326,6 +373,13 @@ function route(method, url, via) {
         return o && o.kind === 'element' ? { status: 200, body: { Name: nameOf(o.path), Path: o.path } } : notFound;
     }
     m = /^streamsets\/([^/]+)\/value$/.exec(rel);
+    if (m && byWebId[m[1]] && byWebId[m[1]].kind === 'element') {
+        // An element's attributes, as one stream set: what the Asset Rollup reads.
+        const attrs = byWebId[m[1]].attrs;
+        const want = (q.get('nameFilter') || '').toLowerCase();
+        return { status: 200, body: { Items: Object.keys(attrs).filter((a) => !want || a.toLowerCase() === want).map((a) => ({
+            Name: a, Value: { Timestamp: iso(1), Value: attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: true } })) } };
+    }
     if (m && /^ef\d+$/.test(m[1])) {
         const attrs = EF_ATTRS[m[1]] || {};
         const want = (q.get('nameFilter') || '').toLowerCase();
@@ -603,7 +657,7 @@ async function eventRuns(open, settle) {
     b = await body();
     l = await labels();
     check('runs: two golden runs, matched without case, are the reference',
-        l.indexOf('golden (avg of 2)') !== -1 && l.indexOf('±5%') !== -1 && l.indexOf('2 golden runs') !== -1, l);
+        l.indexOf('golden (2)') !== -1 && l.indexOf('±5%') !== -1 && l.indexOf('2 golden runs') !== -1, l);
     check('runs: the current run on the golden line is 100% in tolerance',
         l.indexOf('In tolerance') !== -1 && l.indexOf('100%') !== -1, l);
 
@@ -647,6 +701,95 @@ async function eventRuns(open, settle) {
 
     await open('pvxPeriodOverlay', { asset: '', config: { PeriodMode: 'day' }, payload: runPayload() });
     check('runs: the clock periods ask PI Web API nothing', !requests.some((r) => /piwebapi|eventframes|assetdatabases/.test(r)), requests);
+}
+
+/** The Asset Rollup against the mock AF database. */
+async function assetRollup(open, settle, hash) {
+    const pg = eventList.pg;
+    const go = async (cfg, extra) => {
+        await open('pvxAssetRollup', Object.assign({ asset: S1, config: cfg }, extra || {}));
+        await settle();
+    };
+    const cards = () => pg.$$eval('#box .pvx-arl-card', (ns) => ns.map((n) => ({
+        label: (n.querySelector('.pvx-arl-label') || {}).textContent || '',
+        value: n.querySelector('.pvx-arl-value').textContent, sub: n.querySelector('.pvx-arl-sub').textContent,
+        colour: n.style.borderLeftColor })));
+    const note = () => pg.$eval('#box', (n) => (n.querySelector('.pvx-arl-note') || {}).textContent || '');
+    const body = () => pg.$eval('#box', (n) => n.textContent);
+
+    await go({});
+    let c = await cards();
+    check('rollup: no attribute counts the assets under the display\'s asset',
+        c.length === 1 && c[0].value === '3' && /Asset count/.test(await body()), c);
+    check('rollup: one search, all the way down, and no value reads',
+        requests.some((r) => /^GET elements\/We:.*Station 1\/elements\?.*searchFullHierarchy=true/.test(r)) &&
+        !requests.some((r) => /streamsets/.test(r)), requests);
+    check('rollup: the footer says where it looked', /3 assets under Station 1/.test(await note()), await note());
+
+    await go({ SearchTemplate: 'Compressor', Attribute: 'Discharge Pressure' });
+    c = await cards();
+    check('rollup: a total with its units', c.length === 1 && /^2,?250\s*psig$/.test(c[0].value) && c[0].sub === '2 of 2 assets', c);
+    check('rollup: the template goes to PI Web API, and each value is one sub-request of one batch',
+        requests.some((r) => /^GET elements\/We:.*Station 1\/elements\?.*templateName=Compressor/.test(r)) &&
+        requests.filter((r) => r === 'POST batch').length === 1 &&
+        requests.filter((r) => /^batch: GET streamsets\/We:.*\/value\?nameFilter=Discharge Pressure/.test(r)).length === 2, requests);
+    check('rollup: the default title names the roll-up', /Total · Discharge Pressure/.test(await body()), await body());
+
+    await go({ Attribute: 'Discharge Pressure' });
+    check('rollup: an asset without the attribute is counted, not hidden',
+        /1 without "Discharge Pressure"/.test(await note()) && (await cards())[0].sub === '2 of 3 assets', await note());
+
+    const DBW = { SearchRoot: DB, SearchTemplate: 'Compressor', Attribute: 'Discharge Pressure', Aggregate: 'avg', GroupBy: 'parent' };
+    await go(DBW, { asset: '' });
+    c = await cards();
+    check('rollup: a database is a search root', requests.some((r) => r === 'GET assetdatabases?path=' + DB + '&selectedFields=WebId;Name;Path') &&
+        requests.some((r) => /^GET assetdatabases\/Wd:[^/]*\/elements\?/.test(r)), requests.slice(0, 4));
+    check('rollup: a card per parent, All first, largest first',
+        c.map((x) => x.label).join(',') === 'All,Station 1,Station 2' && /^1,?067/.test(c[0].value) && /^1,?125/.test(c[1].value) && /^950/.test(c[2].value),
+        c);
+
+    await go(Object.assign({}, DBW, { TopN: 1 }), { asset: '' });
+    c = await cards();
+    check('rollup: past Most cards the rest is one Others card',
+        c.map((x) => x.label).join(',') === 'All,Station 1,Others (1)' && /^950/.test(c[2].value), c);
+    await go(Object.assign({}, DBW, { TopN: 1, ShowOthers: false, ShowAll: false }), { asset: '' });
+    check('rollup: ... or the footer says how many are hidden', (await cards()).length === 1 && /1 more group not shown/.test(await note()), await note());
+
+    await go(Object.assign({}, DBW, { Target: '1000', TargetDirection: 'higher' }), { asset: '' });
+    c = await cards();
+    check('rollup: a target colours each card good or bad',
+        c[1].colour === 'rgb(47, 158, 95)' && c[2].colour === 'rgb(200, 69, 47)', c.map((x) => x.colour));
+    await go(Object.assign({}, DBW, { Target: '1000', Thresholds: '0:#3b82c4:Low, 1100:#d99024:High' }), { asset: '' });
+    c = await cards();
+    check('rollup: bands win over the target', c[1].colour === 'rgb(217, 144, 36)' && c[2].colour === 'rgb(59, 130, 196)', c.map((x) => x.colour));
+    await go(DBW, { asset: '' });
+    c = await cards();
+    check('rollup: no target and no bands, no status colour', c.every((x) => x.colour === ''), c.map((x) => x.colour));
+
+    await go({ SearchRoot: DB, SearchTemplate: 'Compressor', Attribute: 'Status', Aggregate: 'count', CountWhen: 'running, Stopped' }, { asset: '' });
+    c = await cards();
+    check('rollup: count when, by digital state name', c.length === 1 && c[0].value === '2' && /Running, Stopped|running, Stopped/.test(await body()), c);
+
+    await go({ SearchRoot: DB, SearchTemplate: 'Compressor', Attribute: 'Discharge Pressure', GroupBy: 'attribute', GroupAttribute: 'Status',
+        ShowAll: false, SortBy: 'name', SortDescending: false }, { asset: '' });
+    c = await cards();
+    check('rollup: a card per value of another attribute, read in the same batch',
+        c.map((x) => x.label).join(',') === 'Fault,Running,Stopped' && /^1,?169/.test(c[0].value) &&
+        requests.filter((r) => /^batch: GET streamsets/.test(r)).length === 6, c.map((x) => x.label + '=' + x.value));
+
+    await go({ SearchNameFilter: 'K-*', Attribute: 'Vibration', Aggregate: 'max' });
+    c = await cards();
+    check('rollup: the name filter goes to PI Web API', c[0].value.indexOf('6.2') === 0 && /2 assets under/.test(await note()) &&
+        requests.some((r) => /nameFilter=K-\*/.test(r)), [c, requests.slice(0, 3)]);
+
+    await go(Object.assign({}, DBW, { ClickAction: 'asset' }), { asset: '' });
+    await pg.click('#box .pvx-arl-card:has-text("Station 2")');
+    check('rollup: a parent card opens that asset', (await hash()).indexOf('asset=' + S2) !== -1, await hash());
+
+    await go({ Attribute: 'Discharge Pressure' }, { configured: false });
+    check('rollup: says so when PI Web API is not configured', /PI Web API is not configured/.test(await body()), await body());
+    await go({ SearchRoot: DB + '\\Nowhere' }, { asset: '' });
+    check('rollup: a root that is not there is named', /There is no AF element at ".*Nowhere"/.test(await body()), await body());
 }
 
 async function page() {
@@ -893,6 +1036,7 @@ async function page() {
 
         await eventList(open, texts, hash, settle);
         await eventRuns(open, settle);
+        await assetRollup(open, settle, hash);
 
         /* ---- Asset Navigator --------------------------------------------- *
          * Nothing configured: PI Web API beside PI Vision, the database the

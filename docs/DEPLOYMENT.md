@@ -11,11 +11,11 @@ installations only need the first two:
 |---|---|---|
 | **1 · Install** | Copy `ext` onto each PI Vision web server | Everyone |
 | **2 · Confirm** | Check the symbols appear and draw | Everyone |
-| **3 · Configure PI Web API** | Edit one file, per server | Only if you use the seven PI Web API symbols |
+| **3 · Configure PI Web API** | Edit one file, per server | Only if you use the eight PI Web API symbols |
 
-Thirty-nine of the forty-six symbols work the moment phase 1 finishes. Phase 3
+Thirty-nine of the forty-seven symbols work the moment phase 1 finishes. Phase 3
 exists only for `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
-`pvxAssetTable`, `pvxManualEntry` and `pvxEntryTable`, and for eight others only
+`pvxAssetTable`, `pvxAssetRollup`, `pvxManualEntry` and `pvxEntryTable`, and for eight others only
 if you turn on the option that needs it: event frames on `pvxComboChart`,
 limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu
 from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` (which
@@ -33,7 +33,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (828 render checks)
+[ ] npm run verify passes on the build machine        (846 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -70,7 +70,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 46 symbols…
+    …one set of four per symbol, 47 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -349,7 +349,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 828 render checks must pass
+npm run verify        # gate: 846 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 
@@ -432,13 +432,13 @@ value within one refresh. This proves the whole path — registration, template
 resolution, the shared runtime, the data pipeline — in about fifteen seconds,
 and it fails loudly rather than subtly if any part of it is wrong.
 
-That is the entire installation for thirty-nine of the forty-six symbols.
+That is the entire installation for thirty-nine of the forty-seven symbols.
 
 ---
 
 ## Phase 3 — Configure PI Web API
 
-Only needed for the seven symbols that reach things PI Vision cannot hand a
+Only needed for the eight symbols that reach things PI Vision cannot hand a
 display (Event Frames, the AF hierarchy, writing values back), and for the eight
 options listed at the top of this guide.
 
@@ -806,14 +806,14 @@ rotation needs its own copy — see *Configuration notes* above.
 
 ## Security notes
 
-- **Thirty-one of the forty-six symbols make no network calls of their own.** They
+- **Thirty-one of the forty-seven symbols make no network calls of their own.** They
   render only the data PI Vision hands them and have no server-side
   prerequisites beyond the file copy.
 - **The save buttons make their files in the browser**: the History Table's
   CSV button, and the optional save button any symbol can show (PNG, SVG,
   CSV). Nothing is uploaded; a file holds only what the user could already
   read on the display.
-- **Fifteen symbols can call PI Web API**: seven for their main job, eight only for
+- **Sixteen symbols can call PI Web API**: eight for their main job, eight only for
   an option that is off by default (the list is under phase 3 above). They ask
   PI Vision's own server for `/piwebapi` when `pvx-config.js` leaves `baseUrl`
   blank, and stay quiet when `autoDiscover` is off and no `baseUrl` is set. Requests carry the signed-in user's identity under the configured

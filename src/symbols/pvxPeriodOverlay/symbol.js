@@ -1818,7 +1818,9 @@
                 }
             }
             if (model.gold) {
-                items.push({ label: model.gold.count > 1 ? 'golden (avg of ' + model.gold.count + ')' : 'golden', color: envColor, dashed: true });
+                // "golden (2)" like "older (4)": the longer "avg of 2" was cut
+                // whenever the axis labels were wide; the stats say it is a mean.
+                items.push({ label: model.gold.count > 1 ? 'golden (' + model.gold.count + ')' : 'golden', color: envColor, dashed: true });
                 if (wantEnvelope) { items.push({ label: '±' + model.gold.tol.text.replace(/^\s*\+?/, ''), color: envColor, band: true }); }
             } else {
                 if (wantEnvelope) {

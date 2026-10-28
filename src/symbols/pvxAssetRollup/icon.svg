@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Asset roll-up">
+    <title>PVX Asset Rollup</title>
+    <!-- Three small assets feeding one total card: the roll-up, read at
+         palette size. Flat and transparent like the other icons. -->
+    <g>
+        <rect x="40" y="56" width="432" height="160" rx="18" fill="#3b82c4"/>
+        <rect x="80" y="96" width="140" height="28" rx="8" fill="#ffffff" opacity="0.7"/>
+        <rect x="80" y="144" width="240" height="44" rx="10" fill="#ffffff"/>
+        <path d="M108 262 L256 226 L404 262" fill="none" stroke="#8a8f96" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="40" y="292" width="128" height="164" rx="14" fill="#8a8f96"/>
+        <rect x="192" y="292" width="128" height="164" rx="14" fill="#8a8f96"/>
+        <rect x="344" y="292" width="128" height="164" rx="14" fill="#2f9e5f"/>
+        <rect x="64" y="384" width="80" height="40" rx="8" fill="#ffffff"/>
+        <rect x="216" y="384" width="80" height="40" rx="8" fill="#ffffff"/>
+        <rect x="368" y="384" width="80" height="40" rx="8" fill="#ffffff"/>
+    </g>
+</svg>

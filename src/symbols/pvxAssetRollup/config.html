@@ -1,0 +1,227 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Assets</div>
+
+        <div class="pvx-cfg-hint">
+            This symbol finds its assets with an AF search through <strong>PI Web API</strong>, not
+            through PI Vision's own data pipeline, so an area that gains a unit next year needs no
+            display edit. The search starts at the display's asset. If the symbol says it cannot reach
+            PI Web API, open <code>ext/piwebapi-check.html</code>, which says what to change.
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-root">Search root</label>
+            <input id="pvxarl-root" type="text" ng-model="config.SearchRoot"
+                   placeholder="\\AF server\Database\Area" />
+            <!-- pvx:afpicker key=SearchRoot kind=element -->
+        </div>
+        <div class="pvx-cfg-hint">
+            Used when the display was opened without an asset. Left blank, the element of the
+            attribute dropped onto the symbol is the root.
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-tpl">Only elements of template</label>
+            <input id="pvxarl-tpl" type="text" ng-model="config.SearchTemplate" placeholder="Any template" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-name">Element name filter</label>
+            <input id="pvxarl-name" type="text" ng-model="config.SearchNameFilter" placeholder="Compressor*" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-deep">Include all descendants</label>
+            <input id="pvxarl-deep" type="checkbox" ng-model="config.SearchDescendants" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-max">Most assets</label>
+            <input id="pvxarl-max" type="number" ng-model="config.MaxElements" min="1" max="5000" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-refresh">Refresh every (s)</label>
+            <input id="pvxarl-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="3600" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The footer says when the limit cut the search short. Each refresh reads every asset's
+            value in one batch request.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Roll-up</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-attr">Attribute</label>
+            <input id="pvxarl-attr" type="text" ng-model="config.Attribute"
+                   placeholder="Leave blank to count the assets" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The attribute's name on each asset, such as <code>Production Rate</code>, or a relative
+            path such as <code>Motor|Current</code>. Assets without it are counted in the footer.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-agg">Show the</label>
+            <select id="pvxarl-agg" ng-model="config.Aggregate">
+                <option value="sum">Total</option>
+                <option value="avg">Average</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+                <option value="median">Median</option>
+                <option value="stddev">Standard deviation</option>
+                <option value="count">Count</option>
+                <option value="countDistinct">Number of distinct values</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.Aggregate === 'count'">
+            <label for="pvxarl-when">Count only values equal to</label>
+            <input id="pvxarl-when" type="text" ng-model="config.CountWhen" placeholder="Running" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Aggregate === 'count'">
+            Blank counts every asset with a value. A digital state is compared by its name, ignoring
+            case; a number by its value. Several values separated by commas count any of them.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Cards</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-group">One card per</label>
+            <select id="pvxarl-group" ng-model="config.GroupBy">
+                <option value="none">Nothing: one card</option>
+                <option value="template">Template</option>
+                <option value="parent">Parent element</option>
+                <option value="attribute">Value of another attribute</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.GroupBy === 'attribute'">
+            <label for="pvxarl-gattr">Group by attribute</label>
+            <input id="pvxarl-gattr" type="text" ng-model="config.GroupAttribute" placeholder="Area" />
+        </div>
+        <div ng-if="config.GroupBy && config.GroupBy !== 'none'">
+            <div class="pvx-cfg-row">
+                <label for="pvxarl-top">Most cards</label>
+                <input id="pvxarl-top" type="number" ng-model="config.TopN" min="1" max="100" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxarl-others">Fold the rest into Others</label>
+                <input id="pvxarl-others" type="checkbox" ng-model="config.ShowOthers" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxarl-all">First card over every asset</label>
+                <input id="pvxarl-all" type="checkbox" ng-model="config.ShowAll" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxarl-sort">Order by</label>
+                <select id="pvxarl-sort" ng-model="config.SortBy">
+                    <option value="value">Value</option>
+                    <option value="name">Name</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxarl-desc">Largest first</label>
+                <input id="pvxarl-desc" type="checkbox" ng-model="config.SortDescending" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Others is worked out from its own assets, not by adding up the cards it replaces, so
+                an average stays an average. Without it the footer says how many groups are hidden.
+            </div>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-target">Target</label>
+            <input id="pvxarl-target" type="text" ng-model="config.Target" placeholder="No target" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Target">
+            <label for="pvxarl-tdir">Better is</label>
+            <select id="pvxarl-tdir" ng-model="config.TargetDirection">
+                <option value="higher">Higher</option>
+                <option value="lower">Lower</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Bands win over the target when both are set. With neither, no card is coloured: a roll-up
+            with no limits set flags nothing.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-click">On card click</label>
+            <select id="pvxarl-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="asset">Show that parent element (cards per parent)</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+            <label for="pvxarl-navtarget">Target display</label>
+            <input id="pvxarl-navtarget" type="text" ng-model="config.NavigateTarget"
+                   placeholder="e.g. 42/Area-Detail" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'navigate'">
+            A card per parent element passes that element as <code>asset=</code>, so an
+            asset-relative display opens on it.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-showheader">Show title</label>
+            <input id="pvxarl-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxarl-title">Title</label>
+            <input id="pvxarl-title" type="text" ng-model="config.Title" placeholder="Named from the roll-up" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-decimals">Decimals</label>
+            <select id="pvxarl-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-compact">Compact numbers (1.2k)</label>
+            <input id="pvxarl-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-units">Show units</label>
+            <input id="pvxarl-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-theme">Theme</label>
+            <select id="pvxarl-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-transparent">Transparent background</label>
+            <input id="pvxarl-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-bgcolor">Background colour</label>
+            <input id="pvxarl-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxarl-radius">Corner radius</label>
+            <input id="pvxarl-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

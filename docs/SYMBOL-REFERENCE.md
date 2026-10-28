@@ -11,6 +11,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxAlarmBanner`](#pvxalarmbanner) | PVX Exception Banner | Table | Multiple |
 | [`pvxAlarmTone`](#pvxalarmtone) | PVX Alarm Tone | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
+| [`pvxAssetRollup`](#pvxassetrollup) | PVX Asset Rollup | Value | Single |
 | [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | Table | Multiple |
 | [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
@@ -194,6 +195,49 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `AckColor` | `"#d99024"` |  |
 | `ReturnedColor` | `"#3b82c4"` |  |
 | `DimNormal` | `true` |  |
+
+---
+
+## pvxAssetRollup
+
+**PVX Asset Rollup** · data shape `Value` · single data source · collections not supported
+
+symbol selector, and gives the search a starting asset (see the definition). Every number comes from PI Web API through PVX.api.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `""` |  |
+| `SearchRoot` | `""` | used when the URL names no asset |
+| `SearchTemplate` | `""` |  |
+| `SearchNameFilter` | `""` |  |
+| `SearchDescendants` | `true` |  |
+| `MaxElements` | `500` |  |
+| `RefreshSeconds` | `60` |  |
+| `Attribute` | `""` | e.g. Production Rate; blank counts the assets |
+| `Aggregate` | `"sum"` | count \| countDistinct \| sum \| min \| max \| avg \| median \| stddev |
+| `CountWhen` | `""` | count only: values equal to this (e.g. Running) |
+| `GroupBy` | `"none"` | none \| template \| parent \| attribute |
+| `GroupAttribute` | `""` |  |
+| `TopN` | `8` |  |
+| `ShowOthers` | `true` |  |
+| `ShowAll` | `true` | a first card over every asset, when split |
+| `SortBy` | `"value"` | value \| name |
+| `SortDescending` | `true` |  |
+| `Target` | `""` |  |
+| `TargetDirection` | `"higher"` | higher \| lower is better |
+| `ClickAction` | `"none"` | none \| asset (parent cards) \| navigate |
+| `NavigateTarget` | `""` |  |
 
 ---
 

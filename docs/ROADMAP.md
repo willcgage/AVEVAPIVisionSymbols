@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **46 symbols**.
+> [After the plan](#after-the-plan). The library is at **47 symbols**.
 
 ## On originality
 
@@ -531,8 +531,10 @@ Done so far, in order:
 
 | 24 | **pvxPeriodOverlay** | Runs from event frames: with the period set to *Runs from event frames*, each batch, campaign or start-up in the display's time range is one trace, cut from the first source's values at its start and end. Runs line up at their start, at their end, or stretched to 0..100% of their own length. Runs named as golden (names, with wildcards) are always shown, and their average with a tolerance of a percentage, a fixed amount or standard deviations replaces the envelope; the current run is measured against it. Only the event frames come from PI Web API; the values are the pipeline's, so a run that began before the time range is drawn from where it starts and counted in the footer. The clock periods are unchanged. |
 
-The rest of the order is in the comparison document; next is
-`pvxAssetRollup`, roll-up cards across assets.
+| 25 | **pvxAssetRollup**, new | One number across many assets, from an AF search through PI Web API: the elements under the display's asset (or a Search root, or the source's element; a database works too), of one template and name filter, all the way down or one level. One attribute is read from each in a single batch, and a count (optionally of chosen values, such as `Running, Starting`), total, average, minimum, maximum, median, sample standard deviation or count of distinct values is taken. Cards split by template, parent element or another attribute's value, sorted by value or name, the first N kept and the rest folded into an Others card that is worked out from its own assets, with an optional first card over every asset. Threshold bands or a target colour the cards, neither set by default. A parent card can open that asset. Assets without the attribute, bad quality, text where a number is needed, mixed units, hidden groups and a capped search are each said in the footer. |
+
+The rest of the order is in the comparison document; next is a pop-out
+quick trend from any symbol.
 
 ## What next
 

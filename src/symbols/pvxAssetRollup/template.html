@@ -1,0 +1,24 @@
+<!--
+    pvxAssetRollup template: the cards inside .pvx-arl-body are written by
+    symbol.js as one string per render, so a refresh over hundreds of assets
+    never digests a binding per card. Only the title and footer are bound.
+-->
+<div class="pvx pvx-arl"
+     ng-class="{'pvx-arl-clickable': pvx.clickable}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-arl-surface">
+
+        <div class="pvx-header pvx-arl-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body pvx-arl-bodywrap">
+            <div class="pvx-arl-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-arl-footer" ng-if="pvx.note || pvx.saveNote">
+            <span class="pvx-arl-note pvx-truncate" title="{{pvx.note}}">{{pvx.saveNote || pvx.note}}</span>
+        </div>
+
+    </div>
+</div>
