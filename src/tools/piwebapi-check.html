@@ -60,7 +60,7 @@
     .badge.run { background: #e8eefb; color: #33518f; }
     .test .name { font-weight: 600; font-size: 13.5px; }
     .test .why { font-size: 12.5px; color: var(--muted); margin: 4px 0 0 0; }
-    .test .detail {
+    .test .detail, .verdict .detail {
         font-family: Consolas, monospace; font-size: 11.5px; color: var(--muted);
         background: #f7f9fb; border: 1px solid var(--border); border-radius: 5px;
         padding: 7px 9px; margin-top: 7px; white-space: pre-wrap; word-break: break-word;
@@ -83,7 +83,7 @@
             --text: #e7ecf1; --muted: #98a3af; --faint: #7b8592;
         }
         input, select, textarea { background: #171b1f; color: var(--text); }
-        .test .detail { background: #171b1f; }
+        .test .detail, .verdict .detail { background: #171b1f; }
         .verdict { background: #1d2833; }
         .verdict.ok { background: #17281f; }
         .verdict.bad { background: #2a1c1a; }
@@ -316,9 +316,40 @@
                         return;
                     }
                     t.set('ok', 'AF servers visible: ' + items.map(function (a) { return a.Name; }).join(', '));
-                    return probeEventFrames(mode, items[0]);
+                    return probeDatabases(mode, items);
                 })
                 .catch(function (e) { t.set('warn', describe(e)); });
+        }
+
+        /* -- 4b. AF databases ------------------------------------------------ */
+        /* The AF server list comes from PI Web API's own Known Servers Table:
+           it is answered without connecting to any AF server. Listing a
+           server's databases is the first request that does, as the user, so
+           it is the one that exposes missing Kerberos delegation. A live
+           server passed every check above while every database list failed
+           with 502, and every PVX symbol that reads AF with it. */
+        var afUnreachable = {};
+        function probeDatabases(mode, servers) {
+            var t = addTest('AF databases (' + mode + ')',
+                'Connects to each AF server as this identity — what the Search pane and the Asset Navigator do first.');
+            var lines = [], failed = 0, listed = 0, lastErr = null;
+            return Promise.all(servers.map(function (srv) {
+                return PVX.api.get('assetservers/' + encodeURIComponent(srv.WebId) + '/assetdatabases?selectedFields=Items.Name',
+                                   { auth: mode, cache: false })
+                    .then(function (r) {
+                        var dbs = ((r && r.Items) || []).map(function (d) { return d.Name; });
+                        listed += dbs.length;
+                        lines.push(srv.Name + ': ' + (dbs.length ? dbs.join(', ') : '(none visible to this identity)'));
+                    }, function (e) {
+                        failed += 1;
+                        lastErr = e;
+                        lines.push(srv.Name + ': FAILED \u2014 ' + describe(e));
+                    });
+            })).then(function () {
+                if (failed === servers.length) { afUnreachable[mode] = lastErr; }
+                t.set(failed === servers.length ? 'bad' : failed || !listed ? 'warn' : 'ok', lines.join('\n'));
+                if (!afUnreachable[mode]) { return probeEventFrames(mode, servers[0]); }
+            });
         }
 
         /* -- 5. event frames ------------------------------------------------- */
@@ -399,8 +430,27 @@
                 return;
             }
 
+            // Authenticated but unable to reach any AF server: the symbols
+            // would fail on their first AF request, so this is not "working".
+            var reachable = working.filter(function (m) { return !afUnreachable[m]; });
+            // Windows sign-in that cannot reach AF is the delegation fault even
+            // when anonymous gets through: recommending anonymous there would
+            // make every user the service account to PI and AF.
+            var iwaStuck = working.indexOf('iwa') !== -1 && afUnreachable.iwa;
+            if (!reachable.length || iwaStuck) {
+                var ae = afUnreachable.iwa || afUnreachable[working[0]];
+                var backend = ae && ae.pvxError && ae.pvxError.code === 'backend';
+                box.className = 'verdict bad';
+                box.innerHTML = '<h3>PI Web API answers, but cannot reach AF as you</h3>' +
+                    '<p>Signing in to PI Web API worked, and it lists the AF servers, but listing the databases ' +
+                    'on them failed with Windows sign-in (see <em>AF databases</em> above). The symbols that ' +
+                    'read AF will fail the same way, whatever <code>pvx-config.js</code> says.</p>' +
+                    (backend || iwaStuck ? delegationSteps() : '<p>The reason is in the test above.</p>');
+                return;
+            }
+
             box.className = 'verdict ok';
-            var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
+            var best = reachable.indexOf('iwa') !== -1 ? 'iwa' : reachable[0];
             // Same origin as this page is exactly where a blank baseUrl looks,
             // whether or not pvx-config.js happens to spell it out: recommend
             // the blank, which keeps working if the server is renamed or the
@@ -444,6 +494,45 @@
      * PVX.api.settings: that keeps the file's comments, and a getToken
      * function, which settings cannot be turned back into source.
      */
+    /* ---- Kerberos delegation, step by step --------------------------------- *
+     * Found on the first live server: PI Web API listed the AF servers but
+     * every database list failed, and ticking "Do not require user
+     * authentication" made it work. The alias users browse by had no SPN, so
+     * browsers fell back to NTLM, which cannot be forwarded to AF. The
+     * commands are written for the name this page was opened by, because that
+     * is the name the browser asks Kerberos for.
+     */
+    function delegationSteps() {
+        var host = String(location.hostname || '').toLowerCase();
+        var names = [host];
+        var isIp = /^[0-9.]+$/.test(host) || host.indexOf(':') !== -1;
+        if (!isIp && host.indexOf('.') !== -1) { names.push(host.split('.')[0]); }
+        var cmds = names.map(function (n) { return 'setspn -S HTTP/' + n + ' DOMAIN\\serviceaccount'; });
+        var q = names.map(function (n) { return 'setspn -Q HTTP/' + n; });
+        return '<p>PI Web API could not pass your Windows sign-in on to AF. That needs <strong>Kerberos ' +
+            'delegation</strong>, and it is fixed in Active Directory, not in PVX. To confirm, tick ' +
+            '<em>Do not require user authentication</em> in the PI Web API configuration for a moment: if the ' +
+            'databases then list, this is the cause. Untick it again afterwards — left on, every user ' +
+            'reaches PI and AF as the service account, and the write symbols write as it.</p>' +
+            '<p><strong>1. Check the browser can use Kerberos for this address.</strong> Users reach this ' +
+            'server as <code>' + escapeHtml(host) + '</code>. On any domain PC:</p>' +
+            '<div class="detail" style="margin:0 0 8px">' + escapeHtml(q.join('\n')) + '</div>' +
+            '<p>Each should name the account the PI Web API service runs as. "No such SPN found" means the ' +
+            'browser falls back to NTLM, which can never be forwarded to AF.</p>' +
+            '<p><strong>2. Register the names</strong> (domain admin). Use the PI Web API service account; for ' +
+            'a built-in account such as Network Service, use this server\'s computer account ' +
+            '(<code>SERVERNAME$</code>). <code>-S</code> refuses a name another account already holds.</p>' +
+            '<div class="detail" style="margin:0 0 8px">' + escapeHtml(cmds.join('\n')) + '</div>' +
+            '<p><strong>3. Allow delegation.</strong> On that account\'s <em>Delegation</em> tab in Active ' +
+            'Directory Users and Computers, trust it to delegate to the <code>AFServer/&lt;AF server&gt;</code> ' +
+            'service of each AF server and the <code>PIServer/&lt;Data Archive&gt;</code> service of each ' +
+            'PI Data Archive.</p>' +
+            '<p><strong>4. Restart and retest.</strong> Restart the PI Web API service, run ' +
+            '<code>klist purge</code> on the PC (or sign out and in), and run this page again. ' +
+            '<em>AF databases</em> should list your databases, and <code>klist</code> should then show a ticket ' +
+            'for <code>HTTP/' + escapeHtml(host) + '</code>.</p>';
+    }
+
     function jsString(v) {
         return "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
     }

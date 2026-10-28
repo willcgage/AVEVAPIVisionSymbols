@@ -370,42 +370,58 @@
             var dbPath = state.db.path;
 
             if (rootPath) {
+                var noRoot = {
+                    pvxError: {
+                        code: 'no-root',
+                        message: 'PI Web API answered, but there is no AF element at "' + rootPath +
+                                 '". The path is \\\\<AF server>\\<database>\\<element>\\<element> and it is ' +
+                                 'case-insensitive but not forgiving about the server or database name.',
+                        check: 'RootElementPath'
+                    }
+                };
                 return PVX.api.get('elements?path=' + encodeURIComponent(rootPath) +
                     '&selectedFields=' + ROOT_FIELDS).then(function (el) {
-                        if (!el || !el.WebId) {
-                            throw {
-                                pvxError: {
-                                    code: 'no-root',
-                                    message: 'PI Web API answered, but there is no AF element at "' + rootPath +
-                                             '". The path is \\\\<AF server>\\<database>\\<element>\\<element> and it is ' +
-                                             'case-insensitive but not forgiving about the server or database name.',
-                                    check: 'RootElementPath'
-                                }
-                            };
-                        }
+                        if (!el || !el.WebId) { throw noRoot; }
                         return makeNode(el, null, false);
-                    });
+                    }, notFoundAs(noRoot));
             }
 
+            // Where the path came from decides who fixes it: a typed path is
+            // the author's, one taken from the data source or the display's
+            // asset is whatever PI Vision handed over, and saying which saves
+            // hunting through a format pane for a value that is not in it.
+            var noDb = {
+                pvxError: {
+                    code: 'no-database',
+                    message: 'PI Web API answered, but there is no AF database at "' + dbPath + '"' +
+                             (state.db.from ? ', which came from ' + state.db.from : '') +
+                             '. The path is \\\\<AF server>\\<database> and it is case-insensitive ' +
+                             'but not forgiving about the server name.',
+                    check: state.db.from ? 'set the AF database in the format pane (Search lists what PI Web API can see)'
+                                         : 'DatabasePath / AF server name'
+                }
+            };
             return PVX.api.get('assetdatabases?path=' + encodeURIComponent(dbPath) +
                 '&selectedFields=' + DB_FIELDS).then(function (db) {
-                    if (!db || !db.WebId) {
-                        throw {
-                            pvxError: {
-                                code: 'no-database',
-                                message: 'PI Web API answered, but there is no AF database at "' + dbPath +
-                                         '". The path is \\\\<AF server>\\<database> and it is case-insensitive ' +
-                                         'but not forgiving about the server name.',
-                                check: 'DatabasePath / AF server name'
-                            }
-                        };
-                    }
+                    if (!db || !db.WebId) { throw noDb; }
                     // assetdatabases does not report Path when selectedFields is
                     // narrowed on some releases; the configured path is the
                     // authoritative one anyway and is what asset comparison uses.
                     if (!db.Path) { db.Path = dbPath; }
                     return makeNode(db, null, true);
-                });
+                }, notFoundAs(noDb));
+        }
+
+        /**
+         * PI Web API answers a path that does not exist with 404, not an empty
+         * 200, so without this the one failure an author is most likely to
+         * cause read "Not found. Check the path and the WebID." with no path.
+         */
+        function notFoundAs(err) {
+            return function (e) {
+                if (e && e.status === 404) { err.status = 404; err.url = e.url; throw err; }
+                throw e;
+            };
         }
 
         /**
@@ -1414,8 +1430,11 @@
                     isRoot ? 'Root did not resolve'
                            : e && e.code === 'stalled' ? 'Stopped waiting for PI Web API'
                            : 'PI Web API request failed',
-                    e ? e.message + '  \u2014  Check: ' + e.check
-                      : 'The request failed and returned no diagnosis.',
+                    (e ? e.message + '  \u2014  Check: ' + e.check
+                       : 'The request failed and returned no diagnosis.') +
+                    // The address asked: on a live server, the one fact that
+                    // separates a wrong path from a wrong server.
+                    (state.error && state.error.url ? '  \u2014  Asked: ' + decodeUrl(state.error.url) : ''),
                     PVX.color.status.alarm);
                 return;
             }
@@ -1429,6 +1448,10 @@
             buildMessage(host, 'Loading the AF hierarchy\u2026',
                 state.step ? state.step.charAt(0).toUpperCase() + state.step.slice(1) +
                     (secs >= 3 ? ' (' + secs + ' s)' : '') : '', t.textMuted);
+        }
+
+        function decodeUrl(u) {
+            try { return decodeURIComponent(String(u)); } catch (e) { return String(u); }
         }
 
         function buildMessage(host, headline, detail, tone) {

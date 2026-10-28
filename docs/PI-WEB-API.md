@@ -236,16 +236,18 @@ deploying any of them:
 ## Troubleshooting
 
 Every failure surfaces a specific message and a "what to check" line rather
-than "failed to fetch". The codes map as follows.
+than "failed to fetch", and where PI Web API's reply carries its own `Errors`
+text, the message ends with it as *PI Web API said: …*. The codes map as follows.
 
 | What you see | Where to look |
 |---|---|
 | **not-configured** | `baseUrl` is blank in `ext/libraries/pvx/pvx-config.js` on *this* PI Vision server, and nothing answered at `/piwebapi` on the same server (the message names the address tried) |
-| **cors-or-network** | The preflight. `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
+| **cors-or-network** | First, whether PI Web API is on this PI Vision server: then leave `baseUrl` blank, so it is asked under the same name as the page. The message names both addresses. Otherwise the preflight: `CorsOrigins`, `CorsSupportsCredentials`, and whether `OPTIONS` is answered without a challenge |
 | **network** (same-origin) | Base URL, the service, the certificate name |
 | **unauthorized** (401) | Browser willingness to send Windows credentials to that host; or for bearer, the token's audience and expiry |
 | **forbidden** (403) | Authenticated but not permitted — AF and Data Archive mappings for this user |
 | **bad-json** | A proxy or a login page answered instead of the API. Common when a gateway sits in front and redirects unauthenticated requests |
+| **backend** (502) | PI Web API answered but could not connect onward to AF or the Data Archive as the user. With Windows authentication that is Kerberos delegation: PI Web API's service account must be trusted to delegate to the AF and Data Archive servers, as PI Vision's application pool already is. The check page's *AF databases* test shows it; the AF server list alone does not, because PI Web API answers that from its own Known Servers Table |
 | **timeout** | PI Web API load, or a query with no `maxCount` |
 | **no-token** | `auth: 'bearer'` with no working `getToken` |
 | **stalled** (Asset Navigator) | A load that outlived the request timeout without settling. The message names the step and the address; open that address in the same browser |

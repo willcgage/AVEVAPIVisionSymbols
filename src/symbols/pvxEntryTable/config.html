@@ -60,10 +60,9 @@
             A row that does not resolve is marked <em>no path</em> and disabled. The other rows carry
             on working — one mistyped line in a rounds sheet must not take the sheet down with it.
             <br />
-            This symbol writes through <strong>PI Web API</strong>, not PI Vision's data pipeline, so
-            it has no attribute drop target. If it says PI Web API is not configured, set
-            <code>baseUrl</code> in <code>ext/libraries/pvx/pvx-config.js</code> on this PI Vision server and
-            confirm it with <code>ext/piwebapi-check.html</code>.
+            This symbol writes through <strong>PI Web API</strong>, not PI Vision's data pipeline.
+            PI Web API on this PI Vision server needs no setup. If the symbol says it cannot reach PI Web API,
+            open <code>ext/piwebapi-check.html</code>, which says what to change.
             <strong>Who may write is decided by PI and AF security, not by this symbol.</strong>
         </div>
     </div>
