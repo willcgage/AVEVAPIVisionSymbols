@@ -115,3 +115,24 @@
 .pvx-tm .pvx-tm-emptymsg {
     opacity: 0.75;
 }
+
+/* Drill-down trail: buttons that read as links, the current group plain. */
+.pvx-tm .pvx-tm-crumbs {
+    display: flex;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 10.5px;
+    padding: 0 2px 2px;
+    color: var(--pvx-muted);
+}
+.pvx-tm .pvx-tm-crumb {
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    font: inherit;
+    color: var(--pvx-accent);
+    cursor: pointer;
+    text-decoration: underline;
+}
+.pvx-tm .pvx-tm-crumb-here { color: var(--pvx-text); text-decoration: none; cursor: default; }
+.pvx-tm .pvx-tm-sep { padding: 0 2px; }

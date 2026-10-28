@@ -1,5 +1,7 @@
 <div class="c-config-content pvx-cfg">
 
+    <!-- pvx:afsearch -->
+
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Ranking</div>
 
@@ -74,8 +76,10 @@
             <select id="pvxpar-click" ng-model="config.ClickAction">
                 <option value="none">Do nothing</option>
                 <option value="navigate">Open a display</option>
+                <option value="filter">Filter the symbols beside it</option>
             </select>
         </div>
+        <!-- pvx:filter -->
         <div class="pvx-cfg-stack">
             <label for="pvxpar-navtarget">Target display</label>
             <input id="pvxpar-navtarget" type="text" ng-model="config.NavigateTarget"

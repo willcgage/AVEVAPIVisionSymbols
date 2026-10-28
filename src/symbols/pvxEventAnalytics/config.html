@@ -105,6 +105,10 @@
                 <option value="element">Asset (referenced element)</option>
                 <option value="attribute">Event attribute value</option>
                 <option value="name">Part of the event name</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="weekday">Day of the week</option>
                 <option value="none">Everything in one group</option>
             </select>
         </div>
@@ -136,10 +140,106 @@
             footer, not swallowed.
         </div>
 
+        <div class="pvx-cfg-row">
+            <label for="pvxea-weekstart">Weeks start on</label>
+            <select id="pvxea-weekstart" ng-model="config.WeekStart">
+                <option value="monday">Monday</option>
+                <option value="sunday">Sunday</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Day, week and month</strong> show every period in the time range in date order,
+            empty ones included &mdash; a day with no downtime is the good news, not a gap to close up.
+            An event that crosses midnight has its time <strong>split</strong> between the two days;
+            its count, mean and attribute value go to the day it started.
+        </div>
+
         <div class="pvx-cfg-hint">
             Events with no value for whatever you grouped by go into an explicit
             <strong>"(unassigned)"</strong> group rather than being dropped. That group is frequently
             the finding: nobody is filling the reason code in.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Split and drill-down</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-splitby">Split each group by</label>
+            <select id="pvxea-splitby" ng-model="config.SplitBy">
+                <option value="none">Nothing</option>
+                <option value="template">Event Frame template</option>
+                <option value="element">Asset (referenced element)</option>
+                <option value="attribute">Event attribute value</option>
+                <option value="name">Part of the event name</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="weekday">Day of the week</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.SplitBy === 'attribute'">
+            <label for="pvxea-splitattr">Split attribute name</label>
+            <input id="pvxea-splitattr" type="text" ng-model="config.SplitAttribute" placeholder="Shift" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.SplitBy && config.SplitBy !== 'none'">
+            <label for="pvxea-splitmode">Bars</label>
+            <select id="pvxea-splitmode" ng-model="config.SplitMode">
+                <option value="stacked">Stacked</option>
+                <option value="percent">Stacked to 100%</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.SplitBy && config.SplitBy !== 'none'">
+            <label for="pvxea-splittop">Top N split values</label>
+            <input id="pvxea-splittop" type="number" ng-model="config.SplitTopN" min="0" max="24" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A second dimension: each bar is cut into one part per value (reason code by asset,
+            say), and the <strong>Pivot</strong> chart lays the same numbers out as a grid with totals.
+            Stacking needs a metric that adds up &mdash; total duration, count or a sum &mdash; so a mean
+            or a maximum is split in the pivot only. Values past the top N are combined as "Other".
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxea-drillby">A click on a group shows</label>
+            <select id="pvxea-drillby" ng-model="config.DrillBy">
+                <option value="none">Nothing more</option>
+                <option value="template">Event Frame template</option>
+                <option value="element">Asset (referenced element)</option>
+                <option value="attribute">Event attribute value</option>
+                <option value="name">Part of the event name</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="weekday">Day of the week</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.DrillBy === 'attribute'">
+            <label for="pvxea-drillattr">Attribute name</label>
+            <input id="pvxea-drillattr" type="text" ng-model="config.DrillAttribute" placeholder="Reason Code" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.DrillBy && config.DrillBy !== 'none'">
+            <label for="pvxea-drillby2">...and a click there shows</label>
+            <select id="pvxea-drillby2" ng-model="config.DrillBy2">
+                <option value="none">Nothing more</option>
+                <option value="template">Event Frame template</option>
+                <option value="element">Asset (referenced element)</option>
+                <option value="attribute">Event attribute value</option>
+                <option value="name">Part of the event name</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="weekday">Day of the week</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.DrillBy && config.DrillBy !== 'none' && config.DrillBy2 === 'attribute'">
+            <label for="pvxea-drillattr2">Attribute name</label>
+            <input id="pvxea-drillattr2" type="text" ng-model="config.DrillAttribute2" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Set <em>Clicking a group</em> below to <strong>Drills down</strong>. A click on a template,
+            say, shows the assets with events of that template; a trail above the chart goes back up.
+            Every level comes from the events already fetched, so drilling asks PI Web API nothing.
         </div>
     </div>
 
@@ -153,7 +253,30 @@
                 <option value="count">Event count</option>
                 <option value="meanDuration">Mean duration</option>
                 <option value="maxDuration">Longest single event</option>
+                <option value="attrSum">Sum of an event attribute</option>
+                <option value="attrMean">Mean of an event attribute</option>
+                <option value="attrMedian">Median of an event attribute</option>
+                <option value="attrMin">Lowest value of an event attribute</option>
+                <option value="attrMax">Highest value of an event attribute</option>
+                <option value="attrStdDev">Std deviation of an event attribute</option>
             </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="(config.Metric || '').indexOf('attr') === 0">
+            <label for="pvxea-metricattr">Event attribute</label>
+            <input id="pvxea-metricattr" type="text" ng-model="config.MetricAttribute" placeholder="Lost Production" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="(config.Metric || '').indexOf('attr') === 0">
+            <label for="pvxea-metricunits">Units</label>
+            <input id="pvxea-metricunits" type="text" ng-model="config.MetricUnits" placeholder="From AF" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="(config.Metric || '').indexOf('attr') === 0">
+            <label for="pvxea-metricdec">Decimals</label>
+            <input id="pvxea-metricdec" type="text" ng-model="config.MetricDecimals" placeholder="Automatic" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="(config.Metric || '').indexOf('attr') === 0">
+            Any numeric attribute on the Event Frame template &mdash; lost production, scrap, cost.
+            An event with no number for it (blank, text, a digital state such as <em>Bad Input</em>)
+            is left out of the figure and counted in the footer, never taken as zero.
         </div>
         <div class="pvx-cfg-hint">
             Total duration is the cost; count is the nuisance. They frequently disagree, and the
@@ -169,7 +292,25 @@
                 <option value="bars">Ranked bars</option>
                 <option value="donut">Donut (contribution)</option>
                 <option value="table">Table</option>
+                <option value="pivot">Pivot (groups by split values)</option>
+                <option value="cards">Cards (one figure per group)</option>
             </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Chart === 'table'">
+            <label for="pvxea-tabletot">Totals row</label>
+            <input id="pvxea-tabletot" type="checkbox" ng-model="config.TableTotals" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Chart === 'pivot'">
+            <label for="pvxea-pivotshade">Shade cells by size</label>
+            <input id="pvxea-pivotshade" type="checkbox" ng-model="config.PivotShading" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Chart === 'cards'">
+            <label for="pvxea-cardtot">A card for the total</label>
+            <input id="pvxea-cardtot" type="checkbox" ng-model="config.CardTotal" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Chart === 'table' || config.Chart === 'pivot'">
+            Totals are worked out from the events, not added up from the rows: a mean's total is the mean
+            of every event, and a duration's is the time covered, with an outage logged twice counted once.
         </div>
 
         <div class="pvx-cfg-row" ng-if="config.Chart === 'pareto'">
@@ -197,6 +338,31 @@
         <div class="pvx-cfg-hint">
             0 shows every group. "Other" keeps the cumulative line honest — without it the percentages
             are taken over a subset and every share looks bigger than it is.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Targets</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxea-targets">Target per group</label>
+            <textarea id="pvxea-targets" rows="4" ng-model="config.Targets"
+                      placeholder="Mechanical | 4h&#10;* | 2h"></textarea>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxea-targetdir">Better is</label>
+            <select id="pvxea-targetdir" ng-model="config.TargetDirection">
+                <option value="lower">Lower (downtime, scrap)</option>
+                <option value="higher">Higher (output, uptime)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            One line per group, <code>Group | target</code>; <code>* | target</code> covers every group
+            without a line of its own, and <code>Total | target</code> the total card and row. A duration
+            target is <code>4h</code>, <code>90m</code> or <code>1d</code>, or a bare number in the
+            duration unit below (hours on Automatic). Targets add a mark on each bar, target and
+            &Delta; columns to the table, and a verdict on each card; <em>Colour bars by target</em>
+            makes the bars say it too. A line that cannot be read is counted in the footer.
         </div>
     </div>
 
@@ -229,6 +395,7 @@
                 <option value="single">One colour</option>
                 <option value="palette">Palette per group</option>
                 <option value="threshold">Threshold bands</option>
+                <option value="target">Target (met or missed)</option>
             </select>
         </div>
         <div class="pvx-cfg-row" ng-if="config.ColorMode === 'single'">
@@ -269,12 +436,17 @@
             <select id="pvxea-click" ng-model="config.ClickAction">
                 <option value="none">Does nothing</option>
                 <option value="navigate">Opens a display</option>
+                <option value="drill">Drills down</option>
             </select>
         </div>
-        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate' || config.ClickAction === 'drill'">
             <label for="pvxea-target">Target display</label>
             <input id="pvxea-target" type="text" ng-model="config.NavigateTarget"
                    placeholder="Display id, or id/slug" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'drill'">
+            Drills to the levels set under <em>Split and drill-down</em>. At the last level a click opens
+            the target display, when one is set.
         </div>
         <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'navigate'">
             The target display opens over the clicked group's own span — first event start to last

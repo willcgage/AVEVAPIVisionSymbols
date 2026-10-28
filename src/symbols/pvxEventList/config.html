@@ -106,7 +106,8 @@
         </div>
         <div class="pvx-cfg-hint">
             <code>name</code>, <code>element</code> (the asset), <code>template</code>,
-            <code>start</code>, <code>end</code> and <code>duration</code>, in any order. Any other
+            <code>start</code>, <code>end</code>, <code>duration</code> and <code>ack</code> (who
+            acknowledged it, and when), in any order. Any other
             word is the name of an <strong>event attribute</strong>, for example
             <code>name, Reason Code, Operator, duration</code>. Attribute values are read in one
             batched request; an attribute no event has is named in the footer.
@@ -216,8 +217,10 @@
                 <option value="time">Shows the event's time range on this display</option>
                 <option value="asset">Shows the event's asset on this display</option>
                 <option value="navigate">Opens another display at the event's time and asset</option>
+                <option value="filter">Filters the symbols beside it to the event's asset</option>
             </select>
         </div>
+        <!-- pvx:filter -->
         <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
             <label for="pvxevl-target">Display</label>
             <input id="pvxevl-target" type="text" ng-model="config.NavigateTarget" placeholder="101 or /Displays/101/Unit-Detail" />
@@ -229,6 +232,28 @@
         <div class="pvx-cfg-row">
             <label for="pvxevl-csvbtn">CSV button</label>
             <input id="pvxevl-csvbtn" type="checkbox" ng-model="config.ShowDownload" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Writing to events</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-acts">Event actions</label>
+            <input id="pvxevl-acts" type="checkbox" ng-model="config.EventActions" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.EventActions">
+            <label for="pvxevl-editattrs">Attributes that can be edited</label>
+            <input id="pvxevl-editattrs" type="text" ng-model="config.EditAttributes"
+                   placeholder="e.g. Reason Code, Operator" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Off, the list is read only. On, each row ends with <em>Ack</em> (only on an event PI says can
+            be acknowledged and is not yet; an acknowledged one shows a tick with who and when),
+            <em>Note</em> (the event's comments, and a box to add one) and, when attributes are named
+            here, <em>Edit</em>. Each write is stated in full and confirmed in a box under the rows,
+            and the list is read again after it. PI Web API decides who may write and its reason is
+            shown when it refuses. Proven against a mock PI Web API only.
         </div>
     </div>
 

@@ -12,11 +12,11 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxAlarmTone`](#pvxalarmtone) | PVX Alarm Tone | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
 | [`pvxAssetRollup`](#pvxassetrollup) | PVX Asset Rollup | Value | Single |
-| [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | Table | Multiple |
+| [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | — | Multiple |
 | [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
-| [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
+| [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | — | Multiple |
 | [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
 | [`pvxControlChart`](#pvxcontrolchart) | PVX Control Chart | TimeSeries | Multiple |
 | [`pvxCrossProfile`](#pvxcrossprofile) | PVX Cross Profile | TimeSeries | Multiple |
@@ -28,7 +28,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
 | [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
-| [`pvxEventList`](#pvxeventlist) | PVX Event List | Value | Single |
+| [`pvxEventList`](#pvxeventlist) | PVX Event List | — | Single |
 | [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
 | [`pvxGeoView`](#pvxgeoview) | PVX Geo View | Table | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
@@ -40,10 +40,10 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxMultiGauge`](#pvxmultigauge) | PVX Multi-Pointer Gauge | Table | Multiple |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
 | [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
-| [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | Table | Multiple |
+| [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | — | Multiple |
 | [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Multiple |
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
-| [`pvxRadar`](#pvxradar) | PVX Fingerprint | Table | Multiple |
+| [`pvxRadar`](#pvxradar) | PVX Fingerprint | — | Multiple |
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
 | [`pvxReplay`](#pvxreplay) | PVX Replay | Value | Single |
 | [`pvxSankey`](#pvxsankey) | PVX Flow | Table | Multiple |
@@ -54,7 +54,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
 | [`pvxTimeRange`](#pvxtimerange) | PVX Time Range | Value | Single |
-| [`pvxTreemap`](#pvxtreemap) | PVX Treemap | Table | Multiple |
+| [`pvxTreemap`](#pvxtreemap) | PVX Treemap | — | Multiple |
 | [`pvxWaterfall`](#pvxwaterfall) | PVX Waterfall | Table | Multiple |
 | [`pvxWindRose`](#pvxwindrose) | PVX Wind Rose | TimeSeries | Multiple |
 | [`pvxXYScatter`](#pvxxyscatter) | PVX XY Scatter | TimeSeries | Multiple |
@@ -246,43 +246,12 @@ symbol selector, and gives the search a starting asset (see the definition). Eve
 
 ## pvxAssetTable
 
-**PVX Asset Table** · data shape `Table` · multiple data sources · collections not supported
+**PVX Asset Table** · data shape `—` · multiple data sources · collections not supported
 
 @mock assets
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `""` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `Title` | `""` |  |
-| `RowSource` | `"sources"` | sources \| search |
-| `SearchRoot` | `""` | used when the URL names no asset |
-| `SearchTemplate` | `""` |  |
-| `SearchDescendants` | `false` |  |
-| `MaxRows` | `50` |  |
-| `RefreshSeconds` | `30` |  |
-| `ColumnSpec` | `""` |  |
-| `RowLabel` | `"name"` | name \| parentName \| path |
-| `NameHeader` | `"Asset"` |  |
-| `StateMap` | `Running:#2f9e5f, Stopped:#8a8f96, Fault:#c84…` |  |
-| `CellStyle` | `"text"` | text \| fill \| dot |
-| `StatusColumn` | `"worst"` | worst \| none |
-| `ShowBadQuality` | `true` |  |
-| `SortBy` | `"none"` | none \| name \| worst \| column |
-| `SortColumn` | `""` |  |
-| `SortDescending` | `false` |  |
-| `ClickAction` | `"none"` | none \| navigate |
-| `NavigateTarget` | `""` |  |
 
 ---
 
@@ -440,69 +409,12 @@ box per hour, shift, day or week of a single source.
 
 ## pvxComboChart
 
-**PVX Combo Chart** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Combo Chart** · data shape `—` · multiple data sources · collections not supported
 
 PI Vision's native trend draws every trace the same way on one scale, so the moment a question spans two units — "did efficiency hold while we pushed production?" — the answer moves to Excel. This symbol keeps it on the display: production as bars, efficiency as a line on a right-hand axis, the operating limit as a shaded band, run/stop as a stepped strip, one frame, one time axis, one glance.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `DataQueryMode` | `"ModePlotValues"` |  |
-| `Intervals` | `300` |  |
-| `Title` | `""` |  |
-| `TraceSpec` | `""` |  |
-| `DefaultType` | `"line"` |  |
-| `SmoothLines` | `false` |  |
-| `LineWidth` | `1.8` |  |
-| `AreaOpacity` | `0.25` |  |
-| `BarOpacity` | `0.85` |  |
-| `StackBars` | `false` |  |
-| `MinBarWidth` | `4` |  |
-| `ShowLeftAxis` | `true` |  |
-| `ShowRightAxis` | `true` |  |
-| `LeftMin` | `""` |  |
-| `LeftMax` | `""` |  |
-| `RightMin` | `""` |  |
-| `RightMax` | `""` |  |
-| `LeftLabel` | `""` |  |
-| `RightLabel` | `""` |  |
-| `ShowGrid` | `true` |  |
-| `TickCount` | `5` |  |
-| `TimeTickCount` | `5` |  |
-| `LeftScale` | `"linear"` | linear \| log |
-| `RightScale` | `"linear"` |  |
-| `Panels` | `"shared"` | shared \| separate |
-| `StateColors` | `""` |  |
-| `StateOpacity` | `0.18` |  |
-| `Rulers` | `false` |  |
-| `LimitBands` | `""` |  |
-| `LimitBandOpacity` | `0.14` |  |
-| `ShowLegend` | `true` |  |
-| `LegendPosition` | `"top"` | top \| bottom \| none |
-| `ShowValues` | `false` |  |
-| `ShowTooltips` | `true` |  |
-| `MaxPointsPerTrace` | `600` |  |
-| `ShowEvents` | `false` |  |
-| `EventScope` | `"asset"` | asset \| database |
-| `EventDatabasePath` | `""` | blank => the data source's database |
-| `EventTemplate` | `""` |  |
-| `EventNameFilter` | `""` |  |
-| `EventMax` | `50` |  |
-| `EventColor` | `""` | blank => one colour per template |
-| `EventOpacity` | `0.12` |  |
-| `EventLabels` | `true` |  |
-| `EventClick` | `"none"` | none \| time |
-| `EventRefreshSeconds` | `60` |  |
 
 ---
 
@@ -878,8 +790,11 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `CornerRadius` | `6` | *(shared)* |
 | `Title` | `"Shift log"` |  |
 | `Rows` | `""` |  |
-| `Layout` | `"list"` | list \| form |
+| `Layout` | `"list"` | list \| form \| slots |
 | `FormColumns` | `2` |  |
+| `SlotStart` | `"*-7h"` |  |
+| `SlotInterval` | `"1h"` |  |
+| `SlotCount` | `8` |  |
 | `ElementPath` | `""` |  |
 | `ShowCurrentValues` | `true` |  |
 | `RefreshSeconds` | `60` |  |
@@ -887,6 +802,11 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `SubmitLabel` | `"Submit readings"` |  |
 | `AllowPartial` | `true` |  |
 | `ClearAfterSubmit` | `true` |  |
+| `LimitMode` | `"hard"` | hard \| soft |
+| `ExistingValues` | `"replace"` | replace \| insert \| protect |
+| `AllowQuestionable` | `false` |  |
+| `PasteRows` | `false` |  |
+| `ShowImport` | `false` |  |
 | `TimestampMode` | `"now"` | now \| custom \| perRow |
 | `ShowRowStatus` | `true` |  |
 | `CompactRows` | `false` |  |
@@ -923,22 +843,39 @@ symbol selector (see the definition). Like pvxEventGantt, every number here come
 | `RefreshSeconds` | `120` |  |
 | `StartTime` | `"*-7d"` |  |
 | `EndTime` | `"*"` |  |
-| `GroupBy` | `"template"` | template \| element \| attribute \| name \| none |
+| `GroupBy` | `"template"` | template \| element \| attribute \| name \| none \| day \| week \| month \| weekday |
 | `GroupAttribute` | `""` | e.g. Reason Code |
 | `NamePattern` | `""` | regex; capture group 1 is the group |
-| `Metric` | `"totalDuration"` | totalDuration \| count \| meanDuration \| maxDuration |
-| `Chart` | `"pareto"` | pareto \| bars \| donut \| table |
+| `WeekStart` | `"monday"` | monday \| sunday — for week and weekday groups |
+| `SplitBy` | `"none"` | none \| the GroupBy choices |
+| `SplitAttribute` | `""` |  |
+| `SplitMode` | `"stacked"` | stacked \| percent |
+| `SplitTopN` | `6` |  |
+| `DrillBy` | `"none"` | the level a click on a group opens |
+| `DrillAttribute` | `""` |  |
+| `DrillBy2` | `"none"` | and the one below that |
+| `DrillAttribute2` | `""` |  |
+| `Metric` | `"totalDuration"` | totalDuration \| count \| meanDuration \| maxDuration \| attrSum \| attrMean \| attrMin \| attrMax \| attrMedian \| attrStdDev |
+| `MetricAttribute` | `""` | the event attribute an attr* metric summarises |
+| `MetricUnits` | `""` | blank: the attribute's own units |
+| `MetricDecimals` | `""` | blank: chosen from the size of the number |
+| `Chart` | `"pareto"` | pareto \| bars \| donut \| table \| pivot \| cards |
 | `ShowCumulative` | `true` |  |
 | `EightyLine` | `true` |  |
 | `TopN` | `10` |  |
 | `GroupRemainderAsOther` | `true` |  |
 | `ShowValues` | `true` |  |
 | `DurationUnit` | `"auto"` | auto \| minutes \| hours \| days |
-| `ColorMode` | `"single"` | single \| palette \| threshold |
+| `ColorMode` | `"single"` | single \| palette \| threshold \| target |
 | `BarColor` | `"#3b82c4"` |  |
 | `ShowSummary` | `true` |  |
 | `ShowOpenEventNote` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
+| `TableTotals` | `false` | a totals row under the table |
+| `PivotShading` | `true` | pivot cells shaded by size |
+| `CardTotal` | `true` | cards: a first card for everything |
+| `Targets` | `""` | lines of `Group \| target`; `* \| target` for the rest |
+| `TargetDirection` | `"lower"` | lower \| higher — which side of the target is good |
+| `ClickAction` | `"none"` | none \| navigate \| drill |
 | `NavigateTarget` | `""` |  |
 
 ---
@@ -996,51 +933,12 @@ symbol selector (see the definition). This is the first symbol in the library wh
 
 ## pvxEventList
 
-**PVX Event List** · data shape `Value` · single data source · collections not supported
+**PVX Event List** · data shape `—` · single data source · collections not supported
 
 symbol selector, and gives a blank database path a database (see the definition). Every row comes from PI Web API through PVX.api.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Title` | `"Events"` |  |
-| `DatabasePath` | `""` |  |
-| `TemplateName` | `""` |  |
-| `NameFilter` | `""` |  |
-| `ElementNameFilter` | `""` |  |
-| `SearchMode` | `"Overlapped"` |  |
-| `AssetScope` | `"none"` | none \| asset \| assetTree |
-| `MaxScopeElements` | `200` |  |
-| `MaxEvents` | `500` |  |
-| `RefreshSeconds` | `60` |  |
-| `StartTime` | `"*-7d"` |  |
-| `EndTime` | `"*"` |  |
-| `Columns` | `"name, element, start, end, duration"` |  |
-| `DurationUnit` | `"auto"` | auto \| minutes \| hours \| days |
-| `TimeFormat` | `"short"` | short \| datetime \| iso |
-| `HighlightOpen` | `true` |  |
-| `Filter` | `""` | the filter box's starting text |
-| `ShowFilterBox` | `true` |  |
-| `OpenOnly` | `false` |  |
-| `SortBy` | `"start"` | a column word from Columns |
-| `SortDescending` | `true` |  |
-| `GroupBy` | `"none"` | none \| template \| element \| attribute |
-| `GroupAttribute` | `""` |  |
-| `Totals` | `true` |  |
-| `AttributeTotals` | `"none"` | none \| sum \| avg \| min \| max |
-| `ClickAction` | `"none"` | none \| time \| asset \| navigate |
-| `NavigateTarget` | `""` |  |
-| `ShowDownload` | `true` |  |
 
 ---
 
@@ -1541,51 +1439,12 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 
 ## pvxPareto
 
-**PVX Ranked Bar** · data shape `Table` · multiple data sources · collections not supported
+**PVX Ranked Bar** · data shape `—` · multiple data sources · collections not supported
 
 The question this symbol answers is "which five assets are driving 80% of my downtime / energy / scrap". That is a *ranking* question, so the symbol is built around one sorted list of (name, value) pairs plus an optional cumulative-percentage line on its own 0-100% axis.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `SortDescending` | `true` |  |
-| `Title` | `""` | blank => generic heading |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev |
-| `Orientation` | `"horizontal"` | horizontal \| vertical |
-| `SortMode` | `"valueDesc"` | valueDesc \| valueAsc \| name \| none |
-| `TopN` | `0` | 0 = show everything |
-| `GroupRemainderAsOther` | `true` |  |
-| `MaxBars` | `40` |  |
-| `BarGap` | `0.25` | fraction of each category slot |
-| `NameWidthPct` | `28` | horizontal orientation only |
-| `ShowCumulative` | `true` |  |
-| `CumulativeColor` | `"#c8452f"` |  |
-| `ShowEightyLine` | `true` |  |
-| `EightyLineValue` | `80` |  |
-| `ColorMode` | `"single"` | single \| palette \| threshold \| rank |
-| `BarColor` | `"#3b82c4"` |  |
-| `ShowValues` | `true` |  |
-| `ValuePosition` | `"end"` | end \| inside \| none |
-| `ShowPercentOfTotal` | `false` |  |
-| `ShowAxis` | `true` |  |
-| `ShowGrid` | `true` |  |
-| `TickCount` | `5` |  |
-| `NameFrom` | `"label"` | label \| element |
-| `HideZero` | `false` |  |
-| `ClickAction` | `"none"` | none \| navigate |
-| `NavigateTarget` | `""` |  |
 
 ---
 
@@ -1712,49 +1571,12 @@ Every other chart in this library plots against TIME. This one plots against POS
 
 ## pvxRadar
 
-**PVX Fingerprint** · data shape `Table` · multiple data sources · collections supported
+**PVX Fingerprint** · data shape `—` · multiple data sources · collections supported
 
 The question this symbol answers is "does this asset still LOOK like it used to". It is a shape-recognition instrument, not a reading instrument: the axes carry different units (°F, A, klb/h, %), each is normalised to its own 0..1, and what the operator compares is the outline — not the numbers. Anything that needs magnitudes compared should be a bar chart instead, and the config pane says so.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `Title` | `""` |  |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
-| `ScaleMode` | `"perAxisData"` | perAxisData \| perAxisFixed \| shared |
-| `AxisLimits` | `""` | "0:200, 40:90, 0:100" — positional |
-| `SeriesMode` | `"single"` | single \| reference \| compare |
-| `ReferenceLabel` | `"Reference"` |  |
-| `CurrentLabel` | `"Current"` |  |
-| `FillOpacity` | `0.25` |  |
-| `LineWidth` | `2` |  |
-| `ShowPoints` | `true` |  |
-| `PointRadius` | `3` |  |
-| `ShowAxisLines` | `true` |  |
-| `ShowRings` | `true` |  |
-| `RingCount` | `4` |  |
-| `RingStyle` | `"polygon"` | polygon \| circle |
-| `StartAngle` | `0` | degrees, 0 = 12 o'clock, clockwise + |
-| `MaxAxes` | `12` |  |
-| `ShowAxisLabels` | `true` |  |
-| `ShowValueLabels` | `false` |  |
-| `ShowScaleLabels` | `false` |  |
-| `ShowLegend` | `true` |  |
-| `CurrentColor` | `"#3b82c4"` |  |
-| `ReferenceColor` | `"#8a8f96"` |  |
-| `ColorByThreshold` | `false` |  |
 
 ---
 
@@ -2171,47 +1993,12 @@ Today |…` |  |
 
 ## pvxTreemap
 
-**PVX Treemap** · data shape `Table` · multiple data sources · collections not supported
+**PVX Treemap** · data shape `—` · multiple data sources · collections not supported
 
 The question this symbol answers is "which of my hundred tags is both BIG and IN TROUBLE". A ranked bar chart runs out of vertical room somewhere around thirty rows; a treemap keeps going because it spends area instead of height.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `SortDescending` | `true` |  |
-| `Title` | `""` | blank => generic heading |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
-| `GroupBy` | `"none"` | none \| delimiter \| prefix |
-| `GroupDelimiter` | `"\\"` |  |
-| `GroupDepth` | `1` |  |
-| `GroupPrefixChars` | `3` |  |
-| `ColorMode` | `"threshold"` | threshold \| value \| palette \| group \| single |
-| `SingleColor` | `"#3b82c4"` |  |
-| `ShowColorLegend` | `true` |  |
-| `MinTilePx` | `26` |  |
-| `ShowOther` | `true` |  |
-| `OtherLabel` | `"Other"` |  |
-| `MaxTiles` | `60` |  |
-| `ShowValues` | `true` |  |
-| `ShowPercent` | `false` |  |
-| `LabelMode` | `"auto"` | auto \| nameOnly \| valueOnly \| both |
-| `TilePadding` | `2` |  |
-| `TileRadius` | `2` |  |
-| `ShowBorders` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
-| `NavigateTarget` | `""` |  |
 
 ---
 

@@ -329,6 +329,9 @@
             var attr = PVX.util.find(map, '.pvx-geo-attr');
             attr.textContent = site ? site.attribution : '';
             attr.style.display = site && site.attribution ? '' : 'none';
+            // Three stacked buttons need about 110px; below that they would
+            // cover the markers they are for. Wheel and drag still zoom and pan.
+            PVX.util.find(map, '.pvx-geo-ctl').style.display = H < 120 || W < 100 ? 'none' : '';
 
             // Markers and the grid, on one SVG over the tiles.
             var old = map.querySelector('svg.pvx-geo-svg');

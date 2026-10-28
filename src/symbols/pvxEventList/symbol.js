@@ -50,7 +50,9 @@
         template: { label: 'Template', align: 'left' },
         start: { label: 'Start', align: 'left' },
         end: { label: 'End', align: 'left' },
-        duration: { label: 'Duration', align: 'right' }
+        duration: { label: 'Duration', align: 'right' },
+        // Who acknowledged the event and when, for templates that ask for it.
+        ack: { label: 'Acknowledged', align: 'left' }
     };
 
     var DURATION_UNITS = {
@@ -74,7 +76,8 @@
         configTitle: 'Format Event List',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // Shared filters (PVX.filter): off by default.
+            return window.PVX.filter.defaults(window.PVX.config.base({
                 // The cheapest query PI Vision has, for a value nothing reads.
                 DataShape: 'Value',
                 Height: 300,
@@ -119,10 +122,16 @@
                 AttributeTotals: 'none',     // none | sum | avg | min | max
 
                 /* -- click -------------------------------------------------- */
-                ClickAction: 'none',         // none | time | asset | navigate
+                ClickAction: 'none',         // none | time | asset | navigate | filter
                 NavigateTarget: '',
-                ShowDownload: true
-            });
+                ShowDownload: true,
+
+                /* -- writing to the event (PVX.writer) ------------------------ */
+                // Off: the list stays read only. On: each row gets Acknowledge,
+                // Comment and, for the attributes named here, Edit.
+                EventActions: false,
+                EditAttributes: ''
+            }));
         }
     };
 
@@ -173,6 +182,19 @@
         };
         for (var i = 0; i < cols.length; i++) { if (cols[i].kind === 'attr') { add(cols[i].name); } }
         if (cfg && cfg.GroupBy === 'attribute') { add(cfg.GroupAttribute); }
+        // Edit opens on the values as they are, so they are read with the rest.
+        if (cfg && cfg.EventActions) {
+            var ed = editNames(cfg);
+            for (var e = 0; e < ed.length; e++) { add(ed[e]); }
+        }
+        return out;
+    }
+
+    /** "Reason Code, Operator" -> ['Reason Code', 'Operator']. */
+    function editNames(cfg) {
+        var out = [];
+        var parts = String((cfg && cfg.EditAttributes) || '').split(/[,;\n]/);
+        for (var i = 0; i < parts.length; i++) { if (trim(parts[i])) { out.push(trim(parts[i])); } }
         return out;
     }
 
@@ -208,6 +230,7 @@
             case 'start': return ev.start;
             case 'end': return ev.open ? Infinity : ev.end;
             case 'duration': return (ev.open ? now : ev.end) - ev.start;
+            case 'ack': return ev.acked ? (ev.ackBy || '').toLowerCase() : (ev.canAck ? '' : null);
             default:
                 var a = attrOf(ev, col.name);
                 if (!a || a.value === null || a.value === undefined) { return null; }
@@ -232,7 +255,7 @@
      *
      * @param {Array} events  [{name, template, start, end|null, open, elName, elPath, attrs{lower:{value,units}}}]
      * @param {Object} o {cols, filter, openOnly, sortKey, desc, groupBy, groupAttribute,
-     *                    attrTotals, now, textOf(ev, col)}
+     *                    attrTotals, now, textOf(ev, col), assets: a PVX.filter filter or null}
      * @returns {Object} {groups[{label, rows[], count, durMs, union, open, attrs{key:{n,sum,min,max}}}],
      *                    shown, total, hidden, durMs, union, open, attrs}
      */
@@ -241,11 +264,14 @@
         var cols = o.cols;
         var needle = trim(o.filter).toLowerCase();
         var rows = [];
-        var hidden = 0, closedHidden = 0;
+        var hidden = 0, closedHidden = 0, assetHidden = 0;
         var i, j;
 
         for (i = 0; i < events.length; i++) {
             var ev = events[i];
+            // A filter picked on another symbol: by the event's asset, which
+            // is the element it references first.
+            if (o.assets && !window.PVX.filter.matches(o.assets, ev.elPath)) { assetHidden += 1; continue; }
             if (o.openOnly && !ev.open) { closedHidden += 1; continue; }
             if (needle) {
                 // Over what the row SHOWS, so the filter finds exactly what
@@ -314,6 +340,7 @@
             total: events.length,
             hidden: hidden,
             closedHidden: closedHidden,
+            assetHidden: assetHidden,
             count: all.count,
             durMs: all.durMs,
             union: all.union,
@@ -351,6 +378,7 @@
     symbolVis.attributeNames = attributeNames;
     symbolVis.buildList = buildList;
     symbolVis.unionMs = unionMs;
+    symbolVis.editNames = editNames;
 
     /* ====================================================================== *
      * the symbol
@@ -479,7 +507,8 @@
 
         function needsElement(cfg, cols) {
             if (cfg.GroupBy === 'element') { return true; }
-            if (cfg.ClickAction === 'asset' || cfg.ClickAction === 'navigate') { return true; }
+            if (cfg.ClickAction === 'asset' || cfg.ClickAction === 'navigate' || cfg.ClickAction === 'filter') { return true; }
+            if (cfg.FilterObey) { return true; }
             for (var i = 0; i < cols.length; i++) { if (cols[i].kind === 'element') { return true; } }
             return false;
         }
@@ -543,6 +572,9 @@
         function frameFields(cfg, cols) {
             var f = ['Items.Name', 'Items.StartTime', 'Items.EndTime', 'Items.TemplateName', 'Items.Links.Self'];
             if (needsElement(cfg, cols)) { f.push('Items.Links.PrimaryReferencedElement'); }
+            if (cfg.EventActions || hasColumn(cols, 'ack')) {
+                f.push('Items.CanBeAcknowledged', 'Items.IsAcknowledged', 'Items.AcknowledgedBy', 'Items.AcknowledgedDate');
+            }
             return f.join(';');
         }
 
@@ -611,6 +643,7 @@
             var endD = PVX.fmt.toDate(item.EndTime);
             var open = !endD || endD.getTime() >= OPEN_AFTER_MS;
             var links = item.Links || {};
+            var ackD = item.AcknowledgedDate ? PVX.fmt.toDate(item.AcknowledgedDate) : null;
             return {
                 name: item.Name || '(unnamed event)',
                 template: trim(item.TemplateName),
@@ -621,6 +654,10 @@
                 elWebId: webIdFromLink(links.PrimaryReferencedElement),
                 elName: '',
                 elPath: '',
+                canAck: item.CanBeAcknowledged === true,
+                acked: item.IsAcknowledged === true,
+                ackBy: trim(item.AcknowledgedBy),
+                ackAt: ackD ? ackD.getTime() : null,
                 attrs: {}
             };
         }
@@ -664,7 +701,7 @@
                 for (i = 0; i < events.length; i++) {
                     if (!events[i].webId) { continue; }
                     reqs['a' + meta.length] = { Method: 'GET', Resource: apiUrl('streamsets/' + encodeURIComponent(events[i].webId) +
-                        '/value?selectedFields=Items.Name;Items.Value' + filter) };
+                        '/value?selectedFields=Items.Name;Items.Value;Items.WebId' + filter) };
                     meta.push({ kind: 'attr', ev: events[i] });
                 }
             }
@@ -690,7 +727,8 @@
                         m.ev.attrs[nm] = {
                             value: plainValue(tv && typeof tv === 'object' && 'Value' in tv ? tv.Value : tv),
                             units: (tv && tv.UnitsAbbreviation) || '',
-                            good: !(tv && tv.Good === false)
+                            good: !(tv && tv.Good === false),
+                            webId: items[j].WebId || ''
                         };
                         found[nm] = true;
                     }
@@ -821,6 +859,7 @@
                 hashListener = null;
             }
             unbindHost();
+            if (writePanel) { writePanel.destroy(); writePanel = null; }
             generation += 1;
             state.events = [];
             rowsShown = [];
@@ -884,6 +923,9 @@
                 case 'start': return timeText(ev.start, cfg);
                 case 'end': return ev.open ? 'active' : timeText(ev.end, cfg);
                 case 'duration': return durText((ev.open ? Math.max(ev.start, now) : ev.end) - ev.start, cfg);
+                case 'ack':
+                    if (ev.acked) { return (ev.ackBy || 'yes') + (ev.ackAt ? ' \u00b7 ' + timeText(ev.ackAt, cfg) : ''); }
+                    return ev.canAck ? 'not yet' : '';
                 default:
                     var a = attrOf(ev, col.name);
                     if (!a || a.value === null || a.value === undefined) { return ''; }
@@ -955,7 +997,7 @@
             }
             scope.pvx.title = trim(cfg.Title);
             scope.pvx.showFilter = cfg.ShowFilterBox !== false && state.phase === 'ok' && state.events.length > 0;
-            scope.pvx.clickable = cfg.ClickAction === 'time' || cfg.ClickAction === 'asset' ||
+            scope.pvx.clickable = cfg.ClickAction === 'time' || cfg.ClickAction === 'asset' || cfg.ClickAction === 'filter' ||
                 (cfg.ClickAction === 'navigate' && !!trim(cfg.NavigateTarget));
             scope.pvx.summary = '';
             bindHost(host);
@@ -980,6 +1022,7 @@
                     desc: sort.desc,
                     groupBy: groupByOf(cfg),
                     groupAttribute: trim(cfg.GroupAttribute),
+                    assets: ctx.filter.active(),
                     now: now,
                     textOf: function (ev, col) { return cellText(ev, col, cfg, units, now); }
                 });
@@ -1069,10 +1112,13 @@
                     on ? '<span class="pvx-evl-arrow">' + (sort.desc ? '▾' : '▴') + '</span>' : '',
                     '</th>');
             }
+            var acts = cfg.EventActions === true;
+            var span = cols.length + (acts ? 1 : 0);
+            if (acts) { parts.push('<th class="pvx-evl-acthead"><span class="pvx-evl-hidden">Actions</span></th>'); }
             parts.push('</tr></thead><tbody>');
 
             if (!list.shown) {
-                parts.push('<tr class="pvx-evl-none"><td colspan="', cols.length, '">',
+                parts.push('<tr class="pvx-evl-none"><td colspan="', span, '">',
                     esc(list.hidden ? 'No event matches "' + trim(scope.pvx.filter) + '"' : 'No event is still active'),
                     '</td></tr>');
             }
@@ -1082,39 +1128,67 @@
             for (var g = 0; g < list.groups.length; g++) {
                 var grp = list.groups[g];
                 if (grouped) {
-                    parts.push('<tr class="pvx-evl-group"><td colspan="', cols.length, '">', esc(grp.label),
+                    parts.push('<tr class="pvx-evl-group"><td colspan="', span, '">', esc(grp.label),
                         '<span class="pvx-evl-group-n">', grp.count, '</span></td></tr>');
                 }
                 for (var r = 0; r < grp.rows.length; r++) {
                     var ev = grp.rows[r];
                     var idx = rowsShown.length;
                     rowsShown.push(ev);
-                    var cls = ev.open && cfg.HighlightOpen !== false ? ' class="pvx-evl-open"' : '';
+                    var rc = (ev.open && cfg.HighlightOpen !== false ? ' pvx-evl-open' : '') +
+                        (cfg.ClickAction === 'filter' && PVX.filter.isPicked(PVX.filter.channel(cfg), ev.elPath) ? ' pvx-evl-picked' : '');
+                    var cls = rc ? ' class="' + rc.slice(1) + '"' : '';
                     parts.push('<tr data-pvx-i="', idx, '"', cls, ' title="', esc(rowTip(ev, cfg)), '">');
                     for (j = 0; j < cols.length; j++) {
                         var a = cols[j].kind === 'attr' ? attrOf(ev, cols[j].name) : null;
                         var tdc = 'pvx-evl-' + alignOf(cols[j], units) + (a && a.good === false ? ' pvx-evl-bad' : '');
                         parts.push('<td class="', tdc, '">', esc(cellText(ev, cols[j], cfg, units, now)), '</td>');
                     }
+                    if (acts) { parts.push(actionsHtml(ev, idx, cfg)); }
                     parts.push('</tr>');
                 }
                 if (grouped && totals && list.groups.length > 1) {
-                    parts.push(totalRowHtml(grp, cols, units, cfg, 'Subtotal', false));
+                    parts.push(totalRowHtml(grp, cols, units, cfg, 'Subtotal', false, acts));
                 }
             }
-            if (totals && list.shown) { parts.push(totalRowHtml(list, cols, units, cfg, 'Total', true)); }
+            if (totals && list.shown) { parts.push(totalRowHtml(list, cols, units, cfg, 'Total', true, acts)); }
             parts.push('</tbody></table>');
             return parts.join('');
         }
 
-        function totalRowHtml(sum, cols, units, cfg, label, grand) {
+        function totalRowHtml(sum, cols, units, cfg, label, grand, acts) {
             var esc = PVX.util.escapeHtml;
             var cells = totalCells(sum, cols, cfg, label);
             var out = ['<tr class="pvx-evl-total', grand ? ' pvx-evl-grand' : '', '">'];
             for (var j = 0; j < cols.length; j++) {
                 out.push('<td class="pvx-evl-', alignOf(cols[j], units), '">', esc(cells[j]), '</td>');
             }
+            if (acts) { out.push('<td></td>'); }
             out.push('</tr>');
+            return out.join('');
+        }
+
+        /**
+         * The row's buttons. Acknowledge only where PI says the event can be
+         * and is not yet; an acknowledged event says by whom instead, so the
+         * row never offers what PI would refuse.
+         */
+        function actionsHtml(ev, idx, cfg) {
+            var esc = PVX.util.escapeHtml;
+            var out = ['<td class="pvx-evl-acts">'];
+            var btn = function (act, text, tip) {
+                out.push('<button type="button" class="pvx-evl-act" data-pvx-act="', act, '" data-pvx-e="', idx,
+                    '" title="', esc(tip), '">', esc(text), '</button>');
+            };
+            if (!ev.webId) { out.push('</td>'); return out.join(''); }
+            if (ev.canAck && !ev.acked) { btn('ack', 'Ack', 'Acknowledge this event'); }
+            else if (ev.acked) {
+                out.push('<span class="pvx-evl-acked" title="', esc('Acknowledged' + (ev.ackBy ? ' by ' + ev.ackBy : '') +
+                    (ev.ackAt ? ' at ' + PVX.fmt.time(ev.ackAt, 'datetime') : '')), '">\u2713</span>');
+            }
+            btn('comment', 'Note', 'Read and add comments (annotations) on this event');
+            if (editNames(cfg).length) { btn('edit', 'Edit', 'Change ' + editNames(cfg).join(', ') + ' on this event'); }
+            out.push('</td>');
             return out.join('');
         }
 
@@ -1125,6 +1199,10 @@
             if (cfg.ClickAction === 'time') { bits.push('Click to show this event\'s time range'); }
             else if (cfg.ClickAction === 'asset') { bits.push(ev.elPath ? 'Click to show this asset' : 'No asset to show'); }
             else if (cfg.ClickAction === 'navigate' && trim(cfg.NavigateTarget)) { bits.push('Click to open ' + trim(cfg.NavigateTarget)); }
+            else if (cfg.ClickAction === 'filter') {
+                bits.push(!ev.elPath ? 'No asset to filter by'
+                    : (PVX.filter.isPicked(PVX.filter.channel(cfg), ev.elPath) ? 'Click to clear the filter' : 'Click to filter the symbols beside this to this asset'));
+            }
             return bits.join('\n');
         }
 
@@ -1136,6 +1214,10 @@
 
         function footerNotes(list, cfg, cols) {
             var notes = [];
+            if (list.assetHidden) {
+                var af = ctx.filter.active();
+                notes.push(list.assetHidden + (list.assetHidden === 1 ? ' event' : ' events') + ' hidden by the filter (' + (af ? af.label : 'assets') + ')');
+            }
             var f = trim(scope.pvx.filter);
             if (list.hidden) { notes.push(list.shown + ' of ' + (list.total - list.closedHidden) + ' match "' + f + '"'); }
             if (list.closedHidden) { notes.push(list.closedHidden + ' ended, not shown'); }
@@ -1240,6 +1322,12 @@
             var guard = 0;
             while (node && node !== boundHost && guard < 12) {
                 if (node.getAttribute) {
+                    var act = node.getAttribute('data-pvx-act');
+                    if (act !== null) {
+                        if (ev.stopPropagation) { ev.stopPropagation(); }
+                        eventAction(act, parseInt(node.getAttribute('data-pvx-e'), 10));
+                        return;
+                    }
                     var key = node.getAttribute('data-pvx-sort');
                     if (key !== null) { sortBy(key); return; }
                     var i = node.getAttribute('data-pvx-i');
@@ -1279,6 +1367,9 @@
             } else if (act === 'asset') {
                 if (!ev.elPath) { return; }
                 PVX.nav.go(PVX.nav.url({ asset: ev.elPath }), false);
+            } else if (act === 'filter') {
+                if (!ev.elPath) { return; }
+                PVX.filter.toggle(PVX.filter.channel(cfg), ev.elPath, ev.elName || '', cfg.Title || 'the Event List');
             } else if (act === 'navigate') {
                 var target = trim(cfg.NavigateTarget);
                 if (!target) { return; }
@@ -1286,6 +1377,136 @@
                 if (ev.elPath) { opts.asset = ev.elPath; }
                 PVX.nav.go(PVX.nav.url(opts), false);
             }
+        }
+
+        /* ---------------------------------------------------------------- *
+         * writing to an event: acknowledge, comment, edit (PVX.writer)
+         * ---------------------------------------------------------------- *
+         * The list is where an operator sees the event, so it is where the
+         * event is answered for: acknowledged, explained, given its reason
+         * code. Each is confirmed in words first, as every PVX write is, and
+         * the list is read again after, so it shows what PI now holds rather
+         * than what was typed.
+         */
+        var writePanel = null;
+
+        function panel() {
+            if (writePanel && PVX.util.find(elem, '.pvx-writer') === writePanel.node) { return writePanel; }
+            var surface = PVX.util.find(elem, '.pvx-evl-surface');
+            var wrap = PVX.util.find(elem, '.pvx-evl-bodywrap');
+            if (!surface) { return null; }
+            if (writePanel) { writePanel.destroy(); }
+            writePanel = PVX.writer.panel(surface);
+            // Under the rows, above the footer, which is ng-if and may not exist.
+            if (wrap && wrap.parentNode === surface) { surface.insertBefore(writePanel.node, wrap.nextSibling); }
+            return writePanel;
+        }
+
+        function eventLabel(ev) {
+            return '"' + ev.name + '"' + (ev.elName ? ' on ' + ev.elName : '') + ', ' + PVX.fmt.time(ev.start, 'datetime');
+        }
+
+        function eventAction(act, index) {
+            var ev = rowsShown[index];
+            var p = ev && ev.webId ? panel() : null;
+            if (!p) { return; }
+            var path = 'eventframes/' + encodeURIComponent(ev.webId);
+            if (act === 'ack') {
+                p.open({
+                    title: 'Acknowledge ' + ev.name,
+                    fields: [],
+                    confirm: function () {
+                        return 'Acknowledge ' + eventLabel(ev) + '? PI records your name and the time against it; ' +
+                            'it cannot be taken back from here.';
+                    },
+                    submit: function () {
+                        return PVX.api.post(path + '/acknowledge', null, { cache: false }).then(function () {
+                            refresh();
+                            return { ok: true, text: 'Acknowledged.' };
+                        });
+                    }
+                });
+            } else if (act === 'comment') {
+                p.open({
+                    title: 'Comments on ' + ev.name,
+                    fields: [{ key: 'text', label: 'New comment', value: '', kind: 'textarea' }],
+                    action: 'Add',
+                    load: function () {
+                        return PVX.api.get(path + '/annotations', { cache: false }).then(function (res) {
+                            var items = (res && res.Items) || [];
+                            var lines = [];
+                            for (var i = 0; i < items.length; i++) {
+                                var at = PVX.fmt.toDate(items[i].CreationDate);
+                                var said = plainValue(items[i].Value);
+                                lines.push((at ? PVX.fmt.time(at.getTime(), 'datetime') + ' \u00b7 ' : '') +
+                                    (trim(items[i].Creator) ? trim(items[i].Creator) + ': ' : '') +
+                                    String(said === null ? (items[i].Description || '') : said));
+                            }
+                            return lines.length ? lines : ['No comments yet.'];
+                        });
+                    },
+                    confirm: function (v) {
+                        return 'Add "' + trim(v.text) + '" to ' + eventLabel(ev) + '? Comments are kept with the event and are not edited from here.';
+                    },
+                    submit: function (v) {
+                        return PVX.api.post(path + '/annotations', { Name: 'Comment', Value: String(v.text) }, { cache: false }).then(function () {
+                            return { ok: true, text: 'Comment added.' };
+                        });
+                    }
+                });
+            } else if (act === 'edit') {
+                editEvent(p, ev);
+            }
+        }
+
+        function editEvent(p, ev) {
+            var names = editNames(liveCfg);
+            var fields = [], missing = [], ids = {};
+            for (var i = 0; i < names.length; i++) {
+                var a = attrOf(ev, names[i]);
+                if (!a || !a.webId) { missing.push(names[i]); continue; }
+                ids[names[i]] = a.webId;
+                var v = a.value;
+                fields.push({
+                    key: names[i], label: names[i], units: a.units,
+                    value: v === null || v === undefined ? '' : (typeof v === 'boolean' ? (v ? 'True' : 'False') : String(v)),
+                    kind: typeof v === 'number' ? 'number' : (typeof v === 'boolean' ? 'bool' : 'text')
+                });
+            }
+            var none = 'This event has no ' + missing.map(function (n) { return '"' + n + '"'; }).join(', ') + ' attribute';
+            if (!fields.length) {
+                p.open({
+                    title: 'Edit ' + ev.name, fields: [],
+                    confirm: function () { return none + ', so there is nothing to edit.'; },
+                    submit: function () { return { ok: false, text: 'Nothing written' }; }
+                });
+                return;
+            }
+            p.open({
+                title: 'Edit ' + ev.name,
+                fields: fields,
+                action: 'Write',
+                load: missing.length ? function () { return Promise.resolve([none + '.']); } : null,
+                confirm: function (vals) {
+                    var bits = [];
+                    for (var k in vals) { if (vals.hasOwnProperty(k)) { bits.push(k + ' = ' + String(vals[k])); } }
+                    return 'Write ' + bits.join(', ') + ' on ' + eventLabel(ev) + '? This replaces the value the event holds.';
+                },
+                submit: function (vals) {
+                    var writes = [];
+                    for (var k in vals) { if (vals.hasOwnProperty(k)) { writes.push({ key: k, webId: ids[k], value: vals[k] }); } }
+                    return PVX.api.writeValues(writes).then(function (r) {
+                        refresh();
+                        if (!r.failed.length) { return { ok: true, text: 'Written: ' + r.ok.map(function (o) { return o.key; }).join(', ') + '.' }; }
+                        // Per attribute: two of three saved is not one failure.
+                        return {
+                            ok: false,
+                            text: r.ok.length ? r.ok.length + ' written, ' + r.failed.length + ' not' : 'Not written',
+                            detail: r.failed.map(function (f) { return f.key + ': ' + f.error.message; }).join(' ')
+                        };
+                    });
+                }
+            });
         }
 
         /* ---------------------------------------------------------------- *

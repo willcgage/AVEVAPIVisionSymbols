@@ -20,6 +20,14 @@
             <div class="pvx-subtitle pvx-truncate" ng-if="pvx.subtitle" title="{{pvx.subtitle}}">{{pvx.subtitle}}</div>
         </div>
 
+        <!-- The drill-down trail, outside the header so a symbol with its
+             header hidden can still be climbed back out of. -->
+        <div class="pvx-ea-crumbs" ng-if="pvx.crumbs.length">
+            <span ng-repeat="c in pvx.crumbs"><span class="pvx-ea-sep" ng-if="!$first">&#8250;</span><button type="button"
+                  class="pvx-ea-crumb" ng-class="{'pvx-ea-crumb-here': c.last}" ng-click="pvx.crumb(c.i)"
+                  ng-disabled="c.last" title="{{c.last ? 'Showing ' + c.label : 'Back to ' + c.label}}">{{c.label}}</button></span>
+        </div>
+
         <div class="pvx-body">
             <div class="pvx-ea-body"></div>
         </div>

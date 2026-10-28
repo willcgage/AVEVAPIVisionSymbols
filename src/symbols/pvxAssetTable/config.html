@@ -158,8 +158,10 @@ Status             |            | states | label</pre>
             <select id="pvxat-click" ng-model="config.ClickAction">
                 <option value="none">Do nothing</option>
                 <option value="navigate">Open a display with that asset</option>
+                <option value="filter">Filter the symbols beside it</option>
             </select>
         </div>
+        <!-- pvx:filter -->
         <div class="pvx-cfg-stack">
             <label for="pvxat-navtarget">Target display</label>
             <input id="pvxat-navtarget" type="text" ng-model="config.NavigateTarget"
@@ -169,6 +171,28 @@ Status             |            | states | label</pre>
             The row's element is passed as <code>asset=</code>, so an asset-relative display
             opens on that unit. The display id is the number after <code>/Displays/</code> in
             its address. Rows are keyboard reachable and open with Enter or Space.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Writing values</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-edit">Edit cells</label>
+            <input id="pvxat-edit" type="checkbox" ng-model="config.EditMode" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.EditMode">
+            <label for="pvxat-editcols">Columns that write</label>
+            <input id="pvxat-editcols" type="text" ng-model="config.EditColumns"
+                   placeholder="Blank for every column, or e.g. Setpoint, Mode" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A click on a cell that writes opens a box under the table with its value; the new value is
+            stated in full and confirmed, then written through PI Web API at the current time. There is no
+            undo: the old value stays in PI's history. Numbers are checked as numbers, True/False is a
+            choice, and anything else (a digital state's name, a string attribute) is sent as typed.
+            Name columns by header or attribute, separated by commas. PI Web API decides who may write;
+            its reason is shown when it refuses. Proven against a mock PI Web API only.
         </div>
     </div>
 

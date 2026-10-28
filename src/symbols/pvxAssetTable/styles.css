@@ -188,3 +188,24 @@
     border-radius: 2px;
     padding: 0 3px;
 }
+
+/* The row that is the shared filter (ClickAction 'filter'). */
+.pvx-atable .pvx-atable-picked td {
+    background: rgba(59, 130, 196, 0.16);
+}
+
+.pvx-atable .pvx-atable-picked td:first-child {
+    box-shadow: inset 3px 0 0 #3b82c4;
+}
+
+/* Edit mode: a cell that writes says so before it is clicked. */
+.pvx-atable .pvx-atable-editable {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.pvx-atable .pvx-atable-editable:hover,
+.pvx-atable .pvx-atable-editable:focus {
+    outline: 1px dashed var(--pvx-muted, #6b7280);
+    outline-offset: -2px;
+}

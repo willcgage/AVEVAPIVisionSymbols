@@ -215,6 +215,20 @@
     color: #1d2126;
 }
 
+/* A filter from another symbol: always shown while it applies, and the
+   way to clear it. */
+.pvx-overlay .pvx-overlay-filter {
+    padding: 1px 6px;
+    border: 1px solid rgba(59, 130, 196, 0.6);
+    border-radius: 3px;
+    background: rgba(59, 130, 196, 0.16);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 .pvx-overlay .pvx-overlay-note {
     max-width: 220px;
     padding: 3px 6px;
@@ -1018,3 +1032,68 @@
     outline: 2px solid var(--pvx-ctl-accent, #3b82c4);
     outline-offset: 1px;
 }
+
+/* --- PVX.writer: a small write from a symbol that mostly reads ------------ */
+
+.pvx .pvx-writer {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    padding: 6px 8px;
+    border: 1px solid #d99024;
+    border-radius: 4px;
+    background: rgba(128, 128, 128, 0.08);
+    font-size: 12px;
+}
+
+.pvx .pvx-writer-title { font-weight: 600; margin-bottom: 4px; }
+
+.pvx .pvx-writer-lines {
+    max-height: 72px;
+    overflow-y: auto;
+    margin-bottom: 4px;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.pvx .pvx-writer-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.pvx .pvx-writer-label { flex: 0 0 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pvx .pvx-writer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 3px;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+}
+
+.pvx .pvx-writer-confirm { margin-bottom: 4px; }
+
+.pvx .pvx-writer-actions { display: flex; gap: 6px; }
+
+.pvx .pvx-writer-btn {
+    padding: 3px 10px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.pvx .pvx-writer-go,
+.pvx .pvx-writer-yes { background: #3b82c4; border-color: #3b82c4; color: #ffffff; font-weight: 600; }
+
+.pvx .pvx-writer-msg { margin-top: 4px; }
+.pvx .pvx-writer-msg[data-tone="ok"] .pvx-writer-msg-text { color: #2f9e5f; font-weight: 600; }
+.pvx .pvx-writer-msg[data-tone="error"] .pvx-writer-msg-text { color: #c8452f; font-weight: 600; }
+.pvx .pvx-writer-msg[data-tone="warn"] .pvx-writer-msg-text { color: #d99024; font-weight: 600; }
+.pvx .pvx-writer-msg-detail { font-size: 11px; opacity: 0.85; }

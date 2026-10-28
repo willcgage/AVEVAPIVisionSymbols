@@ -1,5 +1,7 @@
 <div class="c-config-content pvx-cfg">
 
+    <!-- pvx:afsearch -->
+
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Profile</div>
 
@@ -28,6 +30,12 @@
             <input id="pvxrad-maxaxes" type="number" ng-model="config.MaxAxes" min="3" max="24" />
         </div>
         <div class="pvx-cfg-hint">Beyond about a dozen spokes the labels collide and the outline stops being memorable. Extra sources are dropped from the end and counted in the footer. Three axes is the minimum &mdash; fewer is a line, not a shape.</div>
+
+        <div class="pvx-cfg-row" ng-if="config.SourceMode === 'search'">
+            <label for="pvxrad-maxshapes">Maximum shapes</label>
+            <input id="pvxrad-maxshapes" type="number" ng-model="config.MaxShapes" min="1" max="24" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.SourceMode === 'search'">With rows from an AF search naming three or more attributes, the attributes are the axes and every asset found is one outline over the others, in its own colour: a fleet's fingerprints on one web. With one or two attributes the assets are the axes and each attribute is an outline. Assets are paired by path, so an asset missing an attribute shows a dent at the centre and is counted in the footer. <em>Series</em> below does not apply.</div>
     </div>
 
     <div class="pvx-cfg-group">

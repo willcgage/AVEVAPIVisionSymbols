@@ -24,7 +24,7 @@
 
         <div class="pvx-cfg-hint">
             <strong>Grammar</strong><br />
-            <code>path | label | units | min:max | control</code><br />
+            <code>path | label | units | min:max | control | options</code><br />
             Only the path is required; drop any field from the right. To skip a field but keep a later
             one, leave it empty: <code>Bed Temp | | degC</code>.
         </div>
@@ -43,6 +43,17 @@
             state name. A switch or a row of buttons shows the value PI holds now until somebody picks
             one, and a pick not yet written is outlined. A control the symbol cannot read is marked
             <em>bad control</em> on its row, and that row is never written.
+        </div>
+
+        <div class="pvx-cfg-hint">
+            <strong>Options</strong> (the sixth field, comma separated):<br />
+            <code>required</code> &mdash; the sheet is not sent while this row is blank; its label carries a *<br />
+            <code>warn 10:90</code> &mdash; a soft range: a value outside it is written only after the
+            confirmation says so (the fourth field stays the hard limit)<br />
+            <code>prefill last</code>, <code>prefill user</code> or <code>prefill Day shift</code> &mdash;
+            the box starts with the value PI holds now, the viewer's name as PI Web API knows it, or
+            that text, shown in italics. A prefilled box counts as filled and is written with the rest.<br />
+            <code>Operator | Operator | | | text | required, prefill user</code>
         </div>
 
         <div class="pvx-cfg-hint">
@@ -96,7 +107,29 @@
             <select id="pvxet-layout" ng-model="config.Layout">
                 <option value="list">List: a line per reading</option>
                 <option value="form">Form: readings in columns</option>
+                <option value="slots">Grid: readings by time slot</option>
             </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Layout === 'slots'">
+            <label for="pvxet-slotstart">First slot</label>
+            <input id="pvxet-slotstart" type="text" ng-model="config.SlotStart" placeholder="*-7h" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Layout === 'slots'">
+            <label for="pvxet-slotint">Every</label>
+            <input id="pvxet-slotint" type="text" ng-model="config.SlotInterval" placeholder="1h" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Layout === 'slots'">
+            <label for="pvxet-slotn">Slots</label>
+            <input id="pvxet-slotn" type="number" ng-model="config.SlotCount" min="1" max="48" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Layout === 'slots'">
+            A column per slot: the first at a PI time (<code>*-7h</code>, <code>t+6h</code>), snapped
+            down to the interval so hourly slots sit on the hour, then one every interval. Each box shows,
+            shaded, the value PI already holds in its slot, and a value typed in it is written at the
+            slot's own time. A slot still to come cannot be filled. The slots stay put while anything is
+            typed, so a reading typed for 06:00 never slides to 07:00 when the hour turns. Controls are
+            typed here (a choice by its value or its caption); the timestamp settings below, the per-row
+            <code>required</code> and <code>prefill</code> options and <em>all-or-nothing</em> do not apply.
         </div>
         <div class="pvx-cfg-row" ng-if="config.Layout === 'form'">
             <label for="pvxet-cols">Columns</label>
@@ -146,6 +179,59 @@
         <div class="pvx-cfg-hint">
             Only the rows that actually <em>saved</em> are cleared. Clearing a row that failed would
             throw away a reading the operator still has to send, and by then they may not remember it.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Checks and what is written</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-limits">A value outside min:max</label>
+            <select id="pvxet-limits" ng-model="config.LimitMode">
+                <option value="hard">Is refused</option>
+                <option value="soft">Is written after a warning</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A warning is part of the confirmation, which is always shown when a value is outside its
+            range, even with <em>Confirm before writing</em> off. A row's own <code>warn lo:hi</code>
+            option is always a warning.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-existing">A value already at that time</label>
+            <select id="pvxet-existing" ng-model="config.ExistingValues">
+                <option value="replace">Is replaced</option>
+                <option value="insert">Is kept beside the new one</option>
+                <option value="protect">Is kept, and the new one not written</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Matters for readings with a time of their own (one time for the sheet, a time per row, or the
+            grid). <em>Kept</em> asks PI Web API first and marks those rows <em>kept</em>; the write
+            also asks PI not to replace, so a value is kept even if that check could not be made.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-quest">Questionable box on each row</label>
+            <input id="pvxet-quest" type="checkbox" ng-model="config.AllowQuestionable" />
+        </div>
+        <div class="pvx-cfg-hint">A ticked reading is written with PI's questionable flag, which stays with the value.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxet-paste">Paste fills the rows</label>
+            <input id="pvxet-paste" type="checkbox" ng-model="config.PasteRows" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxet-import">Import CSV button</label>
+            <input id="pvxet-import" type="checkbox" ng-model="config.ShowImport" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Several cells pasted from a spreadsheet fill the rows down from the box they are pasted into
+            (and across the slots in the grid); a line whose first cell is a row's label or attribute
+            name goes to that row. A CSV file of <code>name,value,time</code> lines fills the rows by name;
+            the time goes in the row's time box, or in the grid chooses the slot. Either way nothing is
+            written until the sheet is submitted, and anything that could not be placed is said.
         </div>
     </div>
 

@@ -47,7 +47,8 @@
         limitsRequired: true,
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // Shared filters (PVX.filter): off by default.
+            return window.PVX.filter.defaults(window.PVX.config.base({
                 DataShape: 'Table',
                 Columns: ['Value'],
                 Height: 220,
@@ -82,9 +83,14 @@
                 SortDescending: false,
 
                 // Interaction
-                ClickAction: 'none',       // none | navigate
-                NavigateTarget: ''
-            });
+                ClickAction: 'none',       // none | navigate | filter
+                NavigateTarget: '',
+
+                // Writing a cell back through PI Web API: off, and on only
+                // for the columns named (blank = every column).
+                EditMode: false,
+                EditColumns: ''
+            }));
         }
     };
 
@@ -150,6 +156,7 @@
                 if (search.pollTimer !== null) { clearInterval(search.pollTimer); search.pollTimer = null; }
                 if (search.configTimer !== null) { clearTimeout(search.configTimer); search.configTimer = null; }
                 search.gen += 1;
+                if (writePanel) { writePanel.destroy(); writePanel = null; }
                 unbindHost();
                 cellRecs = [];
                 rowRecs = [];
@@ -674,6 +681,21 @@
             if (searching && search.failed) {
                 model.notes.push(search.failed + ' attribute lookup' + (search.failed === 1 ? '' : 's') + ' failed');
             }
+            // A filter picked on another symbol: the rows of the assets it
+            // names and of everything under them, and how many it hid.
+            var picked = ctx.filter.active();
+            if (picked) {
+                var kept = [];
+                for (var fi = 0; fi < model.elements.length; fi++) {
+                    if (PVX.filter.matches(picked, model.elements[fi].path)) { kept.push(model.elements[fi]); }
+                }
+                var hid = model.elements.length - kept.length;
+                if (hid) { model.notes.unshift(hid + ' row' + (hid === 1 ? '' : 's') + ' hidden by the filter (' + picked.label + ')'); }
+                if (!kept.length && model.elements.length) {
+                    message = { title: 'No rows match the filter', text: 'None of these assets is ' + picked.label + ' or under it. Clear the filter from its badge.' };
+                }
+                model.elements = kept;
+            }
 
             if (message || !model.elements.length) {
                 renderMessage(host, message || {
@@ -709,13 +731,18 @@
             if (structure !== built) { buildTable(host, model, cfg, showStatus); built = structure; }
 
             var style = cfg.CellStyle || 'text';
-            var clickable = cfg.ClickAction === 'navigate';
+            var filtering = cfg.ClickAction === 'filter';
+            var clickable = cfg.ClickAction === 'navigate' || filtering;
+            var chan = PVX.filter.channel(cfg);
             for (i = 0; i < els.length; i++) {
                 var rr = rowRecs[i];
                 setText(rr.name, els[i].label, rr.last, 'name');
-                var tip = els[i].path + (clickable ? '\nClick to open with this asset' : '');
+                var isPicked = filtering && PVX.filter.isPicked(chan, els[i].path);
+                var tip = els[i].path + (clickable ? (filtering
+                    ? (isPicked ? '\nClick to clear the filter' : '\nClick to filter the symbols beside this to this asset')
+                    : '\nClick to open with this asset') : '');
                 if (rr.last.tip !== tip) { rr.last.tip = tip; rr.name.title = tip; }
-                var rowCls = 'pvx-atable-row' + (clickable ? ' pvx-atable-click' : '');
+                var rowCls = 'pvx-atable-row' + (clickable ? ' pvx-atable-click' : '') + (isPicked ? ' pvx-atable-picked' : '');
                 if (rr.last.cls !== rowCls) { rr.last.cls = rowCls; rr.tr.className = rowCls; }
                 if (clickable) { rr.tr.setAttribute('tabindex', '0'); } else { rr.tr.removeAttribute('tabindex'); }
                 if (showStatus) {
@@ -756,8 +783,13 @@
             var text = cellText(row, col, st, cfg, opts);
             setText(rec.text, text, rec.last, 'text');
             var color = st.color;
+            var canEdit = editable(col, cfg);
             var cls = 'pvx-atable-cell' + (row ? '' : ' pvx-atable-missing') + (st.bad ? ' pvx-atable-bad' : '') +
-                (row && row.value !== null ? ' pvx-num' : '');
+                (row && row.value !== null ? ' pvx-num' : '') + (canEdit ? ' pvx-atable-editable' : '');
+            if (rec.last.edit !== canEdit) {
+                rec.last.edit = canEdit;
+                if (canEdit) { rec.td.setAttribute('tabindex', '0'); } else { rec.td.removeAttribute('tabindex'); }
+            }
             if (rec.last.cls !== cls) { rec.last.cls = cls; rec.td.className = cls; }
             var bg = '', fg = '';
             if (color && style === 'fill') { bg = color; fg = PVX.color.readable(color); }
@@ -770,6 +802,7 @@
                 ? (row.path || '') + '\n' + text + (st.label && text.indexOf(st.label) === -1 ? '\n' + st.label : '') +
                   (row.time ? '\n' + PVX.fmt.time(row.time, 'datetime') : '') + (st.bad ? '\n' + st.label : '')
                 : el.name + ' has no ' + col.attr + (cfg.RowSource === 'search' ? ' attribute' : ' data source');
+            if (canEdit) { tip += '\nClick to write a new value'; }
             if (rec.last.tip !== tip) { rec.last.tip = tip; rec.td.title = tip; }
         }
 
@@ -825,6 +858,7 @@
                 var cells = [];
                 for (c = 0; c < model.cols.length; c++) {
                     var td = makeEl('td', 'pvx-atable-cell', tr);
+                    td.setAttribute('data-pvx-c', String(c));
                     var dot = makeEl('span', 'pvx-atable-dot', td);
                     var text = makeEl('span', 'pvx-atable-text', td);
                     cells.push({ td: td, dot: dot, text: text, last: {} });
@@ -906,15 +940,40 @@
             return false;
         }
 
+        /** The column index of an editable cell under a click, or -1. */
+        function editCellOf(target) {
+            if (!liveCfg.EditMode || !view) { return -1; }
+            var node = target;
+            for (var guard = 0; node && node !== boundHost && guard < 4; guard++) {
+                if (node.getAttribute && node.getAttribute('data-pvx-c') !== null) {
+                    var c = parseInt(node.getAttribute('data-pvx-c'), 10);
+                    return !isNaN(c) && view.cols[c] && editable(view.cols[c], liveCfg) ? c : -1;
+                }
+                node = node.parentNode;
+            }
+            return -1;
+        }
+
         function onClick(ev) {
-            if (liveCfg.ClickAction !== 'navigate' || isEditMode()) { return; }
+            if (isEditMode()) { return; }
+            // A cell that writes takes its own click; the rest of the row
+            // still does what On row click says.
+            var c = editCellOf(ev.target);
+            if (c >= 0) { openCell(rowIndexOf(ev.target), c); return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'filter') { return; }
             activate(rowIndexOf(ev.target));
         }
 
         function onKeyDown(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
             var k = ev.keyCode || ev.which;
             if (k !== 13 && k !== 32) { return; }
+            var c = editCellOf(ev.target);
+            if (c >= 0 && !isEditMode()) {
+                if (ev.preventDefault) { ev.preventDefault(); }
+                openCell(rowIndexOf(ev.target), c);
+                return;
+            }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'filter') { return; }
             var i = rowIndexOf(ev.target);
             if (i < 0) { return; }
             if (ev.preventDefault) { ev.preventDefault(); }
@@ -923,11 +982,110 @@
 
         function activate(index) {
             if (!view || index < 0 || index >= view.elements.length) { return; }
+            if (liveCfg.ClickAction === 'filter') {
+                var el = view.elements[index];
+                PVX.filter.toggle(PVX.filter.channel(liveCfg), el.path, el.label, liveCfg.Title || 'the Asset Table');
+                return;
+            }
             var target = trim(liveCfg.NavigateTarget);
             PVX.nav.go(PVX.nav.url({
                 display: target || undefined,
                 asset: view.elements[index].path
             }), false);
+        }
+
+        /* ================================================================ *
+         * edit mode — write one cell back (PVX.writer)
+         * ================================================================ *
+         * A table of current values is where an engineer notices a setpoint
+         * or a manual entry is wrong, so the fix is offered where it is
+         * seen. It is the Shift Log's rule in one cell: the value, the
+         * stream and the time are stated and confirmed, there is no undo,
+         * and PI Web API's own reason is shown when it refuses.
+         */
+        var writePanel = null;
+        var resolved = {};            // stream path (lower) -> WebId
+
+        function editable(col, cfg) {
+            if (!cfg.EditMode || !col) { return false; }
+            var list = trim(cfg.EditColumns);
+            if (!list) { return true; }
+            var parts = list.split(',');
+            for (var i = 0; i < parts.length; i++) {
+                var k = key(parts[i]);
+                if (k && (k === key(col.attr) || k === key(col.header))) { return true; }
+            }
+            return false;
+        }
+
+        function panel() {
+            // The surface is the template's own and outlives a rebuilt table,
+            // but not an ng-if swap of the whole symbol: find it each time.
+            if (writePanel && PVX.util.find(elem, '.pvx-writer') === writePanel.node) { return writePanel; }
+            var surface = PVX.util.find(elem, '.pvx-atable-surface');
+            if (!surface) { return null; }
+            if (writePanel) { writePanel.destroy(); }
+            writePanel = PVX.writer.panel(surface);
+            var foot = PVX.util.find(elem, '.pvx-atable-footer');
+            if (foot && foot.parentNode === surface) { surface.insertBefore(writePanel.node, foot); }
+            return writePanel;
+        }
+
+        /** 'af:\\srv\db\K-301|Speed?guid' -> '\\srv\db\K-301|Speed', as attributes?path= wants it. */
+        function streamPathOf(path) {
+            var s = String(path || '');
+            var q = s.lastIndexOf('?');
+            if (q > 0) { s = s.slice(0, q); }
+            return s.replace(/^[a-z]+:/i, '');
+        }
+
+        function webIdOf(el, col, streamPath) {
+            var known = liveCfg.RowSource === 'search' ? search.attrIds[attrKey(el.path, col.attr)] : resolved[key(streamPath)];
+            if (known) { return Promise.resolve(known); }
+            return PVX.api.attributeByPath(streamPath, { cache: false }).then(function (a) {
+                if (!a || !a.WebId) { throw new Error(streamPath + ' did not resolve to a stream. Check the attribute still exists in AF.'); }
+                resolved[key(streamPath)] = a.WebId;
+                return a.WebId;
+            });
+        }
+
+        function openCell(i, c) {
+            if (!view || i < 0 || i >= view.elements.length) { return; }
+            var p = panel();
+            if (!p) { return; }
+            var el = view.elements[i];
+            var col = view.cols[c];
+            var row = el.cells[c];
+            var streamPath = row ? streamPathOf(row.path) : el.path + '|' + col.attr;
+            var raw = row ? row.raw : null;
+            var asText = raw === null || raw === undefined ? '' : (typeof raw === 'object' ? (PVX.states.text(raw) || '') : String(raw));
+            // The value on screen says what the stream takes: a number, a
+            // True/False, or text (a digital state's name, a string attribute).
+            var kind = row && row.value !== null ? 'number'
+                : (typeof raw === 'boolean' || /^(true|false)$/i.test(asText) ? 'bool' : 'text');
+            if (kind === 'bool') { asText = /^true$/i.test(asText) ? 'True' : 'False'; }
+            var units = (row && row.units) || '';
+            p.open({
+                title: 'Write ' + el.label + ' \u00b7 ' + col.header,
+                fields: [{ key: 'v', label: 'New value', value: asText, units: units, kind: kind }],
+                action: 'Write',
+                confirm: function (v) {
+                    return 'Write ' + String(v.v) + (units ? ' ' + units : '') + ' to ' + streamPath +
+                        ' at the current time? The old value stays in PI\u2019s history; this cannot be undone from here.';
+                },
+                submit: function (v) {
+                    return PVX.api.ready().then(function (ok) {
+                        if (!ok) { throw new Error('PI Web API is not configured, so nothing was written. ' + PVX.api.unsetHint() + '.'); }
+                        return webIdOf(el, col, streamPath);
+                    }).then(function (id) {
+                        return PVX.api.writeValue(id, v.v, '*');
+                    }).then(function () {
+                        if (liveCfg.RowSource === 'search') { refreshSearch(true); }
+                        return { ok: true, text: 'Written: ' + String(v.v) + (units ? ' ' + units : ''),
+                            detail: liveCfg.RowSource === 'search' ? '' : 'The table shows it at PI Vision\u2019s next update.' };
+                    });
+                }
+            });
         }
 
         return ctx;

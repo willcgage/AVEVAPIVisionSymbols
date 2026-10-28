@@ -377,3 +377,84 @@
     overflow: hidden;
     word-break: break-word;
 }
+
+/* --- checks and what is written ------------------------------------------- */
+
+/* A value outside its usual range, in the confirmation: said, not hidden. */
+.pvx-etable .pvx-etable-confirm-item[data-warn="yes"] .pvx-etable-confirm-value { color: var(--pvx-warn); }
+
+/* A box filled in for the operator, until they change it. */
+.pvx-etable .pvx-etable-input.pvx-etable-prefilled { font-style: italic; }
+
+.pvx-etable .pvx-etable-q {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    margin-left: 4px;
+    font-size: 11px;
+    color: var(--pvx-muted);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pvx-etable .pvx-etable-q-box { margin: 0; }
+
+.pvx-etable .pvx-etable-import {
+    flex: 0 0 auto;
+    min-height: 27px;
+    margin-left: 6px;
+    border: 1px solid var(--pvx-border);
+    background: var(--pvx-surface-alt);
+    color: var(--pvx-text);
+}
+
+/* --- the time-slot grid --------------------------------------------------- */
+
+.pvx-etable .pvx-etable-slotwrap {
+    overflow: auto;
+    max-width: 100%;
+}
+
+.pvx-etable .pvx-etable-slots {
+    border-collapse: collapse;
+    font-size: 11.5px;
+}
+
+.pvx-etable .pvx-etable-slots th,
+.pvx-etable .pvx-etable-slots td {
+    padding: 2px 3px;
+    border-bottom: 1px solid var(--pvx-border);
+}
+
+.pvx-etable .pvx-etable-slot-name,
+.pvx-etable .pvx-etable-slot-label {
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: var(--pvx-surface);
+}
+
+.pvx-etable .pvx-etable-slot-time {
+    color: var(--pvx-muted);
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.pvx-etable .pvx-etable-slot-input {
+    width: 58px;
+    min-width: 0;
+    text-align: right;
+    box-sizing: border-box;
+}
+
+/* What PI already holds in a slot, faint behind the box. */
+.pvx-etable .pvx-etable-slot[data-archived="yes"] .pvx-etable-slot-input { background: var(--pvx-surface-alt); }
+.pvx-etable .pvx-etable-slot[data-status="saved"] .pvx-etable-slot-input { border-color: var(--pvx-ok); }
+.pvx-etable .pvx-etable-slot[data-status="failed"] .pvx-etable-slot-input,
+.pvx-etable .pvx-etable-slot[data-status="invalid"] .pvx-etable-slot-input { border-color: var(--pvx-alarm); }
+.pvx-etable .pvx-etable-slot[data-status="kept"] .pvx-etable-slot-input { border-color: var(--pvx-warn); }
+.pvx-etable .pvx-etable-slotrow[data-status="error"] .pvx-etable-slot-label { color: var(--pvx-muted); font-style: italic; }
+.pvx-etable .pvx-etable-row[data-status="kept"] .pvx-etable-c-status { color: var(--pvx-warn); font-weight: 600; }

@@ -19,6 +19,11 @@
  * Display Menu: nesting, drop-downs and where they open, the current display
  * marked, keys, collapsing, the side menu, a menu from an AF attribute of the
  * display's asset, and the kiosk and toolbar switches surviving navigation.
+ * And Event Analytics as an engine: an attribute summed, a second dimension
+ * stacked and pivoted, periods, drill-down, targets and cards.
+ *
+ * --rules runs the rules alone; --only analytics one page block. With
+ * PVX_SHOTS=<dir> the analytics block also saves a picture of each state.
  *
  *   rules    plain Node, against the BUILT core: element paths split the way
  *            PI Vision's asset= parameter wants them, the text scale clamps,
@@ -151,6 +156,7 @@ function rules() {
     lookupRules();
     displayMenuRules();
     geoRules();
+    analyticsRules();
 
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
@@ -194,6 +200,80 @@ function geoRules() {
         win.PVX.nav.assetOf);
     check('geo: matched by label, element name or element path; a PI point by its label only',
         m[0].lat === 1 && m[1].lat === 2 && m[2].lat === 3 && m[3] === null, m);
+}
+
+function analyticsRules() {
+    console.log('');
+    console.log(C.bold + 'Event Analytics rules' + C.reset);
+    const win = loadBuilt(['pvxEventAnalytics', 'pvxPareto', 'pvxTreemap', 'pvxRadar', 'pvxComboChart']);
+    const A = win.PVMock.get('pvxEventAnalytics').visObjectType;
+    const at = (y, mo, d, h, mi) => new Date(y, mo, d, h || 0, mi || 0).getTime();
+    const wed = at(2026, 9, 28, 15, 30);            // Wednesday 28 Oct 2026, local time
+    check('periods: a day starts at local midnight', A.periodStart(wed, 'day') === at(2026, 9, 28));
+    check('periods: a week starts on Monday, or Sunday when asked',
+        A.periodStart(wed, 'week', 'monday') === at(2026, 9, 26) && A.periodStart(wed, 'week', 'sunday') === at(2026, 9, 25));
+    check('periods: a month starts on the 1st, and December rolls into January',
+        A.periodStart(wed, 'month') === at(2026, 9, 1) && A.periodNext(at(2026, 11, 1), 'month') === at(2027, 0, 1));
+    check('periods: the day of the week is its own key', A.periodKey(wed, 'weekday') === '3' && A.periodLabel('3', 'weekday') === 'Wednesday');
+    check('periods: labels', A.periodLabel(String(at(2026, 9, 28)), 'day') === 'Wed 28 Oct' &&
+        A.periodLabel(String(at(2026, 9, 26)), 'week') === 'Week of 26 Oct' && A.periodLabel(String(at(2026, 9, 1)), 'month') === 'Oct 2026');
+    const night = A.sliceAt(at(2026, 9, 27, 22), at(2026, 9, 28, 3), ['day']);
+    check('periods: an outage over midnight is two hours one day and three the next',
+        night.length === 2 && night[0].to - night[0].from === 2 * 3600000 && night[1].to - night[1].from === 3 * 3600000, night);
+    const wm = A.sliceAt(at(2026, 9, 30), at(2026, 10, 3), ['week', 'month'], 'monday');
+    check('periods: weeks and months together cut at both (Sun 1 Nov, Mon 2 Nov)',
+        wm.length === 3 && wm[1].from === at(2026, 10, 1) && wm[2].from === at(2026, 10, 2), wm.map((x) => new Date(x.from).toString()));
+    const r = A.periodRange(at(2026, 9, 25, 12), at(2026, 9, 28, 9), 'day');
+    check('periods: every day in the window, the empty ones too', r.keys.length === 4 && !r.capped, r);
+    check('periods: all seven days of the week, Monday first', A.periodRange(0, 1, 'weekday', 'monday').keys.join('') === '1234560');
+    check('periods: a year of days in one chart is capped, and says so', A.periodRange(at(2025, 0, 1), at(2027, 0, 1), 'day').capped);
+    const st = A.summarize([4, 1, 3, 2]);
+    check('summary: sum, mean, median of an even count, sample std dev',
+        st.sum === 10 && st.mean === 2.5 && st.median === 2.5 && st.min === 1 && st.max === 4 && Math.abs(st.std - 1.2909944) < 1e-6, st);
+    check('summary: nothing to summarise is nulls, not zeros', A.summarize([]).mean === null && A.summarize([]).sum === 0);
+    const T = A.parseTargets('Mechanical | 4h\n* | 2h\n\nno bar here\nPump | 1 | 2 | 30m');
+    check('targets: one per line, * for the rest, the unreadable kept',
+        T.map.mechanical === '4h' && T.def === '2h' && T.bad.length === 1 && T.map['pump | 1 | 2'] === '30m', T);
+    check('targets: a duration with a unit, or bare in the chosen unit',
+        A.targetValue('4h', true, 60000) === 4 * 3600000 && A.targetValue('90m', true, 3600000) === 90 * 60000 &&
+        A.targetValue('2', true, 3600000) === 2 * 3600000 && A.targetValue('1.5 d', true, 1) === 1.5 * 86400000);
+    check('targets: a number is a number, and junk is null',
+        A.targetValue('12.5', false) === 12.5 && A.targetValue('-3', false) === -3 && A.targetValue('4h', false) === null &&
+        A.targetValue('soon', true, 1) === null);
+    const def = win.PVMock.get('pvxEventAnalytics').getDefaultConfig();
+    check('analytics: every new option is off by default',
+        def.SplitBy === 'none' && def.DrillBy === 'none' && def.Targets === '' && def.Metric === 'totalDuration' &&
+        def.Chart === 'pareto' && def.TableTotals === false && def.ClickAction === 'none', def);
+    const F = win.PVX.filter;
+    const fk = { assets: ['\\\\AF\\DB\\Area 1'] };
+    check('filter: an asset and everything under it pass, without case',
+        F.matches(fk, '\\\\AF\\DB\\Area 1') && F.matches(fk, '\\\\af\\db\\area 1\\Pump') && F.matches(fk, 'af:\\\\AF\\DB\\Area 1\\'));
+    check('filter: a sibling whose name starts the same does not', !F.matches(fk, '\\\\AF\\DB\\Area 10') && !F.matches(fk, ''));
+    check('filter: a plain name matches the asset\'s own name', F.matches({ assets: ['pump 2'] }, '\\\\AF\\DB\\X\\Pump 2') &&
+        !F.matches({ assets: ['Pump'] }, '\\\\AF\\DB\\X\\Pump 2'));
+    check('filter: no filter passes everything', F.matches(null, '') && F.matches({ assets: [] }, 'x'));
+    F.reset();
+    const seen = [];
+    const off = F.on('Line A', (x) => seen.push(x ? x.assets.join() : null));
+    F.toggle(' line a ', 'X\\P', '', 'test');
+    F.toggle('LINE A', 'x\\p', '', 'test');
+    F.set('main', ['Q'], '', '');
+    off();
+    F.set('line a', ['Z'], '', '');
+    check('filter: channels by name without case; a second toggle clears; unsubscribe stops it',
+        seen.join('|') === 'X\\P|' && F.get('main').assets.join() === 'Q', seen);
+    F.reset();
+    const searchers = ['pvxPareto', 'pvxTreemap', 'pvxRadar', 'pvxComboChart'];
+    check('filter: the Ranked Bar does not filter by default', win.PVMock.get('pvxPareto').getDefaultConfig().FilterObey === false &&
+        win.PVMock.get('pvxPareto').getDefaultConfig().ClickAction === 'none');
+    check('afsearch: the Ranked Bar, Treemap, Fingerprint and Combo Chart keep their data sources by default',
+        searchers.every((t) => win.PVMock.get(t).getDefaultConfig().SourceMode === 'sources'));
+    check('afsearch: attributes split on commas, semicolons and lines, once each',
+        win.PVX.afsource.attributes('Power, Flow; power\nStatus ').join('|') === 'Power|Flow|Status');
+    const sp = win.PVX.afsource.split([{ attribute: 'Flow', label: 'a' }, { attribute: 'power', label: 'b' }],
+        { SearchAttributes: 'Power, Flow, Speed' }, 1);
+    check('afsearch: rows split by attribute, without case, the rest named as unused',
+        sp.byAttr[0][0].label === 'b' && sp.byAttr[1][0].label === 'a' && sp.byAttr[2].length === 0 && sp.unused.join() === 'Flow,Speed', sp);
 }
 
 function displayMenuRules() {
@@ -357,13 +437,13 @@ const K303 = S2 + '\\K-303';
 const ELEMENTS = [
     [S1, 'Station', { 'Navigation Menu': ['Overview | 101\nDetails | 102', ''],
         'Display Menu': ['Station | 110\nCompressors\n    K-301 | 111\n    K-302 | 112', ''] }],
-    [K301, 'Compressor', { 'Discharge Pressure': [1081, 'psig'], 'Vibration': [3.9, 'mils'], 'Status': [{ Name: 'Running', Value: 1 }, ''],
+    [K301, 'Compressor', { 'Discharge Pressure': [1081, 'psig'], 'Vibration': [3.9, 'mils'], 'Speed': [9200, 'rpm'], 'Status': [{ Name: 'Running', Value: 1 }, ''],
         'Latitude': [51.5, ''], 'Longitude': [-0.12, ''] }],
-    [K302, 'Compressor', { 'Discharge Pressure': [1169, 'psig'], 'Vibration': [6.2, 'mils'], 'Status': [{ Name: 'Fault', Value: 3 }, ''],
+    [K302, 'Compressor', { 'Discharge Pressure': [1169, 'psig'], 'Vibration': [6.2, 'mils'], 'Speed': [8800, 'rpm'], 'Status': [{ Name: 'Fault', Value: 3 }, ''],
         'Latitude': ['51.52', ''], 'Longitude': ['-0.09', ''] }],
     [TANK, 'Tank', { 'Level': [62, '%'] }],
     [S2, 'Station', {}],
-    [K303, 'Compressor', { 'Discharge Pressure': [950, 'psig'], 'Status': [{ Name: 'Stopped', Value: 2 }, ''] }]
+    [K303, 'Compressor', { 'Discharge Pressure': [950, 'psig'], 'Speed': [0, 'rpm'], 'Status': [{ Name: 'Stopped', Value: 2 }, ''] }]
 ];
 
 const now = Date.now();
@@ -390,6 +470,15 @@ const EF_ATTRS = {
     ef3: { 'Reason Code': ['Mechanical', ''] },
     ef6: { 'Lost Production': [{ Name: 'Bad Input', Value: 307 }, ''] }
 };
+
+// Acknowledgement and comments per event frame, changed by the writes tests
+// and put back after them. ef1 can be acknowledged and is not yet; ef2 was,
+// by someone else; the rest cannot be.
+const ACKS0 = { ef1: { can: true, acked: false }, ef2: { can: true, acked: true, by: 'PLANT\\amy', at: iso(100) } };
+let ACKS = JSON.parse(JSON.stringify(ACKS0));
+let NOTES = { ef1: [{ Name: 'Comment', Value: 'Seal changed', Creator: 'PLANT\\amy', CreationDate: iso(250) }] };
+// Every write that reached the mock, as [stream, body, query].
+let WRITES = [];
 
 // The AF table the Lookup Table reads: grades per unit, with a date each took effect.
 const TABLE = {
@@ -429,13 +518,41 @@ let requests = [];
 let tileHits = [];
 
 /** One PI Web API request -> {status, body}. Shared by GET and batch. */
-function route(method, url, via) {
+function route(method, url, via, body) {
     const u = new URL(url, 'http://x');
     const q = u.searchParams;
     const rel = decodeURIComponent(u.pathname).replace(/^\/piwebapi\/?/, '');
     requests.push((via || '') + method + ' ' + rel + (q.toString() ? '?' + decodeURIComponent(q.toString().replace(/\+/g, ' ')) : ''));
     const max = parseInt(q.get('maxCount') || '1000', 10);
     const notFound = { status: 404, body: { Errors: ['Not found: ' + (q.get('path') || rel)] } };
+
+    // Writes: a stream value, an acknowledgement, a comment. K-303's Speed
+    // refuses, as a stream the user may not write does, with PI's own text.
+    let mw = /^streams\/([^/]+)\/value$/.exec(rel);
+    if (method === 'POST' && mw) {
+        if (mw[1] === wid('a', K303 + '|Speed')) { return { status: 403, body: { Errors: ['[-10401] No Write Access - Secure Object'] } }; }
+        WRITES.push([mw[1], body, q.toString()]);
+        const fe = /^Wf:(ef\d+)\|(.+)$/.exec(mw[1]);
+        if (fe) { (EF_ATTRS[fe[1]] = EF_ATTRS[fe[1]] || {})[fe[2]] = [body.Value, '']; }
+        const a = byWebId[mw[1]];
+        if (a && a.kind === 'attribute') { a.element.attrs[a.name] = [body.Value, a.element.attrs[a.name][1]]; }
+        return fe || a ? { status: 202, body: null } : notFound;
+    }
+    mw = /^eventframes\/(ef\d+)\/(acknowledge|annotations)$/.exec(rel);
+    if (mw && mw[2] === 'acknowledge' && method === 'POST') {
+        const s = ACKS[mw[1]];
+        if (!s || !s.can) { return { status: 400, body: { Errors: ['The event frame cannot be acknowledged.'] } }; }
+        Object.assign(s, { acked: true, by: 'PLANT\\jdoe', at: new Date().toISOString() });
+        return { status: 204, body: null };
+    }
+    if (mw && mw[2] === 'annotations') {
+        const list = NOTES[mw[1]] = NOTES[mw[1]] || [];
+        if (method === 'POST') {
+            list.push({ Name: body.Name, Value: body.Value, Creator: 'PLANT\\jdoe', CreationDate: new Date().toISOString() });
+            return { status: 201, body: null };
+        }
+        return { status: 200, body: { Items: list } };
+    }
 
     // The service root, which is what discovery asks for on the PI Vision origin.
     if (rel === '') { return { status: 200, body: { Links: { Self: '/piwebapi' } } }; }
@@ -529,10 +646,16 @@ function route(method, url, via) {
         const tpl = q.get('templateName');
         const frames = frames0.filter((f) => !tpl || (f.template || 'Downtime').toLowerCase() === tpl.toLowerCase());
         const wantPrimary = /PrimaryReferencedElement/.test(q.get('selectedFields') || '');
+        const wantAck = /IsAcknowledged/.test(q.get('selectedFields') || '');
         return { status: 200, body: { Items: frames.slice(0, max).map((f) => {
             const links = { Self: 'http://x/piwebapi/eventframes/' + f.self };
             if (wantPrimary) { links.PrimaryReferencedElement = 'http://x/piwebapi/elements/' + wid('e', PRIMARY[f.self]); }
-            return { Name: f.Name, StartTime: f.StartTime, EndTime: f.EndTime, TemplateName: f.template || 'Downtime', Links: links };
+            const out = { Name: f.Name, StartTime: f.StartTime, EndTime: f.EndTime, TemplateName: f.template || 'Downtime', Links: links };
+            if (wantAck) {
+                const s = ACKS[f.self] || {};
+                Object.assign(out, { CanBeAcknowledged: !!s.can, IsAcknowledged: !!s.acked, AcknowledgedBy: s.by || '', AcknowledgedDate: s.at || null });
+            }
+            return out;
         }) } };
     }
     m = /^elements\/([^/]+)$/.exec(rel);
@@ -548,17 +671,32 @@ function route(method, url, via) {
         return { status: 200, body: { Items: Object.keys(attrs).filter((a) => !want || a.toLowerCase() === want).map((a) => ({
             Name: a, Value: { Timestamp: iso(1), Value: attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: true } })) } };
     }
+    // The same stream set as a summary (the Average is 90% of the value, so
+    // a test can tell which was read) and as plot values (a ramp to it).
+    const ms = /^streamsets\/([^/]+)\/(summary|plot)$/.exec(rel);
+    if (ms && byWebId[ms[1]] && byWebId[ms[1]].kind === 'element') {
+        const attrs = byWebId[ms[1]].attrs;
+        const want = (q.get('nameFilter') || '').toLowerCase();
+        const names = Object.keys(attrs).filter((a) => !want || a.toLowerCase() === want);
+        if (ms[2] === 'summary') {
+            return { status: 200, body: { Items: names.map((a) => ({ Name: a, Items: [{ Type: q.get('summaryType'),
+                Value: { Timestamp: iso(1), Value: typeof attrs[a][0] === 'number' ? attrs[a][0] * 0.9 : attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: true } }] })) } };
+        }
+        return { status: 200, body: { Items: names.map((a) => ({ Name: a, UnitsAbbreviation: attrs[a][1],
+            Items: [0, 1, 2, 3, 4].map((k) => ({ Timestamp: iso(60 * (4 - k)), Value: typeof attrs[a][0] === 'number' ? attrs[a][0] * (0.6 + k * 0.1) : 0, Good: true })) })) } };
+    }
     if (m && /^ef\d+$/.test(m[1])) {
         const attrs = EF_ATTRS[m[1]] || {};
         const want = (q.get('nameFilter') || '').toLowerCase();
         return { status: 200, body: { Items: Object.keys(attrs).filter((a) => !want || a.toLowerCase() === want).map((a) => ({
-            Name: a, Value: { Timestamp: iso(1), Value: attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: typeof attrs[a][0] !== 'object' } })) } };
+            Name: a, WebId: 'Wf:' + m[1] + '|' + a,
+            Value: { Timestamp: iso(1), Value: attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: typeof attrs[a][0] !== 'object' } })) } };
     }
     return { status: 404, body: { Errors: ['No mock for ' + method + ' ' + rel] } };
 }
 
 function api(req, res) {
-    const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(body === null ? '' : JSON.stringify(body)); };
     if (req.method === 'POST' && /\/piwebapi\/batch/.test(req.url)) {
         let raw = '';
         req.on('data', (c) => { raw += c; });
@@ -567,10 +705,19 @@ function api(req, res) {
             const asks = JSON.parse(raw || '{}');
             const out = {};
             Object.keys(asks).forEach((id) => {
-                const r = route(asks[id].Method || 'GET', asks[id].Resource, 'batch: ');
+                const r = route(asks[id].Method || 'GET', asks[id].Resource, 'batch: ', asks[id].Content ? JSON.parse(asks[id].Content) : undefined);
                 out[id] = { Status: r.status, Headers: {}, Content: r.body };
             });
             send(207, out);
+        });
+        return;
+    }
+    if (req.method === 'POST') {
+        let raw = '';
+        req.on('data', (c) => { raw += c; });
+        req.on('end', () => {
+            const r = route(req.method, req.url, '', raw ? JSON.parse(raw) : undefined);
+            send(r.status, r.body);
         });
         return;
     }
@@ -665,6 +812,142 @@ async function mount(a) {
 }
 
 /** The Event List against the mock AF database. */
+/* Event Analytics as an analytics engine: an attribute summed, a second
+ * dimension (stacked bars and a pivot), periods, drill-down, targets and
+ * cards, all on the six mock frames:
+ *   ef1 K-301 trip      20 min  K-301    Trip        12.5 t
+ *   ef2 Seal leak       50 min  K-301    Mechanical  4 t
+ *   ef3 K-302 vibration 30 min  K-302    Mechanical  -
+ *   ef4 Station 1 test  10 min  Station 1 (Test)     -
+ *   ef5 K-303 start     15 min  K-303    -           -
+ *   ef6 K-303 surge     open    K-303    -           Bad Input           */
+async function eventAnalytics(open, texts, settle) {
+    const pg = eventList.pg;
+    // SVG text, without the <title> tooltip each label carries inside it.
+    texts = (sel) => pg.$$eval(sel, (ns) => ns.map((n) => {
+        const c = n.cloneNode(true);
+        Array.prototype.forEach.call(c.querySelectorAll('title'), (t) => t.parentNode.removeChild(t));
+        return c.textContent.trim();
+    }));
+    // PVX_SHOTS=<dir>: a picture of each state, to look at rather than assert.
+    const shot = async (name) => {
+        if (process.env.PVX_SHOTS) { await pg.locator('#box').screenshot({ path: path.join(process.env.PVX_SHOTS, 'ea-' + name + '.png') }); }
+    };
+    const EA = { DatabasePath: DB, StartTime: '*-1d', Width: 640, Height: 240 };
+    const svgText = async () => (await texts('#box svg text')).join(' | ');
+    const foot = async () => ((await texts('#box .pvx-ea-footer'))[0] || '').replace(/\s+/g, ' ');
+
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, {
+        GroupBy: 'attribute', GroupAttribute: 'Reason Code', Metric: 'attrSum', MetricAttribute: 'Lost Production', Chart: 'table' }) });
+    let names = await texts('#box .pvx-ea-row .pvx-ea-td:first-of-type');
+    check('analytics: a sum of an event attribute, ranked, nothing to sum last',
+        JSON.stringify(names) === JSON.stringify(['Trip', 'Mechanical', '(unassigned)']), names);
+    await shot('attr-table');
+    let cells = await texts('#box .pvx-ea-col-metric');
+    check('analytics: ...in the attribute\'s own units, a dash where no event has a number',
+        JSON.stringify(cells) === JSON.stringify(['12.5 t', '4.00 t', '\u2014']), cells);
+    let f = await foot();
+    check('analytics: the events with no number are counted, not taken as zero',
+        f.indexOf('4/6 events have no number for Lost Production') !== -1 && f.indexOf('Sum of Lost Production 16.5 t') !== -1, f);
+    check('analytics: each attribute asked for once per event, in one batch',
+        requests.filter((r) => r === 'POST batch').length === 1 &&
+        requests.filter((r) => /^batch: GET streamsets\/ef\d\/value\?nameFilter=Reason Code/.test(r)).length === 6 &&
+        requests.filter((r) => /^batch: GET streamsets\/ef\d\/value\?nameFilter=Lost Production/.test(r)).length === 6, requests);
+
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, {
+        Metric: 'attrSum', MetricAttribute: '' }) });
+    check('analytics: an attribute metric with no attribute says what to fill in', /No attribute to summarise/.test(await svgText()));
+
+    // A second dimension: stacked bars, then the same as a pivot.
+    const SPLIT = Object.assign({}, EA, { GroupBy: 'element', SplitBy: 'attribute', SplitAttribute: 'Reason Code', Metric: 'count', Chart: 'bars' });
+    await open('pvxEventAnalytics', { asset: '', config: SPLIT });
+    await shot('stacked');
+    const legend = await texts('#box .pvx-ea-legend-label');
+    check('analytics: split series ranked by the same metric, in a legend',
+        JSON.stringify(legend) === JSON.stringify(['(unassigned)', 'Mechanical', 'Trip']), legend);
+    check('analytics: one segment per group and value that has events', (await pg.$$('#box .pvx-ea-seg')).length === 5);
+    check('analytics: the subtitle names both dimensions', /Event count by asset and Reason Code/.test(await texts('#box .pvx-subtitle')));
+
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, SPLIT, { SplitMode: 'percent' }) });
+    const widths = await pg.$$eval('#box .pvx-ea-bar', (gs) => gs.map((g) => Array.prototype.reduce.call(
+        g.querySelectorAll('.pvx-ea-seg'), (a, r) => a + parseFloat(r.getAttribute('width')), 0)));
+    check('analytics: 100% mode draws every bar the same length',
+        widths.length === 4 && widths.every((w) => Math.abs(w - widths[0]) < 1.5), widths);
+
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, SPLIT, { Chart: 'pivot', Metric: 'totalDuration', DurationUnit: 'minutes' }) });
+    await shot('pivot');
+    const heads = await texts('#box .pvx-ea-pivot-col');
+    check('analytics: pivot columns are the split values, then a total',
+        JSON.stringify(heads) === JSON.stringify(['Mechanical', '(unassigned)', 'Trip', 'Total']), heads);
+    const k301 = await pg.$$eval('#box .pvx-ea-pivot .pvx-ea-row', (rs) => {
+        const r = rs.find((x) => /K-301/.test(x.textContent));
+        return r ? Array.prototype.map.call(r.querySelectorAll('.pvx-ea-pivot-cell'), (t) => t.firstChild.textContent) : null;
+    });
+    check('analytics: a pivot row: the parts, a dash where there are no events, the row total',
+        JSON.stringify(k301) === JSON.stringify(['50.0 min', '\u2014', '20.0 min', '70.0 min']), k301);
+    const totRow = await texts('#box .pvx-ea-pivot .pvx-ea-total .pvx-ea-pivot-cell');
+    check('analytics: column totals and a grand total under the rows', totRow.length === 4 && totRow[0] === '80.0 min', totRow);
+    check('analytics: shaded by size', (await pg.$$('#box .pvx-ea-pivot-shade')).length >= 4);
+
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, { Chart: 'pivot' }) });
+    check('analytics: a pivot with nothing to split is the table, and says so',
+        (await pg.$$('#box .pvx-ea-table')).length === 1 && /a pivot needs a Split by/.test(await foot()));
+
+    // Periods: every day in the window, in time order, empty days drawn.
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, { StartTime: '*-3d', GroupBy: 'day', DurationUnit: 'minutes' }) });
+    await shot('days');
+    names = await texts('#box .pvx-ea-name');
+    const expectDays = new Date().getHours() === 0 && new Date().getMinutes() < 2 ? null : 4;
+    check('analytics: one bar per day of the window, empty days included',
+        (expectDays === null || names.length === expectDays) && /^\w{3} \d+ \w{3}$/.test(names[0]), names);
+    check('analytics: no cumulative line over time', (await pg.$$('#box .pvx-ea-cum')).length === 0 && /no cumulative %: periods/.test(await foot()));
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, { GroupBy: 'weekday' }) });
+    names = await texts('#box .pvx-ea-name');
+    check('analytics: days of the week, all seven, Monday first', names.length === 7 && names[0] === 'Monday', names);
+
+    // Drill-down: templates, then the assets under the one clicked.
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, EA, { GroupBy: 'template', DrillBy: 'element', ClickAction: 'drill', Chart: 'bars' }) });
+    names = await texts('#box .pvx-ea-name');
+    check('drill: the first level', JSON.stringify(names) === JSON.stringify(['Downtime', 'Test']), names);
+    await pg.click('#box .pvx-ea-bar >> nth=0');
+    await settle();
+    names = await texts('#box .pvx-ea-name');
+    check('drill: a click opens the assets under that template', JSON.stringify(names) === JSON.stringify(['K-301', 'K-303', 'K-302']), names);
+    await shot('drilled');
+    let crumbs = await texts('#box .pvx-ea-crumb');
+    check('drill: a trail back up', JSON.stringify(crumbs) === JSON.stringify(['All', 'Downtime']), crumbs);
+    check('drill: the subtitle follows the level', /by asset/.test(await texts('#box .pvx-subtitle')));
+    check('drill: no second query for a level', requests.filter((r) => /eventframes/.test(r)).length === 1, requests);
+    await pg.click('#box .pvx-ea-crumb >> nth=0');
+    await settle();
+    names = await texts('#box .pvx-ea-name');
+    check('drill: the trail goes back', JSON.stringify(names) === JSON.stringify(['Downtime', 'Test']) &&
+        (await pg.$$('#box .pvx-ea-crumb')).length === 0, names);
+
+    // Targets, on cards and in the table.
+    const TGT = Object.assign({}, EA, { GroupBy: 'element', DurationUnit: 'minutes', Targets: 'K-301 | 60m\n* | 30\nnonsense', ColorMode: 'target' });
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, TGT, { Chart: 'cards' }) });
+    await shot('cards');
+    const cardLabels = await texts('#box .pvx-ea-card-label');
+    check('cards: a total first, then one per group', cardLabels[0] === 'Total' && cardLabels.length === 5, cardLabels);
+    const subs = await texts('#box .pvx-ea-card-sub');
+    check('cards: each judged against its own target, or the * one',
+        subs.indexOf('+10.0 min vs 60.0 min') !== -1 && subs.indexOf('on target 30.0 min') !== -1 &&
+        subs.indexOf('\u221220.0 min vs 30.0 min') !== -1, subs);
+    check('cards: a line that is not a target is reported', /1 target line not understood/.test(await foot()));
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, TGT, { Chart: 'table', TableTotals: true }) });
+    await shot('targets-table');
+    cells = await texts('#box .pvx-ea-col-delta');
+    check('table: a delta column, signed', cells.indexOf('+10.0 min') !== -1 && cells.indexOf('\u221220.0 min') !== -1, cells);
+    const tot = await texts('#box .pvx-ea-total .pvx-ea-td');
+    check('table: a totals row from all the events', tot[0] === 'Total' && tot.indexOf('6') !== -1, tot);
+    await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, TGT, { Chart: 'bars' }) });
+    await shot('target-bars');
+    const fills = await pg.$$eval('#box .pvx-ea-bar path.pvx-ea-shape', (ps) => ps.map((p) => p.getAttribute('fill')));
+    check('bars: coloured by target, with the target marked', fills.indexOf('#2f9e5f') !== -1 && fills.indexOf('#c8452f') !== -1 &&
+        (await pg.$$('#box .pvx-ea-target')).length === 4, fills);
+}
+
 async function eventList(open, texts, hash, settle) {
     const pg = eventList.pg;
     const EL = { DatabasePath: DB, StartTime: '*-1d',
@@ -878,6 +1161,297 @@ async function eventRuns(open, settle) {
 
     await open('pvxPeriodOverlay', { asset: '', config: { PeriodMode: 'day' }, payload: runPayload() });
     check('runs: the clock periods ask PI Web API nothing', !requests.some((r) => /piwebapi|eventframes|assetdatabases/.test(r)), requests);
+}
+
+/* An AF search as the rows of the Ranked Bar, Treemap, Fingerprint and
+ * Combo Chart: the compressors under the database, found by template.
+ *   K-301 (Station 1)  1081 psig  3.9 mils  9200 rpm
+ *   K-302 (Station 1)  1169 psig  6.2 mils  8800 rpm
+ *   K-303 (Station 2)   950 psig  -         0 rpm                       */
+async function afSearch(open, settle, hash) {
+    const pg = eventList.pg;
+    const SRCH = { SourceMode: 'search', SearchRoot: DB, SearchTemplate: 'Compressor' };
+    const go = async (typeName, cfg, extra) => {
+        await open(typeName, Object.assign({ asset: '', config: Object.assign({}, SRCH, cfg) }, extra || {}));
+        await settle();
+    };
+    const body = () => pg.$eval('#box', (n) => n.textContent);
+    const titles = (sel) => pg.$$eval(sel, (ns) => ns.map((n) => { const t = n.querySelector('title'); return t ? t.textContent : ''; }));
+    const badge = () => pg.$eval('#box', (n) => { const b = document.querySelector('.pvx-overlay-range'); return b && b.style.display !== 'none' ? b.textContent + ' | ' + b.title : ''; });
+
+    await go('pvxPareto', { SearchAttributes: 'Discharge Pressure, Vibration' });
+    let b = await body();
+    let bars = await titles('#box .pvx-pareto-bar');
+    check('afsearch: the Ranked Bar ranks every compressor found, largest first',
+        bars.length === 3 && /^K-302/.test(bars[0]) && /^K-301/.test(bars[1]) && /^K-303/.test(bars[2]), bars);
+    check('afsearch: one search by template under the root, one batch of value reads',
+        requests.some((r) => /^GET assetdatabases\/Wd:[^/]*\/elements\?.*searchFullHierarchy=true.*templateName=Compressor/.test(r)) &&
+        requests.filter((r) => r === 'POST batch').length === 1 &&
+        requests.filter((r) => /^batch: GET streamsets\/We:.*\/value\?nameFilter=Discharge Pressure/.test(r)).length === 3, requests);
+    check('afsearch: the second attribute is named as not used', /ranks Discharge Pressure; not used: Vibration/.test(b), b.slice(-200));
+    check('afsearch: a badge says the rows came from an AF search', /AF search/.test(await badge()) && /3/.test(await badge()), await badge());
+
+    await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', Statistic: 'Average' });
+    bars = await titles('#box .pvx-pareto-bar');
+    check('afsearch: a statistic is a summary over the range, read from PI Web API',
+        requests.some((r) => /^batch: GET streamsets\/We:.*\/summary\?nameFilter=Discharge Pressure.*summaryType=Average/.test(r)) &&
+        bars.some((t) => /1,?052/.test(t)), [bars, requests.slice(0, 6)]);
+
+    await go('pvxPareto', { SearchAttributes: 'Vibration' });
+    b = await body();
+    check('afsearch: an asset without the attribute is counted on the badge',
+        (await titles('#box .pvx-pareto-bar')).length === 2 && /1 asset has no Vibration: K-303/.test(await badge()), [await badge(), b.slice(-200)]);
+
+    await go('pvxTreemap', { SearchAttributes: 'Discharge Pressure, Vibration', ColorMode: 'value', GroupBy: 'parent' });
+    b = await body();
+    const heads = await pg.$$eval('#box .pvx-tm-grouphead', (ns) => ns.map((n) => n.textContent));
+    check('afsearch: Treemap tiles grouped by the parent asset in AF',
+        heads.some((h) => /Station 1/.test(h)) && heads.some((h) => /Station 2/.test(h)), heads);
+    check('afsearch: the second attribute colours the tiles, and a tile without it is said',
+        /colour: Vibration/.test(b) && /Vibration/.test(b.slice(-200)), b.slice(-260));
+
+    await go('pvxTreemap', { SearchAttributes: 'Discharge Pressure', GroupBy: 'parent', ClickAction: 'drill' });
+    await pg.click('#box .pvx-tm-tile:has(title:text-matches("K-301"))');
+    await settle();
+    let tiles = await titles('#box .pvx-tm-tile');
+    check('afsearch: a click drills into the group, with a trail back',
+        tiles.length === 2 && tiles.every((t) => !/K-303/.test(t)) &&
+        (await pg.$$eval('#box .pvx-tm-crumb', (ns) => ns.map((n) => n.textContent))).join('>') === 'All>Station 1', tiles);
+    await pg.click('#box .pvx-tm-crumb:has-text("All")');
+    await settle();
+    check('afsearch: ... and the trail climbs back out', (await titles('#box .pvx-tm-tile')).length === 3);
+
+    await go('pvxRadar', { SearchAttributes: 'Discharge Pressure, Vibration, Speed', ScaleMode: 'perAxisData' });
+    b = await body();
+    const shapes = await pg.$$eval('#box .pvx-radar-poly', (ns) => ns.length);
+    const axes = await pg.$$eval('#box .pvx-radar-axis-label', (ns) => ns.map((n) => n.firstChild.textContent));
+    check('afsearch: three attributes are the Fingerprint\'s axes, one shape per compressor',
+        shapes === 3 && axes.join() === 'Discharge Pressure,Vibration,Speed' && /3 axes × 3 shapes/.test(b), [shapes, axes, b.slice(-200)]);
+    check('afsearch: K-303\'s missing Vibration is a dent, said in the footer', /1 point has no attribute in AF/.test(b), b.slice(-200));
+    const tips = await titles('#box .pvx-radar-point');
+    check('afsearch: each point names its asset and attribute', tips.some((t) => /^Vibration · K-302\n6\.2/.test(t)), tips);
+
+    await go('pvxRadar', { SearchAttributes: 'Discharge Pressure' });
+    b = await body();
+    check('afsearch: one attribute: the compressors are the axes, one shape',
+        (await pg.$$eval('#box .pvx-radar-poly', (ns) => ns.length)) === 1 && /3 axes × 1 shape/.test(b), b.slice(-200));
+
+    await go('pvxRadar', { SearchAttributes: 'Discharge Pressure, Vibration, Speed', MaxShapes: 2 });
+    check('afsearch: shapes past the limit are counted', /\+1 shape beyond the 2-shape limit/.test(await body()), (await body()).slice(-200));
+
+    await go('pvxComboChart', { SearchAttributes: 'Discharge Pressure', StartTime: '*-4h' });
+    b = await body();
+    const traces = await pg.$$eval('#box .pvx-combo-trace', (ns) => ns.length);
+    check('afsearch: the Combo Chart draws one trace per compressor from plot values',
+        traces === 3 && requests.filter((r) => /^batch: GET streamsets\/We:.*\/plot\?nameFilter=Discharge Pressure.*intervals=300/.test(r)).length === 3 &&
+        /K-301/.test(b) && /K-303/.test(b), [traces, requests.slice(0, 6), b.slice(0, 200)]);
+
+    await go('pvxPareto', { SearchAttributes: 'Discharge Pressure' }, { configured: false });
+    check('afsearch: no PI Web API says so', /not in force/.test(await badge()) && /PI Web API/.test(await badge()), await badge());
+    await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', SearchRoot: '' }, { source: 'pi:\\\\PISRV01\\SINUSOID?x' });
+    check('afsearch: no root anywhere is said', /no root/.test(await badge()), await badge());
+    await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', SearchMax: 2 });
+    check('afsearch: a search cut short is said', (await titles('#box .pvx-pareto-bar')).length === 2 && /Only the first 2 assets/.test(await badge()), await badge());
+}
+
+/* Shared filters: one symbol publishes an asset, the others obey. Each
+ * page holds one symbol, so the other side is PVX.filter called directly. */
+async function filters(open, settle) {
+    const pg = eventList.pg;
+    const text = (sel) => pg.$$eval(sel, (ns) => ns.map((n) => n.textContent.trim()));
+    const chip = () => pg.$eval('body', () => { const b = document.querySelector('.pvx-overlay-filter');
+        return b && b.style.display !== 'none' ? b.textContent + ' | ' + b.title : ''; });
+    const setF = (path, ch) => pg.evaluate((a) => { window.PVX.filter.set(a.ch || '', a.path ? [a.path] : [], '', 'a test'); }, { path, ch });
+    const getF = (ch) => pg.evaluate((c) => window.PVX.filter.get(c || ''));
+    const foot = () => pg.$eval('#box', (n) => n.textContent.replace(/\s+/g, ' '));
+
+    const AT = { RowSource: 'search', ColumnSpec: 'Discharge Pressure | Disch', SearchTemplate: 'Compressor' };
+    await open('pvxAssetTable', { asset: S1, config: Object.assign({}, AT, { FilterObey: true }) });
+    await setF(K301);
+    await settle();
+    check('filter: the Asset Table shows only the asset picked elsewhere', (await text('.pvx-atable-name')).join() === 'K-301', await text('.pvx-atable-name'));
+    check('filter: ... says how many rows it hid', /1 row hidden by the filter \(K-301\)/.test(await foot()), await foot());
+    check('filter: ... and wears a badge naming it', /^Filter: K-301 ✕ \| Showing only .*K-301 and what is under it, picked on a test/.test(await chip()), await chip());
+    await pg.click('.pvx-overlay-filter');
+    await settle();
+    check('filter: the badge clears it', (await text('.pvx-atable-name')).join() === 'K-301,K-302' && (await getF()) === null && (await chip()) === '');
+    await setF(S1, 'other');
+    await settle();
+    check('filter: another channel is not this one', (await text('.pvx-atable-name')).length === 2 && (await chip()) === '');
+    await setF(DB + '\\Station 2');
+    await settle();
+    check('filter: no row matching says so', /No rows match the filter/.test(await foot()), await foot());
+
+    await open('pvxAssetTable', { asset: S1, config: Object.assign({}, AT, { ClickAction: 'filter' }) });
+    await pg.click('.pvx-atable-row:has-text("K-302")');
+    await settle();
+    let f = await getF();
+    check('filter: a row click publishes its asset', f && f.assets.join() === K302 && f.label === 'K-302', f);
+    check('filter: ... marks the row and shows the badge on the publisher',
+        (await text('.pvx-atable-picked .pvx-atable-name')).join() === 'K-302' && /Filtering other symbols to/.test(await chip()), await chip());
+    check('filter: ... and the publisher still shows every row', (await text('.pvx-atable-name')).length === 2);
+    await pg.click('.pvx-atable-row:has-text("K-302")');
+    await settle();
+    check('filter: a second click on the picked row clears it', (await getF()) === null && !(await pg.$('.pvx-atable-picked')));
+
+    const SRCH = { SourceMode: 'search', SearchRoot: DB, SearchTemplate: 'Compressor', SearchAttributes: 'Discharge Pressure' };
+    const bars = () => pg.$$eval('#box .pvx-pareto-bar title', (ns) => ns.map((n) => n.textContent.split(' — ')[0]));
+    await open('pvxPareto', { asset: '', config: Object.assign({}, SRCH, { FilterObey: true }) });
+    await settle();
+    await setF(S1);
+    await settle();
+    check('filter: a station keeps the bars of the assets under it', (await bars()).join() === 'K-302,K-301' &&
+        /1 bar hidden by the filter \(Station 1\)/.test(await foot()), [await bars(), await foot()]);
+    await open('pvxPareto', { asset: '', config: Object.assign({}, SRCH, { ClickAction: 'filter' }) });
+    await settle();
+    await pg.click('#box .pvx-pareto-bar:has(title:text-matches("^K-303"))');
+    await settle();
+    f = await getF();
+    check('filter: a bar click publishes its asset', f && f.assets.join() === K303 && f.label === 'K-303' &&
+        (await pg.$$('#box .pvx-pareto-picked')).length === 1, f);
+
+    const EL = { DatabasePath: DB, StartTime: '*-1d', Columns: 'name, element', FilterObey: true };
+    const names = () => text('#box tbody tr[data-pvx-i] td:first-child');
+    await open('pvxEventList', { asset: '', config: EL });
+    await setF(K301);
+    await settle();
+    check('filter: the Event List keeps the events of the asset picked', (await names()).join() === 'Seal leak,K-301 trip' &&
+        /4 events hidden by the filter \(K-301\)/.test(await foot()), [await names(), await foot()]);
+    await setF(S1);
+    await settle();
+    check('filter: ... and of everything under a station', (await names()).join() === 'K-302 high vibration,Seal leak,K-301 trip,Station 1 ESD test', await names());
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { FilterObey: false, ClickAction: 'filter' }) });
+    await pg.click('#box tbody tr[data-pvx-i]:has-text("K-302 high vibration")');
+    await settle();
+    f = await getF();
+    check('filter: an event click publishes its asset', f && f.assets.join() === K302 && (await pg.$$('#box tr.pvx-evl-picked')).length === 1, f);
+
+    // A link can preselect one: filter= in the display's address.
+    await open('pvxAssetTable', { asset: S1, config: Object.assign({}, AT, { FilterObey: true }) });
+    await pg.evaluate((p) => { location.hash = '#/Displays/101/Overview?asset=' + encodeURIComponent(p.s1) + '&filter=' + encodeURIComponent(p.k);
+        window.PVX.filter.reset(); window.__vis.onResize(640, 240); }, { s1: S1, k: K302 });
+    await settle();
+    check('filter: a link preselects one', (await text('.pvx-atable-name')).join() === 'K-302' && /picked on the link/.test(await chip()), await chip());
+}
+
+/**
+ * Writes from symbols whose job is reading: an Asset Table cell, and an
+ * Event List row's acknowledge, comment and attribute edit, all through
+ * PVX.writer. Puts the mock's AF back as it found it.
+ */
+async function writes(open, settle) {
+    const pg = eventList.pg;
+    const text = (sel) => pg.$$eval(sel, (ns) => ns.map((n) => n.textContent.trim()));
+    const panel = () => pg.$eval('#box', (n) => { const w = n.querySelector('.pvx-writer');
+        return w && w.style.display !== 'none' ? w.textContent.replace(/\s+/g, ' ') : ''; });
+    const posts = () => requests.filter((r) => /^POST (?!batch)/.test(r));
+    const saved = { attrs: JSON.parse(JSON.stringify(ELEMENTS.map((e) => e[2]))), ef: JSON.parse(JSON.stringify(EF_ATTRS)) };
+    WRITES = [];
+    try {
+        const AT = { RowSource: 'search', ColumnSpec: 'Discharge Pressure | Disch\nSpeed | Speed', SearchTemplate: 'Compressor' };
+        await open('pvxAssetTable', { asset: S1, config: AT });
+        check('writes: the Asset Table writes nothing by default', !(await pg.$('.pvx-atable-editable')) && !(await pg.$('.pvx-writer')));
+        await open('pvxAssetTable', { asset: S1, config: Object.assign({}, AT, { EditMode: true, EditColumns: 'speed' }) });
+        const ed = await pg.$$eval('.pvx-atable-editable', (ns) => ns.map((n) => n.getAttribute('data-pvx-c') + ':' + n.getAttribute('tabindex')));
+        check('writes: edit mode marks only the columns named, by header or attribute', ed.join() === '1:0,1:0', ed);
+        await pg.click('.pvx-atable-row:has-text("K-301") .pvx-atable-editable');
+        await settle();
+        const val = await pg.$eval('.pvx-writer-input', (n) => n.value);
+        check('writes: a cell click opens the box on its value', val === '9200' && /K-301 · Speed/.test(await panel()) && /New value \(rpm\)/.test(await panel()), [val, await panel()]);
+        await pg.fill('.pvx-writer-input', '92oo');
+        await pg.click('.pvx-writer-go');
+        check('writes: a typo is not a number, and nothing is sent', /"92oo" is not a number/.test(await panel()) && !WRITES.length, await panel());
+        await pg.fill('.pvx-writer-input', '9300');
+        await pg.click('.pvx-writer-go');
+        check('writes: the confirmation states the value, the stream and the time',
+            /Write 9300 rpm to .*K-301\|Speed at the current time\?/.test(await panel()) && !WRITES.length, await panel());
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        check('writes: confirmed, it is written as a number at *',
+            WRITES.length === 1 && WRITES[0][0] === wid('a', K301 + '|Speed') && WRITES[0][1].Value === 9300 && WRITES[0][1].Timestamp === '*' &&
+            /Written: 9300 rpm/.test(await panel()), [WRITES, await panel()]);
+        await settle();
+        check('writes: ...and the table reads it back', (await text('.pvx-atable-row:has-text("K-301") .pvx-atable-cell')).join() === '1,081 psig,9,300 rpm',
+            await text('.pvx-atable-row:has-text("K-301") .pvx-atable-cell'));
+        await pg.click('.pvx-writer-cancel');
+        check('writes: Close puts the box away', (await panel()) === '');
+
+        await open('pvxAssetTable', { asset: S2, config: Object.assign({}, AT, { EditMode: true }) });
+        await pg.click('.pvx-atable-row:has-text("K-303") .pvx-atable-cell[data-pvx-c="1"]');
+        await pg.fill('.pvx-writer-input', '10');
+        await pg.click('.pvx-writer-go');
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        check('writes: a refusal is shown in PI Web API\'s own words', /Not written.*No Write Access/.test(await panel()) && WRITES.length === 1, await panel());
+
+        // From data sources: the stream is found by its path, once.
+        const payload = { Rows: [{ Label: 'K-302|Speed', Path: 'af:' + K302 + '|Speed?g', Value: 8800, Units: 'rpm', Time: iso(1), IsGood: true }] };
+        await open('pvxAssetTable', { asset: S1, config: { EditMode: true }, payload });
+        await pg.click('.pvx-atable-editable');
+        await pg.fill('.pvx-writer-input', '8700');
+        await pg.click('.pvx-writer-go');
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        check('writes: a data source cell is resolved by its path, then written',
+            requests.some((r) => r === 'GET attributes?path=' + K302 + '|Speed') && WRITES.length === 2 && WRITES[1][0] === wid('a', K302 + '|Speed') &&
+            /PI Vision’s next update/.test(await panel()), [requests, await panel()]);
+
+        const EL = { DatabasePath: DB, StartTime: '*-1d', Columns: 'name, ack, Reason Code' };
+        const row = (name) => '#box tbody tr[data-pvx-i]:has-text("' + name + '")';
+        await open('pvxEventList', { asset: '', config: { DatabasePath: DB, StartTime: '*-1d' } });
+        check('writes: the Event List is read only by default', !(await pg.$('.pvx-evl-act')) &&
+            !requests.some((r) => /IsAcknowledged/.test(r)), requests);
+        await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { EventActions: true, EditAttributes: 'Reason Code' }) });
+        check('writes: actions ask PI for each event\'s acknowledgement', requests.some((r) => /eventframes\?.*Items.CanBeAcknowledged;Items.IsAcknowledged/.test(r)), requests);
+        const acts = async (n) => pg.$$eval(row(n) + ' .pvx-evl-act', (ns) => ns.map((x) => x.textContent));
+        check('writes: Ack only where PI says it can be and is not yet', (await acts('K-301 trip')).join() === 'Ack,Note,Edit' &&
+            (await acts('K-302 high vibration')).join() === 'Note,Edit', [await acts('K-301 trip'), await acts('K-302 high vibration')]);
+        check('writes: an acknowledged event says by whom', /^PLANT\\amy · /.test((await text(row('Seal leak') + ' td'))[1]) &&
+            !!(await pg.$(row('Seal leak') + ' .pvx-evl-acked')) && (await text(row('K-301 trip') + ' td'))[1] === 'not yet', await text(row('Seal leak') + ' td'));
+
+        await pg.click(row('K-301 trip') + ' [data-pvx-act="ack"]');
+        check('writes: Ack asks first, naming the event', /Acknowledge "K-301 trip" on K-301, .*cannot be taken back/.test(await panel()) && !posts().length, await panel());
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        check('writes: confirmed, the event is acknowledged and the list reads it again',
+            posts().join() === 'POST eventframes/ef1/acknowledge' && /Acknowledged\./.test(await panel()) &&
+            /^PLANT\\jdoe · /.test((await text(row('K-301 trip') + ' td'))[1]) && (await acts('K-301 trip')).join() === 'Note,Edit',
+            [posts(), await panel(), await text(row('K-301 trip') + ' td')]);
+
+        await pg.click(row('K-301 trip') + ' [data-pvx-act="comment"]');
+        await settle();
+        check('writes: Note shows the comments already there', /PLANT\\amy: Seal changed/.test(await panel()), await panel());
+        await pg.fill('.pvx-writer-input', 'Trip reset by J. Doe');
+        await pg.click('.pvx-writer-go');
+        check('writes: a comment is confirmed in full', /Add "Trip reset by J\. Doe" to "K-301 trip"/.test(await panel()), await panel());
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        check('writes: ...then kept with the event', NOTES.ef1.length === 2 && NOTES.ef1[1].Value === 'Trip reset by J. Doe' &&
+            NOTES.ef1[1].Name === 'Comment' && /Comment added/.test(await panel()), [NOTES.ef1, await panel()]);
+
+        await pg.click(row('K-302 high vibration') + ' [data-pvx-act="edit"]');
+        const ev = await pg.$eval('.pvx-writer-input', (n) => n.value);
+        check('writes: Edit opens on the attribute as it is', ev === 'Mechanical', ev);
+        await pg.click('.pvx-writer-go');
+        check('writes: nothing changed is nothing to write', /Nothing changed/.test(await panel()), await panel());
+        await pg.fill('.pvx-writer-input', 'Electrical');
+        await pg.click('.pvx-writer-go');
+        await pg.click('.pvx-writer-yes');
+        await settle();
+        const last = WRITES[WRITES.length - 1];
+        check('writes: the edit goes to the event attribute\'s own stream', last[0] === 'Wf:ef3|Reason Code' && last[1].Value === 'Electrical' &&
+            /Written: Reason Code/.test(await panel()), [last, await panel()]);
+        check('writes: ...and the list shows what PI now holds', (await text(row('K-302 high vibration') + ' td'))[2] === 'Electrical',
+            await text(row('K-302 high vibration') + ' td'));
+        await pg.click(row('Station 1 ESD test') + ' [data-pvx-act="edit"]');
+        check('writes: an event without the attribute says so', /has no "Reason Code" attribute, so there is nothing to edit/.test(await panel()), await panel());
+    } finally {
+        ELEMENTS.forEach((e, i) => { Object.keys(e[2]).forEach((k) => { e[2][k] = saved.attrs[i][k]; }); });
+        Object.keys(EF_ATTRS).forEach((k) => { delete EF_ATTRS[k]; });
+        Object.assign(EF_ATTRS, saved.ef);
+        ACKS = JSON.parse(JSON.stringify(ACKS0));
+        NOTES = { ef1: [{ Name: 'Comment', Value: 'Seal changed', Creator: 'PLANT\\amy', CreationDate: iso(250) }] };
+    }
 }
 
 /** The Asset Rollup against the mock AF database. */
@@ -1206,6 +1780,18 @@ async function page() {
         const hash = () => pg.evaluate(() => decodeURIComponent(location.hash));
         const texts = (sel) => pg.$$eval(sel, (ns) => ns.map((n) => n.textContent.trim()));
 
+        // --only analytics: one block of the page tests, while iterating on it.
+        const onlyAt = process.argv.indexOf('--only');
+        if (onlyAt !== -1) {
+            const blocks = { analytics: () => eventAnalytics(open, texts, settle), afsearch: () => afSearch(open, settle, hash), filters: () => filters(open, settle),
+                writes: () => writes(open, settle) };
+            const run = blocks[process.argv[onlyAt + 1]];
+            if (!run) { throw new Error('--only takes one of: ' + Object.keys(blocks).join(', ')); }
+            await run();
+            check('no page errors', errors.length === 0, errors);
+            return;
+        }
+
         /* ---- Navigation Panel, hierarchy mode -------------------------- */
         const NAV = { Mode: 'hierarchy', Layout: 'wrap', FullWidth: false };
         await open('pvxNavPanel', { asset: K301, config: NAV });
@@ -1422,6 +2008,10 @@ async function page() {
             requests.some((r) => r === 'GET assetdatabases?path=' + DB) &&
             body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
 
+        await eventAnalytics(open, texts, settle);
+        await afSearch(open, settle, hash);
+        await filters(open, settle);
+        await writes(open, settle);
         await eventList(open, texts, hash, settle);
         await eventRuns(open, settle);
         await assetRollup(open, settle, hash);
@@ -1957,7 +2547,8 @@ async function page() {
 (async () => {
     try {
         rules();
-        await page();
+        // --rules: the rules alone, in a second, while iterating on one.
+        if (process.argv.indexOf('--rules') === -1) { await page(); }
     } catch (e) {
         failures += 1;
         console.error(C.red + 'test-overview crashed: ' + (e.stack || e.message) + C.reset);

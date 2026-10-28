@@ -220,3 +220,50 @@
 .pvx-evl .pvx-evl-csv:focus {
     border-color: var(--pvx-muted);
 }
+
+/* The row whose asset is the shared filter (ClickAction 'filter'). */
+.pvx-evl .pvx-evl-picked td {
+    background: rgba(59, 130, 196, 0.16);
+}
+
+.pvx-evl .pvx-evl-picked td:first-child {
+    box-shadow: inset 3px 0 0 #3b82c4;
+}
+
+/* Event actions (EventActions): small buttons at the end of each row. */
+.pvx-evl .pvx-evl-acts {
+    white-space: nowrap;
+    text-align: right;
+    width: 1%;
+}
+
+.pvx-evl .pvx-evl-act {
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    padding: 0 5px;
+    margin-left: 3px;
+    cursor: pointer;
+}
+
+.pvx-evl .pvx-evl-act:hover,
+.pvx-evl .pvx-evl-act:focus {
+    border-color: var(--pvx-muted);
+}
+
+.pvx-evl .pvx-evl-acked {
+    color: #2f9e5f;
+    font-weight: 700;
+    margin-right: 2px;
+}
+
+.pvx-evl .pvx-evl-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}

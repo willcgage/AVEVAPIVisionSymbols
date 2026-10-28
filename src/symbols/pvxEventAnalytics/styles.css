@@ -148,3 +148,29 @@
 .pvx-ea .pvx-ea-msg-body {
     letter-spacing: 0.005em;
 }
+
+/* Drill-down trail: buttons that read as links, the current level plain. */
+.pvx-ea .pvx-ea-crumbs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 10.5px;
+    padding: 0 2px 2px;
+    color: var(--pvx-muted);
+}
+.pvx-ea .pvx-ea-crumb {
+    border: 0;
+    background: none;
+    padding: 0 2px;
+    font: inherit;
+    color: var(--pvx-accent);
+    cursor: pointer;
+    text-decoration: underline;
+}
+.pvx-ea .pvx-ea-crumb-here {
+    color: var(--pvx-text);
+    text-decoration: none;
+    cursor: default;
+}
+.pvx-ea .pvx-ea-sep { padding: 0 2px; }

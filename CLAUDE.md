@@ -24,11 +24,11 @@ node tools/test-afpick.js            # AF search pane: rules + built panes vs a 
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
+node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
 node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
-node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout vs a mock PI Web API
+node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout, options, paste/CSV, time-slot grid vs a mock PI Web API
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -160,6 +160,20 @@ silently destroys a site's PI Web API settings on upgrade.
   by the pane's own ng-click, so saved displays are unaffected. Proven
   against a mock AF database, not yet on a server; the AFSearch syntax is
   the least certain part.
+- Four symbols (Ranked Bar, Treemap, Fingerprint, Combo Chart) can take
+  their rows from an **AF search** instead of their data sources:
+  `<!-- pvx:afsearch -->` in `config.html` → `src/shared/config-afsearch.html`,
+  `PVX.afsource.defaults(...)` around `getDefaultConfig` (build.js requires
+  it), and `PVX.afsource` in the bootstrap swaps the update for rows shaped
+  as PI Vision's (`Rows` or `Data`), each with `asset`, `assetPath`,
+  `attribute` and `parent`. A symbol pairs attributes by `assetPath` via
+  `PVX.afsource.split`, never by position. Mock-proven only.
+- **Shared filters** (`PVX.filter`): a set of asset paths on a named
+  channel, kept on the page, not in PI Vision's asset context. The Asset
+  Table, Ranked Bar and Event List publish (`ClickAction: 'filter'`) and
+  obey (`FilterObey`); `<!-- pvx:filter -->` → `src/shared/config-filter.html`
+  needs `PVX.filter.defaults(...)`. A match is the asset or anything under
+  it. The overlay shows the badge that clears it. Mock-proven only.
 - Every symbol has four options from `config.base`, all off: `ExportMenu`
   (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`,
   `QuickTrend` (`src/shared/config-common.html`, applied by `PVX.overlay`
@@ -336,7 +350,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–32 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–36 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

@@ -15,7 +15,11 @@
  *            one that writes back, also when the display closes or the
  *            write-back fails), and the Shift Log's sections, form layout and
  *            per-row controls, where untouched controls write nothing and a
- *            row with a control it cannot read is never written.
+ *            row with a control it cannot read is never written. Then the
+ *            Shift Log's options (required, warn, prefill), soft limits, the
+ *            questionable flag, the existing-value rule (insert, protect),
+ *            paste and CSV import, and the time-slot grid, against the
+ *            mock's recorded values.
  *
  * Proven against this mock only, not yet a server.
  *
@@ -79,6 +83,10 @@ Object.keys(ATTRS).forEach((p) => { NAMES[ATTRS[p][0]] = p.split('|')[1].replace
 resetValues();
 
 let writes = [];
+// Values at a time of their own: [webId] -> [{ts (ISO), value}], what the
+// recorded and recorded-at-time reads answer from. Writes with a time land
+// here; the read of the grid's slots, and the protect check, read it.
+let HISTORY = {};
 
 function lookup(pathText) {
     const a = ATTRS[String(pathText || '').toLowerCase()];
@@ -87,6 +95,23 @@ function lookup(pathText) {
 
 function valueOf(id) {
     return { Timestamp: new Date().toISOString(), Value: VALUES[id], Good: true };
+}
+
+/** Recorded values over a range, and the value at an exact time. */
+function history(rel, q) {
+    let m = /^streams\/([^/]+)\/recorded$/.exec(rel);
+    if (m) {
+        const a = Date.parse(q.get('startTime')), b = Date.parse(q.get('endTime'));
+        return { Items: (HISTORY[m[1]] || []).filter((x) => Date.parse(x.ts) >= a && Date.parse(x.ts) <= b)
+            .map((x) => ({ Timestamp: x.ts, Value: x.value, Good: true })) };
+    }
+    m = /^streams\/([^/]+)\/recordedattime$/.exec(rel);
+    if (m) {
+        const hit = (HISTORY[m[1]] || []).find((x) => Date.parse(x.ts) === Date.parse(q.get('time')));
+        return hit ? { Timestamp: hit.ts, Value: hit.value, Good: true }
+            : { Timestamp: q.get('time'), Value: { Name: 'No Data', Value: 248, IsSystem: true }, Good: false };
+    }
+    return null;
 }
 
 function api(req, res, url, body) {
@@ -102,18 +127,34 @@ function api(req, res, url, body) {
         const reqs = JSON.parse(body || '{}');
         const out = {};
         Object.keys(reqs).forEach((k) => {
-            const a = lookup(new URL(reqs[k].Resource).searchParams.get('path'));
-            out[k] = a ? { Status: 200, Content: a } : { Status: 404, Content: { Errors: ['not found'] } };
+            const ru = new URL(reqs[k].Resource);
+            const rr = decodeURIComponent(ru.pathname).replace(/^\/piwebapi\/?/, '');
+            if (rr === 'attributes') {
+                const a = lookup(ru.searchParams.get('path'));
+                out[k] = a ? { Status: 200, Content: a } : { Status: 404, Content: { Errors: ['not found'] } };
+                return;
+            }
+            const g = history(rr, ru.searchParams);
+            out[k] = g ? { Status: 200, Content: g } : { Status: 404, Content: { Errors: ['No mock for ' + rr] } };
         });
         return send(207, out);
     }
+    if (rel === 'system/userinfo') { return send(200, { IdentityType: 'WindowsIdentity', Name: 'PLANT\\jdoe', IsAuthenticated: true }); }
     if (rel === 'streamsets/value') {
         return send(200, { Items: q.getAll('webId').map((id) => ({ WebId: id, Value: valueOf(id) })) });
     }
     const m = /^streams\/([^/]+)\/value$/.exec(rel);
     if (m && req.method === 'POST') {
         const b = JSON.parse(body || '{}');
-        writes.push({ id: m[1], value: b.Value, ts: b.Timestamp });
+        writes.push({ id: m[1], value: b.Value, ts: b.Timestamp, questionable: b.Questionable === true, option: q.get('updateOption') || '' });
+        if (b.Timestamp && b.Timestamp !== '*') {
+            const h = HISTORY[m[1]] = HISTORY[m[1]] || [];
+            const at = h.findIndex((x) => x.ts === b.Timestamp);
+            // PI Web API's own rule for a value already at that time.
+            if (at === -1 || q.get('updateOption') === 'Insert') { h.push({ ts: b.Timestamp, value: b.Value }); }
+            else if (q.get('updateOption') !== 'NoReplace') { h[at].value = b.Value; }
+            return send(202);
+        }
         if (m[1] === 'A:rfail' && b.Value === 0) { return send(400, { Errors: ['The value could not be written.'] }); }
         VALUES[m[1]] = DIGITAL[m[1]] ? state(b.Value) : b.Value;
         return send(202);
@@ -244,6 +285,7 @@ async function symbols() {
         const open = async (typeName, config, size) => {
             await page.goto('http://127.0.0.1:' + PORT + '/page/' + typeName, { waitUntil: 'networkidle' });
             writes = [];
+            HISTORY = {};
             resetValues();
             await page.evaluate(mount, Object.assign({ typeName: typeName, config: config }, size || {}));
             await settle(500);
@@ -473,6 +515,161 @@ async function symbols() {
             document.querySelector('#box .pvx-etable-form').getAttribute('data-layout') === 'list' &&
             document.querySelectorAll('#box input.pvx-etable-input[type="number"]').length === 1 &&
             !document.querySelector('#box .pvx-etable-section, #box .pvx-etable-grid')));
+
+
+        console.log('');
+        console.log(C.bold + 'Shift Log: required, soft limits, prefill, questionable, existing values' + C.reset);
+        const UNIT = { ElementPath: '\\\\AFSRV\\DB\\Unit1' };
+        const OPT_ROWS = [
+            'Tank Level | Level | % | 0:100 | | warn 20:80',
+            'Tank Setpoint | Setpoint | degC | 0:50 | | required',
+            'Notes | Operator | | | text | prefill user',
+            'Flow | Flow | | | | prefill last',
+            'Bad | Bad | | | | sometimes'
+        ].join('\n');
+        const boxVal = (i) => page.evaluate((x) => document.querySelectorAll('#box .pvx-etable-rows .pvx-etable-row')[x].querySelector('.pvx-etable-input').value, i);
+        const fillRow = async (i, v) => {
+            await page.evaluate((x) => { const n = document.querySelectorAll('#box .pvx-etable-rows .pvx-etable-row')[x[0]].querySelector('.pvx-etable-input');
+                n.value = x[1]; n.dispatchEvent(new Event('input')); }, [i, v]);
+            await settle(100);
+        };
+        const etMsg = async () => (await text('.pvx-etable-msg-text')) + ' | ' + (await text('.pvx-etable-msg-detail'));
+        const confirmItems = () => page.evaluate(() => Array.prototype.map.call(document.querySelectorAll('#box .pvx-etable-confirm-item'),
+            (n) => Array.prototype.map.call(n.children, (c) => c.textContent).join(' ')));
+        await open('pvxEntryTable', Object.assign({ Rows: OPT_ROWS, RequireConfirm: false }, UNIT), { w: 560, h: 520 });
+        await settle(300);
+        const st2 = await statuses();
+        check('an option it cannot read marks the row and keeps it from being written', st2[4] === 'bad option' &&
+            /option "sometimes" is not one of/.test(await rowAttr(4, 'title')), [st2, await rowAttr(4, 'title')]);
+        check('prefill user is the viewer\'s name from PI Web API, prefill last the value PI holds',
+            await boxVal(2) === 'PLANT\\jdoe' && await boxVal(3) === '5' &&
+            await page.evaluate(() => document.querySelectorAll('#box .pvx-etable-prefilled').length === 2), [await boxVal(2), await boxVal(3)]);
+        check('a required row is marked on its label', /Setpoint \(degC\) \*$/.test(await page.evaluate(() =>
+            document.querySelectorAll('#box .pvx-etable-rows .pvx-etable-c-label')[1].textContent)));
+        await fillRow(0, '90');
+        await click('.pvx-etable-submit');
+        check('a blank required row stops the sheet', /cannot be sent/.test(await etMsg()) && /Setpoint is required/.test(await etMsg()) && !writes.length, await etMsg());
+        await fillRow(1, '10');
+        await click('.pvx-etable-submit');
+        const ci = await confirmItems();
+        check('a value outside its warn range is confirmed even with confirmation off, and says why',
+            /1 is outside the usual range/.test(await text('.pvx-etable-confirm-text')) && ci.some((x) => /^Level 90(\.0+)? % ⚠ above the usual 80$/.test(x)) && !writes.length, ci);
+        check('prefilled boxes are written with the rest', ci.some((x) => x === 'Operator PLANT\\jdoe') && ci.some((x) => /^Flow 5/.test(x)), ci);
+        await click('.pvx-etable-yes');
+        await settle(500);
+        const byId2 = {};
+        writes.forEach((w) => { byId2[w.id] = w; });
+        check('written: the warned value, the required one, the prefills; nothing extra on the request',
+            writes.length === 4 && byId2['A:tlevel'].value === 90 && byId2['A:notes'].value === 'PLANT\\jdoe' && byId2['A:flow'].value === 5 &&
+            writes.every((w) => !w.questionable && w.option === ''), writes);
+        check('after the write the prefill comes back for the next round', await boxVal(2) === 'PLANT\\jdoe', await boxVal(2));
+
+        await open('pvxEntryTable', Object.assign({ Rows: 'Tank Level | Level | % | 0:100' }, UNIT));
+        await fillRow(0, '120');
+        await click('.pvx-etable-submit');
+        check('hard limits by default: outside min:max is refused', /is above 100/.test(await etMsg()) && !(await page.$('#box .pvx-etable-confirm-item')), await etMsg());
+        await open('pvxEntryTable', Object.assign({ Rows: 'Tank Level | Level | % | 0:100', LimitMode: 'soft', AllowQuestionable: true, ExistingValues: 'insert' }, UNIT));
+        await fillRow(0, '120');
+        await page.check('#box .pvx-etable-q-box');
+        await click('.pvx-etable-submit');
+        check('soft limits: written after the confirmation names the limit', (await confirmItems()).some((x) => /\(questionable\) ⚠ above the limit of 100$/.test(x)), await confirmItems());
+        await click('.pvx-etable-yes');
+        await settle(400);
+        check('questionable and keep-beside go to PI Web API with the write', writes.length === 1 && writes[0].value === 120 &&
+            writes[0].questionable === true && writes[0].option === 'Insert', writes);
+        check('the questionable box clears with the row', await page.evaluate(() => !document.querySelector('#box .pvx-etable-q-box').checked));
+
+        const AT6 = '2026-10-27 06:00';
+        const at6 = new Date(2026, 9, 27, 6, 0).toISOString();
+        await open('pvxEntryTable', Object.assign({ Rows: 'Tank Level | Level\nTank Setpoint | Setpoint', ExistingValues: 'protect', TimestampMode: 'custom', RequireConfirm: false }, UNIT));
+        HISTORY['A:tlevel'] = [{ ts: at6, value: 44 }];
+        await page.fill('#box .pvx-etable-stamp-input', AT6);
+        await fillRow(0, '50');
+        await fillRow(1, '12');
+        await click('.pvx-etable-submit');
+        await settle(500);
+        check('protect: a value already at that time is kept and not sent', writes.length === 1 && writes[0].id === 'A:tsp' &&
+            writes[0].option === 'NoReplace' && writes[0].ts === at6 && HISTORY['A:tlevel'][0].value === 44, writes);
+        check('...the row says kept, and the message why', (await statuses())[0] === 'kept' && /1 value was kept: PI already holds a value at that time/.test(await etMsg()),
+            [await statuses(), await etMsg()]);
+
+        console.log('');
+        console.log(C.bold + 'Shift Log: paste and CSV import' + C.reset);
+        const PASTE_ROWS = 'Tank Level | Level | % | 0:100\nTank Setpoint | Setpoint\nFlow | Flow\nP1 Running | Pump 1 | | | switch\nNotes | Notes | | | text';
+        await open('pvxEntryTable', Object.assign({ Rows: PASTE_ROWS, PasteRows: true }, UNIT), { w: 560, h: 520 });
+        const paste = (i, t) => page.evaluate((x) => {
+            const n = document.querySelectorAll('#box .pvx-etable-rows .pvx-etable-row')[x[0]].querySelector('.pvx-etable-input');
+            const dt = new DataTransfer(); dt.setData('text/plain', x[1]);
+            n.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        }, [i, t]);
+        await paste(1, '7\n8\n9\n10');
+        await settle(150);
+        check('a pasted column fills down from the box, and skips a picked control',
+            await boxVal(1) === '7' && await boxVal(2) === '8' && await boxVal(4) === '10' && await boxVal(0) === '' &&
+            /Pasted 3 values/.test(await etMsg()) && /1 not placed/.test(await etMsg()), [await boxVal(1), await boxVal(2), await boxVal(4), await etMsg()]);
+        await paste(4, 'Level\t55\nnotes\tChecked\n');
+        await settle(150);
+        check('a pasted line that names a row goes to that row', await boxVal(0) === '55' && await boxVal(4) === 'Checked', [await boxVal(0), await boxVal(4)]);
+        check('nothing is written by a paste', writes.length === 0);
+        await open('pvxEntryTable', Object.assign({ Rows: PASTE_ROWS }, UNIT));
+        await paste(1, '7\n8');
+        await settle(150);
+        check('paste-fill is off by default: an ordinary paste, the rows below untouched', await boxVal(2) === '', await boxVal(2));
+
+        await open('pvxEntryTable', Object.assign({ Rows: PASTE_ROWS, ShowImport: true, TimestampMode: 'perRow' }, UNIT), { w: 560, h: 520 });
+        check('the Import CSV button shows only when asked for', await page.evaluate(() => document.querySelector('#box .pvx-etable-import').style.display !== 'none'));
+        await page.setInputFiles('#box .pvx-etable-file', { name: 'rounds.csv', mimeType: 'text/csv',
+            buffer: Buffer.from('name,value,time\nLevel,61,2026-10-27 06:00\n"Tank Setpoint",11\nMystery,3\nNotes,"Seal, leaking"\n') });
+        await settle(300);
+        check('CSV import fills rows by label or attribute name, with a quoted comma, and a time into the row\'s time box',
+            await boxVal(0) === '61' && await boxVal(1) === '11' && await boxVal(4) === 'Seal, leaking' &&
+            await page.evaluate(() => document.querySelector('#box .pvx-etable-rowstamp').value) === '2026-10-27 06:00', [await boxVal(0), await boxVal(1), await boxVal(4)]);
+        check('...and names what it could not place', /Imported 3 values from rounds.csv/.test(await etMsg()) && /1 not a row here: Mystery/.test(await etMsg()), await etMsg());
+        await open('pvxEntryTable', Object.assign({ Rows: PASTE_ROWS }, UNIT));
+        check('no Import button by default', await page.evaluate(() => document.querySelector('#box .pvx-etable-import').style.display === 'none'));
+
+        console.log('');
+        console.log(C.bold + 'Shift Log: the time-slot grid' + C.reset);
+        const hr = new Date(); hr.setMinutes(0, 0, 0);
+        const slot0 = hr.getTime() - 3 * 3600000;
+        await open('pvxEntryTable', Object.assign({ Rows: 'Tank Level | Level | % | 0:100\nGrade | Grade | | | select:1=A/2=B', Layout: 'slots',
+            SlotStart: '*-3h', SlotInterval: '1h', SlotCount: 5, PasteRows: true }, UNIT), { w: 620, h: 360 });
+        HISTORY['A:tlevel'] = [{ ts: new Date(slot0 + 5 * 60000).toISOString(), value: 41 }];
+        await page.evaluate(() => { window.__vis.onConfigChange(window.__scope.config); });
+        await settle(900);
+        const heads6 = await page.evaluate(() => Array.prototype.map.call(document.querySelectorAll('#box .pvx-etable-slot-time'), (n) => n.textContent));
+        const pad2 = (x) => (x < 10 ? '0' : '') + x;
+        check('a column per slot, on the hour', heads6.length === 5 && heads6[0] === pad2(new Date(slot0).getHours()) + ':00', heads6);
+        const cellAt = (r, k, what) => page.evaluate((x) => {
+            const td = document.querySelectorAll('#box .pvx-etable-slotrow')[x[0]].querySelectorAll('.pvx-etable-slot')[x[1]];
+            return x[2] === 'td' ? td.getAttribute(x[3]) : td.querySelector('input')[x[3]] || td.querySelector('input').getAttribute(x[3]); }, [r, k, what[0], what[1]]);
+        check('a slot shows what PI holds in it', await cellAt(0, 0, ['td', 'data-archived']) === 'yes' &&
+            /^41/.test(await cellAt(0, 0, ['in', 'placeholder'])) && await cellAt(0, 1, ['td', 'data-archived']) === 'no',
+            [await cellAt(0, 0, ['in', 'placeholder'])]);
+        check('a slot still to come cannot be filled', await page.evaluate(() =>
+            document.querySelectorAll('#box .pvx-etable-slotrow')[0].querySelectorAll('input')[4].disabled));
+        await page.evaluate(() => {
+            const n = document.querySelectorAll('#box .pvx-etable-slotrow')[0].querySelectorAll('input')[1];
+            const dt = new DataTransfer(); dt.setData('text/plain', '33\t34\nB\tA');
+            n.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+        });
+        await settle(150);
+        check('a block pasted into the grid fills across the slots and down the rows', /Pasted 4 values/.test(await etMsg()), await etMsg());
+        await click('.pvx-etable-submit');
+        const ci6 = await confirmItems();
+        check('the confirmation names each reading by its slot, a choice by its caption', ci6.length === 4 &&
+            new RegExp('^Level · ' + heads6[1] + ' 33(\\.0+)? %$').test(ci6[0]) && ci6.some((x) => x === 'Grade · ' + heads6[2] + ' A'), ci6);
+        await click('.pvx-etable-yes');
+        await settle(700);
+        const g6 = writes.filter((w) => w.id === 'A:grade');
+        check('each cell written at its slot\'s own time, a choice as its value', writes.length === 4 &&
+            writes.some((w) => w.id === 'A:tlevel' && w.value === 33 && Date.parse(w.ts) === slot0 + 3600000) &&
+            g6.some((w) => w.value === 2 && Date.parse(w.ts) === slot0 + 3600000) && g6.some((w) => w.value === 1 && Date.parse(w.ts) === slot0 + 7200000), writes);
+        check('a saved cell clears and then shows the value PI now holds', await cellAt(0, 1, ['td', 'data-status']) === 'saved' &&
+            !(await cellAt(0, 1, ['in', 'value'])) && /^33/.test(await cellAt(0, 1, ['in', 'placeholder'])),
+            [await cellAt(0, 1, ['td', 'data-status']), await cellAt(0, 1, ['in', 'value']), await cellAt(0, 1, ['in', 'placeholder'])]);
+        await open('pvxEntryTable', Object.assign({ Rows: 'Tank Level', Layout: 'slots', SlotInterval: 'hourly' }, UNIT));
+        check('an interval it cannot read is said', /cannot be laid out/.test(await etMsg()) && /"hourly" is not a duration/.test(await etMsg()), await etMsg());
 
         check('no page errors', errors.length === 0, errors);
     } finally {

@@ -114,7 +114,8 @@
         configTitle: 'Format Combo Chart',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // An AF search can supply the rows instead (PVX.afsource); off by default.
+            return window.PVX.afsource.defaults(window.PVX.config.base({
                 DataShape: 'TimeSeries',
                 DataQueryMode: 'ModePlotValues',
                 Intervals: 300,
@@ -183,7 +184,7 @@
                 EventLabels: true,
                 EventClick: 'none',         // none | time
                 EventRefreshSeconds: 60
-            });
+            }));
         }
     };
 

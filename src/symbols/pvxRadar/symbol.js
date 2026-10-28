@@ -58,7 +58,8 @@
         configTitle: 'Format Fingerprint',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // An AF search can supply the rows instead (PVX.afsource); off by default.
+            return window.PVX.afsource.defaults(window.PVX.config.base({
                 DataShape: 'Table',
                 // Positional contract with PI Vision's Summary cells; kept in
                 // step with Statistic by PVX.config.syncStatColumns().
@@ -95,6 +96,9 @@
                 RingStyle: 'polygon',        // polygon | circle
                 StartAngle: 0,               // degrees, 0 = 12 o'clock, clockwise +
                 MaxAxes: 12,
+                // Rows from an AF search: one outline per asset (or per
+                // attribute), at most this many.
+                MaxShapes: 6,
 
                 // --- labels ----------------------------------------------
                 ShowAxisLabels: true,
@@ -106,7 +110,7 @@
                 CurrentColor: '#3b82c4',
                 ReferenceColor: '#8a8f96',
                 ColorByThreshold: false
-            });
+            }));
         }
     };
 
@@ -126,6 +130,8 @@
         };
 
         var rows = [];
+        // With rows from an AF search, the axes and the shapes (searchShape).
+        var search = null;
         // Last chrome decision, so a change can request exactly one extra frame
         // (see render) instead of re-rendering forever.
         var chromeState = '';
@@ -138,6 +144,7 @@
                 // for. statValue() falls back to the row value for one refresh
                 // if an in-flight payload still carries the previous column.
                 rows = PVX.data.rows(d, PVX.config.statColumns(scope.config)) || [];
+                search = PVX.afsource.wanted(scope.config) ? searchShape(rows, scope.config) : null;
             },
 
             onConfigChange: function (newCfg) {
@@ -156,6 +163,59 @@
         function intOr(v, fallback) {
             var n = parseInt(v, 10);
             return isFinite(n) ? n : fallback;
+        }
+
+        /**
+         * Rows from an AF search -> {axes:[{label, units}], shapes:[{label,
+         * path}], cell[a][s]: the row for axis a of shape s, or null}.
+         *
+         * Three or more attributes: the attributes are the axes and each
+         * asset is one shape, which is what a fingerprint of a fleet means
+         * (every compressor's profile laid over the others). One or two: too
+         * few for a shape, so the assets are the axes and each attribute is
+         * a shape across them. Paired by asset path, never by position: an
+         * asset missing one attribute leaves a gap, not a shifted outline.
+         */
+        function searchShape(list, cfg) {
+            var sp = PVX.afsource.split(list, cfg, 99);
+            var attrs = sp.attrs;
+            if (!attrs.length) { return null; }
+            var assets = [], byPath = {};
+            var a, i;
+            for (a = 0; a < sp.byAttr.length; a++) {
+                for (i = 0; i < sp.byAttr[a].length; i++) {
+                    var r = sp.byAttr[a][i];
+                    var key = String(r.assetPath || r.asset || r.label).toLowerCase();
+                    if (!byPath[key]) {
+                        byPath[key] = { label: r.asset || r.label, path: r.assetPath || '', at: {} };
+                        assets.push(byPath[key]);
+                    }
+                    byPath[key].at[a] = r;
+                }
+            }
+            var attrAxes = attrs.length >= MIN_AXES;
+            var out = { attrAxes: attrAxes, axes: [], shapes: [], cell: [] };
+            var unitsOf = function (ai) {
+                var l = sp.byAttr[ai];
+                for (var k = 0; k < l.length; k++) { if (l[k].units) { return l[k].units; } }
+                return '';
+            };
+            if (attrAxes) {
+                for (a = 0; a < attrs.length; a++) { out.axes.push({ label: attrs[a], units: unitsOf(a) }); }
+                for (i = 0; i < assets.length; i++) { out.shapes.push({ label: assets[i].label, path: assets[i].path }); }
+                for (a = 0; a < attrs.length; a++) {
+                    out.cell.push([]);
+                    for (i = 0; i < assets.length; i++) { out.cell[a].push(assets[i].at[a] || null); }
+                }
+            } else {
+                for (i = 0; i < assets.length; i++) { out.axes.push({ label: assets[i].label, units: '' }); }
+                for (a = 0; a < attrs.length; a++) { out.shapes.push({ label: attrs[a], path: '', units: unitsOf(a) }); }
+                for (i = 0; i < assets.length; i++) {
+                    out.cell.push([]);
+                    for (a = 0; a < attrs.length; a++) { out.cell[i].push(assets[i].at[a] || null); }
+                }
+            }
+            return out;
         }
 
         /**
@@ -235,8 +295,7 @@
                 // fall through to the data extent, as documented
             }
 
-            var vals = [axis.cur.value];
-            if (axis.ref) { vals.push(axis.ref.value); }
+            var vals = axisValues(axis);
 
             // One value is not an extent. Borrowing the shared scale keeps the
             // outline varied and honest; the alternative — scaling each axis to
@@ -267,6 +326,20 @@
             return { min: lo, max: hi };
         }
 
+        /** Every value plotted on one axis, whichever mode drew it. */
+        function axisValues(axis) {
+            var out = [];
+            if (axis.multi) {
+                for (var k = 0; k < axis.multi.length; k++) {
+                    if (axis.multi[k] && PVX.util.isNum(axis.multi[k].value)) { out.push(axis.multi[k].value); }
+                }
+                return out;
+            }
+            out.push(axis.cur.value);
+            if (axis.ref) { out.push(axis.ref.value); }
+            return out;
+        }
+
         /** Normalised radius 0..1 for a value on an axis. */
         function normalise(v, dom) {
             if (!PVX.util.isNum(v)) { return null; }
@@ -286,6 +359,7 @@
          * its colour, its label and its normalised radii.
          */
         function buildModel(cfg) {
+            if (search) { return buildSearchModel(cfg); }
             var i;
             var pts = [];
             var skipped = 0;
@@ -426,6 +500,97 @@
             };
         }
 
+        /**
+         * The model for rows from an AF search (see searchShape): the same
+         * {axes, series, ...} as buildModel, except that each axis carries
+         * `multi` (one point per shape, or null) and `rs` (their radii), and
+         * each series an `idx` into them.
+         */
+        function buildSearchModel(cfg) {
+            var i, k;
+            var notes = [];
+            var badCount = 0, skipped = 0, gaps = 0;
+            var maxAxes = PVX.util.clamp(intOr(cfg.MaxAxes, 12), MIN_AXES, 24);
+            var maxShapes = PVX.util.clamp(intOr(cfg.MaxShapes, 6), 1, 24);
+
+            var shapes = search.shapes.slice(0, maxShapes);
+            if (search.shapes.length > shapes.length) {
+                var more = search.shapes.length - shapes.length;
+                notes.push('+' + more + ' ' + (more === 1 ? 'shape' : 'shapes') + ' beyond the ' + maxShapes + '-shape limit');
+            }
+
+            var axes = [];
+            for (i = 0; i < search.axes.length; i++) {
+                var ax = { label: search.axes[i].label, units: search.axes[i].units, multi: [], rs: [] };
+                var any = false;
+                for (k = 0; k < shapes.length; k++) {
+                    var r = search.cell[i][k];
+                    var v = r ? PVX.data.statValue(r, cfg) : null;
+                    if (!r) { gaps += 1; ax.multi.push(null); continue; }
+                    if (v === null || v === undefined || !PVX.util.isNum(v)) { skipped += 1; ax.multi.push(null); continue; }
+                    if (!r.good) { badCount += 1; }
+                    any = true;
+                    ax.multi.push({
+                        label: r.label, units: r.units || ax.units || shapes[k].units || '',
+                        path: r.path || '', good: r.good !== false, error: r.errorDescription || '', value: v
+                    });
+                }
+                // The axis exists whether or not it has a value: a fleet
+                // whose Vibration reads nowhere is worth seeing as a dent.
+                ax.empty = !any;
+                axes.push(ax);
+            }
+            if (axes.length > maxAxes) {
+                var hid = axes.length - maxAxes;
+                axes = axes.slice(0, maxAxes);
+                notes.push('+' + hid + ' ' + (hid === 1 ? 'axis' : 'axes') + ' beyond the ' + maxAxes + '-axis limit');
+            }
+
+            var all = [];
+            for (i = 0; i < axes.length; i++) { all = all.concat(axisValues(axes[i])); }
+            var shared = sharedDomain(all);
+            var limits = parseLimits(cfg.AxisLimits);
+            var fallback = { fixed: 0, data: 0 };
+            for (i = 0; i < axes.length; i++) {
+                axes[i].dom = axisDomain(axes[i], i, cfg, limits, shared, fallback);
+                for (k = 0; k < shapes.length; k++) {
+                    axes[i].rs.push(axes[i].multi[k] ? normalise(axes[i].multi[k].value, axes[i].dom) : null);
+                }
+            }
+            if (limits.bad) {
+                notes.push(limits.bad + ' axis ' + (limits.bad === 1 ? 'limit is' : 'limits are') + ' malformed (use min:max)');
+            }
+            if (cfg.ScaleMode === 'perAxisFixed' && fallback.fixed) {
+                notes.push(fallback.fixed + ' of ' + axes.length + ' axes have no fixed limit; falling back to the data scale');
+            }
+            if (gaps) { notes.push(gaps + ' ' + (gaps === 1 ? 'point has' : 'points have') + ' no attribute in AF, drawn at the centre'); }
+            if (skipped) {
+                notes.push(skipped + (skipped === 1 ? ' point has no ' : ' points have no ') +
+                    PVX.config.statLabel(cfg).toLowerCase() + ', drawn at the centre');
+            }
+
+            var palette = PVX.color.categorical;
+            var series = [];
+            // Reversed so the first shape is drawn last, on top, matching its
+            // place at the head of the legend.
+            for (k = shapes.length - 1; k >= 0; k--) {
+                series.push({
+                    key: 's' + k, idx: k, label: shapes[k].label, path: shapes[k].path,
+                    color: shapes.length === 1 ? (cfg.CurrentColor || '#3b82c4') : palette[k % palette.length],
+                    dashed: false,
+                    // Many outlines over each other: lighter fills, so the
+                    // shapes underneath still read.
+                    weight: 1, fillScale: shapes.length > 1 ? Math.max(0.25, 1 / shapes.length) : 1
+                });
+            }
+            return {
+                axes: axes, series: series, mode: 'search', attrAxes: search.attrAxes,
+                shared: shared, sources: rows.length, notes: notes,
+                badCount: badCount, skipped: skipped,
+                empty: !all.length
+            };
+        }
+
         /* ================================================================ *
          * Text helpers
          * ================================================================ */
@@ -537,7 +702,9 @@
             scope.pvx.note = model.notes.join(' · ');
             scope.pvx.count = model.axes.length
                 ? (model.axes.length + (model.axes.length === 1 ? ' axis' : ' axes') +
-                   (model.mode === 'single' ? '' : ' × 2 profiles'))
+                   (model.mode === 'single' ? '' : (model.mode === 'search'
+                       ? ' × ' + model.series.length + (model.series.length === 1 ? ' shape' : ' shapes')
+                       : ' × 2 profiles')))
                 : '';
             scope.pvx.error = model.badCount
                 ? (model.badCount + (model.badCount === 1 ? ' source reports' : ' sources report') + ' bad quality')
@@ -553,9 +720,12 @@
             if (model.empty) {
                 message(svgRoot, W, H, t,
                     rows.length ? 'No ' + PVX.config.statLabel(cfg).toLowerCase() + ' values' : 'No data sources',
-                    rows.length
-                        ? 'All ' + rows.length + ' sources returned an empty cell.'
-                        : 'Drop three or more attributes onto this symbol.');
+                    model.mode === 'search'
+                        ? (rows.length ? 'No asset found by the search has a number for these attributes.'
+                            : 'The AF search has not returned any assets yet.')
+                        : (rows.length
+                            ? 'All ' + rows.length + ' sources returned an empty cell.'
+                            : 'Drop three or more attributes onto this symbol.'));
                 digest();
                 if (chromeChanged) { c.render(); }
                 return;
@@ -566,9 +736,11 @@
                 // one-axis radar is a dot. Saying so beats drawing it.
                 message(svgRoot, W, H, t,
                     'Needs ' + MIN_AXES + ' axes',
-                    model.mode === 'single'
-                        ? model.axes.length + ' of ' + MIN_AXES + ' attributes added so far.'
-                        : 'Two profiles need ' + (MIN_AXES * 2) + ' sources.');
+                    model.mode === 'search'
+                        ? 'Name three attributes, or let the search find three assets.'
+                        : (model.mode === 'single'
+                            ? model.axes.length + ' of ' + MIN_AXES + ' attributes added so far.'
+                            : 'Two profiles need ' + (MIN_AXES * 2) + ' sources.'));
                 digest();
                 if (chromeChanged) { c.render(); }
                 return;
@@ -716,7 +888,7 @@
                 var ser = model.series[si];
                 var pts = [];
                 for (i = 0; i < n; i++) {
-                    var rad = ser.key === 'ref' ? axes[i].refR : axes[i].curR;
+                    var rad = radOf(axes[i], ser);
                     if (rad === null) { rad = 0; }
                     pts.push(PVX.svg.polar(cx, cy, r * rad, angleAt(i)));
                 }
@@ -724,7 +896,7 @@
                 var g = PVX.svg.el('g', { 'class': 'pvx-radar-poly pvx-radar-' + ser.key }, seriesG);
                 PVX.svg.el('path', {
                     d: polygonPath(pts),
-                    fill: fillOp > 0 ? PVX.color.rgba(ser.color, fillOp * ser.weight) : 'none',
+                    fill: fillOp > 0 ? PVX.color.rgba(ser.color, fillOp * ser.weight * (ser.fillScale || 1)) : 'none',
                     stroke: ser.color,
                     'stroke-width': (lineW * ser.weight).toFixed(2),
                     'stroke-linejoin': 'round',
@@ -735,7 +907,7 @@
                 // ---- vertex markers ---------------------------------------
                 if (cfg.ShowPoints !== false) {
                     for (i = 0; i < n; i++) {
-                        var src = ser.key === 'ref' ? axes[i].ref : axes[i].cur;
+                        var src = srcOf(axes[i], ser);
                         if (!src) { continue; }
                         var mColor = ser.color;
                         // Threshold colouring is what turns "the shape changed"
@@ -759,9 +931,15 @@
                 // ---- value labels -----------------------------------------
                 // Only the current profile is labelled: two numbers per vertex
                 // collide, and the reference is context rather than a reading.
-                if (showValues && ser.key === 'cur') {
+                // With several AF shapes the same rule keeps one: numbers on
+                // overlapping outlines are unreadable, so only a lone shape
+                // is labelled.
+                var labelled = ser.key === 'cur' || (model.mode === 'search' && model.series.length === 1);
+                if (showValues && labelled) {
                     for (i = 0; i < n; i++) {
-                        var vrad = axes[i].curR === null ? 0 : axes[i].curR;
+                        var vsrc = srcOf(axes[i], ser);
+                        if (!vsrc) { continue; }
+                        var vrad = radOf(axes[i], ser);
                         // Outside the vertex normally, but a vertex near the rim
                         // would push its number into the axis-label ring, so
                         // those flip inward instead of colliding with the name.
@@ -769,7 +947,7 @@
                         var voff = pointR + font * 0.6;
                         var vp = PVX.svg.polar(cx, cy, Math.max(0, r * vrad + (inward ? -voff : voff)), angleAt(i));
                         PVX.svg.text(g, vp.x.toFixed(2), vp.y.toFixed(2),
-                            PVX.fmt.number(axes[i].cur.value, PVX.config.numberOpts(cfg)), {
+                            PVX.fmt.number(vsrc.value, PVX.config.numberOpts(cfg)), {
                                 'class': 'pvx-svg-value pvx-num pvx-radar-value',
                                 'text-anchor': inward ? 'middle' : anchorFor(vp.x, cx, r),
                                 'font-size': (font * 0.9).toFixed(1),
@@ -816,6 +994,18 @@
             if (showLegend) {
                 drawLegend(svgRoot, W, H - pad - legendH * 0.35, cfg, t, legend, font);
             }
+        }
+
+        /** The point a series draws on an axis, in any mode. */
+        function srcOf(axis, ser) {
+            if (ser.idx !== undefined) { return axis.multi[ser.idx]; }
+            return ser.key === 'ref' ? axis.ref : axis.cur;
+        }
+
+        /** Its radius, 0 for a point with no value (drawn at the centre). */
+        function radOf(axis, ser) {
+            var r = ser.idx !== undefined ? axis.rs[ser.idx] : (ser.key === 'ref' ? axis.refR : axis.curR);
+            return r === null || r === undefined ? 0 : r;
         }
 
         /** Tooltip text: the numbers a radar deliberately refuses to show. */

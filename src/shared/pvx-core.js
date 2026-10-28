@@ -2551,6 +2551,12 @@
                 value: util.num(rawVal),
                 good: r.IsGood !== false,
                 errorDescription: r.ErrorDescription || '',
+                // Rows from an AF search (PVX.afsource) say which asset and
+                // attribute they are; the pipeline's rows leave these blank.
+                asset: pick(r, ['Asset']) || '',
+                assetPath: pick(r, ['AssetPath']) || '',
+                attribute: pick(r, ['Attribute']) || '',
+                parent: pick(r, ['Parent']) || '',
                 summary: summary,
                 trend: r.Trend || r.trend || []
             });
@@ -4865,6 +4871,21 @@
     };
 
     /**
+     * Who PI Web API says the viewer is ("DOMAIN\\user"), once per page, for
+     * a field prefilled with the user's name. Resolves '' when it cannot
+     * tell (anonymous, or an older PI Web API), never rejects.
+     */
+    var userPromise = null;
+    api.userName = function () {
+        if (!userPromise) {
+            userPromise = api.get('system/userinfo', { cache: false }).then(function (u) {
+                return (u && u.Name) ? String(u.Name) : '';
+            }, function () { userPromise = null; return ''; });
+        }
+        return userPromise;
+    };
+
+    /**
      * Write a single value to a stream.
      *
      * Deliberately never cached and never batched: a write is not idempotent
@@ -4879,8 +4900,15 @@
     api.writeValue = function (webId, value, timestamp, opts) {
         opts = opts || {};
         opts.cache = false;
-        return api.post('streams/' + encodeURIComponent(webId) + '/value',
-            { Timestamp: timestamp || '*', Value: value }, opts);
+        var body = { Timestamp: timestamp || '*', Value: value };
+        // Flagged for review by whoever reads it: PI keeps the flag with the
+        // value, and PI Vision draws such a value as questionable.
+        if (opts.questionable) { body.Questionable = true; }
+        // PI Web API's own rule for a value already at that time: Replace
+        // (its default, and what every write here did before), Insert (keep
+        // both) or NoReplace (keep the old one).
+        var q = opts.updateOption ? '?updateOption=' + encodeURIComponent(opts.updateOption) : '';
+        return api.post('streams/' + encodeURIComponent(webId) + '/value' + q, body, opts);
     };
 
     /**
@@ -4896,7 +4924,11 @@
         var ok = [], failed = [];
         return list.reduce(function (chain, w) {
             return chain.then(function () {
-                return api.writeValue(w.webId, w.value, w.timestamp, opts)
+                var o = {};
+                for (var k in (opts || {})) { if (Object.prototype.hasOwnProperty.call(opts, k)) { o[k] = opts[k]; } }
+                if (w.questionable) { o.questionable = true; }
+                if (w.updateOption) { o.updateOption = w.updateOption; }
+                return api.writeValue(w.webId, w.value, w.timestamp, o)
                     .then(function (res) { ok.push({ key: w.key, response: res }); })
                     .catch(function (e) {
                         failed.push({ key: w.key, error: (e && e.pvxError) || { code: 'unknown', message: String(e) } });
@@ -7138,7 +7170,7 @@
      * after every render, so a config change shows at once.
      */
     overlay.bind = function (ctx, hooks) {
-        var el = null, menu = null, badge = null, note = null, rangeEl = null;
+        var el = null, menu = null, badge = null, note = null, rangeEl = null, filterEl = null;
         var timer = null, noteTimer = null;
         var hidden = false;
 
@@ -7283,8 +7315,10 @@
             var c = cfg();
             var n = ctx.node;
             var staleAt = staleCheck();
-            var range = ctx.ownrange ? ctx.ownrange.badge() : null;
-            var want = !!c.ExportMenu || !!c.QuickTrend || staleAt !== null || !!range;
+            // An AF search reads its own range, so its badge says both.
+            var range = (ctx.afsource && ctx.afsource.badge()) || (ctx.ownrange ? ctx.ownrange.badge() : null);
+            var picked = ctx.filter ? ctx.filter.badge() : null;
+            var want = !!c.ExportMenu || !!c.QuickTrend || staleAt !== null || !!range || !!picked;
             var host = attach(want);
             if (host) {
                 var btn = host.querySelector('.pvx-overlay-btn');
@@ -7298,6 +7332,19 @@
                     rangeEl.className = 'pvx-overlay-range' + (range.warn ? ' pvx-overlay-range-warn' : '');
                     rangeEl.style.display = '';
                 } else if (rangeEl) { rangeEl.style.display = 'none'; }
+                if (picked) {
+                    if (!filterEl) {
+                        filterEl = document.createElement('button');
+                        filterEl.type = 'button';
+                        filterEl.className = 'pvx-overlay-filter';
+                        host.appendChild(filterEl);
+                    }
+                    filterEl.textContent = picked.text;
+                    filterEl.title = picked.title;
+                    filterEl.setAttribute('aria-label', picked.title);
+                    filterEl.onclick = function (ev) { if (ev) { ev.stopPropagation(); } picked.clear(); };
+                    filterEl.style.display = '';
+                } else if (filterEl) { filterEl.style.display = 'none'; }
                 if (!c.ExportMenu) { closeMenu(); }
                 if (staleAt !== null) {
                     if (!badge) { badge = document.createElement('div'); badge.className = 'pvx-overlay-stale'; host.appendChild(badge); }
@@ -7691,6 +7738,771 @@
         };
     };
 
+    /* ------------------------------------------------------------------ *
+     * afsource: an AF search as a symbol's data (SourceMode 'search')
+     * ------------------------------------------------------------------ *
+     * A chart of "every compressor under this area" should not need its
+     * display edited when a fourteenth compressor is commissioned, and PI
+     * Vision's data sources cannot grow by themselves. With the option on,
+     * the bootstrap swaps what the symbol is sent for rows built from an AF
+     * search: the elements under a root (the display's asset by default), of
+     * a template, matching a name, and the attributes named in the pane.
+     * The symbol reads the same shape it always reads (Table rows, or
+     * TimeSeries items) and needs nothing of its own beyond knowing which
+     * row is which asset and attribute (`asset`, `attribute` on each row).
+     *
+     * The search is one request, asked again only when what it searches for
+     * changes; the values are one PVX.api.batch per refresh, a stream set
+     * per element filtered to each attribute name. An element without an
+     * attribute, a failed read, a search cut short: each is counted in the
+     * badge on the symbol, never dropped quietly.
+     *
+     * Mock-proven only (tools/test-overview.js), like the rest of PVX.api.
+     */
+    var afsource = PVX.afsource = {};
+
+    afsource.DEFAULTS = {
+        SourceMode: 'sources',        // sources | search
+        SearchRoot: '',               // used when the display names no asset
+        SearchTemplate: '',
+        SearchNameFilter: '',
+        SearchDescendants: true,
+        SearchAttributes: '',         // names, comma separated
+        SearchMax: 50,
+        SearchRefreshSeconds: 60
+    };
+
+    /** The defaults, merged into a symbol's own. */
+    afsource.defaults = function (cfg) {
+        var out = cfg || {};
+        for (var k in afsource.DEFAULTS) {
+            if (Object.prototype.hasOwnProperty.call(afsource.DEFAULTS, k)) { out[k] = afsource.DEFAULTS[k]; }
+        }
+        return out;
+    };
+
+    afsource.wanted = function (cfg) { return !!(cfg && cfg.SourceMode === 'search'); };
+
+    /** "Power, Flow; Status" -> ['Power', 'Flow', 'Status'], once each. */
+    afsource.attributes = function (text) {
+        var parts = String(text === null || text === undefined ? '' : text).split(/[,;\n]/);
+        var out = [], seen = {};
+        for (var i = 0; i < parts.length; i++) {
+            var a = parts[i].replace(/^\s+|\s+$/g, '');
+            if (a && !seen[a.toLowerCase()]) { seen[a.toLowerCase()] = true; out.push(a); }
+        }
+        return out;
+    };
+
+    /**
+     * Rows of an AF search, by attribute: `byAttr[i]` holds the rows of the
+     * i-th attribute named in the pane. A symbol that charts one quantity
+     * takes byAttr[0] and names the rest in its footer (`unused`); one that
+     * pairs two (size and colour) takes two.
+     */
+    afsource.split = function (rows, cfg, uses) {
+        var attrs = afsource.attributes(cfg && cfg.SearchAttributes);
+        var byAttr = [];
+        for (var a = 0; a < attrs.length; a++) {
+            var list = [];
+            for (var i = 0; i < rows.length; i++) {
+                if (String(rows[i].attribute).toLowerCase() === attrs[a].toLowerCase()) { list.push(rows[i]); }
+            }
+            byAttr.push(list);
+        }
+        return { attrs: attrs, byAttr: byAttr, unused: attrs.slice(uses || 1) };
+    };
+
+    /* PI Vision's statistic names, as PI Web API's summaryType. */
+    afsource.SUMMARY = { Average: 'Average', Minimum: 'Minimum', Maximum: 'Maximum', Range: 'Range', StdDev: 'StdDev', Total: 'Total' };
+
+    /**
+     * Wire it into one symbol. Returns {take(d, deliver), changed(deliver),
+     * badge(), destroy()}, as ownrange does.
+     */
+    afsource.bind = function (ctx) {
+        var st = { phase: 'off', elements: [], truncated: false, root: '', key: '', error: null,
+            failed: 0, missing: {}, readAt: 0, out: null, range: null };
+        var gen = 0, timer = null, last = null, sink = null, reading = '';
+
+        function cfg() { return ctx.config || {}; }
+        function trim(s) { return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, ''); }
+        function lc(s) { return trim(s).toLowerCase(); }
+
+        function root() {
+            return trim(nav.currentAsset()) || trim(cfg().SearchRoot) || nav.sourceAsset(ctx.scope);
+        }
+
+        function maxOf() { return Math.max(1, Math.min(1000, parseInt(cfg().SearchMax, 10) || 50)); }
+
+        /**
+         * The time the values cover: the symbol's own range when it has one,
+         * else the display's, as the pipeline's own update states it (an
+         * absolute range PI Vision resolved), else the address, else PI
+         * Vision's default eight hours.
+         */
+        function range() {
+            var c = cfg();
+            if (ownrange.wanted(c)) {
+                return { start: trim(c.OwnStart) || '*-1d', end: trim(c.OwnEnd) || '*', own: true };
+            }
+            var list = last && (last.Data || last.data);
+            var first = list && list[0];
+            if (first && first.StartTime && first.EndTime) { return { start: first.StartTime, end: first.EndTime }; }
+            var p = {};
+            try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+            return { start: p.starttime || p.StartTime || '*-8h', end: p.endtime || p.EndTime || '*' };
+        }
+
+        function searchKey() {
+            var c = cfg();
+            return [lc(root()), lc(c.SearchTemplate), lc(c.SearchNameFilter), c.SearchDescendants !== false, maxOf()].join('|');
+        }
+
+        function search() {
+            var r = root();
+            var c = cfg();
+            var max = maxOf();
+            var isDb = nav.databaseOf(r).toLowerCase() === trim(r).replace(/\\$/, '').toLowerCase();
+            var kind = isDb ? 'assetdatabases' : 'elements';
+            return api.get(kind + '?path=' + encodeURIComponent(r) + '&selectedFields=WebId;Name;Path')
+                .then(null, function (err) {
+                    if (err && err.pvxError && err.pvxError.code === 'not-found') { return null; }
+                    throw err;
+                })
+                .then(function (el) {
+                    if (!el || !el.WebId) {
+                        throw { pvxError: { message: 'There is no AF ' + (isDb ? 'database' : 'element') + ' at "' + r + '".',
+                            check: 'the display\'s asset, or Search root in the format pane' } };
+                    }
+                    var q = ['selectedFields=Items.WebId;Items.Name;Items.Path;Items.TemplateName', 'maxCount=' + (max + 1)];
+                    if (c.SearchDescendants !== false) { q.push('searchFullHierarchy=true'); }
+                    if (trim(c.SearchTemplate)) { q.push('templateName=' + encodeURIComponent(trim(c.SearchTemplate))); }
+                    if (trim(c.SearchNameFilter)) { q.push('nameFilter=' + encodeURIComponent(trim(c.SearchNameFilter))); }
+                    return api.get(kind + '/' + encodeURIComponent(el.WebId) + '/elements?' + q.join('&'), { cache: false });
+                })
+                .then(function (res) {
+                    var items = (res && res.Items) || [];
+                    var els = [];
+                    for (var i = 0; i < items.length && els.length < max; i++) {
+                        var it = items[i];
+                        if (!it || !it.WebId || !it.Path) { continue; }
+                        var parent = nav.parentOf(it.Path);
+                        els.push({ name: it.Name || it.Path.slice(it.Path.lastIndexOf('\\') + 1), path: it.Path, webId: it.WebId,
+                            template: trim(it.TemplateName), parent: parent.slice(parent.lastIndexOf('\\') + 1) });
+                    }
+                    st.truncated = items.length > max;
+                    st.elements = els;
+                    st.root = r;
+                });
+        }
+
+        /** A stream set value's plain value: a digital state by its name. */
+        function plain(v) {
+            if (v !== null && typeof v === 'object') {
+                if (v.Name !== undefined) { return v.Name; }
+                return v.Value !== undefined ? plain(v.Value) : null;
+            }
+            return v === undefined ? null : v;
+        }
+
+        /**
+         * Every element's attributes in one batch, then the update the symbol
+         * is sent. Table: one row per element and attribute, with the value
+         * or the symbol's statistic over the range. TimeSeries: one item per
+         * element and attribute, with plot values over the range.
+         */
+        function readValues() {
+            var c = cfg();
+            var attrs = afsource.attributes(c.SearchAttributes);
+            var series = c.DataShape === 'TimeSeries';
+            var stat = config.statKey(c);
+            var sumType = !series && afsource.SUMMARY[stat];
+            var rg = range();
+            var els = st.elements;
+            var reqs = {}, meta = [];
+            var q = '&startTime=' + encodeURIComponent(rg.start) + '&endTime=' + encodeURIComponent(rg.end);
+            for (var i = 0; i < els.length; i++) {
+                for (var j = 0; j < attrs.length; j++) {
+                    var base = api.base() + '/streamsets/' + encodeURIComponent(els[i].webId);
+                    var nf = '?nameFilter=' + encodeURIComponent(attrs[j]);
+                    var res = series
+                        ? base + '/plot' + nf + q + '&intervals=300&selectedFields=Items.Name;Items.UnitsAbbreviation;Items.Items'
+                        : (sumType
+                            ? base + '/summary' + nf + q + '&summaryType=' + sumType + '&selectedFields=Items.Name;Items.Items'
+                            : base + '/value' + nf + '&selectedFields=Items.Name;Items.Value');
+                    reqs['s' + meta.length] = { Method: 'GET', Resource: res };
+                    meta.push({ el: els[i], attr: attrs[j] });
+                }
+            }
+            if (!meta.length) { return Promise.resolve({ rows: [], failed: 0, missing: {}, range: rg }); }
+            return api.batch(reqs, { cache: false }).then(function (res) {
+                var r = api.batchResults(res);
+                var out = [], missing = {}, failed = 0;
+                for (var k = 0; k < meta.length; k++) {
+                    var m = meta[k];
+                    var body = r.ok['s' + k];
+                    if (body === undefined) { failed += 1; continue; }
+                    var hit = null;
+                    var items = (body && body.Items) || [];
+                    for (var x = 0; x < items.length; x++) { if (lc(items[x].Name) === lc(m.attr)) { hit = items[x]; break; } }
+                    if (!hit) { (missing[m.attr] = missing[m.attr] || []).push(m.el.name); continue; }
+                    var row = { el: m.el, attr: m.attr };
+                    if (series) {
+                        row.units = hit.UnitsAbbreviation || '';
+                        row.values = ownrange.values(hit.Items || []);
+                    } else if (sumType) {
+                        var s = (hit.Items || [])[0];
+                        var sv = s && s.Value;
+                        row.value = plain(sv && typeof sv === 'object' && 'Value' in sv ? sv.Value : sv);
+                        row.units = (sv && sv.UnitsAbbreviation) || '';
+                        row.good = !(sv && sv.Good === false);
+                        row.time = sv && sv.Timestamp;
+                    } else {
+                        var tv = hit.Value;
+                        row.value = plain(tv && typeof tv === 'object' && 'Value' in tv ? tv.Value : tv);
+                        row.units = (tv && tv.UnitsAbbreviation) || '';
+                        row.good = !(tv && tv.Good === false);
+                        row.time = tv && tv.Timestamp;
+                    }
+                    out.push(row);
+                }
+                return { rows: out, failed: failed, missing: missing, range: rg, many: attrs.length > 1, series: series };
+            });
+        }
+
+        /** The read, in the shape PI Vision would have sent. */
+        function shape(got) {
+            var list = [];
+            for (var i = 0; i < got.rows.length; i++) {
+                var g = got.rows[i];
+                var item = {
+                    // One attribute: the asset is the name. More: PI Vision's own
+                    // "Element|Attribute", so two rows never share a label.
+                    Label: got.many ? g.el.name + '|' + g.attr : g.el.name,
+                    Units: g.units,
+                    Path: 'af:' + g.el.path + '|' + g.attr,
+                    Asset: g.el.name,
+                    AssetPath: g.el.path,
+                    Attribute: g.attr,
+                    Parent: g.el.parent,
+                    Template: g.el.template
+                };
+                if (got.series) {
+                    item.Value = g.values;
+                    var now = Date.now();
+                    var a = nav.parseTime(got.range.start, now), b = nav.parseTime(got.range.end, now);
+                    if (a !== null && b !== null) {
+                        item.StartTime = new Date(a).toISOString();
+                        item.EndTime = new Date(b).toISOString();
+                    }
+                } else {
+                    item.Value = g.value;
+                    item.Time = g.time;
+                    item.IsGood = g.good;
+                    // Summary cells are positional, matching the one column the
+                    // symbol asks for (config.statColumns).
+                    item.Summary = [{ Value: g.value }];
+                }
+                list.push(item);
+            }
+            return got.series ? { Data: list } : { Rows: list };
+        }
+
+        function errText(e) {
+            return (e && e.pvxError && (e.pvxError.message + (e.pvxError.check ? ' Check: ' + e.pvxError.check + '.' : ''))) ||
+                (e && e.message) || 'PI Web API did not answer.';
+        }
+
+        function read(force) {
+            if (!root()) { st.phase = 'noroot'; send(); return; }
+            var c = cfg();
+            var sk = searchKey();
+            // The range by what was ASKED for, not what it resolved to: PI
+            // Vision restates a live range as new absolute times in every
+            // update, and keying on those would read again every few seconds.
+            var p = {};
+            try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+            var asked = ownrange.wanted(c) ? 'own:' + c.OwnStart + '|' + c.OwnEnd
+                : (p.starttime || p.StartTime || '') + '|' + (p.endtime || p.EndTime || '');
+            var rk = sk + '|' + lc(c.SearchAttributes) + '|' + c.DataShape + '|' + config.statKey(c) + '|' + asked;
+            var every = Math.max(10, parseInt(c.SearchRefreshSeconds, 10) || 60) * 1000;
+            if (!force && rk === st.key && (st.phase === 'ok' || st.phase === 'loading') && Date.now() - st.readAt < every) { return; }
+            if (reading === rk && st.phase === 'loading') { return; }
+            var fresh = sk !== st.searchKey;
+            st.key = rk;
+            st.readAt = Date.now();
+            reading = rk;
+            var g = ++gen;
+            if (st.phase !== 'ok' || fresh) { st.phase = 'loading'; }
+            (fresh ? search().then(function () { st.searchKey = sk; }) : Promise.resolve())
+                .then(function () { return g === gen ? readValues() : null; })
+                .then(function (got) {
+                    if (ctx.destroyed || g !== gen || !got) { return; }
+                    reading = '';
+                    st.phase = 'ok';
+                    st.error = null;
+                    st.failed = got.failed;
+                    st.missing = got.missing;
+                    st.range = got.range;
+                    st.out = shape(got);
+                    send();
+                }, function (e) {
+                    if (ctx.destroyed || g !== gen) { return; }
+                    reading = '';
+                    st.searchKey = '';      // asked again next time, not trusted
+                    st.phase = 'error';
+                    st.error = errText(e);
+                    st.out = null;
+                    send();
+                });
+        }
+
+        /** What the symbol is sent: the rows, or none while there are none. */
+        function send() {
+            if (!sink) { return; }
+            var empty = cfg().DataShape === 'TimeSeries' ? { Data: [] } : { Rows: [] };
+            sink(st.phase === 'ok' && st.out ? st.out : empty);
+        }
+
+        function startTimer() {
+            if (timer) { return; }
+            timer = setInterval(function () {
+                if (!ctx.destroyed && afsource.wanted(cfg()) && api.isConfigured()) { read(false); }
+            }, 5000);
+        }
+
+        return {
+            take: function (d, deliver) {
+                if (!afsource.wanted(cfg())) {
+                    st.phase = 'off';
+                    deliver(d);
+                    return;
+                }
+                last = d;
+                sink = deliver;
+                if (api.discovering()) {
+                    st.phase = 'finding';
+                    api.discover().then(function () { if (!ctx.destroyed) { read(true); } });
+                    return;
+                }
+                if (!api.isConfigured()) { st.phase = 'unconfigured'; send(); return; }
+                startTimer();
+                if (st.phase === 'ok' && st.out) { deliver(st.out); }
+                read(false);
+            },
+            changed: function (deliver) {
+                if (!afsource.wanted(cfg())) {
+                    if (st.phase !== 'off') { st.phase = 'off'; if (last) { deliver(last); } }
+                    return;
+                }
+                sink = deliver;
+                if (api.isConfigured()) { startTimer(); read(false); } else if (!api.discovering()) { st.phase = 'unconfigured'; send(); }
+            },
+            /** {text, title, warn} for the overlay, or null when off. */
+            badge: function () {
+                if (!afsource.wanted(cfg())) { return null; }
+                var c = cfg();
+                var attrs = afsource.attributes(c.SearchAttributes);
+                if (st.phase === 'unconfigured') {
+                    return { text: 'AF search (not in force)', warn: true,
+                        title: 'This symbol takes its rows from an AF search, which needs PI Web API. ' + api.unsetHint() + '.' };
+                }
+                if (st.phase === 'noroot') {
+                    return { text: 'AF search: no root', warn: true,
+                        title: 'Nothing to search under. Open the display on an asset, drop an AF attribute on this symbol, or set Search root in the format pane.' };
+                }
+                if (!attrs.length) {
+                    return { text: 'AF search: no attribute', warn: true, title: 'Name the attributes to read from each asset in the format pane.' };
+                }
+                if (st.phase === 'error') {
+                    return { text: 'AF search failed', warn: true, title: st.error };
+                }
+                if (st.phase !== 'ok') {
+                    return { text: 'AF search…', title: 'Searching AF and reading values from PI Web API.' };
+                }
+                var bits = ['Rows from an AF search under ' + st.root + (trim(c.SearchTemplate) ? ', template "' + trim(c.SearchTemplate) + '"' : '') +
+                    (trim(c.SearchNameFilter) ? ', name "' + trim(c.SearchNameFilter) + '"' : '') + ': ' + st.elements.length +
+                    (st.elements.length === 1 ? ' asset' : ' assets') + ', ' + attrs.join(', ') + '.'];
+                var warn = false;
+                if (st.truncated) { bits.push('Only the first ' + st.elements.length + ' assets: raise Most assets or narrow the search.'); warn = true; }
+                for (var a in st.missing) {
+                    if (Object.prototype.hasOwnProperty.call(st.missing, a)) {
+                        var who = st.missing[a];
+                        bits.push(who.length + (who.length === 1 ? ' asset has' : ' assets have') + ' no ' + a + ': ' +
+                            who.slice(0, 8).join(', ') + (who.length > 8 ? '…' : '') + '.');
+                        warn = true;
+                    }
+                }
+                if (st.failed) { bits.push(st.failed + ' ' + (st.failed === 1 ? 'read' : 'reads') + ' failed.'); warn = true; }
+                if (st.range && (c.DataShape === 'TimeSeries' || afsource.SUMMARY[config.statKey(c)])) {
+                    bits.push('Over ' + st.range.start + ' to ' + st.range.end + (st.range.own ? ' (the symbol\'s own range)' : '') + '.');
+                }
+                return { text: 'AF search · ' + st.elements.length + (warn ? ' ⚠' : ''), title: bits.join(' '), warn: warn };
+            },
+            destroy: function () {
+                if (timer) { clearInterval(timer); timer = null; }
+                gen += 1;
+            }
+        };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * filter: assets picked on one symbol, obeyed by others on the page
+     * ------------------------------------------------------------------ *
+     * PI Vision's asset context is one asset for the whole display. A click
+     * on a row of the Asset Table that should narrow the Event List and the
+     * Ranked Bar beside it, without leaving the display or changing what
+     * every other symbol shows, needs a second, smaller channel: a set of
+     * asset paths with a name, kept on the page. A symbol publishes to it
+     * (ClickAction 'filter') and obeys it (FilterObey); FilterChannel names
+     * the channel, so two groups of symbols on one display can filter apart.
+     *
+     * An asset filter matches the asset and everything under it, so Station
+     * 1 picked in one table keeps K-301's events in the list beside it. A
+     * filter is never applied quietly: an obeying symbol shows a badge with
+     * what it is filtered by and how to clear it, and says how many rows it
+     * hid. Nothing is stored: a reload starts unfiltered, except that a link
+     * can preselect one with `filter=<path>` (or `filter.<channel>=`) in the
+     * display's address, separated by semicolons.
+     */
+    var filter = PVX.filter = {};
+    var channels = {}, listeners = [], fromLink = {};
+
+    filter.DEFAULTS = { FilterChannel: '', FilterObey: false };
+
+    filter.defaults = function (cfg) {
+        var out = cfg || {};
+        for (var k in filter.DEFAULTS) {
+            if (Object.prototype.hasOwnProperty.call(filter.DEFAULTS, k)) { out[k] = filter.DEFAULTS[k]; }
+        }
+        return out;
+    };
+
+    function chanOf(name) {
+        var n = String(name === null || name === undefined ? '' : name).replace(/^\s+|\s+$/g, '').toLowerCase();
+        return n || 'main';
+    }
+    filter.channel = function (cfg) { return chanOf(cfg && cfg.FilterChannel); };
+
+    function normPath(p) {
+        return String(p === null || p === undefined ? '' : p).replace(/^[a-z]+:/i, '').replace(/^\s+|\s+$/g, '')
+            .replace(/[\\]+$/, '').toLowerCase();
+    }
+
+    function lastName(p) {
+        var s = String(p || '').replace(/[\\]+$/, '');
+        var i = s.lastIndexOf('\\');
+        return i === -1 ? s : s.slice(i + 1);
+    }
+
+    /** A filter preselected by the display's address, read once per channel. */
+    function linked(ch) {
+        if (fromLink[ch] !== undefined) { return fromLink[ch]; }
+        fromLink[ch] = null;
+        var p = {};
+        try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+        var raw = p['filter.' + ch] || (ch === 'main' ? p.filter : '') || '';
+        if (raw) {
+            var paths = String(raw).split(';');
+            var list = [];
+            for (var i = 0; i < paths.length; i++) { if (paths[i].replace(/\s/g, '')) { list.push(paths[i].replace(/^\s+|\s+$/g, '')); } }
+            if (list.length) {
+                fromLink[ch] = { assets: list, label: list.length === 1 ? lastName(list[0]) : list.length + ' assets', by: 'the link', at: Date.now() };
+            }
+        }
+        return fromLink[ch];
+    }
+
+    /** {assets: [paths], label, by, at} for a channel, or null when unfiltered. */
+    filter.get = function (name) {
+        var ch = chanOf(name);
+        if (Object.prototype.hasOwnProperty.call(channels, ch)) { return channels[ch]; }
+        return linked(ch);
+    };
+
+    function changed(ch) {
+        var copy = listeners.slice();
+        for (var i = 0; i < copy.length; i++) {
+            if (copy[i].ch === ch) {
+                try { copy[i].fn(filter.get(ch)); } catch (e) { if (root.console) { root.console.error('[PVX] filter listener failed', e); } }
+            }
+        }
+    }
+
+    /** Filter a channel by these asset paths; an empty list clears it. */
+    filter.set = function (name, assets, label, by) {
+        var ch = chanOf(name);
+        var list = [];
+        for (var i = 0; assets && i < assets.length; i++) { if (normPath(assets[i])) { list.push(String(assets[i])); } }
+        channels[ch] = list.length ? {
+            assets: list,
+            label: label || (list.length === 1 ? lastName(list[0]) : list.length + ' assets'),
+            by: by || '', at: Date.now()
+        } : null;
+        changed(ch);
+        return channels[ch];
+    };
+
+    filter.clear = function (name) { return filter.set(name, [], '', ''); };
+
+    /** A click on what is already the filter clears it; anything else replaces it. */
+    filter.toggle = function (name, asset, label, by) {
+        var f = filter.get(name);
+        if (f && f.assets.length === 1 && normPath(f.assets[0]) === normPath(asset)) { return filter.clear(name); }
+        return filter.set(name, [asset], label, by);
+    };
+
+    /** True when this exact asset is the whole filter: the row to highlight. */
+    filter.isPicked = function (name, asset) {
+        var f = filter.get(name);
+        return !!(f && asset && f.assets.length === 1 && normPath(f.assets[0]) === normPath(asset));
+    };
+
+    /**
+     * Does an asset pass? The asset itself or anything under it. A filter
+     * value with no backslash is a plain name, matched against the asset's
+     * own name. No filter passes everything; no asset passes nothing.
+     */
+    filter.matches = function (f, asset) {
+        if (!f || !f.assets || !f.assets.length) { return true; }
+        var a = normPath(asset);
+        if (!a) { return false; }
+        for (var i = 0; i < f.assets.length; i++) {
+            var v = normPath(f.assets[i]);
+            if (!v) { continue; }
+            if (v.indexOf('\\') === -1) {
+                if (lastName(a) === v) { return true; }
+                continue;
+            }
+            if (a === v || a.indexOf(v + '\\') === 0) { return true; }
+        }
+        return false;
+    };
+
+    /** Subscribe; returns the unsubscribe function. */
+    filter.on = function (name, fn) {
+        var entry = { ch: chanOf(name), fn: fn };
+        listeners.push(entry);
+        return function () {
+            for (var i = 0; i < listeners.length; i++) { if (listeners[i] === entry) { listeners.splice(i, 1); return; } }
+        };
+    };
+
+    /** Forget every channel: tests, and a display left for another. */
+    filter.reset = function () { channels = {}; fromLink = {}; };
+
+    /**
+     * Wire one symbol: re-render when its channel changes, and the overlay
+     * badge. `uses` is true for a symbol that publishes or obeys; a symbol
+     * that does neither never subscribes.
+     */
+    filter.bind = function (ctx) {
+        var off = null, sub = '';
+        function cfg() { return ctx.config || {}; }
+        function uses() { var c = cfg(); return !!c.FilterObey || c.ClickAction === 'filter'; }
+        function sync() {
+            var want = uses() ? filter.channel(cfg()) : '';
+            if (want === sub) { return; }
+            if (off) { off(); off = null; }
+            sub = want;
+            if (want) { off = filter.on(want, function () { if (!ctx.destroyed) { ctx.render(); } }); }
+        }
+        sync();
+        return {
+            sync: sync,
+            /** The channel's filter when this symbol obeys it, else null. */
+            active: function () { return cfg().FilterObey ? filter.get(filter.channel(cfg())) : null; },
+            /** {text, title, clear()} for the overlay, or null. */
+            badge: function () {
+                sync();
+                if (!uses()) { return null; }
+                var ch = filter.channel(cfg());
+                var f = filter.get(ch);
+                if (!f) { return null; }
+                return {
+                    text: 'Filter: ' + f.label + ' ✕',
+                    title: (cfg().FilterObey ? 'Showing only ' : 'Filtering other symbols to ') + f.assets.join(', ') +
+                        ' and what is under ' + (f.assets.length === 1 ? 'it' : 'them') +
+                        (f.by ? ', picked on ' + f.by : '') + (ch !== 'main' ? ' (channel "' + ch + '")' : '') + '. Click to clear.',
+                    clear: function () { filter.clear(ch); }
+                };
+            },
+            destroy: function () { if (off) { off(); off = null; } }
+        };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * writer: one panel for a write that is not a form's whole job
+     * ------------------------------------------------------------------ *
+     * The Asset Table writing a cell, the Event List acknowledging an event,
+     * commenting on it or editing its attributes: each is a small write
+     * from a symbol whose job is reading. They share one panel so they
+     * share one rule, the Shift Log's: what is about to be written is
+     * stated in full and confirmed, there is no undo, and the result (or
+     * PI Web API's own reason for refusing) is said where the click was.
+     *
+     * panel(parent) -> {open(spec), close(), isOpen(), destroy()}
+     * spec: {title, fields:[{key, label, value, units, kind number|text|
+     *        textarea|bool}], action ('Write'), noun ('value'),
+     *        confirm(values) -> sentence, submit(values) -> Promise of
+     *        {ok, text, detail}, load() -> Promise of [lines] shown above}
+     * A field left as it was is not sent; `values` holds only the changed.
+     */
+    var writer = PVX.writer = {};
+
+    /** "12", "-1.5e3": a number; "12kg" is a typo to show, not to guess at. */
+    writer.isNumber = function (text) { return /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(String(text).replace(/^\s+|\s+$/g, '')); };
+
+    writer.panel = function (parent) {
+        var doc = root.document;
+        var box = doc.createElement('div');
+        box.className = 'pvx-writer';
+        box.style.display = 'none';
+        parent.appendChild(box);
+        var spec = null, phase = 'closed', values = null, inputs = [];
+
+        function el(tag, cls, into, text) {
+            var n = doc.createElement(tag);
+            if (cls) { n.className = cls; }
+            if (text !== undefined) { n.textContent = text; }
+            (into || box).appendChild(n);
+            return n;
+        }
+        function button(into, cls, text, fn) {
+            var b = el('button', 'pvx-writer-btn ' + cls, into, text);
+            b.type = 'button';
+            b.onclick = function (ev) { if (ev) { ev.stopPropagation(); } fn(); };
+            return b;
+        }
+        function trimmed(v) { return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, ''); }
+
+        function draw(msg) {
+            box.innerHTML = '';
+            box.style.display = '';
+            box.setAttribute('data-phase', phase);
+            el('div', 'pvx-writer-title', box, spec.title);
+            if (spec.lines && spec.lines.length) {
+                var ls = el('div', 'pvx-writer-lines', box);
+                for (var l = 0; l < spec.lines.length; l++) { el('div', 'pvx-writer-line', ls, spec.lines[l]); }
+            }
+            if (phase === 'edit') {
+                inputs = [];
+                var fs = spec.fields || [];
+                for (var i = 0; i < fs.length; i++) {
+                    var row = el('label', 'pvx-writer-field', box);
+                    el('span', 'pvx-writer-label', row, fs[i].label + (fs[i].units ? ' (' + fs[i].units + ')' : ''));
+                    var inp;
+                    if (fs[i].kind === 'textarea') { inp = el('textarea', 'pvx-writer-input', row); inp.rows = 3; }
+                    else if (fs[i].kind === 'bool') {
+                        inp = el('select', 'pvx-writer-input', row);
+                        el('option', '', inp, 'True').value = 'True';
+                        el('option', '', inp, 'False').value = 'False';
+                    } else { inp = el('input', 'pvx-writer-input', row); inp.type = 'text'; }
+                    var v = values && values[fs[i].key] !== undefined ? values[fs[i].key] : fs[i].value;
+                    inp.value = v === null || v === undefined ? '' : String(v);
+                    inp.onkeydown = function (ev) {
+                        if ((ev.key === 'Enter' || ev.keyCode === 13) && this.tagName !== 'TEXTAREA') { ev.preventDefault(); toConfirm(); }
+                        if (ev.key === 'Escape' || ev.keyCode === 27) { api0.close(); }
+                    };
+                    inputs.push(inp);
+                }
+                var a = el('div', 'pvx-writer-actions', box);
+                button(a, 'pvx-writer-go', spec.action || 'Write', toConfirm);
+                button(a, 'pvx-writer-cancel', 'Cancel', function () { api0.close(); });
+                if (inputs[0]) { try { inputs[0].focus(); } catch (e) { /* not focusable yet */ } }
+            } else if (phase === 'confirm') {
+                el('div', 'pvx-writer-confirm', box, spec.confirm ? spec.confirm(values) : 'Write this?');
+                var c = el('div', 'pvx-writer-actions', box);
+                button(c, 'pvx-writer-yes', 'Confirm', send);
+                button(c, 'pvx-writer-back', (spec.fields && spec.fields.length) ? 'Back' : 'Cancel', function () {
+                    if (spec.fields && spec.fields.length) { phase = 'edit'; draw(); } else { api0.close(); }
+                });
+            } else if (phase === 'sending') {
+                el('div', 'pvx-writer-msg', box, 'Writing…');
+            } else if (phase === 'done' || phase === 'failed') {
+                var d = el('div', 'pvx-writer-actions', box);
+                if (phase === 'failed' && spec.fields && spec.fields.length) { button(d, 'pvx-writer-back', 'Back', function () { phase = 'edit'; draw(); }); }
+                button(d, 'pvx-writer-cancel', 'Close', function () { api0.close(); });
+            }
+            if (msg) {
+                var m = el('div', 'pvx-writer-msg', box);
+                m.setAttribute('data-tone', msg.tone || 'info');
+                el('div', 'pvx-writer-msg-text', m, msg.text || '');
+                if (msg.detail) { el('div', 'pvx-writer-msg-detail', m, msg.detail); }
+            }
+        }
+
+        function toConfirm() {
+            var fs = spec.fields || [];
+            var out = {}, changed = 0;
+            for (var i = 0; i < fs.length; i++) {
+                var t = trimmed(inputs[i] && inputs[i].value);
+                var before = trimmed(fs[i].value);
+                if (t === before) { continue; }
+                if (fs[i].kind === 'number') {
+                    if (!writer.isNumber(t)) { draw({ tone: 'error', text: fs[i].label + ': "' + t + '" is not a number.' }); return; }
+                    out[fs[i].key] = parseFloat(t);
+                } else if (fs[i].kind === 'bool') {
+                    out[fs[i].key] = t === 'True';
+                } else {
+                    out[fs[i].key] = fs[i].kind === 'textarea' ? String(inputs[i].value) : t;
+                }
+                changed += 1;
+            }
+            if (fs.length && !changed) { draw({ tone: 'warn', text: 'Nothing changed, so there is nothing to write.' }); return; }
+            values = out;
+            phase = 'confirm';
+            draw();
+        }
+
+        function send() {
+            phase = 'sending';
+            draw();
+            var p;
+            try { p = Promise.resolve(spec.submit(values)); } catch (e) { p = Promise.reject(e); }
+            p.then(function (r) {
+                if (phase !== 'sending') { return; }
+                phase = r && r.ok ? 'done' : 'failed';
+                draw({ tone: r && r.ok ? 'ok' : 'error', text: (r && r.text) || (r && r.ok ? 'Written.' : 'Not written.'), detail: r && r.detail });
+            }, function (e) {
+                if (phase !== 'sending') { return; }
+                phase = 'failed';
+                var pe = e && e.pvxError;
+                draw({ tone: 'error', text: 'Not written', detail: pe ? pe.message + (pe.check ? ' Check: ' + pe.check + '.' : '') : String((e && e.message) || e) });
+            });
+        }
+
+        var api0 = {
+            open: function (s) {
+                spec = s;
+                values = null;
+                spec.lines = [];
+                phase = (s.fields && s.fields.length) ? 'edit' : 'confirm';
+                if (!s.fields || !s.fields.length) { values = {}; }
+                draw();
+                if (s.load) {
+                    var mine = s;
+                    s.load().then(function (lines) {
+                        if (spec !== mine || !lines || !lines.length) { return; }
+                        spec.lines = lines;
+                        if (phase === 'edit' || phase === 'confirm') {
+                            // Keep what is typed: redraw only the lines above.
+                            var typed = inputs.map(function (n) { return n.value; });
+                            draw();
+                            for (var i = 0; i < typed.length && i < inputs.length; i++) { inputs[i].value = typed[i]; }
+                        }
+                    }, function () { /* the lines are context; the write does not depend on them */ });
+                }
+            },
+            close: function () { spec = null; phase = 'closed'; box.innerHTML = ''; box.style.display = 'none'; },
+            isOpen: function () { return phase !== 'closed'; },
+            node: box,
+            destroy: function () { if (box.parentNode) { box.parentNode.removeChild(box); } }
+        };
+        return api0;
+    };
+
     /**
      * Boilerplate every symbol's init() shares: renderer wiring, size tracking,
      * theme resolution, and clean teardown.
@@ -7794,13 +8606,19 @@
         });
 
         ctx.ownrange = ownrange.bind(ctx);
+        ctx.afsource = afsource.bind(ctx);
+        ctx.filter = filter.bind(ctx);
 
         vis.onDataUpdate = function (d) {
             // Before anything reads it: the sources list, the state map and
             // every symbol's own onData all want the names PI Vision only
-            // sends now and then. Then the symbol's own time range, if set,
-            // swaps in values read for it.
-            ctx.ownrange.take(keepMeta(d), deliver);
+            // sends now and then. Then rows from an AF search replace the
+            // update when the symbol takes them (reading over its own time
+            // range itself, when it has one); else the symbol's own time
+            // range, if set, swaps in values read for it.
+            var d1 = keepMeta(d);
+            if (afsource.wanted(ctx.config)) { ctx.afsource.take(d1, deliver); }
+            else { ctx.afsource.take(d1, function (d2) { ctx.ownrange.take(d2, deliver); }); }
         };
 
         function deliver(d) {
@@ -7824,7 +8642,12 @@
         vis.onConfigChange = function (newConfig, oldConfig) {
             ctx.config = newConfig || ctx.config;
             scope.config = ctx.config;
-            ctx.ownrange.changed(deliver);
+            if (afsource.wanted(ctx.config)) { ctx.afsource.changed(deliver); }
+            else {
+                ctx.afsource.changed(function (d2) { ctx.ownrange.take(d2, deliver); });
+                ctx.ownrange.changed(deliver);
+            }
+            ctx.filter.sync();
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }
@@ -7851,6 +8674,8 @@
             if (ctx.tags) { ctx.tags.destroy(); }
             ctx.overlay.destroy();
             ctx.ownrange.destroy();
+            ctx.afsource.destroy();
+            ctx.filter.destroy();
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

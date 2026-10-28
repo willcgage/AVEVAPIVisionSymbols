@@ -1,5 +1,7 @@
 <div class="c-config-content pvx-cfg">
 
+    <!-- pvx:afsearch -->
+
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Size</div>
 
@@ -37,9 +39,10 @@
                 <option value="none">No grouping</option>
                 <option value="delimiter">Path segment</option>
                 <option value="prefix">Name prefix</option>
+                <option value="parent">Parent asset in AF</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint">PI returns a flat list, so the hierarchy has to come out of the AF path or the tag name. Groups are laid out first, then the tags inside each group, and each group gets a header strip with its name and total.</div>
+        <div class="pvx-cfg-hint"><em>Parent asset in AF</em> groups each tile under the element one level above its own, which with rows from an AF search is the plant's own hierarchy. PI returns a flat list, so otherwise the hierarchy has to come out of the AF path or the tag name. Groups are laid out first, then the tags inside each group, and each group gets a header strip with its name and total.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxtm-delim">Path delimiter</label>
@@ -71,7 +74,7 @@
                 <option value="single">One colour</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint">Size shows who is big, colour shows who is in trouble. <em>Threshold band</em> colours by the same statistic the tiles are sized by, which is the combination worth reading. <em>Palette</em> and <em>Group</em> identify rather than rank, so they carry no legend of magnitude.</div>
+        <div class="pvx-cfg-hint">Size shows who is big, colour shows who is in trouble. <em>Threshold band</em> colours by the same statistic the tiles are sized by, which is the combination worth reading. With rows from an AF search naming two attributes, the first sizes the tiles and the second colours them (load by efficiency, say), paired by asset. <em>Palette</em> and <em>Group</em> identify rather than rank, so they carry no legend of magnitude.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxtm-single">Tile colour</label>
@@ -174,8 +177,10 @@
             <select id="pvxtm-click" ng-model="config.ClickAction">
                 <option value="none">Do nothing</option>
                 <option value="navigate">Open a display</option>
+                <option value="drill">Drill into the group</option>
             </select>
         </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'drill'">With grouping on, a click on a tile shows only its group, filling the symbol, with a trail above to go back. Inside a group a click opens the target display, as <em>Open a display</em> does.</div>
         <div class="pvx-cfg-stack">
             <label for="pvxtm-target">Target display</label>
             <input id="pvxtm-target" type="text" ng-model="config.NavigateTarget" placeholder="display id or id/name" />

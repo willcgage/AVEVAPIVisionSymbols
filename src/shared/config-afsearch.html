@@ -1,0 +1,61 @@
+    <!-- Injected by tools/build.js where a pane asks for it with a
+         pvx:afsearch marker: the rows of this symbol from an AF search
+         instead of its data sources (PVX.afsource). -->
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows from an AF search</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxafs-mode">Rows come from</label>
+            <select id="pvxafs-mode" ng-model="config.SourceMode">
+                <option value="sources">The data sources dropped on it</option>
+                <option value="search">An AF search</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            An AF search finds the assets for itself, so a fourteenth compressor appears without the
+            display being edited. The data source dropped on the symbol then only places it and gives the
+            search a starting point. It reads through PI Web API; a badge on the symbol says how many assets
+            it found and names any asset without the attribute.
+        </div>
+
+        <div ng-if="config.SourceMode === 'search'">
+            <div class="pvx-cfg-stack">
+                <label for="pvxafs-attrs">Attributes to read from each asset</label>
+                <input id="pvxafs-attrs" type="text" ng-model="config.SearchAttributes" placeholder="Power, Flow" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxafs-root">Search root</label>
+                <input id="pvxafs-root" type="text" ng-model="config.SearchRoot"
+                       placeholder="\\AF server\Database\Area" />
+                <!-- pvx:afpicker key=SearchRoot kind=element -->
+            </div>
+            <div class="pvx-cfg-hint">
+                Used when the display was opened without an asset, so the same display follows whichever
+                area it is opened on. Left blank, the element of the attribute dropped onto the symbol is the root.
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxafs-template">Element template</label>
+                <input id="pvxafs-template" type="text" ng-model="config.SearchTemplate" placeholder="Every template" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxafs-name">Name filter</label>
+                <input id="pvxafs-name" type="text" ng-model="config.SearchNameFilter" placeholder="K-*" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxafs-desc">Search every level below</label>
+                <input id="pvxafs-desc" type="checkbox" ng-model="config.SearchDescendants" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxafs-max">Most assets</label>
+                <input id="pvxafs-max" type="number" min="1" max="1000" ng-model="config.SearchMax" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxafs-refresh">Read values every (s)</label>
+                <input id="pvxafs-refresh" type="number" min="10" max="3600" ng-model="config.SearchRefreshSeconds" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Current values, or the statistic this symbol is set to over the display's time range (its own
+                range, when it has one). The search itself is asked again only when what it searches for changes.
+            </div>
+        </div>
+    </div>

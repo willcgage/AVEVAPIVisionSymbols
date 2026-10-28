@@ -101,7 +101,9 @@
         configTitle: 'Format Ranked Bar',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // An AF search can supply the rows instead (PVX.afsource); off by default.
+            // Shared filters (PVX.filter) likewise.
+            return window.PVX.filter.defaults(window.PVX.afsource.defaults(window.PVX.config.base({
                 DataShape: 'Table',
                 // Positional contract with PI Vision's Summary cells. Kept in
                 // sync with Statistic by syncColumns().
@@ -157,9 +159,9 @@
                 HideZero: false,
 
                 // --- interaction ------------------------------------
-                ClickAction: 'none',         // none | navigate
+                ClickAction: 'none',         // none | navigate | filter
                 NavigateTarget: ''
-            });
+            })));
         }
     };
 
@@ -177,6 +179,7 @@
         };
 
         var rows = [];
+        var unusedAttrs = [];
         // Bars on screen, index-aligned with the data-pvx-i on each bar, so
         // the delegated click handler can find the element it stands for.
         var drawn = [];
@@ -195,6 +198,13 @@
                 // the previous aggregate; it is replaced within one refresh, so
                 // we prefer a one-frame stale number over dropping the row.
                 rows = PVX.data.rows(d, cfg.Columns || columnsFor(cfg)) || [];
+                // From an AF search a ranking compares one quantity: the first
+                // attribute named. Any others are named in the footer.
+                unusedAttrs = [];
+                if (PVX.afsource.wanted(cfg)) {
+                    var sp = PVX.afsource.split(rows, cfg, 1);
+                    if (sp.attrs.length > 1) { rows = sp.byAttr[0]; unusedAttrs = sp.unused; }
+                }
             },
 
             onConfigChange: function (newCfg) {
@@ -257,9 +267,12 @@
             var skipped = 0;     // rows whose chosen statistic is null
             var zeros = 0;       // rows hidden by HideZero
             var badCount = 0;
+            var picked = ctx.filter.active();
+            var filtered = 0;    // rows hidden by a filter from another symbol
 
             for (i = 0; i < rows.length; i++) {
                 var r = rows[i];
+                if (picked && !PVX.filter.matches(picked, r.assetPath || PVX.nav.assetOf(r.path))) { filtered += 1; continue; }
                 var v = statValue(r, cfg);
                 if (v === null) { skipped += 1; continue; }
                 if (cfg.HideZero && v === 0) { zeros += 1; continue; }
@@ -360,6 +373,7 @@
 
             // --- notes -----------------------------------------------------
             var notes = [];
+            if (filtered) { notes.push(filtered + (filtered === 1 ? ' bar' : ' bars') + ' hidden by the filter (' + picked.label + ')'); }
             if (skipped) {
                 notes.push(skipped + (skipped === 1 ? ' source has no ' : ' sources have no ') +
                     statLabel(cfg).toLowerCase());
@@ -369,6 +383,7 @@
             }
             if (hidden) { notes.push('+' + hidden + ' more not shown'); }
             if (otherCount) { notes.push('Other = ' + otherCount + ' remaining combined'); }
+            if (unusedAttrs.length) { notes.push('ranks ' + PVX.afsource.attributes(cfg.SearchAttributes)[0] + '; not used: ' + unusedAttrs.join(', ')); }
             if (cumSuppressed) {
                 notes.push(anyNegative
                     ? 'Cumulative % hidden: values include negatives'
@@ -608,12 +623,20 @@
         }
 
         function onClick(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'filter') { return; }
             var node = ev.target, guard = 0;
             while (node && node !== boundHost && guard < 8) {
                 var raw = node.getAttribute ? node.getAttribute('data-pvx-i') : null;
                 if (raw !== null && raw !== undefined) {
                     var it = drawn[parseInt(raw, 10)];
+                    if (liveCfg.ClickAction === 'filter') {
+                        // "Other" stands for several assets, so it filters nothing.
+                        if (it && !it.isOther && it.asset) {
+                            PVX.filter.toggle(PVX.filter.channel(liveCfg), it.asset, it.asset.slice(it.asset.lastIndexOf('\\') + 1),
+                                liveCfg.Title || 'the Ranked Bar');
+                        }
+                        return;
+                    }
                     var target = String(liveCfg.NavigateTarget || '').trim();
                     // "Other" stands for several elements, so it goes nowhere.
                     if (!it || it.isOther || (!target && !it.asset)) { return; }
@@ -826,11 +849,13 @@
                     w = thick;
                 }
 
-                var clickable = cfg.ClickAction === 'navigate' && !it.isOther &&
-                    !!(it.asset || String(cfg.NavigateTarget || '').trim());
+                var filtering = cfg.ClickAction === 'filter';
+                var clickable = !it.isOther && (filtering ? !!it.asset
+                    : cfg.ClickAction === 'navigate' && !!(it.asset || String(cfg.NavigateTarget || '').trim()));
+                var isPicked = filtering && PVX.filter.isPicked(PVX.filter.channel(cfg), it.asset);
                 drawn[i] = it;
                 var grp = PVX.svg.el('g', {
-                    'class': 'pvx-pareto-bar' + (clickable ? ' pvx-pareto-click' : ''),
+                    'class': 'pvx-pareto-bar' + (clickable ? ' pvx-pareto-click' : '') + (isPicked ? ' pvx-pareto-picked' : ''),
                     'data-pvx-i': String(i)
                 }, barsG);
                 PVX.svg.el('rect', {
