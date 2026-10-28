@@ -17,16 +17,16 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 846 render checks — the gate, and slow
+node tools/verify.js                 # 864 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, runs from event frames, Asset Rollup, text zoom vs a mock AF
+node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
 node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile numbers vs known answers (--only <section>)
-node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data
+node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
@@ -36,7 +36,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 47 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 48 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -130,7 +130,7 @@ silently destroys a site's PI Web API settings on upgrade.
   `layout`, `config`, `api`, `ack`, `download`. Symbols contain only what makes them differ.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
-- Symbols get data through PI Vision's pipeline. Eight reach PI Web API via
+- Symbols get data through PI Vision's pipeline. Nine reach PI Web API via
   `PVX.api` for their main job and eight more for an option that is off by
   default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
@@ -158,10 +158,17 @@ silently destroys a site's PI Web API settings on upgrade.
   by the pane's own ng-click, so saved displays are unaffected. Proven
   against a mock AF database, not yet on a server; the AFSearch syntax is
   the least certain part.
-- Every symbol has three options from `config.base`, all off: `ExportMenu`
-  (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`
-  (`src/shared/config-common.html`, applied by `PVX.overlay` after each
-  render). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
+- Every symbol has four options from `config.base`, all off: `ExportMenu`
+  (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`,
+  `QuickTrend` (`src/shared/config-common.html`, applied by `PVX.overlay`
+  after each render). The quick trend is `PVX.trend`: one floating panel per
+  page on `document.body`, plot values from PI Web API per source, a second
+  symbol's button adds to it. Time-series symbols also have `OwnTimeRange`
+  (`OwnStart`, `OwnEnd`, ...): `PVX.ownrange`, in the bootstrap, swaps the
+  pipeline's values for PI Web API recorded values over that range before
+  the symbol sees them, keeps the pipeline's labels, and sets each item's
+  StartTime/EndTime to the range. Unset PI Web API falls back to the
+  display's data, with the badge saying so. Mock-proven only (`test-overview`). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
   The PNG goes through an SVG foreignObject; proven in Chromium only.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
@@ -327,7 +334,7 @@ tier 3" — that is a resolved question, not an open task.
 items of a feature-level comparison with their Vision Library+, built easiest
 first, including the four tier-3 candidates declined above (they come back
 under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
-`pvxGeoView`). Items 1–25 are done (`docs/ROADMAP.md`, *After the plan*). Two
+`pvxGeoView`). Items 1–28 are done (`docs/ROADMAP.md`, *After the plan*). Two
 rules from him: never name a symbol after one of theirs, and never drop a PVX
 behaviour that is already ahead of theirs to match it; upgrades only add
 options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`

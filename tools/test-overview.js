@@ -12,7 +12,8 @@
  * a click on a row goes. And Period Comparison's runs from event frames:
  * the query, the three alignments, golden runs and their tolerance. And the
  * Asset Rollup: its search, the one batch of values, cards per group with
- * Others, colour from a target or bands, and every asset left out named. Also the
+ * Others, colour from a target or bands, and every asset left out named. The
+ * quick trend any symbol can open, and the Lookup Table's AF table. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
  * and the Navigation Panel's icons, tooltips and {value} addresses.
  *
@@ -144,6 +145,7 @@ function rules() {
 
     eventListRules();
     assetRollupRules();
+    lookupRules();
 
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
@@ -227,6 +229,33 @@ function assetRollupRules() {
         win.PVMock.get('pvxAssetRollup').getDefaultConfig().Target === '');
 }
 
+function lookupRules() {
+    const win = loadBuilt(['pvxLookupTable']);
+    const V = win.PVMock.get('pvxLookupTable').visObjectType;
+    let rf = V.parseRowFilter('Unit = {asset}\nWidth >= 1200\nLine in A, B\nProduct contains foil\nName != x\n# a note\nnonsense');
+    check('lookup: row conditions read, a note skipped, a bad line named',
+        JSON.stringify(rf.rules.map((r) => r.col + r.op + r.value)) === JSON.stringify(['Unit={asset}', 'Width>=1200', 'LineinA, B', 'Productcontainsfoil', 'Name<>x']) &&
+        JSON.stringify(rf.errors) === '["nonsense"]', [rf.rules, rf.errors]);
+    check('lookup: numbers compare as numbers', V.test('900', { op: '<', value: '1000' }) && !V.test('900', { op: '>', value: '1000' }));
+    check('lookup: text without case, and {asset} filled in', V.test('k-301', { op: '=', value: '{asset}' }, { asset: 'K-301' }));
+    check('lookup: in and starts', V.test('B', { op: 'in', value: 'a, b' }) && V.test('Foil 20', { op: 'starts', value: 'foil' }));
+    const pc = V.parseColumns('grade, MaxWidth | Max (mm), Nope, GRADE', ['Grade', 'Unit', 'MaxWidth']);
+    check('lookup: columns matched without case, a header, a repeat dropped, an unknown one returned',
+        pc.cols.map((c) => c.name + '/' + c.label).join(',') === 'Grade/Grade,MaxWidth/Max (mm)' && pc.missing.join() === 'Nope', pc);
+    check('lookup: blank columns is every column', V.parseColumns('', ['A', 'B']).cols.length === 2);
+    const rows = [{ G: 'b', N: 10, U: 'x' }, { G: 'a', N: 2, U: '' }, { G: 'c', N: '', U: 'x' }, { G: 'd', N: 7, U: 'y' }];
+    let b = V.buildTable(rows, { sortCol: 'N', desc: true, max: 0 });
+    check('lookup: sort numbers, blank last', b.groups[0].rows.map((r) => r.G).join('') === 'bdac', b.groups[0].rows.map((r) => r.G));
+    b = V.buildTable(rows, { sortCol: 'N', desc: false, max: 2 });
+    check('lookup: ascending, then capped and counted', b.groups[0].rows.map((r) => r.G).join('') === 'ad' && b.capped === 2 && b.shown === 2, b);
+    b = V.buildTable(rows, { rules: [{ col: 'U', op: '=', value: 'x' }], groupCol: 'G', max: 0 });
+    check('lookup: a rule leaves rows out and counts them', b.ruled === 2 && b.shown === 2, b);
+    b = V.buildTable(rows, { groupCol: 'U', max: 0 });
+    check('lookup: groups in order, blank last', b.groups.map((g) => g.label + g.rows.length).join(',') === 'x2,y1,(blank)1', b.groups.map((g) => g.label));
+    b = V.buildTable(rows, { filter: 'D', textOf: (r) => r.G, max: 0 });
+    check('lookup: the filter box', b.shown === 1 && b.hidden === 3);
+}
+
 /* ------------------------------------------------------------ mock AF ---- */
 
 const DB = '\\\\AF\\Gathering';
@@ -270,6 +299,17 @@ const EF_ATTRS = {
     ef2: { 'Reason Code': ['Mechanical', ''], 'Lost Production': [4, 't'] },
     ef3: { 'Reason Code': ['Mechanical', ''] },
     ef6: { 'Lost Production': [{ Name: 'Bad Input', Value: 307 }, ''] }
+};
+
+// The AF table the Lookup Table reads: grades per unit, with a date each took effect.
+const TABLE = {
+    Columns: { Grade: 'String', Unit: 'String', MinWidth: 'Double', MaxWidth: 'Double', Effective: 'DateTime' },
+    Rows: [
+        { Grade: 'A-100', Unit: 'K-301', MinWidth: 1000, MaxWidth: 1180, Effective: iso(60) },
+        { Grade: 'B-200', Unit: 'K-302', MinWidth: 1100, MaxWidth: 1260, Effective: iso(3000) },
+        { Grade: 'C-300', Unit: 'K-301', MinWidth: 900, MaxWidth: 1050, Effective: iso(5000) },
+        { Grade: 'D-400', Unit: '', MinWidth: 1200, MaxWidth: 1400, Effective: iso(30) }
+    ]
 };
 
 // AF limit traits, by attribute path.
@@ -334,6 +374,43 @@ function route(method, url, via) {
     if (m) {
         const tv = (TRAITS[m[1]] || {})[m[2]];
         return tv === undefined ? notFound : { status: 200, body: { Timestamp: iso(1), Value: tv, Good: true } };
+    }
+    // AF tables: one in the database, read whole, as PI Web API returns them.
+    let mt = /^assetdatabases\/([^/]+)\/tables$/.exec(rel);
+    if (mt) {
+        return byWebId[mt[1]] ? { status: 200, body: { Items: [{ Name: 'Grade Specifications', WebId: 'Wt:grades' }, { Name: 'Shift Roster', WebId: 'Wt:roster' }] } } : notFound;
+    }
+    mt = /^tables\/([^/]+)\/data$/.exec(rel);
+    if (mt) {
+        return mt[1] === 'Wt:grades' ? { status: 200, body: TABLE } : notFound;
+    }
+    if (rel === 'points' && q.get('path')) {
+        return q.get('path').toLowerCase() === '\\\\pisrv\\sinusoid'
+            ? { status: 200, body: { Name: 'SINUSOID', WebId: 'Wp:SINUSOID' } } : notFound;
+    }
+    // Plot values for the quick trend: 60 values over the last 8 hours around
+    // the attribute's value, whatever the range asked (the request is checked).
+    m = /^streams\/([^/]+)\/plot$/.exec(rel);
+    if (m) {
+        const a = byWebId[m[1]];
+        const [v, units] = m[1] === 'Wp:SINUSOID' ? [50, ''] : (a && a.kind === 'attribute' ? a.element.attrs[a.name] : [null, null]);
+        if (v === null) { return notFound; }
+        const items = [];
+        for (let i = 0; i < 60; i++) {
+            const val = typeof v === 'object' ? v : v * (1 + 0.02 * Math.sin(i / 5));
+            items.push({ Timestamp: iso(480 - i * 8), Value: val, Good: i !== 7, UnitsAbbreviation: units });
+        }
+        return { status: 200, body: { Items: items } };
+    }
+    // Recorded values for a symbol's own time range: daily over the last
+    // 150 days, as many as maxCount allows, the newest 777 so it is told
+    // apart from what the pipeline sent.
+    m = /^streams\/([^/]+)\/recorded$/.exec(rel);
+    if (m && byWebId[m[1]] && byWebId[m[1]].kind === 'attribute') {
+        const n = Math.min(150, max);
+        const items = [];
+        for (let i = 0; i < n; i++) { items.push({ Timestamp: iso((n - 1 - i) * 1440 + 1), Value: i === n - 1 ? 777 : 1000 + i, Good: true }); }
+        return { status: 200, body: { Items: items } };
     }
     m = /^streams\/([^/]+)\/value$/.exec(rel);
     if (m) {
@@ -792,6 +869,217 @@ async function assetRollup(open, settle, hash) {
     check('rollup: a root that is not there is named', /There is no AF element at ".*Nowhere"/.test(await body()), await body());
 }
 
+/** The quick trend any symbol can open, against the mock AF database. */
+async function quickTrend(open, settle) {
+    const pg = eventList.pg;
+    const src = (p) => 'af:' + p + '?x';
+    const DP1 = K301 + '|Discharge Pressure';
+    const go = async (cfg, extra) => {
+        await open('pvxKpiCard', Object.assign({ asset: '', config: cfg, source: src(DP1) }, extra || {}));
+        await settle();
+    };
+    const panel = () => pg.evaluate(() => {
+        const p = document.querySelector('.pvx-qt');
+        if (!p) { return null; }
+        return { chips: Array.from(p.querySelectorAll('.pvx-qt-name')).map((n) => n.textContent),
+            lines: p.querySelectorAll('.pvx-qt-line').length, foot: p.querySelector('.pvx-qt-foot').textContent,
+            text: p.textContent, left: p.style.left, top: p.style.top };
+    });
+    const plotAsks = () => requests.filter((r) => /\/plot\?/.test(r));
+
+    await go({});
+    check('trend: no button unless asked', !(await pg.$('#box .pvx-overlay-trend')), await pg.$$eval('#box .pvx-overlay', (n) => n.length));
+    await go({ QuickTrend: true });
+    check('trend: the button asks nothing until pressed', !requests.some((r) => /plot|attributes\?path/.test(r)), requests);
+    await pg.click('#box .pvx-overlay-trend');
+    await settle();
+    let p = await panel();
+    check('trend: opens a panel with the symbol\'s source', p && p.chips.join('|') === 'K-301 · Discharge Pressure' && p.lines === 1, p);
+    check('trend: one WebId and one plot request over the display\'s range',
+        requests.some((r) => r === 'GET attributes?path=' + DP1 + '&selectedFields=WebId') &&
+        plotAsks().length === 1 && /startTime=\*-8h&endTime=\*&intervals=\d+&selectedFields=Items.Timestamp;Items.Value;Items.Good;Items.UnitsAbbreviation/.test(plotAsks()[0]),
+        requests);
+    check('trend: units and the bad value in the footer', /psig/.test(p.foot) && /1 bad value left out/.test(p.foot), p.foot);
+
+    await pg.evaluate((s) => window.PVX.trend.open([s]), src(K302 + '|Discharge Pressure'));
+    await settle();
+    p = await panel();
+    check('trend: another symbol\'s source joins the open trend, on one axis', p.lines === 2 && !/units differ/.test(p.foot), p);
+    const again = await pg.evaluate((s) => window.PVX.trend.open([s]), src(DP1));
+    await settle();
+    check('trend: a source already on it is not added twice', again.added === 0 && again.already === 1 && /already on this trend/.test((await panel()).foot), again);
+    await pg.evaluate((s) => window.PVX.trend.open(s), [src(K301 + '|Vibration'), src(K301 + '|Status'), 'pi:\\\\PISRV\\SINUSOID?1']);
+    await settle();
+    p = await panel();
+    check('trend: mixed units put each trace on its own scale, said in the footer', p.lines === 4 && /units differ: each trace on its own scale/.test(p.foot), p.foot);
+    check('trend: a digital source is named, not drawn', /K-301 · Status: states or text, not drawn/.test(p.foot), p.foot);
+    check('trend: a PI point is found by points?path', requests.some((r) => r === 'GET points?path=\\\\PISRV\\SINUSOID&selectedFields=WebId'), requests);
+
+    await pg.hover('.pvx-qt-plot', { position: { x: 200, y: 60 } });
+    p = await panel();
+    check('trend: the pointer reads every trace at its time', /K-301 · Discharge Pressure 1,?\d{3}/.test(p.foot) && /SINUSOID \d/.test(p.foot), p.foot);
+
+    requests = [];
+    await pg.selectOption('.pvx-qt-range', '*-1d');
+    await settle();
+    check('trend: a range from the panel asks again for it', plotAsks().length === 5 && plotAsks().every((r) => /startTime=\*-1d&endTime=\*/.test(r)) &&
+        !requests.some((r) => /attributes\?path/.test(r)), requests);
+
+    await pg.click('.pvx-qt-chip:has-text("Vibration") .pvx-qt-remove');
+    p = await panel();
+    check('trend: a source can be taken off', p.chips.length === 4 && p.chips.indexOf('K-301 · Vibration') === -1, p.chips);
+
+    const box = await pg.$eval('.pvx-qt-title', (n) => { const r = n.getBoundingClientRect(); return { x: r.left + 5, y: r.top + 5 }; });
+    await pg.mouse.move(box.x, box.y);
+    await pg.mouse.down();
+    await pg.mouse.move(box.x - 120, box.y + 80, { steps: 4 });
+    await pg.mouse.up();
+    const p2 = await panel();
+    check('trend: the header drags the panel', parseFloat(p2.left) === parseFloat(p.left) - 120 && parseFloat(p2.top) === parseFloat(p.top) + 80, [p.left, p.top, p2.left, p2.top]);
+
+    await pg.focus('.pvx-qt');
+    await pg.keyboard.press('Escape');
+    check('trend: Escape closes it', (await panel()) === null);
+
+    await pg.evaluate(() => { location.hash = '#/Displays/101/Overview?starttime=*-2h&endtime=*-1h'; });
+    await pg.evaluate((s) => window.PVX.trend.open([s]), src(DP1));
+    await settle();
+    check('trend: follows the display\'s range from the address', /startTime=\*-2h&endTime=\*-1h/.test(plotAsks().pop() || ''), plotAsks());
+    await pg.evaluate(() => window.PVX.trend.close());
+
+    await pg.evaluate((s) => window.PVX.trend.open([s]), src(K301 + '|Nowhere'));
+    await settle();
+    p = await panel();
+    check('trend: a source PI Web API does not know is named', /Nothing to draw/.test(p.text) && /K-301 · Nowhere: Not found/.test(p.text), p.text);
+    await pg.evaluate(() => window.PVX.trend.close());
+
+    await go({ QuickTrend: true }, { configured: false });
+    await pg.click('#box .pvx-overlay-trend');
+    await settle();
+    p = await panel();
+    check('trend: says so when PI Web API is not configured', p && /PI Web API is not configured/.test(p.text), p && p.text);
+    await pg.evaluate(() => window.PVX.trend.close());
+}
+
+/** The Lookup Table against the mock AF table. */
+async function lookupTable(open, settle, hash) {
+    const pg = eventList.pg;
+    const go = async (cfg, extra) => {
+        await open('pvxLookupTable', Object.assign({ asset: '', config: Object.assign({ TableName: 'grade specifications' }, cfg) }, extra || {}));
+        await settle();
+    };
+    const view = () => pg.evaluate(() => ({
+        heads: Array.from(document.querySelectorAll('#box .pvx-lkt-table th')).map((n) => n.textContent),
+        rows: Array.from(document.querySelectorAll('#box .pvx-lkt-table tbody tr[data-pvx-i]')).map((r) => Array.from(r.children).map((c) => c.textContent)),
+        groups: Array.from(document.querySelectorAll('#box .pvx-lkt-group')).map((n) => n.textContent),
+        note: (document.querySelector('#box .pvx-lkt-note') || {}).textContent || '',
+        text: document.getElementById('box').textContent }));
+
+    await go({ TableName: '' });
+    check('lookup: says when no table is chosen', /No table chosen/.test((await view()).text));
+    await go({});
+    let v = await view();
+    check('lookup: the table, every column in its order, the database from the data source',
+        v.heads.join('|') === 'Grade|Unit|MinWidth|MaxWidth|Effective' && v.rows.length === 4 && v.rows[0][0] === 'A-100' &&
+        /database .*Gathering from this symbol's data source/.test(v.note), v);
+    check('lookup: the database, its table list, then the rows', requests.some((r) => /^GET assetdatabases\?path=/.test(r)) &&
+        requests.some((r) => /^GET assetdatabases\/Wd:.*\/tables\?selectedFields=Items.WebId;Items.Name/.test(r)) &&
+        requests.some((r) => r === 'GET tables/Wt:grades/data'), requests);
+    check('lookup: numbers right-aligned', await pg.$eval('#box .pvx-lkt-table th:nth-child(3)', (n) => n.className.indexOf('pvx-lkt-right') !== -1));
+
+    await go({ TableName: 'Grades' });
+    check('lookup: a wrong name lists the tables there', /No table "Grades"/.test((await view()).text) && /Grade Specifications, Shift Roster/.test((await view()).text));
+
+    await go({ Columns: 'grade, MaxWidth | Max (mm), Nope' });
+    v = await view();
+    check('lookup: chosen columns and headers, an unknown one named', v.heads.join('|') === 'Grade|Max (mm)' && /no column "Nope"/.test(v.note), v);
+
+    await go({ RowFilter: 'Unit = {asset}' }, { asset: K301 });
+    v = await view();
+    check('lookup: {asset} shows this unit\'s rows', v.rows.map((r) => r[0]).join() === 'A-100,C-300' && /2 left out by the row conditions/.test(v.note), v);
+    await go({ RowFilter: 'MaxWidth >= 1200\nwhat' });
+    v = await view();
+    check('lookup: a number condition, and a line it cannot read named', v.rows.map((r) => r[0]).join() === 'B-200,D-400' && /row condition not read: "what"/.test(v.note), v);
+
+    await pg.click('#box .pvx-lkt-table th:nth-child(4)');
+    await settle();
+    v = await view();
+    check('lookup: a heading click sorts, numbers largest first', v.rows.map((r) => r[0]).join() === 'D-400,B-200', v.rows);
+
+    await go({ GroupBy: 'unit', SortBy: 'Grade', SortDescending: true });
+    v = await view();
+    check('lookup: groups by a column, blank last, sorted inside', v.groups.join('|') === 'K-3012|K-3021|(blank)1' && v.rows[0][0] === 'C-300', v);
+
+    await go({ TimeColumn: 'Effective' }, { asset: '' });
+    await pg.evaluate(() => { location.hash = '#/Displays/101/Overview?starttime=*-1d&endtime=*'; });
+    await pg.waitForTimeout(1300);
+    v = await view();
+    check('lookup: only rows dated in the display\'s range', v.rows.map((r) => r[0]).join() === 'A-100,D-400' && /2 dated outside this time range/.test(v.note), v);
+
+    await go({ ColorColumn: 'MaxWidth', Thresholds: '0:#2f9e5f:Normal, 1250:#c8452f:Wide' });
+    const sh = await pg.$$eval('#box .pvx-lkt-table tbody tr td:nth-child(4)', (ns) => ns.map((n) => n.style.boxShadow));
+    check('lookup: one column coloured by bands', /rgb\(47, 158, 95\)/.test(sh[0]) && /rgb\(200, 69, 47\)/.test(sh[1]) &&
+        !(await pg.$eval('#box .pvx-lkt-table tbody tr td:nth-child(3)', (n) => n.style.boxShadow)), sh);
+
+    await go({ ClickAction: 'navigate', NavigateTarget: '42/Grade-{Grade}' });
+    await pg.click('#box .pvx-lkt-table tbody tr[data-pvx-i="1"]');
+    check('lookup: a row opens a display named from its cells', /^#\/Displays\/42\/Grade-B-200/.test(await hash()), await hash());
+
+    await go({}, { configured: false });
+    check('lookup: says so when PI Web API is not configured', /PI Web API is not configured/.test((await view()).text));
+}
+
+/** A time-series symbol's own time range, read from the mock PI Web API. */
+async function ownRange(open, settle) {
+    const pg = eventList.pg;
+    const DP1 = K301 + '|Discharge Pressure';
+    const payload = { Data: [{ Label: 'Discharge Pressure', Units: 'psig', Path: 'af:' + DP1, IsGood: true,
+        Value: [{ Time: iso(10), Value: 1075 }, { Time: iso(5), Value: 1081 }] }] };
+    const go = async (cfg, extra) => {
+        await open('pvxKpiCard', Object.assign({ asset: '', config: cfg, payload, source: 'af:' + DP1 + '?x' }, extra || {}));
+        await settle();
+    };
+    const seen = () => pg.evaluate(() => {
+        const b = document.querySelector('#box .pvx-overlay-range');
+        return { value: (document.querySelector('#box .pvx-kpi-value') || {}).textContent || '',
+            badge: b && b.style.display !== 'none' ? b.textContent : '', title: b ? b.title : '', warn: !!(b && /warn/.test(b.className)) };
+    });
+    const recorded = () => requests.filter((r) => /\/recorded\?/.test(r));
+
+    await go({});
+    let v = await seen();
+    check('own range: off by default, the pipeline\'s value, nothing asked, no badge',
+        /1,?081/.test(v.value) && !recorded().length && v.badge === '', [v, requests]);
+    await go({ OwnTimeRange: true, OwnStart: '*-30d' });
+    v = await seen();
+    check('own range: recorded values over the symbol\'s range replace the pipeline\'s',
+        /777/.test(v.value) && recorded().length === 1 &&
+        /^GET streams\/Wa:.*Discharge Pressure\/recorded\?startTime=\*-30d&endTime=\*&maxCount=10000&selectedFields=Items.Timestamp;Items.Value;Items.Good$/.test(recorded()[0]),
+        [v, recorded()]);
+    check('own range: a badge names it', v.badge === 'Last 30 days' && /not the display's time range/.test(v.title), v);
+    await pg.evaluate((p) => { window.__vis.onDataUpdate(p); }, payload);
+    await settle();
+    v = await seen();
+    check('own range: a pipeline update keeps the range and does not read again', /777/.test(v.value) && recorded().length === 1, [v, recorded()]);
+    await pg.evaluate(() => { window.__scope.config.OwnStart = '*-7d'; window.__vis.onConfigChange(window.__scope.config, {}); });
+    await settle();
+    check('own range: a new range in the pane reads again', recorded().length === 2 && /startTime=\*-7d/.test(recorded()[1]) &&
+        (await seen()).badge === 'Last 7 days', recorded());
+
+    await go({ OwnTimeRange: true, OwnStart: '*-30d', OwnMaxValues: 100 });
+    v = await seen();
+    check('own range: a source that hit the limit is said', v.warn && /Only the first 100 values read for: .*Discharge Pressure/.test(v.title), v);
+
+    await go({ OwnTimeRange: true, OwnStart: '*-30d' }, { source: 'af:' + K301 + '|Nowhere?x' });
+    v = await seen();
+    check('own range: a source PI Web API does not know is named, not drawn from the display', v.warn && /Not read: .*Nowhere/.test(v.title), v);
+
+    await go({ OwnTimeRange: true, OwnStart: 'y', OwnEnd: 't' }, { configured: false });
+    v = await seen();
+    check('own range: without PI Web API the display\'s data, and the badge says so',
+        /1,?081/.test(v.value) && v.badge === 'Yesterday (not in force)' && v.warn, v);
+}
+
 async function page() {
     console.log('');
     console.log(C.bold + 'Overview symbols on a mock PI Web API (built files)' + C.reset);
@@ -1037,6 +1325,9 @@ async function page() {
         await eventList(open, texts, hash, settle);
         await eventRuns(open, settle);
         await assetRollup(open, settle, hash);
+        await quickTrend(open, settle);
+        await lookupTable(open, settle, hash);
+        await ownRange(open, settle);
 
         /* ---- Asset Navigator --------------------------------------------- *
          * Nothing configured: PI Web API beside PI Vision, the database the

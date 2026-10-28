@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **47 symbols**.
+> [After the plan](#after-the-plan). The library is at **48 symbols**.
 
 ## On originality
 
@@ -533,8 +533,14 @@ Done so far, in order:
 
 | 25 | **pvxAssetRollup**, new | One number across many assets, from an AF search through PI Web API: the elements under the display's asset (or a Search root, or the source's element; a database works too), of one template and name filter, all the way down or one level. One attribute is read from each in a single batch, and a count (optionally of chosen values, such as `Running, Starting`), total, average, minimum, maximum, median, sample standard deviation or count of distinct values is taken. Cards split by template, parent element or another attribute's value, sorted by value or name, the first N kept and the rest folded into an Others card that is worked out from its own assets, with an optional first card over every asset. Threshold bands or a target colour the cards, neither set by default. A parent card can open that asset. Assets without the attribute, bad quality, text where a number is needed, mixed units, hidden groups and a capped search are each said in the footer. |
 
-The rest of the order is in the comparison document; next is a pop-out
-quick trend from any symbol.
+| 26 | Every symbol, **Quick trend** | A fourth option in every format pane, off by default: a button that opens a floating panel trending the symbol's data sources, dragged by its header and resized from its corner. The same button on another symbol adds its sources to the open panel (up to eight, never the same one twice), and each can be taken off again. The range is the display's own, following it, or the last hour, 8 hours, day, week or month; a live range re-reads every minute. One axis when the units agree, else each trace on its own scale, said in the footer with each range; the pointer reads every trace at its time. History is PI Web API plot values, one request per source sized to the panel, asked only when the button is pressed: PI Vision's pipeline cannot add sources at run time. Bad values, states and text are counted, not drawn, and a source PI Web API does not know is named. |
+
+| 27 | **pvxLookupTable**, new | An AF table on a display, read only, through PI Web API (`tables/{webId}/data`), static or linked to an outside source: AF does the linking. The table is found by name in the database's Library, and a wrong name lists the tables there. Columns chosen, ordered and renamed (`Name | Header`); a filter box, a sort on any heading, groups by a column; row conditions, one per line (`= <> < <= > >=`, `contains`, `starts`, `in A, B`), where `{asset}` is the display's asset's name; rows limited to the display's time range by a date column; one column coloured by threshold bands; a row click shows the asset in an asset column or opens a display whose name takes `{Column}` values; CSV. Re-read on a timer (default five minutes); the time range and asset only re-filter. Every row and column left out is counted or named in the footer. Writing to a table is not part of this item. |
+
+| 28 | Every time-series symbol, **own time range** | Off by default. On, the symbol shows a range of its own (`*-30d`, `y` to `t`, a date) whatever the display is set to, with a badge saying so ("Last 30 days", "Yesterday"). PI Vision cannot send a custom symbol another range, so the bootstrap swaps the pipeline's values for PI Web API recorded values over that range before the symbol sees them: the nineteen time-series symbols get it with no code of their own, keep the names PI Vision sends, and see each source's start and end set to the range. Read again while the range ends at now (every minute by default), not on every update; at most 10,000 values per source, and the badge warns when a source hit that or could not be read. Without PI Web API the symbol keeps the display's range and the badge says the setting is not in force. |
+
+The rest of the order is in the comparison document; next is form
+layout and controls for data entry.
 
 ## What next
 

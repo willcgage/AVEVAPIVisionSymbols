@@ -1,11 +1,11 @@
 # Connecting PVX to PI Web API
 
-Most of the library needs none of this. Thirty-nine of the forty-seven symbols run
-entirely on PI Vision's own data pipeline. Only the eight that reach things PI
-Vision cannot hand a display — Event Frames, the AF hierarchy, writing values
+Most of the library needs none of this. Thirty-nine of the forty-eight symbols run
+entirely on PI Vision's own data pipeline. Only the nine that reach things PI
+Vision cannot hand a display — Event Frames, the AF hierarchy, AF tables, writing values
 back — need it: `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
-`pvxAssetTable`, `pvxAssetRollup`, `pvxManualEntry` and `pvxEntryTable`. Of the rest,
-eight more use it only for an option you turn on: event frames on `pvxComboChart`, limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` and reading it on `pvxAlarmTone`, History mode on `pvxAlarmBanner`, which reads recorded values, and runs from event frames on `pvxPeriodOverlay`.
+`pvxAssetTable`, `pvxAssetRollup`, `pvxLookupTable`, `pvxManualEntry` and `pvxEntryTable`. Of the rest,
+eight more use it only for an option you turn on: event frames on `pvxComboChart`, limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu from AF on `pvxNavPanel`, shared acknowledgement on `pvxAnnunciator` and reading it on `pvxAlarmTone`, History mode on `pvxAlarmBanner`, which reads recorded values, and runs from event frames on `pvxPeriodOverlay`. Any symbol's **Quick trend** button, also off until set, reads its sources' history from PI Web API when pressed, and a time-series symbol set to its **own time range** reads recorded values for it.
 
 ---
 

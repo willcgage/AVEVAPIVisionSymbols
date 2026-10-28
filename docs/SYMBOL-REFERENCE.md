@@ -33,6 +33,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
 | [`pvxHistoryTable`](#pvxhistorytable) | PVX History Table | TimeSeries | Multiple |
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Multiple |
+| [`pvxLookupTable`](#pvxlookuptable) | PVX Lookup Table | Value | Single |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
 | [`pvxMultiGauge`](#pvxmultigauge) | PVX Multi-Pointer Gauge | Table | Multiple |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
@@ -1204,6 +1205,47 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `ValueColorFromThreshold` | `false` |  |
 | `Align` | `"left"` | left \| center |
 | `TimeFormat` | `"short"` | short \| datetime \| relative |
+
+---
+
+## pvxLookupTable
+
+**PVX Lookup Table** · data shape `Value` · single data source · collections not supported
+
+symbol selector, and gives a blank database path a database. Every row comes from PI Web API through PVX.api.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `""` |  |
+| `DatabasePath` | `""` |  |
+| `TableName` | `""` |  |
+| `RefreshSeconds` | `300` |  |
+| `Columns` | `""` | blank: every column, in the table's order |
+| `TimeFormat` | `"short"` | short \| datetime \| date \| iso |
+| `RowFilter` | `""` | one "Column op value" per line, all must hold |
+| `TimeColumn` | `""` | a date column: only rows in the display's range |
+| `Filter` | `""` |  |
+| `ShowFilterBox` | `true` |  |
+| `SortBy` | `""` |  |
+| `SortDescending` | `false` |  |
+| `GroupBy` | `""` |  |
+| `MaxRows` | `1000` |  |
+| `ColorColumn` | `""` |  |
+| `ClickAction` | `"none"` | none \| asset \| navigate |
+| `AssetColumn` | `""` | a column holding an element path |
+| `NavigateTarget` | `""` | may hold {Column} tokens |
+| `ShowDownload` | `true` |  |
 
 ---
 

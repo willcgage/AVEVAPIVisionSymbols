@@ -3892,7 +3892,15 @@
             // has a StaleMinutes that means something else.
             ExportMenu: false,
             StaleBadgeMinutes: 0,
-            HideWhenNoData: false
+            HideWhenNoData: false,
+            QuickTrend: false,
+            // Time-series symbols only, through PVX.ownrange; off, so a saved
+            // display follows the display's time range as it always did.
+            OwnTimeRange: false,
+            OwnStart: '*-1d',
+            OwnEnd: '*',
+            OwnRefreshSeconds: 60,
+            OwnMaxValues: 10000
         };
         if (extra) {
             for (var k in extra) {
@@ -5930,7 +5938,7 @@
     /* ------------------------------------------------------------------ *
      * overlay: what every symbol offers on top of its own drawing
      * ------------------------------------------------------------------ *
-     * Three options any PVX symbol has, all off by default so a saved display
+     * Four options any PVX symbol has, all off by default so a saved display
      * looks as it did:
      *
      *   ExportMenu         a button, shown on hover, that saves the symbol as
@@ -5939,10 +5947,13 @@
      *                      older than this. 0 is off.
      *   HideWhenNoData     the symbol hides itself while none of its data
      *                      sources has a value.
+     *   QuickTrend         a button that trends the symbol's data sources in
+     *                      a floating panel (PVX.trend, through PI Web API).
      *
      * They live here, wired in by bootstrap, so no symbol has to opt in.
      * Nothing in this block sends anything anywhere: files are made in the
-     * browser by PVX.download.
+     * browser by PVX.download. The quick trend reads from PI Web API, and
+     * only once its button is pressed.
      */
     var overlay = PVX.overlay = {};
 
@@ -6145,12 +6156,512 @@
         return true;
     };
 
+    /* ------------------------------------------------------------------ *
+     * trend: the quick trend any symbol can open (QuickTrend option)
+     * ------------------------------------------------------------------ *
+     * A floating panel trending the data sources of the symbol it was opened
+     * from; a second symbol's trend button adds its sources to the panel
+     * already open, so a comparison is two clicks. One panel per page.
+     *
+     * WHY PI WEB API. PI Vision's own ad hoc trend opens only from its stock
+     * symbols, and a custom symbol cannot add data sources to PI Vision's
+     * pipeline at run time: the history a trend needs is not in what the
+     * symbol was sent. So each source is one plot request, sized to the
+     * panel's width, the same reduction PI Vision's trend asks the archive
+     * for. Nothing is written, and nothing is asked until the button is
+     * pressed.
+     */
+    var trend = PVX.trend = {};
+
+    trend.MAX_SOURCES = 8;
+    trend.RANGES = [
+        ['display', 'Display time range'], ['*-1h', 'Last hour'], ['*-8h', 'Last 8 hours'],
+        ['*-1d', 'Last day'], ['*-7d', 'Last 7 days'], ['*-30d', 'Last 30 days']
+    ];
+    trend.REFRESH_MS = 60000;
+
+    var tr = null;              // the open panel, or null
+    var trIds = {};             // source path -> Promise(WebId), shared across opens
+
+    /** "K-301 · Discharge Pressure" for an attribute, the tag for a PI point. */
+    trend.labelOf = function (ds) {
+        var p = states.sourcePath(ds);
+        var bar = p.indexOf('|');
+        if (bar === -1) { return p.split('\\').filter(function (x) { return !!x; }).pop() || p; }
+        var el = p.slice(0, bar).split('\\').filter(function (x) { return !!x; }).pop() || '';
+        var attr = p.slice(bar + 1);
+        return el ? el + ' · ' + attr : attr;
+    };
+
+    /**
+     * The window a range key means now: the display's own range, or a span
+     * back from now. {start, end} are PI time expressions for the request,
+     * {from, to} the milliseconds for the axis (null when unparseable).
+     */
+    trend.window = function (key, nowMs) {
+        var now = nowMs || Date.now();
+        var start, end;
+        if (!key || key === 'display') {
+            var p = nav.parseHash().params || {};
+            start = p.starttime || '*-8h';
+            end = p.endtime || '*';
+        } else {
+            start = key;
+            end = '*';
+        }
+        return { start: start, end: end, from: nav.parseTime(start, now), to: nav.parseTime(end, now),
+            live: String(end).replace(/\s+/g, '') === '*' };
+    };
+
+    /**
+     * Plot items -> {pts:[{t, v}], bad, text, units}. Bad values and text
+     * (a digital state, a system state) are counted, not drawn: a gap where
+     * the archive had no good number is the honest picture.
+     */
+    trend.points = function (items) {
+        var out = { pts: [], bad: 0, text: 0, units: '' };
+        for (var i = 0; i < (items || []).length; i++) {
+            var it = items[i] || {};
+            if (it.UnitsAbbreviation && !out.units) { out.units = it.UnitsAbbreviation; }
+            var d = fmt.toDate(it.Timestamp);
+            if (!d) { continue; }
+            if (it.Good === false) { out.bad += 1; continue; }
+            var v = it.Value;
+            if (v !== null && typeof v === 'object') { out.text += 1; continue; }
+            if (!util.isNum(v)) { out.text += 1; continue; }
+            out.pts.push({ t: d.getTime(), v: v });
+        }
+        out.pts.sort(function (a, b) { return a.t - b.t; });
+        return out;
+    };
+
+    trend.isOpen = function () { return !!tr; };
+
+    /** The paths on the open trend, in order. */
+    trend.sources = function () {
+        if (!tr) { return []; }
+        return tr.traces.map(function (x) { return x.path; });
+    };
+
+    /**
+     * Open the trend with these data sources, or add them to the one open.
+     * @param {Array} list data source strings, as in scope.symbol.DataSources
+     * @param {Object} [opts] {theme: tokens of the opening symbol}
+     * @returns {{added: Number, already: Number, over: Number}}
+     */
+    trend.open = function (list, opts) {
+        opts = opts || {};
+        if (!tr) { trBuild(opts.theme || theme.tokens({})); }
+        var res = { added: 0, already: 0, over: 0 };
+        for (var i = 0; i < (list || []).length; i++) {
+            var p = states.sourcePath(list[i]);
+            if (!p) { continue; }
+            var dup = false;
+            for (var j = 0; j < tr.traces.length; j++) { if (tr.traces[j].path.toLowerCase() === p.toLowerCase()) { dup = true; break; } }
+            if (dup) { res.already += 1; continue; }
+            if (tr.traces.length >= trend.MAX_SOURCES) { res.over += 1; continue; }
+            tr.traces.push({ path: p, label: trend.labelOf(p), color: trColor(), data: null, error: '' });
+            res.added += 1;
+        }
+        trLegend();
+        var bits = [];
+        if (res.over) { bits.push(res.over + ' not added: a quick trend holds ' + trend.MAX_SOURCES + ' sources'); }
+        if (res.already && !res.added) { bits.push('already on this trend'); }
+        tr.flash = bits.join(' · ');
+        trFetch();
+        try { tr.el.focus(); } catch (e) { /* focus is a nicety */ }
+        return res;
+    };
+
+    trend.remove = function (index) {
+        if (!tr || !tr.traces[index]) { return; }
+        tr.traces.splice(index, 1);
+        if (!tr.traces.length) { trend.close(); return; }
+        trLegend();
+        trDraw();
+    };
+
+    trend.setRange = function (key) {
+        if (!tr) { return; }
+        tr.range = key;
+        if (tr.select) { tr.select.value = key; }
+        trFetch();
+    };
+
+    trend.close = function () {
+        if (!tr) { return; }
+        if (tr.timer) { clearInterval(tr.timer); }
+        if (tr.ro && tr.ro.disconnect) { try { tr.ro.disconnect(); } catch (e) { /* gone */ } }
+        if (tr.onHash) { root.removeEventListener('hashchange', tr.onHash, false); }
+        if (tr.el && tr.el.parentNode) { tr.el.parentNode.removeChild(tr.el); }
+        tr = null;
+    };
+
+    function trColor() {
+        var used = {};
+        for (var i = 0; i < tr.traces.length; i++) { used[tr.traces[i].color] = true; }
+        for (var k = 0; k < color.categorical.length; k++) { if (!used[color.categorical[k]]) { return color.categorical[k]; } }
+        return color.categorical[tr.traces.length % color.categorical.length];
+    }
+
+    function trEl(tag, cls, parent, text) {
+        var e = root.document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (text !== undefined) { e.textContent = text; }
+        if (parent) { parent.appendChild(e); }
+        return e;
+    }
+
+    function trBuild(t) {
+        var doc = root.document;
+        var el = trEl('div', 'pvx-qt' + (t.dark ? ' pvx-qt-dark' : ''));
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Quick trend');
+        el.tabIndex = -1;
+        el.style.setProperty('--pvx-qt-surface', t.surface === 'transparent' ? (t.dark ? '#22262b' : '#ffffff') : t.surface);
+        el.style.setProperty('--pvx-qt-text', t.text);
+        el.style.setProperty('--pvx-qt-muted', t.textMuted);
+        el.style.setProperty('--pvx-qt-border', t.border);
+        // Near the top right, clear of PI Vision's own toolbar, on any screen.
+        var vw = root.innerWidth || 1024;
+        var w = Math.min(560, Math.max(280, vw - 32));
+        el.style.width = w + 'px';
+        el.style.height = '300px';
+        el.style.left = Math.max(8, vw - w - 24) + 'px';
+        el.style.top = '72px';
+
+        var head = trEl('div', 'pvx-qt-head', el);
+        trEl('span', 'pvx-qt-title', head, 'Quick trend');
+        var sel = trEl('select', 'pvx-qt-range', head);
+        sel.title = 'Time range of this trend';
+        for (var i = 0; i < trend.RANGES.length; i++) {
+            var o = trEl('option', '', sel, trend.RANGES[i][1]);
+            o.value = trend.RANGES[i][0];
+        }
+        sel.onchange = function () { trend.setRange(sel.value); };
+        var x = trEl('button', 'pvx-qt-close', head, '×');
+        x.type = 'button';
+        x.title = 'Close the trend';
+        x.setAttribute('aria-label', 'Close the trend');
+        x.onclick = function () { trend.close(); };
+        var legend = trEl('div', 'pvx-qt-legend', el);
+        var plot = trEl('div', 'pvx-qt-plot', el);
+        var foot = trEl('div', 'pvx-qt-foot', el);
+        doc.body.appendChild(el);
+
+        tr = { el: el, head: head, select: sel, legend: legend, plot: plot, foot: foot, traces: [],
+            range: 'display', gen: 0, phase: 'idle', note: '', flash: '', hoverT: null, theme: t, w: 0, h: 0 };
+
+        el.onkeydown = function (ev) {
+            if (ev && (ev.key === 'Escape' || ev.keyCode === 27)) { trend.close(); }
+        };
+        trDraggable(head);
+        // A resize from the corner redraws at the new size.
+        if (root.ResizeObserver) {
+            tr.ro = new root.ResizeObserver(function () { if (tr) { trDraw(); } });
+            tr.ro.observe(plot);
+        } else {
+            el.addEventListener('mouseup', function () { if (tr) { trDraw(); } }, false);
+        }
+        plot.addEventListener('mousemove', trHover, false);
+        plot.addEventListener('mouseleave', function () { if (tr) { tr.hoverT = null; trFoot(); trCursor(); } }, false);
+        tr.onHash = function () { if (tr && tr.range === 'display') { trFetch(); } };
+        root.addEventListener('hashchange', tr.onHash, false);
+        tr.timer = setInterval(function () {
+            if (tr && trend.window(tr.range).live) { trFetch(true); }
+        }, trend.REFRESH_MS);
+    }
+
+    function trDraggable(head) {
+        head.addEventListener('mousedown', function (ev) {
+            var tag = ev.target && ev.target.tagName;
+            if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'OPTION' || ev.button !== 0) { return; }
+            var el = tr.el;
+            var x0 = ev.clientX, y0 = ev.clientY;
+            var l0 = parseFloat(el.style.left) || 0, t0 = parseFloat(el.style.top) || 0;
+            var move = function (e) {
+                var vw = root.innerWidth || 1024, vh = root.innerHeight || 768;
+                // The header stays on screen, so the panel can always be dragged back.
+                el.style.left = util.clamp(l0 + e.clientX - x0, 40 - el.offsetWidth, vw - 40) + 'px';
+                el.style.top = util.clamp(t0 + e.clientY - y0, 0, vh - 30) + 'px';
+            };
+            var up = function () {
+                root.document.removeEventListener('mousemove', move, false);
+                root.document.removeEventListener('mouseup', up, false);
+            };
+            root.document.addEventListener('mousemove', move, false);
+            root.document.addEventListener('mouseup', up, false);
+            if (ev.preventDefault) { ev.preventDefault(); }
+        }, false);
+    }
+
+    function trLegend() {
+        var lg = tr.legend;
+        while (lg.firstChild) { lg.removeChild(lg.firstChild); }
+        for (var i = 0; i < tr.traces.length; i++) {
+            var x = tr.traces[i];
+            var chip = trEl('span', 'pvx-qt-chip', lg);
+            chip.title = x.path;
+            var sw = trEl('span', 'pvx-qt-swatch', chip);
+            sw.style.background = x.color;
+            trEl('span', 'pvx-qt-name', chip, x.label);
+            var rm = trEl('button', 'pvx-qt-remove', chip, '×');
+            rm.type = 'button';
+            rm.title = 'Take ' + x.label + ' off the trend';
+            rm.setAttribute('aria-label', rm.title);
+            rm.onclick = (function (k) { return function () { trend.remove(k); }; }(i));
+        }
+    }
+
+    function trWebId(p) {
+        var k = p.toLowerCase();
+        if (trIds[k]) { return trIds[k]; }
+        var job = api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' + encodeURIComponent(p) +
+            '&selectedFields=WebId').then(function (r) {
+            if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+            return r.WebId;
+        });
+        trIds[k] = job;
+        job.then(null, function () { if (trIds[k] === job) { delete trIds[k]; } });
+        return job;
+    }
+
+    function trErr(e) {
+        return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API did not answer.';
+    }
+
+    /** Ask for every trace's plot values; quiet=true keeps the drawing while it reads. */
+    function trFetch(quiet) {
+        if (!tr) { return; }
+        var gen = ++tr.gen;
+        if (api.discovering()) {
+            tr.phase = 'loading';
+            trDraw();
+            api.discover().then(function () { if (tr && gen === tr.gen) { trFetch(); } });
+            return;
+        }
+        if (!api.isConfigured()) { tr.phase = 'unconfigured'; trDraw(); return; }
+        var win = trend.window(tr.range);
+        tr.win = win;
+        if (!quiet) { tr.phase = 'loading'; trDraw(); }
+        // About one plot interval per two pixels: the archive returns up to
+        // five values per interval, so a 500 px plot asks for ~1250 values.
+        var intervals = Math.max(50, Math.min(1000, Math.round((tr.plot.clientWidth || 500) / 2)));
+        var jobs = tr.traces.map(function (x) {
+            return trWebId(x.path).then(function (id) {
+                return api.get('streams/' + encodeURIComponent(id) + '/plot?startTime=' + encodeURIComponent(win.start) +
+                    '&endTime=' + encodeURIComponent(win.end) + '&intervals=' + intervals +
+                    '&selectedFields=Items.Timestamp;Items.Value;Items.Good;Items.UnitsAbbreviation', { cache: false });
+            }).then(function (res) {
+                x.data = trend.points((res && res.Items) || []);
+                x.error = '';
+            }, function (e) {
+                x.data = null;
+                x.error = trErr(e);
+            });
+        });
+        Promise.all(jobs).then(function () {
+            if (!tr || gen !== tr.gen) { return; }
+            tr.phase = 'ok';
+            trDraw();
+        });
+    }
+
+    function trMsg(head, detail, tone) {
+        var plot = tr.plot;
+        while (plot.firstChild) { plot.removeChild(plot.firstChild); }
+        var m = trEl('div', 'pvx-qt-msg' + (tone ? ' pvx-qt-' + tone : ''), plot);
+        trEl('div', 'pvx-qt-msg-head', m, head);
+        if (detail) { trEl('div', 'pvx-qt-msg-detail', m, detail); }
+    }
+
+    /**
+     * The plot's model: one axis when every drawn trace has the same units,
+     * else each trace on its own scale, said in the footer, because a 0-1100
+     * psig line and a 0-6 mils line on one axis is one flat line.
+     */
+    function trModel() {
+        var drawn = [], i, j;
+        for (i = 0; i < tr.traces.length; i++) {
+            var x = tr.traces[i];
+            if (x.data && x.data.pts.length) { drawn.push(x); }
+        }
+        var units = {}, nUnits = 0;
+        for (i = 0; i < drawn.length; i++) {
+            var u = drawn[i].data.units || '';
+            if (!Object.prototype.hasOwnProperty.call(units, u)) { units[u] = true; nUnits += 1; }
+        }
+        var shared = nUnits <= 1;
+        var lo = Infinity, hi = -Infinity;
+        for (i = 0; i < drawn.length; i++) {
+            var mn = Infinity, mx = -Infinity;
+            for (j = 0; j < drawn[i].data.pts.length; j++) {
+                var v = drawn[i].data.pts[j].v;
+                if (v < mn) { mn = v; }
+                if (v > mx) { mx = v; }
+            }
+            drawn[i].min = mn;
+            drawn[i].max = mx;
+            if (mn < lo) { lo = mn; }
+            if (mx > hi) { hi = mx; }
+        }
+        return { drawn: drawn, shared: shared, lo: lo, hi: hi, units: shared && drawn.length ? (drawn[0].data.units || '') : '' };
+    }
+
+    function trDraw() {
+        if (!tr) { return; }
+        tr.model = tr.phase === 'ok' ? trModel() : null;
+        trFoot();
+        // A source with nothing drawn keeps its chip, dimmed, so it can be removed.
+        var chips = tr.legend.children;
+        for (var c = 0; c < chips.length && c < tr.traces.length; c++) {
+            var none = tr.phase === 'ok' && !(tr.traces[c].data && tr.traces[c].data.pts.length);
+            chips[c].className = 'pvx-qt-chip' + (none ? ' pvx-qt-chip-none' : '');
+        }
+        if (tr.phase === 'unconfigured') {
+            trMsg('PI Web API is not configured', api.unsetHint() + ', then confirm it with ext/piwebapi-check.html. ' +
+                'A quick trend reads history from PI Web API.', 'warn');
+            return;
+        }
+        if (tr.phase === 'loading' || tr.phase === 'idle') { trMsg('Reading history…', ''); return; }
+        var m = tr.model;
+        if (!m.drawn.length) {
+            var why = [];
+            for (var e = 0; e < tr.traces.length; e++) {
+                var tx = tr.traces[e];
+                why.push(tx.label + ': ' + (tx.error || (tx.data && tx.data.text ? 'no numbers, only states or text' : 'no good values in this range')));
+            }
+            trMsg('Nothing to draw', why.join(' · '), tr.traces.some(function (q) { return !!q.error; }) ? 'alarm' : 'warn');
+            return;
+        }
+        var plot = tr.plot;
+        var W = plot.clientWidth || 500, H = plot.clientHeight || 200;
+        tr.w = W; tr.h = H;
+        while (plot.firstChild) { plot.removeChild(plot.firstChild); }
+        var s = svg.el('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'class': 'pvx-qt-svg' }, plot);
+        var t = tr.theme;
+        var font = 10;
+        var win = tr.win || trend.window(tr.range);
+        var from = win.from, to = win.to;
+        if (from === null || to === null || !(to > from)) {
+            from = Infinity; to = -Infinity;
+            for (var a = 0; a < m.drawn.length; a++) {
+                var ps = m.drawn[a].data.pts;
+                if (ps[0].t < from) { from = ps[0].t; }
+                if (ps[ps.length - 1].t > to) { to = ps[ps.length - 1].t; }
+            }
+            if (!(to > from)) { to = from + 60000; }
+        }
+        var dom = m.shared ? scale.niceDomain(m.lo, m.hi, 5) : [0, 100];
+        var mL = m.shared ? 8 + Math.max(fmt.tick(dom[0]).length, fmt.tick(dom[1]).length) * font * 0.62 : 34;
+        var plotBox = { x: mL, y: 6, x1: W - 8, y1: H - 18 };
+        var xs = scale.linear(from, to, plotBox.x, plotBox.x1);
+        var ys = scale.linear(dom[0], dom[1], plotBox.y1, plotBox.y);
+        tr.xs = xs;
+        tr.box = plotBox;
+        // Grid and axes.
+        var ticks = scale.ticks(dom[0], dom[1], 4);
+        for (var k = 0; k < ticks.length; k++) {
+            var yy = ys(ticks[k]);
+            svg.el('line', { x1: plotBox.x, x2: plotBox.x1, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: t.grid, 'stroke-width': 1 }, s);
+            svg.text(s, (plotBox.x - 4).toFixed(1), (yy + 3).toFixed(1), m.shared ? fmt.tick(ticks[k]) : ticks[k] + '%',
+                { 'class': 'pvx-svg-label', 'font-size': font, 'text-anchor': 'end', fill: t.textMuted });
+        }
+        var span = to - from;
+        var nT = Math.max(2, Math.floor((plotBox.x1 - plotBox.x) / 90));
+        for (var q = 0; q <= nT; q++) {
+            var tt = from + span * q / nT;
+            var xx = xs(tt);
+            // A day or more repeats the clock times: the date tells them apart.
+            var lab = span > 20 * 3600000 ? fmt.time(tt, 'short') : fmt.time(tt).slice(0, 5);
+            svg.text(s, xx.toFixed(1), (H - 5).toFixed(1), lab, { 'class': 'pvx-svg-label', 'font-size': font,
+                'text-anchor': q === 0 ? 'start' : (q === nT ? 'end' : 'middle'), fill: t.textMuted });
+        }
+        svg.el('line', { x1: plotBox.x, x2: plotBox.x1, y1: plotBox.y1, y2: plotBox.y1, stroke: t.axis, 'stroke-width': 1 }, s);
+        // Traces, as steps: PI values hold until the next one.
+        for (var d = 0; d < m.drawn.length; d++) {
+            var tr2 = m.drawn[d];
+            var lo = tr2.min, hi = tr2.max;
+            var own = function (v) { return hi > lo ? (v - lo) / (hi - lo) * 100 : 50; };
+            var pts = [];
+            for (var n = 0; n < tr2.data.pts.length; n++) {
+                var pt = tr2.data.pts[n];
+                pts.push({ x: xs(pt.t), y: ys(m.shared ? pt.v : own(pt.v)) });
+            }
+            svg.el('path', { d: svg.stepLine(pts), fill: 'none', stroke: tr2.color, 'stroke-width': 1.6,
+                'stroke-linejoin': 'round', 'class': 'pvx-qt-line' }, s);
+        }
+        tr.cursor = svg.el('line', { x1: 0, x2: 0, y1: plotBox.y, y2: plotBox.y1, stroke: t.axis, 'stroke-width': 1,
+            'stroke-dasharray': '3 3', visibility: 'hidden', 'class': 'pvx-qt-cursor' }, s);
+        trCursor();
+    }
+
+    function trCursor() {
+        if (!tr || !tr.cursor) { return; }
+        if (tr.hoverT === null || !tr.xs) { tr.cursor.setAttribute('visibility', 'hidden'); return; }
+        var x = tr.xs(tr.hoverT).toFixed(1);
+        tr.cursor.setAttribute('x1', x);
+        tr.cursor.setAttribute('x2', x);
+        tr.cursor.setAttribute('visibility', 'visible');
+    }
+
+    function trHover(ev) {
+        if (!tr || !tr.xs || !tr.box) { return; }
+        var r = tr.plot.getBoundingClientRect();
+        var x = ev.clientX - r.left;
+        if (x < tr.box.x || x > tr.box.x1) { tr.hoverT = null; } else { tr.hoverT = tr.xs.invert(x); }
+        trFoot();
+        trCursor();
+    }
+
+    /** The value a step line shows at time t: the last one at or before it. */
+    trend.valueAt = function (pts, t) {
+        var lo = 0, hi = pts.length - 1, best = -1;
+        while (lo <= hi) {
+            var mid = (lo + hi) >> 1;
+            if (pts[mid].t <= t) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+        }
+        return best === -1 ? null : pts[best].v;
+    };
+
+    function trFoot() {
+        if (!tr) { return; }
+        var f = tr.foot;
+        var parts = [];
+        var m = tr.model;
+        if (tr.hoverT !== null && m && m.drawn.length) {
+            parts.push(fmt.time(tr.hoverT, 'datetime'));
+            for (var i = 0; i < m.drawn.length; i++) {
+                var v = trend.valueAt(m.drawn[i].data.pts, tr.hoverT);
+                parts.push(m.drawn[i].label + ' ' + (v === null ? '--' : fmt.number(v) + (m.drawn[i].data.units ? ' ' + m.drawn[i].data.units : '')));
+            }
+        } else if (tr.phase === 'ok') {
+            if (m && m.shared && m.units) { parts.push(m.units); }
+            if (m && !m.shared && m.drawn.length > 1) {
+                parts.push('units differ: each trace on its own scale (' + m.drawn.map(function (x) {
+                    return x.label + ' ' + fmt.number(x.min) + '–' + fmt.number(x.max) + (x.data.units ? ' ' + x.data.units : '');
+                }).join(', ') + ')');
+            }
+            for (var j = 0; j < tr.traces.length; j++) {
+                var x = tr.traces[j];
+                if (x.error) { parts.push(x.label + ': ' + x.error); continue; }
+                if (!x.data) { continue; }
+                if (!x.data.pts.length) { parts.push(x.label + ': ' + (x.data.text ? 'states or text, not drawn' : 'no good values')); continue; }
+                if (x.data.bad) { parts.push(x.label + ': ' + x.data.bad + ' bad value' + (x.data.bad === 1 ? '' : 's') + ' left out'); }
+                if (x.data.text) { parts.push(x.label + ': ' + x.data.text + ' non-numeric left out'); }
+            }
+            if (tr.flash) { parts.push(tr.flash); }
+        }
+        f.textContent = parts.join(' · ');
+        f.title = f.textContent;
+    }
+
     /**
      * Wire the overlay into one symbol. Called by bootstrap; update() runs
      * after every render, so a config change shows at once.
      */
     overlay.bind = function (ctx, hooks) {
-        var el = null, menu = null, badge = null, note = null;
+        var el = null, menu = null, badge = null, note = null, rangeEl = null;
         var timer = null, noteTimer = null;
         var hidden = false;
 
@@ -6243,6 +6754,28 @@
             };
             el.appendChild(btn);
             el.appendChild(menu);
+            // Quick trend: opens the trend panel, or adds to the one open.
+            var tbtn = document.createElement('button');
+            tbtn.type = 'button';
+            tbtn.className = 'pvx-overlay-btn pvx-overlay-trend';
+            tbtn.textContent = '\u223f';
+            var trendTitle = function () {
+                tbtn.title = trend.isOpen() ? 'Add this symbol\'s data to the quick trend' : 'Quick trend of this symbol\'s data';
+                tbtn.setAttribute('aria-label', tbtn.title);
+            };
+            trendTitle();
+            tbtn.onmouseenter = trendTitle;
+            tbtn.onfocus = trendTitle;
+            tbtn.onclick = function (ev) {
+                if (ev) { ev.stopPropagation(); }
+                closeMenu();
+                var ds = ctx.scope && ctx.scope.symbol && ctx.scope.symbol.DataSources;
+                var list = [];
+                for (var k = 0; ds && k < ds.length; k++) { list.push(ds[k]); }
+                if (!list.length) { say('This symbol has no data source to trend'); return; }
+                trend.open(list, { theme: ctx.theme });
+            };
+            el.appendChild(tbtn);
         }
 
         function attach(want) {
@@ -6273,11 +6806,21 @@
             var c = cfg();
             var n = ctx.node;
             var staleAt = staleCheck();
-            var want = !!c.ExportMenu || staleAt !== null;
+            var range = ctx.ownrange ? ctx.ownrange.badge() : null;
+            var want = !!c.ExportMenu || !!c.QuickTrend || staleAt !== null || !!range;
             var host = attach(want);
             if (host) {
                 var btn = host.querySelector('.pvx-overlay-btn');
                 if (btn) { btn.style.display = c.ExportMenu ? '' : 'none'; }
+                var tb = host.querySelector('.pvx-overlay-trend');
+                if (tb) { tb.style.display = c.QuickTrend ? '' : 'none'; }
+                if (range) {
+                    if (!rangeEl) { rangeEl = document.createElement('div'); rangeEl.className = 'pvx-overlay-range'; host.appendChild(rangeEl); }
+                    rangeEl.textContent = range.text;
+                    rangeEl.title = range.title;
+                    rangeEl.className = 'pvx-overlay-range' + (range.warn ? ' pvx-overlay-range-warn' : '');
+                    rangeEl.style.display = '';
+                } else if (rangeEl) { rangeEl.style.display = 'none'; }
                 if (!c.ExportMenu) { closeMenu(); }
                 if (staleAt !== null) {
                     if (!badge) { badge = document.createElement('div'); badge.className = 'pvx-overlay-stale'; host.appendChild(badge); }
@@ -6431,6 +6974,246 @@
         }
     };
 
+    /* ------------------------------------------------------------------ *
+     * ownrange: a time range of the symbol's own (OwnTimeRange option)
+     * ------------------------------------------------------------------ *
+     * A time-series symbol can show its own range, "the last 30 days"
+     * beside a display looking at the last hour, or "yesterday" on a shift
+     * report. PI Vision's pipeline serves every symbol on a display the
+     * display's range and offers a custom symbol no way to ask for another,
+     * so with the option on the bootstrap swaps what the symbol is sent:
+     * the pipeline's update still names the sources (labels, units, paths,
+     * which PI Vision sends only now and then), and the values come from PI
+     * Web API recorded values over the symbol's range. The symbol reads the
+     * same shape either way and needs nothing of its own.
+     *
+     * It fails toward the display: with PI Web API unset or still being
+     * found, the symbol is sent PI Vision's own data and the badge says the
+     * range is not in force, rather than drawing nothing.
+     */
+    var ownrange = PVX.ownrange = {};
+
+    ownrange.DEFAULT_MAX = 10000;
+
+    /** Is the option in force for this config? Only time-series symbols have one. */
+    ownrange.wanted = function (cfg) {
+        return !!(cfg && cfg.OwnTimeRange && cfg.DataShape === 'TimeSeries');
+    };
+
+    /** "Last 30 days", "Last 8 hours", else "start to end" as typed. */
+    ownrange.label = function (start, end) {
+        var s = String(start || '').replace(/\s+/g, '');
+        var e = String(end || '').replace(/\s+/g, '');
+        var m = /^\*-(\d+(?:\.\d+)?)(s|m|h|d|w|mo|y)$/i.exec(s);
+        var words = { s: 'second', m: 'minute', h: 'hour', d: 'day', w: 'week', mo: 'month', y: 'year' };
+        if (m && (e === '*' || e === '')) {
+            var n = parseFloat(m[1]);
+            var u = words[m[2].toLowerCase()];
+            return n === 1 ? 'Last ' + u : 'Last ' + m[1] + ' ' + u + 's';
+        }
+        if (/^t$/i.test(s) && (e === '*' || e === '')) { return 'Today'; }
+        if (/^y$/i.test(s) && /^t$/i.test(e)) { return 'Yesterday'; }
+        return String(start || '*-1d') + ' to ' + String(end || '*');
+    };
+
+    /** Recorded items -> the pipeline's [{Time, Value}], states by name. */
+    ownrange.values = function (items) {
+        var out = [];
+        for (var i = 0; i < (items || []).length; i++) {
+            var it = items[i] || {};
+            if (!it.Timestamp) { continue; }
+            var v = it.Value;
+            if (v !== null && typeof v === 'object') { v = v.Name !== undefined ? v.Name : v.Value; }
+            out.push(it.Good === false ? { Time: it.Timestamp, Value: v, IsGood: false } : { Time: it.Timestamp, Value: v });
+        }
+        return out;
+    };
+
+    /**
+     * Wire it into one symbol. Returns {take(d, deliver), badge(), destroy()}:
+     * take() is handed every pipeline update and calls deliver() with what
+     * the symbol should see, now or once PI Web API answers.
+     */
+    ownrange.bind = function (ctx) {
+        var ids = {};
+        var last = null;             // the latest pipeline update
+        var key = '';                // what was last read: sources, range, max
+        var readAt = 0, gen = 0, timer = null;
+        var st = { phase: 'off', note: '', capped: [], failed: [] };
+
+        function cfg() { return ctx.config || {}; }
+
+        function sourcesOf() {
+            var ds = ctx.scope && ctx.scope.symbol && ctx.scope.symbol.DataSources;
+            var out = [];
+            for (var i = 0; ds && i < ds.length; i++) { out.push(states.sourcePath(ds[i])); }
+            return out;
+        }
+
+        function streamId(p) {
+            var k = p.toLowerCase();
+            if (ids[k]) { return ids[k]; }
+            var job = api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' + encodeURIComponent(p) +
+                '&selectedFields=WebId').then(function (r) {
+                if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+                return r.WebId;
+            });
+            ids[k] = job;
+            job.then(null, function () { if (ids[k] === job) { delete ids[k]; } });
+            return job;
+        }
+
+        function errText(e) {
+            return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API did not answer.';
+        }
+
+        function startEnd() {
+            var c = cfg();
+            return { start: String(c.OwnStart || '').replace(/^\s+|\s+$/g, '') || '*-1d',
+                end: String(c.OwnEnd || '').replace(/^\s+|\s+$/g, '') || '*' };
+        }
+
+        function live() { return /\*/.test(startEnd().end); }
+
+        /** The pipeline's update with each source's values replaced by `vals`. */
+        function swap(d, vals) {
+            var list = d && (d.Data || d.data);
+            if (!list) { return d; }
+            var out = {};
+            for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { out[k] = d[k]; } }
+            // The window each item says it covers is the symbol's own, for
+            // the symbols that lay their axis or rows out by it.
+            var se = startEnd(), now = Date.now();
+            var from = nav.parseTime(se.start, now), to = nav.parseTime(se.end, now);
+            var items = [];
+            for (var i = 0; i < list.length; i++) {
+                var it = {};
+                for (var f in list[i]) { if (Object.prototype.hasOwnProperty.call(list[i], f)) { it[f] = list[i][f]; } }
+                var v = vals[i];
+                if (v && v.error) {
+                    it.Value = [];
+                    it.IsGood = false;
+                    it.ErrorDescription = v.error;
+                } else if (v) {
+                    it.Value = v.values;
+                    it.IsGood = true;
+                    it.ErrorDescription = '';
+                }
+                if (it.Values !== undefined) { delete it.Values; }
+                if (from !== null && to !== null) {
+                    it.StartTime = new Date(from).toISOString();
+                    it.EndTime = new Date(to).toISOString();
+                }
+                items.push(it);
+            }
+            out[d.Data ? 'Data' : 'data'] = items;
+            return out;
+        }
+
+        function read(deliver, force) {
+            var c = cfg();
+            var se = startEnd();
+            var max = Math.max(100, Math.min(150000, parseInt(c.OwnMaxValues, 10) || ownrange.DEFAULT_MAX));
+            var paths = sourcesOf();
+            var k = paths.join('\n') + '|' + se.start + '|' + se.end + '|' + max;
+            var every = Math.max(10, parseInt(c.OwnRefreshSeconds, 10) || 60) * 1000;
+            if (!force && k === key && (st.phase === 'ok' || st.phase === 'loading') &&
+                (!live() || Date.now() - readAt < every)) {
+                return false;
+            }
+            key = k;
+            readAt = Date.now();
+            var g = ++gen;
+            if (st.phase !== 'ok') { st.phase = 'loading'; }
+            var jobs = paths.map(function (p) {
+                if (!p) { return Promise.resolve({ error: 'no data source' }); }
+                return streamId(p).then(function (id) {
+                    return api.get('streams/' + encodeURIComponent(id) + '/recorded?startTime=' + encodeURIComponent(se.start) +
+                        '&endTime=' + encodeURIComponent(se.end) + '&maxCount=' + max +
+                        '&selectedFields=Items.Timestamp;Items.Value;Items.Good', { cache: false });
+                }).then(function (res) {
+                    var items = (res && res.Items) || [];
+                    return { values: ownrange.values(items), capped: items.length >= max, path: p };
+                }, function (e) { return { error: errText(e), path: p }; });
+            });
+            Promise.all(jobs).then(function (vals) {
+                if (ctx.destroyed || g !== gen) { return; }
+                st.phase = 'ok';
+                st.vals = vals;
+                st.capped = [];
+                st.failed = [];
+                for (var i = 0; i < vals.length; i++) {
+                    if (vals[i].capped) { st.capped.push(vals[i].path); }
+                    if (vals[i].error) { st.failed.push(vals[i].path + ': ' + vals[i].error); }
+                }
+                if (last) { deliver(swap(last, vals)); }
+            });
+            return true;
+        }
+
+        return {
+            /**
+             * One pipeline update. Off: passed straight on. On: the values
+             * read for the symbol's range, swapped in; a read is started when
+             * the sources or range changed, or a live range is due.
+             */
+            take: function (d, deliver) {
+                if (!ownrange.wanted(cfg())) {
+                    st.phase = 'off';
+                    deliver(d);
+                    return;
+                }
+                last = d;
+                if (api.discovering()) {
+                    st.phase = 'finding';
+                    api.discover().then(function () { if (!ctx.destroyed && last) { read(deliver, true); } });
+                    deliver(d);
+                    return;
+                }
+                if (!api.isConfigured()) {
+                    st.phase = 'unconfigured';
+                    deliver(d);
+                    return;
+                }
+                read(deliver, false);
+                // Until the first read answers the symbol waits on it, rather
+                // than drawing the display's range under the symbol's label.
+                if (st.phase === 'ok' && st.vals) { deliver(swap(d, st.vals)); }
+                if (!timer) {
+                    timer = setInterval(function () {
+                        if (!ctx.destroyed && last && ownrange.wanted(cfg()) && live()) { read(deliver, false); }
+                    }, 10000);
+                }
+            },
+            /** {text, title, warn} for the overlay, or null when off. */
+            badge: function () {
+                if (!ownrange.wanted(cfg())) { return null; }
+                var se = startEnd();
+                var label = ownrange.label(se.start, se.end);
+                if (st.phase === 'unconfigured') {
+                    return { text: label + ' (not in force)', warn: true,
+                        title: 'This symbol is set to show ' + se.start + ' to ' + se.end + ', which needs PI Web API. ' +
+                            api.unsetHint() + '. It shows the display\'s time range until then.' };
+                }
+                var bits = ['This symbol shows ' + se.start + ' to ' + se.end + ', not the display\'s time range.'];
+                if (st.phase === 'loading' || st.phase === 'finding') { bits.push('Reading recorded values from PI Web API.'); }
+                if (st.capped.length) { bits.push('Only the first ' + (parseInt(cfg().OwnMaxValues, 10) || ownrange.DEFAULT_MAX) + ' values read for: ' + st.capped.join(', ') + '.'); }
+                if (st.failed.length) { bits.push('Not read: ' + st.failed.join('; ') + '.'); }
+                return { text: label + (st.capped.length || st.failed.length ? ' ⚠' : ''), title: bits.join(' '),
+                    warn: !!(st.capped.length || st.failed.length) };
+            },
+            /** Read again now: the range or the sources changed in the pane. */
+            changed: function (deliver) {
+                if (last && ownrange.wanted(cfg()) && api.isConfigured()) { read(deliver, true); }
+                else if (last) { deliver(last); }
+            },
+            destroy: function () {
+                if (timer) { clearInterval(timer); timer = null; }
+                gen += 1;
+            }
+        };
+    };
+
     /**
      * Boilerplate every symbol's init() shares: renderer wiring, size tracking,
      * theme resolution, and clean teardown.
@@ -6533,11 +7316,18 @@
             return out;
         });
 
+        ctx.ownrange = ownrange.bind(ctx);
+
         vis.onDataUpdate = function (d) {
             // Before anything reads it: the sources list, the state map and
             // every symbol's own onData all want the names PI Vision only
-            // sends now and then.
-            d = keepMeta(d);
+            // sends now and then. Then the symbol's own time range, if set,
+            // swaps in values read for it.
+            ctx.ownrange.take(keepMeta(d), deliver);
+        };
+
+        function deliver(d) {
+            if (ctx.destroyed) { return; }
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -6552,11 +7342,12 @@
                 catch (e) { if (root.console) { root.console.error('[PVX] onData failed', e); } }
             }
             renderer.request();
-        };
+        }
 
         vis.onConfigChange = function (newConfig, oldConfig) {
             ctx.config = newConfig || ctx.config;
             scope.config = ctx.config;
+            ctx.ownrange.changed(deliver);
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }
@@ -6582,6 +7373,7 @@
             if (ctx.states) { ctx.states.destroy(); }
             if (ctx.tags) { ctx.tags.destroy(); }
             ctx.overlay.destroy();
+            ctx.ownrange.destroy();
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

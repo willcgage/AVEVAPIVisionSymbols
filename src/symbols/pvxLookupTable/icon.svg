@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Lookup table">
+    <title>PVX Lookup Table</title>
+    <!-- A grid with a header row and a key column, one row picked out: a
+         table that is looked up, not a list of events. Flat and transparent
+         like the other icons. -->
+    <g>
+        <rect x="40" y="56" width="432" height="72" rx="12" fill="#5c6570"/>
+        <rect x="40" y="148" width="128" height="64" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="148" width="284" height="64" rx="10" fill="#8a8f96"/>
+        <rect x="40" y="232" width="128" height="64" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="232" width="284" height="64" rx="10" fill="#2f9e5f"/>
+        <rect x="40" y="316" width="128" height="64" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="316" width="284" height="64" rx="10" fill="#8a8f96"/>
+        <rect x="40" y="400" width="128" height="64" rx="10" fill="#3b82c4"/>
+        <rect x="188" y="400" width="284" height="64" rx="10" fill="#8a8f96"/>
+    </g>
+</svg>
