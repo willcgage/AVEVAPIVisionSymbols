@@ -8,7 +8,7 @@
  * traces is unreadable, and 20 stock trends do not fit on a screen.
  *
  * The entire symbol is drawn as ONE imperative SVG inside `.pvx-spark-body`.
- * A per-row Angular template (ng-repeat with bindings for name/value/colour)
+ * A per-row Angular template (ng-repeat with bindings for name/value/color)
  * would put 30 rows x ~6 watchers into the digest loop of a display that also
  * refreshes every few seconds; on a wall board with several of these symbols
  * that is the difference between a smooth display and a stuttering one. Drawing
@@ -62,7 +62,7 @@
                 ShowMinMax: false,
                 ShowEndDot: true,
 
-                // Colour
+                // Color
                 ColorMode: 'palette',       // palette | single | threshold
                 LineColor: '#3b82c4',
                 UseThresholds: true,
@@ -337,14 +337,14 @@
             return Math.max(MIN_ROW_H, h);
         }
 
-        /** Colour for one row, from the configured colour mode. */
+        /** Color for one row, from the configured color mode. */
         function rowColor(cfg, row, index, theme) {
             if (cfg.ColorMode === 'single') {
                 return cfg.LineColor || cfg.AccentColor || '#3b82c4';
             }
             if (cfg.ColorMode === 'threshold') {
                 // Bands are evaluated against the row's CURRENT value, matching
-                // what the value column shows, so colour and number never disagree.
+                // what the value column shows, so color and number never disagree.
                 if (cfg.UseThresholds === false || row.last === null) {
                     return cfg.LineColor || '#3b82c4';
                 }
@@ -361,8 +361,8 @@
             var color = rowColor(cfg, row, index, t);
 
             var g = PVX.svg.el('g', { 'class': 'pvx-spark-row' }, svgRoot);
-            // Bad quality dims the whole row rather than recolouring it: the
-            // thresholds/palette colour still carries meaning, it just should not
+            // Bad quality dims the whole row rather than recoloring it: the
+            // thresholds/palette color still carries meaning, it just should not
             // command attention while the value is untrustworthy.
             if (!s.good) { g.setAttribute('opacity', '0.55'); }
 
@@ -552,7 +552,7 @@
         }
 
         /** Theme tokens as CSS custom properties, consumed by styles.css and the
-         *  template's ng-style. Keeps all colour decisions in one place and means
+         *  template's ng-style. Keeps all color decisions in one place and means
          *  render() never writes to scope (so no $digest is required). */
         function applyThemeVars(c, t) {
             var n = c.node;

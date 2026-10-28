@@ -31,11 +31,11 @@
                     <option value="left">Left axis</option>
                     <option value="right">Right axis</option>
                 </select>
-                <input type="color" class="pvx-cfg-tr-color" ng-if="r.type !== 'hidden'" ng-model="r.hex"
-                       ng-change="runtimeData.pvxTraces.setColor(r)" aria-label="Colour of trace {{r.index}}"
-                       title="{{r.color ? r.color : 'Automatic colour'}}" />
+                <input type="color" ng-model-options="{ updateOn: 'change' }" class="pvx-cfg-tr-color" ng-if="r.type !== 'hidden'" ng-model="r.hex"
+                       ng-change="runtimeData.pvxTraces.setColor(r)" aria-label="Color of trace {{r.index}}"
+                       title="{{r.color ? r.color : 'Automatic color'}}" />
                 <button type="button" class="pvx-cfg-band-link pvx-cfg-tr-auto" ng-if="r.color && r.type !== 'hidden'"
-                        ng-click="runtimeData.pvxTraces.autoColor(r)" title="Go back to the automatic colour">Auto</button>
+                        ng-click="runtimeData.pvxTraces.autoColor(r)" title="Go back to the automatic color">Auto</button>
                 <select class="pvx-cfg-tr-dash" ng-if="r.type !== 'hidden' && runtimeData.pvxTraces.stroked(r)" ng-model="r.dash"
                         ng-change="runtimeData.pvxTraces.commit()" aria-label="Line style of trace {{r.index}}">
                     <option value="">Solid</option>
@@ -62,7 +62,7 @@
                 <em>Range to the next source</em> shades between this source and the one after it,
                 for a minimum and maximum pair; the next source is not drawn on its own.
                 <em>State bands</em> shades the chart's background by a digital tag's state, in the
-                colours under State bands below. <em>Avg</em> adds a moving average, over a count
+                colors under State bands below. <em>Avg</em> adds a moving average, over a count
                 of values (20) or a time (1h). <em>Fit</em> adds a straight-line fit.
             </div>
             <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxTraces.hasMissing()">
@@ -81,13 +81,13 @@
             </div>
             <div class="pvx-cfg-hint">
                 One entry per data source, comma separated:
-                <code>index:type[:axis][:#colour]</code>.
+                <code>index:type[:axis][:#color]</code>.
                 <br /><em>index</em> counts the data sources in the order they were added (1 = first).
                 <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
                 <code>step</code>, <code>scatter</code>, <code>range</code> (shades to the next
                 source), <code>states</code> (background bands by state) or <code>hidden</code>.
                 <br /><em>axis</em> is <code>left</code> or <code>right</code>.
-                <br /><em>colour</em> is a hex value such as <code>#8267b0</code>.
+                <br /><em>color</em> is a hex value such as <code>#8267b0</code>.
                 <br />A line or step can also be <code>dashed</code> or <code>dotted</code> and take a
                 width such as <code>1px</code>.
                 <br />Add <code>ma20</code> or <code>ma1h</code> for a moving average over 20 values or
@@ -242,8 +242,8 @@
         <div class="pvx-cfg-legend">State bands</div>
 
         <div class="pvx-cfg-hint">
-            For a trace drawn as State bands: the colour of each state. A state not listed gets a
-            colour of its own.
+            For a trace drawn as State bands: the color of each state. A state not listed gets a
+            color of its own.
         </div>
         <!-- pvx:states key=StateColors kind=colors -->
         <div class="pvx-cfg-row">
@@ -306,9 +306,9 @@
                 <input id="pvxcombo-evmax" type="number" ng-model="config.EventMax" min="1" max="500" />
             </div>
             <div class="pvx-cfg-row">
-                <label for="pvxcombo-evcolor">Colour</label>
-                <input id="pvxcombo-evcolor" type="color" ng-model="config.EventColor" />
-                <button type="button" ng-click="config.EventColor = ''" ng-disabled="!config.EventColor" title="One colour per event template again">Auto</button>
+                <label for="pvxcombo-evcolor">Color</label>
+                <input id="pvxcombo-evcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.EventColor" />
+                <button type="button" ng-click="config.EventColor = ''" ng-disabled="!config.EventColor" title="One color per event template again">Auto</button>
             </div>
             <div class="pvx-cfg-row">
                 <label for="pvxcombo-evop">Shading opacity</label>
@@ -407,8 +407,8 @@
             <input id="pvxcombo-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxcombo-bgcolor">Background colour</label>
-            <input id="pvxcombo-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxcombo-bgcolor">Background color</label>
+            <input id="pvxcombo-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

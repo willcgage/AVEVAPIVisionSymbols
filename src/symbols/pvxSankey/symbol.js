@@ -97,7 +97,7 @@
                 LinkOpacity: 0.45,
                 LinkCurvature: 0.5,
 
-                // --- colour ------------------------------------------
+                // --- color ------------------------------------------
                 ColorMode: 'node',          // node | link | single | threshold
                 SingleColor: '#3b82c4',
                 NodeColors: '',             // "Vent:#c8452f, Product:#3f9e6a"
@@ -260,7 +260,7 @@
             return (row && row.label) ? String(row.label) : ('Source ' + (i + 1));
         }
 
-        /** "Vent:#c8452f, Product:#3f9e6a" -> {key: colour}. */
+        /** "Vent:#c8452f, Product:#3f9e6a" -> {key: color}. */
         function parseNodeColors(spec) {
             var map = {};
             String(spec === null || spec === undefined ? '' : spec)
@@ -915,10 +915,10 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
-        /** The colour the symbol is actually painted on, transparent included. */
+        /** The color the symbol is actually painted on, transparent included. */
         function surfaceOf(t) {
             if (t.surface && t.surface !== 'transparent') { return t.surface; }
             return t.dark ? '#22262b' : '#ffffff';
@@ -926,12 +926,12 @@
 
         function nodeColor(node, cfg, t, o) {
             var k = key(lower(node.name));
-            // An explicit colour always wins: it is the one thing the author
+            // An explicit color always wins: it is the one thing the author
             // said out loud about this node.
             if (Object.prototype.hasOwnProperty.call(o.nodeColors, k)) { return o.nodeColors[k]; }
             if (Object.prototype.hasOwnProperty.call(o.lossNodes, k)) { return t.status.alarm; }
             if (cfg.ColorMode === 'single') {
-                // In single-colour mode the ribbons carry the one colour, so the
+                // In single-color mode the ribbons carry the one color, so the
                 // bars step back to a neutral that frames them.
                 return PVX.color.mix(surfaceOf(t), t.text, 0.45);
             }
@@ -947,7 +947,7 @@
                 case 'single':
                     return { from: single, to: single };
                 case 'threshold':
-                    // Falls back to the flat colour when thresholds are off, so
+                    // Falls back to the flat color when thresholds are off, so
                     // the mode never silently paints everything one band.
                     var band = cfg.UseThresholds
                         ? PVX.thresholds.colorFor(cfg.Thresholds, l.value, single)
@@ -955,7 +955,7 @@
                     return { from: band, to: band };
                 case 'node':
                 default:
-                    // Source colour, so a stream can be followed with the eye
+                    // Source color, so a stream can be followed with the eye
                     // from where it came from all the way to where it ends up.
                     var c = nodeColor(l.source, cfg, t, o);
                     return { from: c, to: c };
@@ -966,7 +966,7 @@
          * Hatched fill for bad quality. A ribbon whose width came from an
          * untrusted reading still occupies its share of the balance, so it keeps
          * its place; but a solid ribbon reads as a real measurement and this
-         * must not. One pattern per colour per render; ids are unique so several
+         * must not. One pattern per color per render; ids are unique so several
          * instances of the symbol on one display cannot collide.
          */
         function hatchFor(defs, cache, fill) {
@@ -1255,7 +1255,7 @@
         /**
          * A linearGradient in user space between the two ribbon ends. One per
          * ribbon, with a unique id, so two instances of the symbol on the same
-         * display cannot steal each other's colours.
+         * display cannot steal each other's colors.
          */
         function gradientFor(o, sa, sc, ta, tc, cols, horiz) {
             var id = PVX.util.uid('pvxskgrad');
@@ -1284,7 +1284,7 @@
                 width: Math.max(1, w).toFixed(2), height: Math.max(1, h).toFixed(2),
                 rx: Math.min(2, w / 2, h / 2).toFixed(1),
                 fill: col,
-                // An unbalanced node is outlined in the alarm colour: it is the
+                // An unbalanced node is outlined in the alarm color: it is the
                 // one thing on the diagram that means somebody has to go and
                 // look at something.
                 stroke: nd.unbalanced ? t.status.alarm : 'none',
@@ -1466,7 +1466,7 @@
                     'font-size': font,
                     'font-weight': '600',
                     fill: t.text,
-                    // Labels sit over ribbons; a halo in the surface colour
+                    // Labels sit over ribbons; a halo in the surface color
                     // keeps them legible without a background box.
                     stroke: halo, 'stroke-width': 2.6, 'stroke-linejoin': 'round'
                 });

@@ -8,7 +8,7 @@
  *   - Threshold bands drawn on the dial, driven by the shared PVX threshold spec
  *   - Needle or progress-arc styles
  *   - Optional target/setpoint marker
- *   - Value colour follows the active threshold band
+ *   - Value color follows the active threshold band
  *   - Auto light/dark theming, fully responsive typography
  *   - Options: dim the bands the value is not in, major ticks on the band
  *     limits, minor ticks, and a scale that runs the other way
@@ -216,7 +216,7 @@
                 }
             }
 
-            // --- value colour ---------------------------------------------------
+            // --- value color ---------------------------------------------------
             var valueColor;
             if (scope.MultistateColor) {
                 valueColor = scope.MultistateColor;            // PI Vision multistate wins

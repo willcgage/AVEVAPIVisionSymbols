@@ -103,8 +103,8 @@
 
 .pvx-health .pvx-health-row:last-child { border-bottom: none; }
 
-/* The verdict is a labelled chip, not a colour alone: "Stale" and "Flatlined"
-   must stay distinguishable to a colour-blind operator and on a mono print. */
+/* The verdict is a labelled chip, not a color alone: "Stale" and "Flatlined"
+   must stay distinguishable to a color-blind operator and on a mono print. */
 .pvx-health .pvx-health-chip {
     flex: 0 0 auto;
     min-width: 62px;

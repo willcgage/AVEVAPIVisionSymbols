@@ -247,6 +247,23 @@ function validateTemplate(typeName, html) {
     }
 }
 
+/* A color input fires 'input' on every step of a drag across the picker, and
+ * ng-model commits on 'input' by default, so each step became its own change
+ * to the symbol's config: dragging white to black left hundreds of greys in
+ * PI Vision's undo history and buried every earlier edit under them. 'change'
+ * fires once, when the picker closes. Checked on the expanded pane so the
+ * shared editors (bands, states) are held to it too.
+ */
+function validateColorInputs(typeName, html) {
+    (html.match(/<input\b[^>]*>/g) || []).forEach((tag) => {
+        if (!/type\s*=\s*["']color["']/.test(tag)) return;
+        if (!/ng-model-options\s*=\s*"\{\s*updateOn:\s*'change'\s*\}"/.test(tag)) {
+            problem(typeName, 'color input without ng-model-options="{ updateOn: \'change\' }" — ' +
+                'every step of a drag would be its own undo entry: ' + tag.replace(/\s+/g, ' ').slice(0, 120));
+        }
+    });
+}
+
 function validateIcon(typeName, svg) {
     if (!/<svg[\s\S]*?viewBox\s*=\s*["'][^"']+["']/.test(svg)) {
         problem(typeName, 'icon.svg has no viewBox — PI Vision will not scale it in the picker');
@@ -357,12 +374,13 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '.js'), banner(typeName) +
             "if (window.PVX) { window.PVX.symbolBuild = '" + VERSION + "'; }\n" + js);
         write(path.join(EXT, 'sym-' + typeName + '-template.html'), template);
-        write(path.join(EXT, 'sym-' + typeName + '-config.html'),
-            withTagsEditors(typeName,
-                withStatesEditors(typeName,
-                    withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, withAfSearch(typeName, withFilterPane(typeName, config, filterPane, js), afSearch, js), afPicker), sourcesPane), bandsEditor, js),
-                    statesEditor),
-                tagsEditor));
+        const configOut = withTagsEditors(typeName,
+            withStatesEditors(typeName,
+                withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, withAfSearch(typeName, withFilterPane(typeName, config, filterPane, js), afSearch, js), afPicker), sourcesPane), bandsEditor, js),
+                statesEditor),
+            tagsEditor);
+        validateColorInputs(typeName, configOut);
+        write(path.join(EXT, 'sym-' + typeName + '-config.html'), configOut);
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
         // loads a symbol's CSS by the sym-<name>.css naming convention only, so
         // there is nowhere else to put them; the duplication is a few KB and
@@ -462,7 +480,7 @@ function withFilterPane(typeName, config, snippet, js) {
     return config.replace(FILTER_MARKER, snippet);
 }
 
-// Threshold bands are edited as rows (limit, colour, label), not by typing
+// Threshold bands are edited as rows (limit, color, label), not by typing
 // the grammar. A pane asks for that editor with a marker where the control
 // would go:
 //   <!-- pvx:bands -->                  config.Thresholds
@@ -508,7 +526,7 @@ function withBandsEditor(typeName, config, editor, js) {
 }
 
 // Digital state maps are edited as rows (state chosen from a list, severity
-// or colour, label), not by typing the grammar. A pane asks for the editor
+// or color, label), not by typing the grammar. A pane asks for the editor
 // with a marker on its own line where the control goes:
 //   <!-- pvx:states key=StateMap kind=map -->
 // kind says which grammar the key holds. As with the bands, a pane that also
@@ -516,8 +534,8 @@ function withBandsEditor(typeName, config, editor, js) {
 // keeps the old text box beside the new rows.
 const STATES_MARKER = /^[ \t]*<!--\s*pvx:states\b([^>]*?)-->[ \t]*\n/gm;
 const STATES_KINDS = {
-    map: { grammar: 'State:colour:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
-    colors: { grammar: 'State:colour', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
+    map: { grammar: 'State:color:label', example: 'Running:#2f9e5f, Fault:#c8452f:Tripped' },
+    colors: { grammar: 'State:color', example: 'Running:#2f9e5f, Stopped:#8a8f96' },
     list: { grammar: 'State', example: 'Running, On, Open' },
     bands: { grammar: 'State:band label', example: 'ALARM:Critical, WARN:High, NORMAL:Normal' }
 };

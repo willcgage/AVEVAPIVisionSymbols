@@ -20,7 +20,7 @@
  * values made it, since a grid finer than the data shows interpolation.
  *
  * Bands with an alarm level mark a frequency range whose largest amplitude
- * must stay under a limit. They colour the band and say so in the footer;
+ * must stay under a limit. They color the band and say so in the footer;
  * nothing is written anywhere.
  * ==========================================================================*/
 (function (PV) {

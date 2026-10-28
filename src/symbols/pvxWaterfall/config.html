@@ -104,31 +104,31 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxwf-inc">Increase</label>
-            <input id="pvxwf-inc" type="color" ng-model="config.IncreaseColor" />
+            <input id="pvxwf-inc" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.IncreaseColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxwf-dec">Decrease</label>
-            <input id="pvxwf-dec" type="color" ng-model="config.DecreaseColor" />
+            <input id="pvxwf-dec" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.DecreaseColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxwf-invert">Swap increase / decrease</label>
             <input id="pvxwf-invert" type="checkbox" ng-model="config.InvertColors" />
         </div>
-        <div class="pvx-cfg-hint">For loss accounting, where a decrease is the good outcome. Steps of exactly zero always take the subtotal colour &mdash; no change is neither good nor bad.</div>
+        <div class="pvx-cfg-hint">For loss accounting, where a decrease is the good outcome. Steps of exactly zero always take the subtotal color &mdash; no change is neither good nor bad.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxwf-totalcol">Start / total bar</label>
-            <input id="pvxwf-totalcol" type="color" ng-model="config.TotalColor" />
+            <input id="pvxwf-totalcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.TotalColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxwf-subcol">Subtotal bar</label>
-            <input id="pvxwf-subcol" type="color" ng-model="config.SubtotalColor" />
+            <input id="pvxwf-subcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SubtotalColor" />
         </div>
-        <div class="pvx-cfg-hint">Sources reporting bad quality are always drawn hatched, whatever the colours. In a bridge a bad step moves every bar after it, so its hatching is a warning about the whole tail.</div>
+        <div class="pvx-cfg-hint">Sources reporting bad quality are always drawn hatched, whatever the colors. In a bridge a bad step moves every bar after it, so its hatching is a warning about the whole tail.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -139,10 +139,10 @@
             <input id="pvxwf-showconn" type="checkbox" ng-model="config.ShowConnectors" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxwf-conncol">Connector colour</label>
-            <input id="pvxwf-conncol" type="color" ng-model="config.ConnectorColor" />
+            <label for="pvxwf-conncol">Connector color</label>
+            <input id="pvxwf-conncol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ConnectorColor" />
         </div>
-        <div class="pvx-cfg-hint">Thin lines carrying the running total from one bar to the next, drawn behind the bars. Leave the colour unset to follow the theme's line colour.</div>
+        <div class="pvx-cfg-hint">Thin lines carrying the running total from one bar to the next, drawn behind the bars. Leave the color unset to follow the theme's line color.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -231,8 +231,8 @@
             <input id="pvxwf-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxwf-bgcolor">Background colour</label>
-            <input id="pvxwf-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxwf-bgcolor">Background color</label>
+            <input id="pvxwf-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -240,8 +240,8 @@
             <input id="pvxwf-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxwf-accent">Accent colour</label>
-            <input id="pvxwf-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxwf-accent">Accent color</label>
+            <input id="pvxwf-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">The accent is used for the hover outline on a bar.</div>
     </div>

@@ -187,7 +187,7 @@
         { n: 'pvxKpiCard', t: 'KPI Card', tier: 0, ver: '1.0', cat: 'Status', shape: 'TimeSeries',
           d: 'Headline number, period delta, inline sparkline, footer statistics.' },
         { n: 'pvxStatusGrid', t: 'Status Grid', tier: 0, ver: '1.0', cat: 'Status', shape: 'Table',
-          d: 'Responsive tile grid coloured by thresholds or digital state map.' },
+          d: 'Responsive tile grid colored by thresholds or digital state map.' },
         { n: 'pvxAlarmBanner', t: 'Exception Banner', tier: 0, ver: '1.0', cat: 'Status', shape: 'Table',
           d: 'Only the tags outside limits, worst first, with dwell time.' },
         { n: 'pvxNavPanel', t: 'Navigation Panel', tier: 0, ver: '1.0', cat: 'Navigation', shape: '—',
@@ -210,8 +210,8 @@
           d: 'Values along a physical axis, with a limit envelope and a faded shadow profile.',
           w: 'Positions come from the source order, a number parsed out of the tag name, or an explicit list — so uneven physical spacing renders as uneven spacing.' },
         { n: 'pvxDeviation', t: 'Deviation from Target', tier: 0, ver: '1.1', cat: 'Charts', shape: 'TimeSeries',
-          d: 'Deviation from setpoint with tolerance band, direction-coloured excursions and time-in-band statistics.',
-          w: 'Above and below tolerance get different colours because running hot and running cold are different problems. Statistics are computed from sample intervals, not sample counts.' },
+          d: 'Deviation from setpoint with tolerance band, direction-colored excursions and time-in-band statistics.',
+          w: 'Above and below tolerance get different colors because running hot and running cold are different problems. Statistics are computed from sample intervals, not sample counts.' },
 
         /* ---- tier 1 remaining ---- */
 
@@ -231,13 +231,13 @@
           d: 'Folds the window into N periods on a common relative-time axis, with a min/max envelope from the older ones.',
           w: 'Folds one long window rather than fetching several short ones — a symbol only ever receives the display\'s own time range. Clock and window-end alignment answer different questions and are labelled differently.' },
         { n: 'pvxTreemap', t: 'Treemap', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
-          d: 'Squarified rectangles sized by one statistic and coloured by another, optionally grouped from the AF path.',
-          w: 'Size shows who is big, colour shows who is in trouble; the tile that is both is the one to look at. Slivers merge into an honest Other rather than becoming unreadable.' },
+          d: 'Squarified rectangles sized by one statistic and colored by another, optionally grouped from the AF path.',
+          w: 'Size shows who is big, color shows who is in trouble; the tile that is both is the one to look at. Slivers merge into an honest Other rather than becoming unreadable.' },
         { n: 'pvxDonut', t: 'Contribution', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
           d: 'Share of a total with the total in the hole, small slices rolled into Other.',
           w: 'The config pane opens by pointing at the ranked bar for magnitude comparison — framed as which question you are asking, not as a scolding.' },
         { n: 'pvxSitePlan', t: 'Site Plan', tier: 0, ver: '1.2', cat: 'Status', shape: 'Table',
-          d: 'A plant drawing with hotspots in percentage coordinates, coloured by threshold band.',
+          d: 'A plant drawing with hotspots in percentage coordinates, colored by threshold band.',
           w: 'The offline answer to a map symbol: no tile provider, and for a single site a scaled drawing beats a satellite view. The no-image placeholder grid lets the layout be configured before the drawing exists.' },
         { n: 'pvxSankey', t: 'Flow', tier: 0, ver: '1.2', cat: 'Charts', shape: 'Table',
           d: 'Weighted ribbons between nodes, sized by value, with per-node balance checking.',
@@ -251,7 +251,7 @@
           d: 'Not a symbol: a page you open on the PI Vision server that reports which PI Web API configuration actually works on your network.',
           w: 'Ships inside the ext folder because it has to run from the PI Vision origin to reproduce what a symbol faces. It names the partial-pass trap explicitly — anonymous succeeding while credentials fail looks like success and is worse than an outright failure.' },
         { n: 'pvxEventGantt', t: 'Event Timeline', tier: 0, ver: '1.3', cat: 'Events', shape: 'PI Web API',
-          d: 'Event Frames as swimlanes per asset, stacked where they overlap, coloured by template or attribute.',
+          d: 'Event Frames as swimlanes per asset, stacked where they overlap, colored by template or attribute.',
           w: 'The native Events Table is a list; a Gantt shows overlap and clustering. Open events draw to the edge with a chevron rather than a flat cap, because a square end reads as "finished at the window edge", which is a lie.' },
 
         /* ---- shipped v1.4 ---- */
@@ -287,7 +287,7 @@
           d: 'Plays a tone when a data source crosses into a configured band.',
           c: 'Not building. Browser autoplay policy needs a click on exactly the unattended kiosk nobody is standing at, so it fails precisely where it would be useful. In a staffed control room the DCS annunciator is the right layer.' },
         { n: 'pvxMap', t: 'Geographic Map', tier: 3, closed: 1, cat: 'Status', shape: 'Table', effort: 'L',
-          d: 'Assets plotted on a map, coloured by status.',
+          d: 'Assets plotted on a map, colored by status.',
           c: 'Not building. It needs a tile provider most plant networks cannot reach, and for a single site pvxSitePlan is the better answer with no external service. Worth revisiting only for a genuinely multi-site estate with internet egress.' }
     ];
 

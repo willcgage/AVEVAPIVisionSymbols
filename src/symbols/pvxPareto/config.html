@@ -126,8 +126,8 @@
         <div class="pvx-cfg-hint">Drawn on its own 0&ndash;100% axis opposite the value axis. Hidden automatically when any value is negative, because a running share of a mixed-sign total cannot be read.</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxpar-cumcolor">Line colour</label>
-            <input id="pvxpar-cumcolor" type="color" ng-model="config.CumulativeColor" />
+            <label for="pvxpar-cumcolor">Line color</label>
+            <input id="pvxpar-cumcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CumulativeColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxpar-show80">Show reference line</label>
@@ -144,25 +144,25 @@
         <div class="pvx-cfg-legend">Bars</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxpar-colormode">Colour by</label>
+            <label for="pvxpar-colormode">Color by</label>
             <select id="pvxpar-colormode" ng-model="config.ColorMode">
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
                 <option value="palette">Palette per bar</option>
                 <option value="threshold">Threshold band</option>
                 <option value="rank">Rank (accent ramp)</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint"><em>Rank</em> shades from the accent colour (biggest contributor) to a muted version of it.</div>
+        <div class="pvx-cfg-hint"><em>Rank</em> shades from the accent color (biggest contributor) to a muted version of it.</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxpar-barcolor">Bar colour</label>
-            <input id="pvxpar-barcolor" type="color" ng-model="config.BarColor" />
+            <label for="pvxpar-barcolor">Bar color</label>
+            <input id="pvxpar-barcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BarColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxpar-accent">Accent colour</label>
-            <input id="pvxpar-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxpar-accent">Accent color</label>
+            <input id="pvxpar-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
-        <div class="pvx-cfg-hint">Bars whose source reports bad quality are always drawn hatched, whatever the colour mode.</div>
+        <div class="pvx-cfg-hint">Bars whose source reports bad quality are always drawn hatched, whatever the color mode.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -242,8 +242,8 @@
             <input id="pvxpar-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxpar-bgcolor">Background colour</label>
-            <input id="pvxpar-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxpar-bgcolor">Background color</label>
+            <input id="pvxpar-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -258,7 +258,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Used when <em>Colour by</em> is set to <em>Threshold band</em>.</div>
+        <div class="pvx-cfg-hint">Used when <em>Color by</em> is set to <em>Threshold band</em>.</div>
     </div>
 
 </div>

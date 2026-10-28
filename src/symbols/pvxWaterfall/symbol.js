@@ -89,7 +89,7 @@
                 BarGap: 0.3,
                 MaxSteps: 24,
 
-                // --- colour ------------------------------------------
+                // --- color ------------------------------------------
                 IncreaseColor: '#2f9e5f',
                 DecreaseColor: '#c8452f',
                 TotalColor: '#3b82c4',
@@ -98,7 +98,7 @@
 
                 // --- connectors --------------------------------------
                 ShowConnectors: true,
-                ConnectorColor: '',           // blank => theme line colour
+                ConnectorColor: '',           // blank => theme line color
 
                 // --- labels ------------------------------------------
                 ShowValues: true,
@@ -360,7 +360,7 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         function barColor(bar, cfg) {
@@ -373,7 +373,7 @@
             var inc = cfg.IncreaseColor || '#2f9e5f';
             var dec = cfg.DecreaseColor || '#c8452f';
             // Loss accounting inverts the moral of the story: a decrease in
-            // scrap is the good outcome, so the sign-to-colour mapping has to be
+            // scrap is the good outcome, so the sign-to-color mapping has to be
             // configurable rather than baked in.
             if (cfg.InvertColors) { var swap = inc; inc = dec; dec = swap; }
 
@@ -388,7 +388,7 @@
          * Hatched fill for bad quality. Operators must be able to see at a
          * glance that a step's size is not trustworthy — and in a waterfall one
          * untrustworthy step moves every bar after it, so this matters more here
-         * than in a plain bar chart. One pattern per colour per render; ids are
+         * than in a plain bar chart. One pattern per color per render; ids are
          * unique so several instances on one display cannot collide.
          */
         function hatchFor(defs, cache, fill) {
@@ -763,10 +763,10 @@
             // by the bars themselves, so only the gap segment shows and the line
             // can never fall short of either rectangle.
             if (cfg.ShowConnectors !== false && n > 1) {
-                // The theme grid colour is reference furniture at 8% alpha; a
+                // The theme grid color is reference furniture at 8% alpha; a
                 // connector is load-bearing — it is the visual proof that the
                 // running total carried across — so the blank default takes the
-                // theme's line colour instead of its grid colour.
+                // theme's line color instead of its grid color.
                 var connColor = cfg.ConnectorColor || t.axis;
                 var connG = PVX.svg.el('g', {
                     'class': 'pvx-wf-connectors',

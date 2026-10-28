@@ -77,7 +77,7 @@
 }
 
 /* The join hairline is set per segment in symbol.js — narrow segments must not
-   get one, or a 1px trip would be drawn entirely in the background colour.
+   get one, or a 1px trip would be drawn entirely in the background color.
    Deliberately NOT shape-rendering:crispEdges: snapping each segment to whole
    pixels independently opens hairline gaps between neighbours, and on a dense
    timeline those gaps read as a striped bar that is not in the data. */

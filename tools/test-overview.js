@@ -12,7 +12,7 @@
  * a click on a row goes. And Period Comparison's runs from event frames:
  * the query, the three alignments, golden runs and their tolerance. And the
  * Asset Rollup: its search, the one batch of values, cards per group with
- * Others, colour from a target or bands, and every asset left out named. The
+ * Others, color from a target or bands, and every asset left out named. The
  * quick trend any symbol can open, and the Lookup Table's AF table. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
  * and the Navigation Panel's icons, tooltips and {value} addresses. And the
@@ -119,7 +119,7 @@ function rules() {
         [' ', '5', 'today5', '*-8q', 'next week', '*-'].every((x) => pt(x) === null), [' ', '5', 'today5', '*-8q', 'next week', '*-'].map(pt));
 
     // Site theme from pvx-config.js: tokens, palette and status in place,
-    // a bad colour ignored without losing the rest, a symbol's own colours
+    // a bad color ignored without losing the rest, a symbol's own colors
     // still winning, and none of it left behind when the theme is removed.
     const PVX = win.PVX;
     const pal0 = PVX.color.categorical.slice();
@@ -127,7 +127,7 @@ function rules() {
     const warn0 = win.console.warn;
     win.console = Object.assign({}, console, { warn: (m) => warned.push(m) });
     PVX.api.configure({ theme: {
-        palette: ['#00539b', 'not a colour', '#f7a800'],
+        palette: ['#00539b', 'not a color', '#f7a800'],
         status: { alarm: '#aa0000', loud: '#ff00ff' },
         light: { surface: '#fafafa', text: '#101010', glow: '#fff' },
         dark: { surface: '#111418' },
@@ -392,7 +392,7 @@ function assetRollupRules() {
     check('rollup: by name', b.cards.map((c) => c.label).join(',') === 'A,B,C,D,(unassigned)', b.cards.map((c) => c.label));
     b = V.buildCards(rows, { groupBy: 'none', kind: 'max', topN: 8 });
     check('rollup: no grouping is one card', b.cards.length === 1 && b.cards[0].v === 40 && b.cards[0].label === '');
-    check('rollup: defaults colour nothing', win.PVMock.get('pvxAssetRollup').getDefaultConfig().Thresholds === '' &&
+    check('rollup: defaults color nothing', win.PVMock.get('pvxAssetRollup').getDefaultConfig().Thresholds === '' &&
         win.PVMock.get('pvxAssetRollup').getDefaultConfig().Target === '');
 }
 
@@ -944,7 +944,7 @@ async function eventAnalytics(open, texts, settle) {
     await open('pvxEventAnalytics', { asset: '', config: Object.assign({}, TGT, { Chart: 'bars' }) });
     await shot('target-bars');
     const fills = await pg.$$eval('#box .pvx-ea-bar path.pvx-ea-shape', (ps) => ps.map((p) => p.getAttribute('fill')));
-    check('bars: coloured by target, with the target marked', fills.indexOf('#2f9e5f') !== -1 && fills.indexOf('#c8452f') !== -1 &&
+    check('bars: colored by target, with the target marked', fills.indexOf('#2f9e5f') !== -1 && fills.indexOf('#c8452f') !== -1 &&
         (await pg.$$('#box .pvx-ea-target')).length === 4, fills);
 }
 
@@ -1192,6 +1192,10 @@ async function afSearch(open, settle, hash) {
     check('afsearch: a badge says the rows came from an AF search', /AF search/.test(await badge()) && /3/.test(await badge()), await badge());
 
     await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', Statistic: 'Average' });
+    // A summary goes search, then batch, then render: on a loaded CI runner
+    // that has outlasted the fixed settle and read an empty chart. Wait for
+    // the bars themselves; a chart that never draws still fails below.
+    await pg.waitForSelector('#box .pvx-pareto-bar', { timeout: 5000 }).catch(() => {});
     bars = await titles('#box .pvx-pareto-bar');
     check('afsearch: a statistic is a summary over the range, read from PI Web API',
         requests.some((r) => /^batch: GET streamsets\/We:.*\/summary\?nameFilter=Discharge Pressure.*summaryType=Average/.test(r)) &&
@@ -1207,8 +1211,8 @@ async function afSearch(open, settle, hash) {
     const heads = await pg.$$eval('#box .pvx-tm-grouphead', (ns) => ns.map((n) => n.textContent));
     check('afsearch: Treemap tiles grouped by the parent asset in AF',
         heads.some((h) => /Station 1/.test(h)) && heads.some((h) => /Station 2/.test(h)), heads);
-    check('afsearch: the second attribute colours the tiles, and a tile without it is said',
-        /colour: Vibration/.test(b) && /Vibration/.test(b.slice(-200)), b.slice(-260));
+    check('afsearch: the second attribute colors the tiles, and a tile without it is said',
+        /color: Vibration/.test(b) && /Vibration/.test(b.slice(-200)), b.slice(-260));
 
     await go('pvxTreemap', { SearchAttributes: 'Discharge Pressure', GroupBy: 'parent', ClickAction: 'drill' });
     await pg.click('#box .pvx-tm-tile:has(title:text-matches("K-301"))');
@@ -1464,7 +1468,7 @@ async function assetRollup(open, settle, hash) {
     const cards = () => pg.$$eval('#box .pvx-arl-card', (ns) => ns.map((n) => ({
         label: (n.querySelector('.pvx-arl-label') || {}).textContent || '',
         value: n.querySelector('.pvx-arl-value').textContent, sub: n.querySelector('.pvx-arl-sub').textContent,
-        colour: n.style.borderLeftColor })));
+        color: n.style.borderLeftColor })));
     const note = () => pg.$eval('#box', (n) => (n.querySelector('.pvx-arl-note') || {}).textContent || '');
     const body = () => pg.$eval('#box', (n) => n.textContent);
 
@@ -1508,14 +1512,14 @@ async function assetRollup(open, settle, hash) {
 
     await go(Object.assign({}, DBW, { Target: '1000', TargetDirection: 'higher' }), { asset: '' });
     c = await cards();
-    check('rollup: a target colours each card good or bad',
-        c[1].colour === 'rgb(47, 158, 95)' && c[2].colour === 'rgb(200, 69, 47)', c.map((x) => x.colour));
+    check('rollup: a target colors each card good or bad',
+        c[1].color === 'rgb(47, 158, 95)' && c[2].color === 'rgb(200, 69, 47)', c.map((x) => x.color));
     await go(Object.assign({}, DBW, { Target: '1000', Thresholds: '0:#3b82c4:Low, 1100:#d99024:High' }), { asset: '' });
     c = await cards();
-    check('rollup: bands win over the target', c[1].colour === 'rgb(217, 144, 36)' && c[2].colour === 'rgb(59, 130, 196)', c.map((x) => x.colour));
+    check('rollup: bands win over the target', c[1].color === 'rgb(217, 144, 36)' && c[2].color === 'rgb(59, 130, 196)', c.map((x) => x.color));
     await go(DBW, { asset: '' });
     c = await cards();
-    check('rollup: no target and no bands, no status colour', c.every((x) => x.colour === ''), c.map((x) => x.colour));
+    check('rollup: no target and no bands, no status color', c.every((x) => x.color === ''), c.map((x) => x.color));
 
     await go({ SearchRoot: DB, SearchTemplate: 'Compressor', Attribute: 'Status', Aggregate: 'count', CountWhen: 'running, Stopped' }, { asset: '' });
     c = await cards();
@@ -1692,7 +1696,7 @@ async function lookupTable(open, settle, hash) {
 
     await go({ ColorColumn: 'MaxWidth', Thresholds: '0:#2f9e5f:Normal, 1250:#c8452f:Wide' });
     const sh = await pg.$$eval('#box .pvx-lkt-table tbody tr td:nth-child(4)', (ns) => ns.map((n) => n.style.boxShadow));
-    check('lookup: one column coloured by bands', /rgb\(47, 158, 95\)/.test(sh[0]) && /rgb\(200, 69, 47\)/.test(sh[1]) &&
+    check('lookup: one column colored by bands', /rgb\(47, 158, 95\)/.test(sh[0]) && /rgb\(200, 69, 47\)/.test(sh[1]) &&
         !(await pg.$eval('#box .pvx-lkt-table tbody tr td:nth-child(3)', (n) => n.style.boxShadow)), sh);
 
     await go({ ClickAction: 'navigate', NavigateTarget: '42/Grade-{Grade}' });
@@ -1873,9 +1877,9 @@ async function page() {
             /^1,081(\.0+)? psig$/.test(cells[0]) && /^3\.90? mils$/.test(cells[1]) && cells[2] === 'Running' &&
             /^1,169(\.0+)? psig$/.test(cells[3]) && cells[5] === 'Fault', cells);
         const fills = await pg.$$eval('.pvx-atable-cell', (ns) => ns.map((n) => n.style.backgroundColor));
-        check('table: a column\'s own bands colour it', fills[0] === 'rgb(47, 158, 95)' && fills[3] === 'rgb(200, 69, 47)', fills);
-        check('table: no bands, no colour', fills[1] === '' && fills[4] === '', fills);
-        check('table: states coloured by the state map', fills[5] === 'rgb(200, 69, 47)', fills);
+        check('table: a column\'s own bands color it', fills[0] === 'rgb(47, 158, 95)' && fills[3] === 'rgb(200, 69, 47)', fills);
+        check('table: no bands, no color', fills[1] === '' && fills[4] === '', fills);
+        check('table: states colored by the state map', fills[5] === 'rgb(200, 69, 47)', fills);
         const dots = await pg.$$eval('.pvx-atable-statusdot', (ns) => ns.map((n) => n.title));
         check('table: the status dot names the worst cell', /^Status: Fault$|^Disch: High$/.test(dots[1]), dots);
         check('table: elements searched under the asset with the template',
@@ -2087,8 +2091,8 @@ async function page() {
         check('tree list: ...from a search of the whole hierarchy, not level by level',
             requests.some((r) => /elements\?searchFullHierarchy=true/.test(r)) &&
             !requests.some((r) => /\/elements\?selectedFields/.test(r)), requests.slice(0, 6));
-        check('tree values: a digital state with its colour', vr('K-301').value === 'Running' && /47, 158, 95|2f9e5f/.test(vr('K-301').dot), vr('K-301'));
-        check('tree values: a state not in the map gets no colour', vr('K-303').value === 'Stopped' && !vr('K-303').dot, vr('K-303'));
+        check('tree values: a digital state with its color', vr('K-301').value === 'Running' && /47, 158, 95|2f9e5f/.test(vr('K-301').dot), vr('K-301'));
+        check('tree values: a state not in the map gets no color', vr('K-303').value === 'Stopped' && !vr('K-303').dot, vr('K-303'));
         check('tree values: an element without the attribute shows a dash and says why',
             vr('Tank 1').value === '\u2014' && /no attribute "Status"/.test(vr('Tank 1').vtitle), vr('Tank 1'));
         check('tree values: read in batches', requests.filter((r) => r === 'POST batch').length === 2,
@@ -2104,7 +2108,7 @@ async function page() {
                 dot: (document.querySelector('#box .pvx-tree-dot') || { style: {} }).style.background } : null;
         });
         check('tree drop-down: on the display\'s asset', dd && dd.picked === 'K-302' && dd.n === 7, dd);
-        check('tree drop-down: its value coloured by the bands', dd && /^6\.20? mils$/.test(dd.value) && /200, 69, 47|c8452f/.test(dd.dot), dd);
+        check('tree drop-down: its value colored by the bands', dd && /^6\.20? mils$/.test(dd.value) && /200, 69, 47|c8452f/.test(dd.dot), dd);
         await pg.selectOption('#box select.pvx-tree-dd-select', { label: '\u00a0\u00a0\u00a0K-303' });
         await settle();
         check('tree drop-down: choosing one switches the asset', (await hash()).indexOf('asset=' + K303) !== -1, await hash());
@@ -2473,7 +2477,7 @@ async function page() {
         await open('pvxGeoView', { payload: { Rows: GROWS }, config: GEO, map: TILES });
         await settle();
         let gs = await geoState();
-        check('geo: a marker per asset with a place, coloured by its state',
+        check('geo: a marker per asset with a place, colored by its state',
             JSON.stringify(gs.marks.map((m) => m[0])) === '["#2f9e5f","#c8452f"]', gs.marks);
         check('geo: places read from each element\'s Latitude and Longitude',
             requests.some((r) => r.indexOf('GET attributes?path=' + K301 + '|Latitude') === 0) &&

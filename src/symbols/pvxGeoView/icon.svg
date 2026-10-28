@@ -2,7 +2,7 @@
     <!-- A folded map -->
     <path d="M40 120 L176 72 L336 120 L472 72 L472 392 L336 440 L176 392 L40 440 Z" fill="none" stroke="#d6dbe1" stroke-width="20" stroke-linejoin="round"/>
     <path d="M176 72 V392 M336 120 V440" stroke="#d6dbe1" stroke-width="14"/>
-    <!-- Three assets, coloured by state -->
+    <!-- Three assets, colored by state -->
     <circle cx="120" cy="232" r="34" fill="#2f9e5f"/>
     <circle cx="262" cy="308" r="34" fill="#d99024"/>
     <circle cx="398" cy="196" r="34" fill="#c8452f"/>

@@ -71,15 +71,15 @@
         <div class="pvx-cfg-stack">
             <label for="pvxat-cols">One column per line</label>
             <textarea id="pvxat-cols" ng-model="config.ColumnSpec" rows="6"
-                      placeholder="Attribute | Header | Colour | Show"></textarea>
+                      placeholder="Attribute | Header | Color | Show"></textarea>
         </div>
         <div class="pvx-cfg-hint">
-            <b>Format:</b> <code>Attribute | Header | Colour | Show</code>. Only the attribute is
+            <b>Format:</b> <code>Attribute | Header | Color | Show</code>. Only the attribute is
             required. Leave the list empty to show every attribute in the order dropped.
             <pre>Discharge Pressure | Disch psig | 0:#2f9e5f:Normal, 1150:#c8452f:High
 Vibration          | Vib        | 0:#2f9e5f:Normal, 4:#d99024:Watch, 6:#c8452f:Trip
 Status             |            | states | label</pre>
-            <b>Colour:</b> blank colours numbers by the table's threshold bands and states by
+            <b>Color:</b> blank colors numbers by the table's threshold bands and states by
             its state map below; <code>none</code>, <code>bands</code> or <code>states</code> pick
             one; a band list gives the column limits of its own.
             <b>Show:</b> <code>value</code> (default), <code>label</code> (the band or state
@@ -88,12 +88,12 @@ Status             |            | states | label</pre>
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxat-style">Cell colour shows as</label>
+            <label for="pvxat-style">Cell color shows as</label>
             <select id="pvxat-style" ng-model="config.CellStyle">
-                <option value="text">Coloured text</option>
+                <option value="text">Colored text</option>
                 <option value="fill">Filled cell</option>
                 <option value="dot">Dot beside the value</option>
             </select>
@@ -106,7 +106,7 @@ Status             |            | states | label</pre>
             </select>
         </div>
         <div class="pvx-cfg-hint">
-            The dot takes the colour of the row's worst cell: the highest band it has reached,
+            The dot takes the color of the row's worst cell: the highest band it has reached,
             or the state whose severity is highest. Its tooltip names the column.
         </div>
         <div class="pvx-cfg-row">
@@ -118,12 +118,12 @@ Status             |            | states | label</pre>
             <input id="pvxat-bad" type="checkbox" ng-model="config.ShowBadQuality" />
         </div>
         <div class="pvx-cfg-stack">
-            <div class="pvx-cfg-label">Threshold bands (columns coloured by <code>bands</code>)</div>
+            <div class="pvx-cfg-label">Threshold bands (columns colored by <code>bands</code>)</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">No bands, no colour: a table with no limits set flags nothing.</div>
+        <div class="pvx-cfg-hint">No bands, no color: a table with no limits set flags nothing.</div>
         <div class="pvx-cfg-stack">
-            <div class="pvx-cfg-label">Digital state map (columns coloured by <code>states</code>)</div>
+            <div class="pvx-cfg-label">Digital state map (columns colored by <code>states</code>)</div>
             <!-- pvx:states key=StateMap kind=map -->
         </div>
     </div>
@@ -230,8 +230,8 @@ Status             |            | states | label</pre>
             <input id="pvxat-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxat-bgcolor">Background colour</label>
-            <input id="pvxat-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxat-bgcolor">Background color</label>
+            <input id="pvxat-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

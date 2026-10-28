@@ -4,7 +4,7 @@
  * here are FALLBACKS only: symbol.js overwrites --pvx-* on the symbol root from
  * the resolved theme tokens, and --pvx-ann-* on each tile from the resolved
  * state palette, on every render. That is what lets the flash keyframes below
- * animate a per-tile colour without the stylesheet knowing any colour at all.
+ * animate a per-tile color without the stylesheet knowing any color at all.
  */
 
 .pvx-ann {
@@ -60,7 +60,7 @@
     line-height: 1.5;
     white-space: nowrap;
     letter-spacing: 0.04em;
-    /* Overwritten inline with an alpha wash of the state colour, so the pill
+    /* Overwritten inline with an alpha wash of the state color, so the pill
        reads as "this state" without the saturated block a solid fill gives. */
     background: rgba(128, 128, 128, 0.14);
 }
@@ -80,7 +80,7 @@
 }
 
 /* --- shared-acknowledgement banner ------------------------------------------ *
- * Colour, background and border are written inline from the theme by symbol.js
+ * Color, background and border are written inline from the theme by symbol.js
  * (amber for a lost write, red for "not being shared at all"), so this rule only
  * owns the shape. flex: 0 0 auto is the load-bearing part: the banner must keep
  * its full height and squeeze the tile grid, never be squeezed itself — a
@@ -104,7 +104,7 @@
 }
 
 /* Readable across a control room before the sentence is: something is wrong
-   with sharing. Inherits the banner's colour so it never needs its own. */
+   with sharing. Inherits the banner's color so it never needs its own. */
 .pvx-ann .pvx-ann-notice-dot {
     flex: 0 0 auto;
     width: 6px;
@@ -221,9 +221,9 @@
 .pvx-ann .pvx-ann-units {
     white-space: nowrap;
     text-transform: none;
-    /* Inherited colour, knocked back with opacity rather than a fixed tint: the
+    /* Inherited color, knocked back with opacity rather than a fixed tint: the
        flash keyframes animate the tile's `color`, and anything that pins its own
-       colour goes invisible for half of every cycle. */
+       color goes invisible for half of every cycle. */
     opacity: 0.82;
 }
 
@@ -234,7 +234,7 @@
     min-width: 0;
     font-weight: 600;
     letter-spacing: 0.05em;
-    opacity: 0.88;               /* inherited colour — see .pvx-ann-units */
+    opacity: 0.88;               /* inherited color — see .pvx-ann-units */
 }
 
 /* Shrinkable, but never grows: the state word is short, and any space left over
@@ -258,7 +258,7 @@
     font-weight: 500;
     text-transform: none;
     letter-spacing: 0.01em;
-    opacity: 0.9;               /* inherited colour — see .pvx-ann-units */
+    opacity: 0.9;               /* inherited color — see .pvx-ann-units */
 }
 
 .pvx-ann .pvx-ann-dur {
@@ -346,16 +346,16 @@
  * symbol.js from a fixed epoch, so the cycle keeps its phase across the DOM
  * rewrites every data poll triggers instead of restarting in lockstep with the
  * refresh. Animations outrank inline styles in the cascade, which is what lets
- * the keyframes take over the background colour the tile painted for itself.
+ * the keyframes take over the background color the tile painted for itself.
  *
  * ALARM_NEW is a hard 50/50 on-off at ~600ms — the classic unacknowledged
- * annunciator beat. RETURNED (ringback) uses the same lit and unlit colours at a
+ * annunciator beat. RETURNED (ringback) uses the same lit and unlit colors at a
  * much slower rate and a short duty cycle: a brief wink every second or two,
  * which nobody mistakes across the room for "it is out right now".
  *
  * Both switch with steps(), never a fade. The keyframes carry the FOREGROUND as
- * well as the background, because the readable text colour for the lit phase is
- * often the opposite of the readable colour for the unlit one — cross-fading
+ * well as the background, because the readable text color for the lit phase is
+ * often the opposite of the readable color for the unlit one — cross-fading
  * between them would take the text through a mid-grey that reads against
  * neither. Stepping means the pair always changes together.
  */
@@ -408,7 +408,7 @@
  * viewer asked their operating system to reduce motion. The viewer's preference
  * wins over the author's, and symbol.js checks the same media query so it never
  * writes a duration in that case either. Either way the tile must still SAY
- * "unacknowledged" — a heavy inset ring in the off-phase colour does that
+ * "unacknowledged" — a heavy inset ring in the off-phase color does that
  * without moving.
  */
 

@@ -20,10 +20,10 @@
         </div>
 
         <div class="pvx-cfg-row" ng-if="config.Mode === 'matrix'">
-            <label for="pvxheat-rowcolors">One colour per tag</label>
+            <label for="pvxheat-rowcolors">One color per tag</label>
             <input id="pvxheat-rowcolors" type="checkbox" ng-model="config.RowColors" />
         </div>
-        <div class="pvx-cfg-hint" ng-if="config.Mode === 'matrix'">Each row gets its own colour, from pale at its lowest to full at its highest. Use it when the tags are in different units and one shared scale would leave most rows flat. The legend is hidden, since no single scale applies; each cell's tooltip gives its row's range.</div>
+        <div class="pvx-cfg-hint" ng-if="config.Mode === 'matrix'">Each row gets its own color, from pale at its lowest to full at its highest. Use it when the tags are in different units and one shared scale would leave most rows flat. The legend is hidden, since no single scale applies; each cell's tooltip gives its row's range.</div>
 
         <div class="pvx-cfg-row" ng-if="config.Mode !== 'density'">
             <label for="pvxheat-agg">Cell value</label>
@@ -75,7 +75,7 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour scale</div>
+        <div class="pvx-cfg-legend">Color scale</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxheat-scale">Scale</label>
@@ -83,21 +83,21 @@
                 <option value="sequential">Sequential</option>
                 <option value="diverging">Diverging</option>
                 <option value="thresholds" ng-if="config.Mode !== 'density'">Threshold bands</option>
-                <option value="custom">Custom two-colour</option>
+                <option value="custom">Custom two-color</option>
             </select>
         </div>
         <div class="pvx-cfg-hint">
             Sequential for magnitudes, diverging for deviation from a target, threshold bands for
-            discrete states (no blending between colours).
+            discrete states (no blending between colors).
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxheat-low">Custom low colour</label>
-            <input id="pvxheat-low" type="color" ng-model="config.CustomLowColor" />
+            <label for="pvxheat-low">Custom low color</label>
+            <input id="pvxheat-low" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CustomLowColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxheat-high">Custom high colour</label>
-            <input id="pvxheat-high" type="color" ng-model="config.CustomHighColor" />
+            <label for="pvxheat-high">Custom high color</label>
+            <input id="pvxheat-high" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.CustomHighColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxheat-centre">Diverging centre</label>
@@ -118,7 +118,7 @@
         <div class="pvx-cfg-hint">Leave blank to fit the scale to the data. Fix both to compare two heatmaps side by side.</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxheat-empty">Empty cell colour</label>
+            <label for="pvxheat-empty">Empty cell color</label>
             <input id="pvxheat-empty" type="text" ng-model="config.EmptyCellColor" placeholder="Auto (theme)" />
         </div>
 
@@ -153,7 +153,7 @@
             <label for="pvxheat-showvalues">Show values in cells</label>
             <input id="pvxheat-showvalues" type="checkbox" ng-model="config.ShowValues" />
         </div>
-        <div class="pvx-cfg-hint">Only drawn where a cell is at least 28 × 16 px; text colour is contrast-matched to each cell.</div>
+        <div class="pvx-cfg-hint">Only drawn where a cell is at least 28 × 16 px; text color is contrast-matched to each cell.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxheat-click">Clicking a cell</label>
@@ -222,8 +222,8 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxheat-accent">Accent colour</label>
-            <input id="pvxheat-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxheat-accent">Accent color</label>
+            <input id="pvxheat-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the hover outline on a cell.</div>
         <div class="pvx-cfg-row">
@@ -231,8 +231,8 @@
             <input id="pvxheat-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxheat-bgcolor">Background colour</label>
-            <input id="pvxheat-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxheat-bgcolor">Background color</label>
+            <input id="pvxheat-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

@@ -62,7 +62,7 @@
 
                 Mode: 'timeline',           // timeline | stacked
 
-                // Colour: same "key:colour" grammar as pvxStatusGrid's state map.
+                // Color: same "key:color" grammar as pvxStatusGrid's state map.
                 StateColors: 'Running:#2f9e5f, Stopped:#8a8f96, Stop:#8a8f96, ' +
                     'Idle:#d99024, Fault:#c8452f, Trip:#c8452f, Alarm:#c8452f, ' +
                     'Off:#6f7378, On:#2f9e5f, Open:#2f9e5f, Closed:#8a8f96, ' +
@@ -134,10 +134,10 @@
          * ------------------------------------------------------------------ */
 
         /**
-         * "Running:#2f9e5f, Fault:#c8452f" — the same key:colour grammar as
+         * "Running:#2f9e5f, Fault:#c8452f" — the same key:color grammar as
          * pvxStatusGrid's state map, so an operator only has to learn it once.
          * Matching is exact (after trim + lowercase), never substring: PI
-         * digital state sets are closed, and a substring rule would colour
+         * digital state sets are closed, and a substring rule would color
          * "Fault Reset" as "Fault".
          */
         var colorCache = { spec: null, map: null };
@@ -317,13 +317,13 @@
         }
 
         /**
-         * Resolve one colour per state: the configured map wins, anything left
+         * Resolve one color per state: the configured map wins, anything left
          * takes the shared categorical palette in first-appearance order.
          *
-         * The configured colours are claimed FIRST, before any palette pick, so
+         * The configured colors are claimed FIRST, before any palette pick, so
          * an unmapped state never lands on a near-twin of a mapped one. Without
          * that, "Off Line" reliably drew in palette green next to a mapped
-         * "Running" green — two states, one apparent colour, on the symbol whose
+         * "Running" green — two states, one apparent color, on the symbol whose
          * entire job is telling running from not running.
          */
         function assignColors(m, cfg) {
@@ -355,7 +355,7 @@
                 if (!pick) {
                     // Every palette entry clashes with something already on
                     // screen; cycling is still better than leaving states
-                    // uncoloured, and the legend disambiguates.
+                    // uncolored, and the legend disambiguates.
                     pick = pal[cursor % pal.length];
                     cursor += 1;
                 }
@@ -423,7 +423,7 @@
         /**
          * Stacked: one segment per state, sized by TOTAL time in that state and
          * laid out in the shared state order. The shared order is the point of
-         * the mode — if each bar ordered its own states, the same colour would
+         * the mode — if each bar ordered its own states, the same color would
          * sit in a different place on every row and the bars could not be
          * compared, which is the only reason to stack them.
          */
@@ -458,7 +458,7 @@
          *
          * A tag that chatters between Running and Fault for ten seconds produces
          * segments a fraction of a pixel wide. Drawn as-is they either disappear
-         * or alias into a dirty smear that reads as a solid colour; absorbed
+         * or alias into a dirty smear that reads as a solid color; absorbed
          * into the neighbour they at least leave the neighbour's length honest
          * and the tooltip records how many runs were swallowed.
          */
@@ -730,8 +730,8 @@
             var cfg = L.cfg, t = L.theme;
 
             var g = PVX.svg.el('g', { 'class': 'pvx-state-row' }, svgRoot);
-            // Bad quality dims the row rather than recolouring it: the state
-            // colours still mean what they mean, they just should not command
+            // Bad quality dims the row rather than recoloring it: the state
+            // colors still mean what they mean, they just should not command
             // attention while the tag is untrustworthy.
             if (!row.good) { g.setAttribute('opacity', '0.5'); }
 
@@ -764,7 +764,7 @@
                 var rl = (i === 0) ? L.radius : 0;
                 var rr = (i === segs.length - 1) ? L.radius : 0;
 
-                // Hairline in the surface colour so two neighbouring greys read
+                // Hairline in the surface color so two neighbouring greys read
                 // as two runs — but only on segments wide enough to spare it.
                 // A 0.5px stroke on a 1px segment IS the segment, which would
                 // erase exactly the brief trips that matter most.
@@ -781,7 +781,7 @@
 
                 if (cfg.ShowSegmentLabels && barH >= 11) {
                     // Only when the whole name fits: a state truncated to "Ru…"
-                    // inside a coloured block is noise, not information.
+                    // inside a colored block is noise, not information.
                     var need = textW(s.label, labelFont) + 8;
                     if (w >= need) {
                         PVX.svg.text(g, (s.x0 + w / 2).toFixed(1), midY.toFixed(1), s.label, {

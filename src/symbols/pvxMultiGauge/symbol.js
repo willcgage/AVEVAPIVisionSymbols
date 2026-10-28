@@ -14,7 +14,7 @@
  * What it is for: values that share units and limits and belong together.
  * Three bearing temperatures against one alarm band, supply and return on one
  * dial, setpoint, process value and output on one bar. Each pointer is its
- * own colour, with a readout row naming it; the bands come from the shared
+ * own color, with a readout row naming it; the bands come from the shared
  * threshold grammar, and the band of the first source can be highlighted.
  *
  * NOTHING SILENTLY DROPPED

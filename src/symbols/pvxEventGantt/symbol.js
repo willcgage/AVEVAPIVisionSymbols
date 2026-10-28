@@ -44,7 +44,7 @@
  *     descriptors, category names, extended properties — which on 500 events is
  *     megabytes of payload for six fields we actually draw.
  *   - Anything that needs a per-event follow-up (the referenced element's name,
- *     an attribute value to colour by) goes through ONE PVX.api.batch() call.
+ *     an attribute value to color by) goes through ONE PVX.api.batch() call.
  *     As individual requests that would be one authentication handshake and one
  *     CORS preflight per event; as a batch it is one of each. Sub-request
  *     failures are counted and reported in the footer rather than silently
@@ -55,7 +55,7 @@
  *   Frames (batch -> unit procedure -> operation -> phase) have a second
  *   question a swimlane cannot answer: WHICH STEP of this batch ran long. Here
  *   every frame gets its own row, children indented under their parent in
- *   start order, the way a trace waterfall draws spans. Colour by 'typical'
+ *   start order, the way a trace waterfall draws spans. Color by 'typical'
  *   compares each frame against the median of its siblings-in-kind across the
  *   window (same template and, below the root, the same name), and a tick on
  *   the bar marks where the typical duration would have ended — so "the heat
@@ -149,7 +149,7 @@
                 MaxLanes: 20,
                 MaxDepth: 3,               // hierarchy: levels fetched, roots included
 
-                /* -- colour --------------------------------------------------- */
+                /* -- color --------------------------------------------------- */
                 ColorBy: 'template',       // template | duration | attribute | single | typical
                 ColorAttribute: '',
                 TypicalTolerancePct: 20,   // typical: longer than median by this much = long
@@ -830,7 +830,7 @@
                 applyElementNames(events);
                 return r.failedCount;
             })['catch'](function () {
-                // A failed batch degrades the colouring or the lane names; it is
+                // A failed batch degrades the coloring or the lane names; it is
                 // not a reason to throw away a timeline that is otherwise
                 // correct. The footer reports it.
                 applyElementNames(events);
@@ -1169,7 +1169,7 @@
             if (state.failedBatch > 0) {
                 m.notes.push(state.failedBatch + ' of the follow-up requests failed');
             } else if (state.failedBatch === -1) {
-                m.notes.push('follow-up request failed — lane names or colours may be incomplete');
+                m.notes.push('follow-up request failed — lane names or colors may be incomplete');
             }
             if (win.useRaw) {
                 m.notes.push('time range resolved by PI Web API');
@@ -1255,7 +1255,7 @@
             if (state.failedBatch > 0) {
                 m.notes.push(state.failedBatch + ' of the follow-up requests failed');
             } else if (state.failedBatch === -1) {
-                m.notes.push('follow-up request failed \u2014 colours may be incomplete');
+                m.notes.push('follow-up request failed \u2014 colors may be incomplete');
             }
             if (state.win && state.win.useRaw) { m.notes.push('time range resolved by PI Web API'); }
             return m;
@@ -1308,10 +1308,10 @@
         }
 
         /**
-         * One colour per event.
+         * One color per event.
          *
-         * 'template' and 'attribute' are categorical: colours are claimed in
-         * sorted key order so the same template keeps the same colour between
+         * 'template' and 'attribute' are categorical: colors are claimed in
+         * sorted key order so the same template keeps the same color between
          * refreshes even when the set of events changes — a legend that
          * reshuffles is worse than no legend.
          */
@@ -1357,7 +1357,7 @@
         function colorFor(item, m, cfg, t) {
             if (m.colorMode === 'single') { return m.single; }
             if (m.colorMode === 'typical') {
-                // Status colours, because "ran long" IS a status. A frame
+                // Status colors, because "ran long" IS a status. A frame
                 // with no typical to compare against stays neutral rather than
                 // borrowing "normal", which it has not earned.
                 if (item.veryLong) { return PVX.color.status.alarm; }

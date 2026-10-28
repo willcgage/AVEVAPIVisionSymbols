@@ -59,7 +59,7 @@
             anti-surge controller publishes its own margin, that is the authoritative number.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxom-usethresh">Colour by margin bands</label>
+            <label for="pvxom-usethresh">Color by margin bands</label>
             <input id="pvxom-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack">
@@ -148,16 +148,16 @@
             <input id="pvxom-showlabel" type="checkbox" ng-model="config.ShowLabel" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxom-accent">Point colour</label>
-            <input id="pvxom-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxom-accent">Point color</label>
+            <input id="pvxom-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxom-transparent">Transparent background</label>
             <input id="pvxom-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxom-bgcolor">Background colour</label>
-            <input id="pvxom-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxom-bgcolor">Background color</label>
+            <input id="pvxom-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

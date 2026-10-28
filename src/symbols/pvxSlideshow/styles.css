@@ -113,7 +113,7 @@
     dominant-baseline: middle;
 }
 
-/* Tone carries the state at every size — at 90x36 the ring colour is the only
+/* Tone carries the state at every size — at 90x36 the ring color is the only
    thing left to say it with. */
 .pvx-slideshow .pvx-ss-ring.pvx-ss-tone-run .pvx-ss-arc { stroke: var(--pvx-ss-accent); }
 .pvx-slideshow .pvx-ss-ring.pvx-ss-tone-run .pvx-ss-ringtext { fill: var(--pvx-ss-text); }

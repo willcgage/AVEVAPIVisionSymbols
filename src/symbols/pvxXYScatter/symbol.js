@@ -7,7 +7,7 @@
  * PI Vision's own XY Plot puts one tag against another; this one answers the
  * question that comes next, "how strongly, and is it still inside the box":
  * a least-squares fit with its equation and R², an operating envelope that
- * turns excursions red, points coloured by time or by limit, and a bubble
+ * turns excursions red, points colored by time or by limit, and a bubble
  * mode where a third tag sets each point's area. All of it over whatever
  * time range the display is showing.
  *
@@ -20,7 +20,7 @@
  * stale to be believable (MaxPairGapSeconds).
  *
  * Options added later, all off by default so a saved display draws as before:
- *   YSources 'all'    every source after X is a Y series in its own colour,
+ *   YSources 'all'    every source after X is a Y series in its own color,
  *                     each with its own fit (bubble size stays the third).
  *   GateSource        a data source whose value, at each point's instant,
  *                     must lie in GateMin..GateMax for the point to count:
@@ -327,7 +327,7 @@
         }
 
         /* ------------------------------------------------------------------ *
-         * colour
+         * color
          * ------------------------------------------------------------------ */
 
         /**
@@ -671,7 +671,7 @@
                 return true;
             }
 
-            // ---- point colours ------------------------------------------------
+            // ---- point colors ------------------------------------------------
             var mode = cfg.ColorMode || 'single';
             var baseColor = cfg.PointColor || cfg.AccentColor || '#3b82c4';
             var stops = timeStops(t);
@@ -682,7 +682,7 @@
             }
             var tSpan = (tMax - tMin) || 1;
 
-            // One colour per series when there are several: the first keeps
+            // One color per series when there are several: the first keeps
             // PointColor, the rest take the palette, skipping a near twin.
             var serColor = [baseColor];
             var pal = PVX.color.categorical, pc = 0;
@@ -697,7 +697,7 @@
                 if (!inEnvelope(pt)) { return PVX.color.status.alarm; }
                 if (multi && mode === 'single') { return serColor[pt.s]; }
                 if (mode === 'time') { return PVX.color.ramp(stops, (pt.t - tMin) / tSpan); }
-                // Threshold colouring still honours the shared UseThresholds
+                // Threshold coloring still honours the shared UseThresholds
                 // switch, so turning bands off anywhere turns them off here too.
                 if (mode === 'threshold' && cfg.UseThresholds !== false) {
                     return PVX.thresholds.colorFor(cfg.Thresholds, pt.y, baseColor);
@@ -815,7 +815,7 @@
                 drawSeriesLegend(svgRoot, plot, list, serColor, t, tickFont);
             }
 
-            // ---- time colour legend -------------------------------------------------------
+            // ---- time color legend -------------------------------------------------------
             if (mode === 'time' && legendH > 0) {
                 drawTimeLegend(svgRoot, defs, host, plot, stops, t, tickFont);
             }
@@ -972,7 +972,7 @@
             var bx = left ? plot.x + 4 : plot.x + plot.w - boxW - 4;
             var by = top ? plot.y + 4 : plot.y + plot.h - boxH - 4;
 
-            // A transparent-background symbol has no surface colour to borrow, so
+            // A transparent-background symbol has no surface color to borrow, so
             // fall back to a theme-appropriate scrim that keeps the text legible.
             var fill = (t.surface && t.surface !== 'transparent')
                 ? PVX.color.rgba(t.surface, 0.86)

@@ -17,9 +17,9 @@
             </select>
         </div>
         <div class="pvx-cfg-hint" ng-if="config.YSources === 'all'">
-            Each Y source draws in its own colour with its own fit, named in a legend. In bubble
+            Each Y source draws in its own color with its own fit, named in a legend. In bubble
             mode the third source still sets the size, and the gate source is never plotted.
-            Colour by time or by threshold colours every series alike.
+            Color by time or by threshold colors every series alike.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-intervals">Resolution (points per tag)</label>
@@ -117,9 +117,9 @@
             <input id="pvxxy-opacity" type="number" ng-model="config.PointOpacity" min="0.05" max="1" step="0.05" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxy-colormode">Colour by</label>
+            <label for="pvxxy-colormode">Color by</label>
             <select id="pvxxy-colormode" ng-model="config.ColorMode">
-                <option value="single">Single colour</option>
+                <option value="single">Single color</option>
                 <option value="time">Time (oldest to newest)</option>
                 <option value="threshold">Y value threshold</option>
             </select>
@@ -129,8 +129,8 @@
             <em>Threshold</em> uses the bands below.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxy-color">Point colour</label>
-            <input id="pvxxy-color" type="color" ng-model="config.PointColor" />
+            <label for="pvxxy-color">Point color</label>
+            <input id="pvxxy-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.PointColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-connect">Join points in time order</label>
@@ -176,8 +176,8 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxy-regcolor">Line colour</label>
-            <input id="pvxxy-regcolor" type="color" ng-model="config.RegressionColor" />
+            <label for="pvxxy-regcolor">Line color</label>
+            <input id="pvxxy-regcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.RegressionColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-eq">Show equation</label>
@@ -230,7 +230,7 @@
             <input id="pvxxy-envymax" type="text" ng-model="config.EnvelopeYMax" placeholder="none" />
         </div>
         <div class="pvx-cfg-hint">
-            Points outside the dashed envelope are drawn in the alarm colour and counted under the
+            Points outside the dashed envelope are drawn in the alarm color and counted under the
             plot. Blank box bounds are unbounded on that side.
         </div>
     </div>
@@ -251,16 +251,16 @@
             <input id="pvxxy-showlabel" type="checkbox" ng-model="config.ShowLabel" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxy-accent">Accent colour</label>
-            <input id="pvxxy-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxxy-accent">Accent color</label>
+            <input id="pvxxy-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-transparent">Transparent background</label>
             <input id="pvxxy-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxxy-bgcolor">Background colour</label>
-            <input id="pvxxy-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxxy-bgcolor">Background color</label>
+            <input id="pvxxy-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -289,7 +289,7 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Applied to the Y value when "Colour by" is set to threshold and thresholds are enabled.</div>
+        <div class="pvx-cfg-hint">Applied to the Y value when "Color by" is set to threshold and thresholds are enabled.</div>
     </div>
 
 </div>

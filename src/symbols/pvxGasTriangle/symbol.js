@@ -496,7 +496,7 @@
             var b = null;
             try { b = node.getBBox(); } catch (e) { b = null; }
             if (b && b.width > 0 && node.textContent) {
-                // On the zones' colours a bare caption is hard to read.
+                // On the zones' colors a bare caption is hard to read.
                 var bg = PVX.svg.el('rect', {
                     x: (b.x - 4).toFixed(2), y: (b.y - 2).toFixed(2), width: (b.width + 8).toFixed(2),
                     height: (b.height + 4).toFixed(2), rx: 3,

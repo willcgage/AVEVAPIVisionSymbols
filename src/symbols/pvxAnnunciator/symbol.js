@@ -149,7 +149,7 @@
                 ShowFirstOut: true,
                 FirstOutWindow: 30,           // seconds
 
-                // Colours
+                // Colors
                 NormalColor: '#2f9e5f',
                 AckColor: '#d99024',
                 ReturnedColor: '#3b82c4',
@@ -275,7 +275,7 @@
 
         /**
          * A digital state mapped in StateBands takes that band's index, so it
-         * alarms, sorts and colours exactly as a number in the band would.
+         * alarms, sorts and colors exactly as a number in the band would.
          * Checked before the numeric test: a state name never parses as a
          * number, and a mapped state should not depend on whether it does.
          */
@@ -363,7 +363,7 @@
          * Advance one point by one poll.
          * Deliberately mirrors the transition table in the file header exactly —
          * note what is NOT here: an acknowledged alarm that escalates to a worse
-         * band stays ALARM_ACK and merely re-colours. Re-flashing it would
+         * band stays ALARM_ACK and merely re-colors. Re-flashing it would
          * silently un-acknowledge an alarm the operator already accepted, and
          * the machine we published does not do that.
          */
@@ -795,15 +795,15 @@
         }
 
         /* ================================================================== *
-         * Colour
+         * Color
          * ================================================================== */
 
         /**
          * Resolve the tile palette.
-         * ALARM_NEW and ALARM_ACK both take the matching THRESHOLD BAND colour,
+         * ALARM_NEW and ALARM_ACK both take the matching THRESHOLD BAND color,
          * so a Critical tile and a High tile are visibly different problems;
          * acknowledgement removes the flash and adds a tick, it does not repaint
-         * the severity away. RETURNED uses its own colour because "it came back
+         * the severity away. RETURNED uses its own color because "it came back
          * and nobody saw it" is a different fact from "it is out now".
          */
         function paletteFor(item, cfg, t, model) {
@@ -843,7 +843,7 @@
                 fg: fg,
                 // The "off" half of a flash cycle: the same hue knocked back
                 // toward the surface, so the tile pulses instead of strobing to
-                // a colour that means something else.
+                // a color that means something else.
                 off: PVX.color.mix(on, t.surface, 0.66),
                 offFg: PVX.color.readable(PVX.color.mix(on, t.surface, 0.66)),
                 dim: dimNormal
@@ -928,7 +928,7 @@
                 : { background: 'transparent', color: t.textMuted, borderColor: t.border };
 
             // Count pills need about 54px each. Sacrifice them before the title:
-            // the tiles themselves already carry the same information in colour.
+            // the tiles themselves already carry the same information in color.
             var room = c.width - (scope.pvx.showAckAll ? 92 : 0) - (cfg.Title ? 70 : 0);
             scope.pvx.counts = (cfg.ShowSummaryBar && room >= 110) ? countPills(cfg, t, model) : [];
 
@@ -1086,7 +1086,7 @@
             rec.name = makeEl('span', 'pvx-ann-name pvx-truncate', rec.nameRow);
             // Compact readout for tiles too short for a value row of their own.
             // Dropping the number entirely on a narrow panel would leave the
-            // operator with a colour and no reading.
+            // operator with a color and no reading.
             rec.mini = makeEl('span', 'pvx-ann-mini pvx-num', rec.nameRow);
             rec.tick = makeEl('span', 'pvx-ann-tick', rec.nameRow);
             rec.valueRow = makeEl('div', 'pvx-ann-valuerow', el);
@@ -1171,7 +1171,7 @@
                 nameFont: clamp(tileW * 0.095, 8.5, 13),
                 subFont: clamp(tileW * 0.075, 7.5, 11),
                 maxValueFont: clamp(Math.min(tileW * 0.24, tileH * 0.4), 10, 32),
-                // Graded density: drop the least load-bearing row first. Colour
+                // Graded density: drop the least load-bearing row first. Color
                 // and flash still carry the state when the text has to go.
                 showValue: !!cfg.ShowValue && tileH >= 34 && tileW >= 64,
                 showFoot: tileH >= 54 && tileW >= 84,
@@ -1257,11 +1257,11 @@
                 attrNodes.push({ node: rec.by, at: att.at, by: att.by || 'unknown' });
             }
 
-            // ---- colour ------------------------------------------------------
+            // ---- color ------------------------------------------------------
             setStyle(el, 'backgroundColor', pal.bg, rec, 'bg');
             setStyle(el, 'color', pal.fg, rec, 'fg');
-            // A lit tile is a block of colour; only the receded normal tiles
-            // need an outline to read as tiles at all. A fixed border colour on
+            // A lit tile is a block of color; only the receded normal tiles
+            // need an outline to read as tiles at all. A fixed border color on
             // a flashing tile would vanish for half of every cycle anyway.
             setStyle(el, 'borderColor', pal.dim ? PVX.color.rgba(pal.on, 0.45) : 'transparent', rec, 'bc');
             setStyle(el, 'borderRadius', numIn(cfg.CornerRadius, 0, 40, 6) + 'px', rec, 'br');
@@ -1269,7 +1269,7 @@
             setStyle(rec.name, 'fontSize', m.nameFont.toFixed(1) + 'px', rec, 'nf');
             setStyle(rec.units, 'fontSize', m.subFont.toFixed(1) + 'px', rec, 'uf');
             setStyle(rec.foot, 'fontSize', m.subFont.toFixed(1) + 'px', rec, 'ff');
-            // Units, the foot rail and the wedge deliberately carry NO colour of
+            // Units, the foot rail and the wedge deliberately carry NO color of
             // their own: they inherit the tile's, which the flash keyframes
             // animate. Pinning them to the lit-phase foreground would make them
             // invisible for half of every flash cycle.
@@ -1285,8 +1285,8 @@
             setStyle(rec.value, 'fontSize', valueFont.toFixed(1) + 'px', rec, 'vf');
 
             // Custom properties are how the flash keyframes reach a per-tile
-            // colour: the stylesheet animates var(--pvx-ann-on / --pvx-ann-off)
-            // and never has to know a single actual colour.
+            // color: the stylesheet animates var(--pvx-ann-on / --pvx-ann-off)
+            // and never has to know a single actual color.
             setProp(el, '--pvx-ann-on', pal.on, rec, 'pon');
             setProp(el, '--pvx-ann-on-fg', pal.fg, rec, 'ponf');
             setProp(el, '--pvx-ann-off', pal.off, rec, 'poff');

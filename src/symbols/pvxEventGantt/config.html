@@ -146,15 +146,15 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxeg-colorby">Colour bars by</label>
+            <label for="pvxeg-colorby">Color bars by</label>
             <select id="pvxeg-colorby" ng-model="config.ColorBy">
                 <option value="template">Template</option>
                 <option value="duration">Duration</option>
                 <option value="attribute">Event attribute</option>
-                <option value="single">One colour</option>
+                <option value="single">One color</option>
                 <option value="typical" ng-if="config.LaneBy === 'hierarchy'">Longer than typical</option>
             </select>
         </div>
@@ -176,12 +176,12 @@
         </div>
         <div class="pvx-cfg-hint" ng-if="config.ColorBy === 'attribute'">
             One value per event, fetched in a single batched request rather than one request per event.
-            Text values get a palette colour each; numeric values use the threshold bands below.
+            Text values get a palette color each; numeric values use the threshold bands below.
         </div>
 
         <div class="pvx-cfg-row" ng-if="config.ColorBy === 'single' || config.ColorBy === 'attribute'">
-            <label for="pvxeg-single">Bar colour</label>
-            <input id="pvxeg-single" type="color" ng-model="config.SingleColor" />
+            <label for="pvxeg-single">Bar color</label>
+            <input id="pvxeg-single" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.SingleColor" />
         </div>
     </div>
 
@@ -290,8 +290,8 @@
             <input id="pvxeg-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxeg-bgcolor">Background colour</label>
-            <input id="pvxeg-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxeg-bgcolor">Background color</label>
+            <input id="pvxeg-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

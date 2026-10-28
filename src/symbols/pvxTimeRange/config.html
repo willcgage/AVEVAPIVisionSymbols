@@ -82,8 +82,8 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxtr-color">Button colour</label>
-            <input id="pvxtr-color" type="color" ng-model="config.ButtonColor" />
+            <label for="pvxtr-color">Button color</label>
+            <input id="pvxtr-color" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ButtonColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxtr-bradius">Button corner radius</label>
@@ -102,8 +102,8 @@
             <input id="pvxtr-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxtr-bgcolor">Background colour</label>
-            <input id="pvxtr-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxtr-bgcolor">Background color</label>
+            <input id="pvxtr-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

@@ -106,16 +106,16 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
         <div class="pvx-cfg-stack">
-            <label for="pvxlkt-colorcol">Colour the cells of column</label>
+            <label for="pvxlkt-colorcol">Color the cells of column</label>
             <input id="pvxlkt-colorcol" type="text" ng-model="config.ColorColumn" placeholder="No column" />
         </div>
         <div class="pvx-cfg-stack">
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">A bar down the left of each cell in its band's colour. No bands, no colour.</div>
+        <div class="pvx-cfg-hint">A bar down the left of each cell in its band's color. No bands, no color.</div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -169,8 +169,8 @@
             <input id="pvxlkt-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxlkt-bgcolor">Background colour</label>
-            <input id="pvxlkt-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxlkt-bgcolor">Background color</label>
+            <input id="pvxlkt-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

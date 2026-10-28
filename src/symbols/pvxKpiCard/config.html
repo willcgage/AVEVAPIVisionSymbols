@@ -114,7 +114,7 @@
         </div>
         <div class="pvx-cfg-hint">
             Compared with the plan, a headline within this much of it, either side, reads <em>On target</em>
-            in the good colour with no arrow. An amount is in the KPI's units; <code>2%</code> is of the plan.
+            in the good color with no arrow. An amount is in the KPI's units; <code>2%</code> is of the plan.
         </div>
         <div class="pvx-cfg-hint">
             <em>Plan</em> compares the headline with the plan, reduced by the same statistic. As data
@@ -149,12 +149,12 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxkpi-goodcolor">Good colour</label>
-            <input id="pvxkpi-goodcolor" type="color" ng-model="config.GoodColor" />
+            <label for="pvxkpi-goodcolor">Good color</label>
+            <input id="pvxkpi-goodcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.GoodColor" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxkpi-badcolor">Bad colour</label>
-            <input id="pvxkpi-badcolor" type="color" ng-model="config.BadColor" />
+            <label for="pvxkpi-badcolor">Bad color</label>
+            <input id="pvxkpi-badcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BadColor" />
         </div>
     </div>
 
@@ -176,7 +176,7 @@
         <div class="pvx-cfg-hint">
             The headline as a share of the plan (above), measured from this value: 0 for production against a
             target, or a starting level. Green once the plan is reached in the good direction, or within the
-            tolerance; red short of it; the accent colour when neither direction is good. The figure is shown
+            tolerance; red short of it; the accent color when neither direction is good. The figure is shown
             too, since a full bar cannot tell 100% from 140%.
         </div>
     </div>
@@ -270,16 +270,16 @@
             </select>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxkpi-accent">Accent colour</label>
-            <input id="pvxkpi-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxkpi-accent">Accent color</label>
+            <input id="pvxkpi-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-transparent">Transparent background</label>
             <input id="pvxkpi-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxkpi-bgcolor">Background colour</label>
-            <input id="pvxkpi-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxkpi-bgcolor">Background color</label>
+            <input id="pvxkpi-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
@@ -287,7 +287,7 @@
             <input id="pvxkpi-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxkpi-usethresh">Colour value by threshold</label>
+            <label for="pvxkpi-usethresh">Color value by threshold</label>
             <input id="pvxkpi-usethresh" type="checkbox" ng-model="config.ValueColorFromThreshold" />
         </div>
         <div class="pvx-cfg-row">
@@ -299,10 +299,10 @@
             <input id="pvxkpi-edgew" type="number" ng-model="config.EdgeWidth" min="1" max="12" />
         </div>
         <div class="pvx-cfg-hint">
-            Colours the card's left edge with the headline's band, or with a multistate if one is
+            Colors the card's left edge with the headline's band, or with a multistate if one is
             set. Below the first band the edge stays plain, so a band list such as
             <code>95:#f2c230:Watch, 100:#e5484d:Alarm</code> flags only off-target values.
-            The placeholder bands never colour it.
+            The placeholder bands never color it.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-enthresh">Enable thresholds</label>

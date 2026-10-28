@@ -1,5 +1,5 @@
 /* pvxControlChart: "PVX Control Chart"
- * Only the chrome is styled here; every chart colour comes from the runtime
+ * Only the chrome is styled here; every chart color comes from the runtime
  * theme tokens. The custom properties are fallbacks that symbol.js overwrites
  * on the root every render. */
 

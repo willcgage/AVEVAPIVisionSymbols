@@ -128,7 +128,7 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-stack">
             <div class="pvx-cfg-label">Threshold bands</div>
@@ -146,7 +146,7 @@
             </select>
         </div>
         <div class="pvx-cfg-hint">
-            Bands win over the target when both are set. With neither, no card is coloured: a roll-up
+            Bands win over the target when both are set. With neither, no card is colored: a roll-up
             with no limits set flags nothing.
         </div>
     </div>
@@ -214,8 +214,8 @@
             <input id="pvxarl-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxarl-bgcolor">Background colour</label>
-            <input id="pvxarl-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxarl-bgcolor">Background color</label>
+            <input id="pvxarl-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

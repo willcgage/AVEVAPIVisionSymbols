@@ -1,6 +1,6 @@
 /* pvxHistogram — "PVX Distribution"
  * Only the chrome (header, footer, SVG host) is styled here. Bar, curve, spec
- * and capability colours all come from the runtime theme tokens, never from
+ * and capability colors all come from the runtime theme tokens, never from
  * CSS, so one stylesheet serves light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */

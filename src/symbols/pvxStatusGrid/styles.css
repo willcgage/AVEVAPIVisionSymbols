@@ -150,7 +150,7 @@
 
 /* --- bad quality --------------------------------------------------------- */
 /* Diagonal hatching reads as "do not trust this number" at a glance and stays
-   distinguishable for colour-vision-deficient operators, where a colour change
+   distinguishable for color-vision-deficient operators, where a color change
    alone would not. Explicit double stops rather than the terser two-position
    syntax, which older engines do not parse. */
 .pvx-grid .pvx-tile-bad {

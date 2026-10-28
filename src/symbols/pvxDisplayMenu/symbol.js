@@ -448,7 +448,7 @@
 
         function clearNode(n) { while (n && n.firstChild) { n.removeChild(n.firstChild); } }
 
-        function colours(cfg) {
+        function colors(cfg) {
             var t = ctx.theme || {};
             return {
                 bg: cfg.Transparent ? 'transparent' : (t.surface || '#ffffff'),
@@ -520,7 +520,7 @@
             var host = ctx.host;
             if (!host) { return; }
             var root = ctx.node;
-            var c = colours(cfg);
+            var c = colors(cfg);
             applyVars(root, c, cfg);
 
             var text = menuText(cfg);
@@ -702,7 +702,7 @@
 
         function drawLayer(cfg) {
             if (!openPath.length) { removeLayer(); return; }
-            var c = colours(cfg);
+            var c = colors(cfg);
             var L = ensureLayer(cfg);
             applyVars(L, c, cfg);
             // Text size: the bar is zoomed with the symbol, so the menus are too.

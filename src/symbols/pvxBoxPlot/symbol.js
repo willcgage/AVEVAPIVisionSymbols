@@ -100,7 +100,7 @@
                 ShowValues: false,
                 BoxWidthFraction: 0.6,
 
-                // --- colour -------------------------------------------------
+                // --- color -------------------------------------------------
                 ColorMode: 'single',         // single | palette | threshold
                 BoxColor: '#3b82c4',
                 BoxOpacity: 0.55,
@@ -569,7 +569,7 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         function boxColor(item, idx, cfg, t) {
@@ -581,8 +581,8 @@
                     // Thresholds are written in engineering units, so they are
                     // always evaluated against the RAW median even when the axis
                     // has been normalised to percent. Falls back to the flat
-                    // colour when bands are switched off, so the mode never
-                    // silently paints every box one colour.
+                    // color when bands are switched off, so the mode never
+                    // silently paints every box one color.
                     return cfg.UseThresholds !== false
                         ? PVX.thresholds.colorFor(cfg.Thresholds, item.q.median, base)
                         : base;
@@ -595,8 +595,8 @@
         /**
          * Hatched fill for bad quality. An operator must be able to see at a
          * glance that a box's spread is not trustworthy, and a solid box in a
-         * "stale" colour still reads as a real measurement.
-         * One pattern per colour per render; ids are unique so several instances
+         * "stale" color still reads as a real measurement.
+         * One pattern per color per render; ids are unique so several instances
          * of the symbol on one display cannot collide.
          */
         function hatchFor(defs, cache, fill) {

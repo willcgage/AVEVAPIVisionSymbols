@@ -2,7 +2,7 @@
     <title>PVX Control Chart</title>
 
     <!-- Dashed control limits around a solid centre line, with one point
-         breaking the upper limit in the alarm colour: the icon has to read as
+         breaking the upper limit in the alarm color: the icon has to read as
          "in control, except here". Background is transparent by design. -->
     <g stroke="#c8452f" stroke-width="12" stroke-dasharray="30 18" fill="none">
         <line x1="40" y1="120" x2="472" y2="120"/>

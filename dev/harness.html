@@ -479,7 +479,7 @@
         $('c-dark').addEventListener('change', function () {
             document.body.classList.toggle('dark', this.checked);
             // Give the browser a frame to repaint before symbols re-sample the
-            // background colour for their light/dark decision.
+            // background color for their light/dark decision.
             setTimeout(function () {
                 instances.forEach(function (i) {
                     try { i.vis.onResize(i.frame.clientWidth, i.frame.clientHeight); } catch (e) { }

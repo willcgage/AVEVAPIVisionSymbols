@@ -50,7 +50,7 @@
  * SEVERAL TAGS
  *   The first source is folded in full: its periods, envelope and statistics.
  *   Each further source draws its CURRENT period on the same axis in its own
- *   colour, so a pump's flow and its sister pump's flow can be read against
+ *   color, so a pump's flow and its sister pump's flow can be read against
  *   one history. Tags in different units belong on % change, where each is
  *   measured from its own baseline. (Until this was added the symbol took one
  *   source; a display saved then has one and draws exactly as before.)
@@ -1067,25 +1067,25 @@
         }
 
         /* ================================================================== *
-         * colour
+         * color
          * ================================================================== */
 
         /**
-         * Colour for period k.
+         * Color for period k.
          *
          * 'fade' is the default because it is the single most effective way to
          * make "which line is today" obvious: the current period keeps its full
-         * colour and everything older desaturates toward the muted text colour
+         * color and everything older desaturates toward the muted text color
          * and, if FadeOlder is on, thins out with age. 'palette' gives every
          * period its own hue, which only earns its keep when the user needs to
          * name a specific past period rather than see the envelope.
          */
         /**
-         * The categorical palette with the current period's colour removed.
+         * The categorical palette with the current period's color removed.
          *
          * The palette's head is #3b82c4 — which is also the default
          * CurrentColor — so a naive palette would paint yesterday in exactly
-         * today's colour, and the two most important traces on the chart would
+         * today's color, and the two most important traces on the chart would
          * be told apart only by line weight. Compared as resolved hex so a
          * '#3B82C4' typed into the config pane still matches.
          */
@@ -1108,10 +1108,10 @@
                 return pal[(k - 1) % pal.length];
             }
             /* Two steps, and they do different jobs. Desaturating toward the
-             * muted text colour takes the older runs out of competition with
+             * muted text color takes the older runs out of competition with
              * the current one; receding toward the SURFACE is what actually
              * reads as depth, because it is the direction the background lies
-             * in. (A transparent surface has no colour to mix with, and
+             * in. (A transparent surface has no color to mix with, and
              * PVX.color.mix returns the first argument unchanged, so the
              * desaturation still applies and nothing breaks.) */
             var age = olderCount > 1 ? Math.min(1, (k - 1) / (olderCount - 1)) : 0;
@@ -1356,7 +1356,7 @@
                 x: plot.x.toFixed(2), y: plot.y.toFixed(2),
                 width: plot.w.toFixed(2), height: plot.h.toFixed(2)
             }, clip);
-            /* Bad quality dims the whole plot rather than recolouring anything:
+            /* Bad quality dims the whole plot rather than recoloring anything:
              * every trace and the envelope come from the same tag, so the
              * problem is with all of it at once. The shapes still carry their
              * meaning, they just should not command attention while the values
@@ -1434,7 +1434,7 @@
                 }
             }
 
-            // ---- further sources: current period only, own colour ----------------------------
+            // ---- further sources: current period only, own color ----------------------------
             var otherPal = olderPalette(cfg.CurrentColor || cfg.AccentColor || '#3b82c4', t);
             for (i = 0; i < others.length; i++) {
                 others[i].color = otherPal[i % otherPal.length];
@@ -1788,7 +1788,7 @@
         /**
          * Legend.
          *
-         * In 'fade' colour mode the older traces differ only by tint and
+         * In 'fade' color mode the older traces differ only by tint and
          * opacity, so listing eight of them individually would be a legend
          * nobody can match to a line — it collapses to "current / older (N) /
          * envelope", which is the truth. In 'palette' mode every period really
@@ -2051,7 +2051,7 @@
             var bx = left ? plot.x + 4 : plot.x + plot.w - boxW - 4;
             var by = top ? plot.y + 4 : plot.y + plot.h - boxH - 4;
 
-            // A transparent symbol has no surface colour to borrow, so fall back
+            // A transparent symbol has no surface color to borrow, so fall back
             // to a scrim that keeps the text legible over the traces.
             var fill = (t.surface && t.surface !== 'transparent')
                 ? PVX.color.rgba(t.surface, 0.88)

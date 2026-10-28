@@ -11,7 +11,7 @@
  * their order, a filter box, a sort on any heading, groups by a column, row
  * conditions written as "Column op value" (one can name the display's asset,
  * so a shared display shows that unit's rows), rows limited to the display's
- * time range by a date column, and one column coloured by threshold bands.
+ * time range by a date column, and one column colored by threshold bands.
  *
  * WHY PI WEB API. PI Vision has no data source for an AF table: an
  * attribute can look a value up in one, but the table itself is not
@@ -79,7 +79,7 @@
                 GroupBy: '',
                 MaxRows: 1000,
 
-                /* -- colour -------------------------------------------------- */
+                /* -- color -------------------------------------------------- */
                 ColorColumn: '',
                 Thresholds: '',
 
@@ -705,7 +705,7 @@
             }
             if (trim(cfg.TimeColumn) && !timeCol) { n.push('no date column "' + trim(cfg.TimeColumn) + '"'); }
             if (trim(cfg.GroupBy) && !realColumn(cfg.GroupBy)) { n.push('no column "' + trim(cfg.GroupBy) + '" to group by'); }
-            if (trim(cfg.ColorColumn) && !realColumn(cfg.ColorColumn)) { n.push('no column "' + trim(cfg.ColorColumn) + '" to colour'); }
+            if (trim(cfg.ColorColumn) && !realColumn(cfg.ColorColumn)) { n.push('no column "' + trim(cfg.ColorColumn) + '" to color'); }
             if (state.db.from) { n.push('database ' + state.db.path + ' from ' + state.db.from); }
             return n;
         }

@@ -23,10 +23,10 @@
  *
  * TOLERANCE AND PROGRESS
  *   "On plan" is rarely exact equality. Within the tolerance the change reads
- *   as on target, in the good colour with no arrow, rather than a red 0.3%
+ *   as on target, in the good color with no arrow, rather than a red 0.3%
  *   that sends someone to look at nothing. The progress bar or ring shows
  *   the headline as a share of the target, measured from a chosen zero, and
- *   is coloured by whether the target is met in the good direction.
+ *   is colored by whether the target is met in the good direction.
  *
  * SUMMARY TYPES
  *   'sum' adds the samples, which only means something for counts. 'total'
@@ -84,9 +84,9 @@
                 SecondaryRight: 'max',
                 ShowPlanOnSpark: true,      // plan as a dashed line on the sparkline
 
-                // A coloured left edge for the headline's threshold band, the
-                // way a roll-up box flags itself without recolouring the
-                // number. The placeholder bands never colour it.
+                // A colored left edge for the headline's threshold band, the
+                // way a roll-up box flags itself without recoloring the
+                // number. The placeholder bands never color it.
                 StatusEdge: false,
                 EdgeWidth: 4,
 
@@ -292,7 +292,7 @@
                 scope.pvx.units = totalUnits(series.units, cfg.TotalPer);
             }
 
-            // ---- value colour ------------------------------------------------
+            // ---- value color ------------------------------------------------
             if (scope.MultistateColor) {
                 scope.pvx.valueColor = scope.MultistateColor;
             } else if (cfg.UseThresholds && cfg.ValueColorFromThreshold) {

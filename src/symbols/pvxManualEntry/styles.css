@@ -94,7 +94,7 @@
     min-width: 0;
 }
 
-/* Bad quality, or a read that failed, is said in colour as well as in words —
+/* Bad quality, or a read that failed, is said in color as well as in words —
    an operator glancing at the tile must not mistake it for a live number. */
 .pvx-mentry .pvx-mentry-current[data-quality="bad"] .pvx-mentry-current-value {
     color: var(--pvx-alarm);

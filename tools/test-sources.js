@@ -26,7 +26,7 @@
  * one row per band, and typing, picking, adding and removing rewrite
  * config.Thresholds.
  *
- * Combo Chart: its TraceSpec as one row per data source (type, axis, colour,
+ * Combo Chart: its TraceSpec as one row per data source (type, axis, color,
  * line style, width) and its LimitBands through the same band rows, each
  * writing only its own key and following a removed data source.
  *
@@ -188,7 +188,7 @@ function bandRules() {
     st.rows[1].value = 75; st.rows[1].label = 'Hi'; st.commit();
     check('commit writes the grammar', scope.config.Thresholds === '0:#2f9e5f:Normal, 75:#d99024:Hi, 90:#c8452f:Critical', scope.config.Thresholds);
     st.rows[0].hex = '#123456'; st.setColor(st.rows[0]);
-    check('picking a colour writes it', /^0:#123456:Normal,/.test(scope.config.Thresholds), scope.config.Thresholds);
+    check('picking a color writes it', /^0:#123456:Normal,/.test(scope.config.Thresholds), scope.config.Thresholds);
 
     st.rows[2].label = 'Trip, now; really'; st.commit();
     check('separators in a label cannot split the band',
@@ -210,7 +210,7 @@ function bandRules() {
     check('sort puts the lowest limit first', st.rows[0].value === 90 && !st.unsorted(), st.rows.map((r) => r.value));
 
     const named = T.bind({ config: { Thresholds: '0:red:Bad' } });
-    check('a colour the picker cannot show is kept until changed', named.rows[0].color === 'red', named.rows[0]);
+    check('a color the picker cannot show is kept until changed', named.rows[0].color === 'red', named.rows[0]);
     const empty = T.bind({ config: {} });
     check('no Thresholds key -> no rows, no crash', empty.rows.length === 0);
 
@@ -345,7 +345,7 @@ async function pane() {
         const bands = page.locator('.pvx-cfg-band-row');
         check('one row per band', await bands.count() === 3, await bands.count());
         check('no grammar text box by default', await page.locator('textarea[ng-model="config.Thresholds"]').count() === 0);
-        check('row shows limit, colour, label',
+        check('row shows limit, color, label',
             await bands.nth(1).locator('input[type="number"]').inputValue() === '70' &&
             await bands.nth(1).locator('input[type="color"]').inputValue() === '#d99024' &&
             await bands.nth(1).locator('input[type="text"]').inputValue() === 'High');
@@ -355,13 +355,36 @@ async function pane() {
         const typed = await page.evaluate(() => window.__scope.config.Thresholds);
         check('typing rewrites config.Thresholds', typed === '0:#2f9e5f:Normal, 65:#d99024:Warning, 90:#c8452f:Critical', typed);
 
+        // A drag across the picker is a stream of 'input' events and one
+        // 'change' when it closes. Each step written to config was its own
+        // undo entry in PI Vision, so only the close may write.
         await bands.nth(0).locator('input[type="color"]').evaluate((el) => {
-            el.value = '#336699';
-            el.dispatchEvent(new Event('input', { bubbles: true }));
+            ['#ffffff', '#cccccc', '#999999', '#336699'].forEach((v) => {
+                el.value = v;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+        const dragging = await page.evaluate(() => window.__scope.config.Thresholds);
+        check('dragging in the picker writes nothing yet', dragging === typed, dragging);
+        await bands.nth(0).locator('input[type="color"]').evaluate((el) => {
             el.dispatchEvent(new Event('change', { bubbles: true }));
         });
         const picked = await page.evaluate(() => window.__scope.config.Thresholds);
-        check('picking a colour rewrites it', /^0:#336699:Normal,/.test(picked), picked);
+        check('closing the picker writes the color once', /^0:#336699:Normal,/.test(picked), picked);
+
+        const bg = page.locator('#pane input[type="color"][ng-model="config.BackgroundColor"]');
+        const bgBefore = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        await bg.evaluate((el) => {
+            ['#eeeeee', '#777777', '#202020'].forEach((v) => {
+                el.value = v;
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+        const bgDragging = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        await bg.evaluate((el) => el.dispatchEvent(new Event('change', { bubbles: true })));
+        const bgPicked = await page.evaluate(() => window.__scope.config.BackgroundColor);
+        check('a plain color field also waits for the picker to close',
+            bgDragging === bgBefore && bgPicked === '#202020', { bgBefore, bgDragging, bgPicked });
 
         await page.locator('.pvx-cfg-band-add').click();
         check('Add band adds a row', await bands.count() === 4);
@@ -392,7 +415,7 @@ async function pane() {
             (await tr.nth(1).locator('.pvx-cfg-tr-label').textContent()).trim() === 'Pump 101|Power');
         check('row 4 has no entry and no source, but is kept below the listed 5',
             /No data source/.test(await tr.nth(4).locator('.pvx-cfg-tr-label').textContent()));
-        check('row shows type, axis, colour, style, width from the string',
+        check('row shows type, axis, color, style, width from the string',
             await tr.nth(1).locator('.pvx-cfg-tr-type').inputValue() === 'line' &&
             await tr.nth(1).locator('.pvx-cfg-tr-axis').inputValue() === 'right' &&
             await tr.nth(1).locator('.pvx-cfg-tr-color').inputValue() === '#8267b0' &&
@@ -418,7 +441,7 @@ async function pane() {
         await tr.nth(2).locator('.pvx-cfg-tr-dash').selectOption('dotted');
         await tr.nth(2).locator('.pvx-cfg-tr-width').fill('2.5');
         spec = await page.evaluate(() => window.__scope.config.TraceSpec);
-        check('colour, style and width are written', /3:step:right:#336699:dotted:2\.5px/.test(spec), spec);
+        check('color, style and width are written', /3:step:right:#336699:dotted:2\.5px/.test(spec), spec);
         await tr.nth(1).locator('.pvx-cfg-tr-auto').click();
         await tr.nth(1).locator('.pvx-cfg-tr-dash').selectOption('');
         await tr.nth(1).locator('.pvx-cfg-tr-width').fill('');
@@ -429,7 +452,7 @@ async function pane() {
         spec = await page.evaluate(() => window.__scope.config.TraceSpec);
         check('a row back at every default leaves the string', !/(^|, )1:/.test(spec), spec);
         await tr.nth(1).locator('.pvx-cfg-tr-type').selectOption('hidden');
-        check('a hidden trace offers no axis or colour',
+        check('a hidden trace offers no axis or color',
             await tr.nth(1).locator('.pvx-cfg-tr-axis').count() === 0 && await tr.nth(1).locator('.pvx-cfg-tr-color').count() === 0);
 
         await page.locator('.pvx-cfg-traces .pvx-cfg-band-link', { hasText: 'Edit as text' }).click();

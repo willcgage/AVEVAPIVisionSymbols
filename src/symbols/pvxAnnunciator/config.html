@@ -300,26 +300,26 @@
     </div>
 
     <div class="pvx-cfg-group">
-        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-legend">Color</div>
 
         <div class="pvx-cfg-hint">
-            An alarmed tile takes the colour of the threshold band it landed in, so a
+            An alarmed tile takes the color of the threshold band it landed in, so a
             Critical tile and a High tile are visibly different problems.
-            Acknowledgement keeps that colour &mdash; it removes the flash and adds a
+            Acknowledgement keeps that color &mdash; it removes the flash and adds a
             tick, it does not repaint the severity away.
         </div>
 
         <div class="pvx-cfg-row">
             <label for="pvxann-normal">Normal</label>
-            <input id="pvxann-normal" type="color" ng-model="config.NormalColor" />
+            <input id="pvxann-normal" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.NormalColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-ackcol">Acknowledgement tick</label>
-            <input id="pvxann-ackcol" type="color" ng-model="config.AckColor" />
+            <input id="pvxann-ackcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AckColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-retcol">Ringback</label>
-            <input id="pvxann-retcol" type="color" ng-model="config.ReturnedColor" />
+            <input id="pvxann-retcol" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ReturnedColor" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxann-dim">Recede normal tiles</label>
@@ -331,8 +331,8 @@
         </div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxann-accent">Accent colour</label>
-            <input id="pvxann-accent" type="color" ng-model="config.AccentColor" />
+            <label for="pvxann-accent">Accent color</label>
+            <input id="pvxann-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
         </div>
         <div class="pvx-cfg-hint">Used for the ACK ALL button when anything is outstanding.</div>
     </div>
@@ -361,8 +361,8 @@
             <input id="pvxann-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxann-bgcolor">Background colour</label>
-            <input id="pvxann-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxann-bgcolor">Background color</label>
+            <input id="pvxann-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

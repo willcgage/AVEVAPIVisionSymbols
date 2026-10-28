@@ -189,14 +189,14 @@
             <input id="pvxdm-font" type="number" ng-model="config.FontSize" min="8" max="28" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxdm-fg">Text colour</label>
-            <input id="pvxdm-fg" type="color" ng-model="config.ItemColor" />
+            <label for="pvxdm-fg">Text color</label>
+            <input id="pvxdm-fg" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ItemColor" />
             <button type="button" ng-click="config.ItemColor = ''" ng-disabled="!config.ItemColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxdm-hl">Highlight colour</label>
-            <input id="pvxdm-hl" type="color" ng-model="config.HighlightColor" />
-            <button type="button" ng-click="config.HighlightColor = ''" ng-disabled="!config.HighlightColor" title="Use the accent colour again">Accent</button>
+            <label for="pvxdm-hl">Highlight color</label>
+            <input id="pvxdm-hl" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.HighlightColor" />
+            <button type="button" ng-click="config.HighlightColor = ''" ng-disabled="!config.HighlightColor" title="Use the accent color again">Accent</button>
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxdm-divider">Divider line</label>
@@ -207,8 +207,8 @@
             <input id="pvxdm-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxdm-bg">Background colour</label>
-            <input id="pvxdm-bg" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxdm-bg">Background color</label>
+            <input id="pvxdm-bg" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

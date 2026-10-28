@@ -1592,8 +1592,8 @@
                               label: 'Other (' + restS.length + ')', value: metricOf(oagg, mk),
                               agg: oagg, isOther: true, unassigned: false });
             }
-            // "(unassigned)" wears the warning colour everywhere on this
-            // chart, so a palette colour close to it is skipped: two oranges
+            // "(unassigned)" wears the warning color everywhere on this
+            // chart, so a palette color close to it is skipped: two oranges
             // side by side in one bar read as one.
             var pal = PVX.color.categorical;
             var warn = PVX.color.status.warning;
@@ -2019,7 +2019,7 @@
         }
 
         /* ================================================================ *
-         * colour
+         * color
          * ================================================================ */
 
         function colorFor(item, i, m, cfg, t) {
@@ -2034,8 +2034,8 @@
                 return PVX.color.categorical[i % PVX.color.categorical.length];
             }
             if (cfg.ColorMode === 'target') {
-                // A group with no target keeps the plain colour: only a
-                // judgement gets a judgement's colour.
+                // A group with no target keeps the plain color: only a
+                // judgement gets a judgement's color.
                 if (item.good === true) { return PVX.color.status.normal; }
                 if (item.good === false) { return PVX.color.status.alarm; }
                 return base;
@@ -2322,7 +2322,7 @@
                     PVX.svg.el('title', null, mk2).textContent =
                         items[i].label + ' \u00b7 cumulative ' + m.cum[i].toFixed(1) + '%';
                 }
-                /* Secondary axis above the plot, in the line's own colour so it
+                /* Secondary axis above the plot, in the line's own color so it
                  * is never mistaken for the value axis.
                  *
                  * Candidates are placed in order of importance and any that
@@ -2853,7 +2853,7 @@
                     fill: t.grid, stroke: t.border, 'stroke-width': 1, 'class': 'pvx-ea-card-bg'
                 }, card);
                 // The accent edge carries the judgement: green, red, or the
-                // group's plain colour when there is no target to judge by.
+                // group's plain color when there is no target to judge by.
                 var edge = it.good === true ? PVX.color.status.normal
                     : (it.good === false ? PVX.color.status.alarm
                         : (it.isTotal ? t.textMuted : colorFor(it, i, m, cfg, t)));
@@ -2875,7 +2875,7 @@
                     });
                 fitTextTo(vt, tw);
                 // Short enough for a card: the signed gap and the target. The
-                // edge colour already says which side of it is good.
+                // edge color already says which side of it is good.
                 var sub = it.delta === undefined ? (it.count + (it.count === 1 ? ' event' : ' events'))
                     : (Math.abs(it.delta) < 1e-9 ? 'on target ' + valueText(it.target, m, cfg)
                         : deltaText(it, m, cfg) + ' vs ' + valueText(it.target, m, cfg));

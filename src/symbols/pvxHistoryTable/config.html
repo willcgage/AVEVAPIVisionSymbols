@@ -168,7 +168,7 @@
             The file is made in the browser; nothing is sent anywhere.
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxht-usethresh">Colour cells by threshold</label>
+            <label for="pvxht-usethresh">Color cells by threshold</label>
             <input id="pvxht-usethresh" type="checkbox" ng-model="config.UseThresholds" />
         </div>
         <div class="pvx-cfg-stack" ng-if="config.UseThresholds">
@@ -197,8 +197,8 @@
             <input id="pvxht-transparent" type="checkbox" ng-model="config.Transparent" />
         </div>
         <div class="pvx-cfg-row">
-            <label for="pvxht-bgcolor">Background colour</label>
-            <input id="pvxht-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <label for="pvxht-bgcolor">Background color</label>
+            <input id="pvxht-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
             <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
         </div>
         <div class="pvx-cfg-row">

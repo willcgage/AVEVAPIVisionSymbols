@@ -141,6 +141,18 @@ Wrap in `<div class="c-config-content pvx-cfg">`. Group settings with
 or `.pvx-cfg-stack` (label above a full-width control). Explain non-obvious
 settings with `.pvx-cfg-hint`. Bind everything with `ng-model="config.X"`.
 
+A color picker commits when it closes, not while it is dragged:
+
+```html
+<input type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
+```
+
+Without `ng-model-options`, every step of a drag across the picker is its own
+change to the config and its own entry in PI Vision's undo history, so one
+pick from white to black buries every earlier edit under hundreds of greys.
+The build fails a color input that leaves it out, in a symbol's pane or a
+shared editor.
+
 Keep the root `<div class="c-config-content pvx-cfg">` on the first line, on
 its own. The build injects the shared **Data sources** list
 (`src/shared/config-sources.html`) straight after it, and fails a pane whose
@@ -148,7 +160,7 @@ first line does not match rather than ship that symbol without it. Do not
 build a data source list of your own.
 
 Threshold bands are edited with the shared band editor
-(`src/shared/config-bands.html`): one row per band with a limit, a colour
+(`src/shared/config-bands.html`): one row per band with a limit, a color
 picker and a label, plus Add band and an *Edit as text* fallback. Put the
 marker on its own line where the control goes, under a `.pvx-cfg-label`:
 
@@ -244,7 +256,7 @@ as "NOT renumbered", never skipped silently.
 
 ## Symbols that raise alarms
 
-`PVX.thresholds.DEFAULT` is a placeholder on a 0-100 scale. Colouring an arc
+`PVX.thresholds.DEFAULT` is a placeholder on a 0-100 scale. Coloring an arc
 with it is harmless; flagging a point with it is a false alarm, and on a live
 server it flagged every point above 70 whatever its units. A symbol that
 alarms, latches or lists exceptions therefore declares
@@ -333,20 +345,20 @@ own line where the control goes, naming the key and the grammar it holds:
 
 | kind | Stored grammar | Row fields |
 |---|---|---|
-| `map` | `State:colour[:label]` | state, severity, colour, label |
-| `colors` | `State:colour` | state, severity, colour |
+| `map` | `State:color[:label]` | state, severity, color, label |
+| `colors` | `State:color` | state, severity, color |
 | `list` | `State` | state |
 | `bands` | `State:band` | state, threshold band (by label, or 0-based index for an unlabelled band) |
 
 `bands` is for symbols whose severity is a threshold band index (the
 Exception Banner and Annunciator): a mapped state takes that band's index, so
-it filters, sorts, colours and latches like a number in the band. Resolve it
+it filters, sorts, colors and latches like a number in the band. Resolve it
 with `PVX.states.bandMap(cfg.StateBands, bands)` and match `PVX.states.text(raw)`.
 
 The state is chosen from a list: the data sources' digital state sets read
 through `PVX.api` when the site has configured PI Web API, states seen in the
 symbol's live data, and states already in the map, with a button to type one
-that is not listed. Severity is a name over `PVX.color.status`; only the colour
+that is not listed. Severity is a name over `PVX.color.status`; only the color
 is stored. The key keeps its grammar string, so saved displays load unchanged
 and the symbol's own parser is untouched. The build fails a pane that binds
 `StateMap`, `StateColors`, `UptimeStates`, `StateBands` or a marked key to a control of its
@@ -428,7 +440,7 @@ PVX symbols shipped that way and were invisible on the first live server.
 timer and must clear it in `onDestroy`. A leaked poller on a kiosk display runs
 for weeks.
 
-Every symbol also offers **Background colour** (`config.BackgroundColor`, empty
+Every symbol also offers **Background color** (`config.BackgroundColor`, empty
 means follow the theme) beside **Transparent background** in its format pane.
 `PVX.theme.resolve` applies it; a new symbol only needs the two rows, copied
 from any existing `config.html`.

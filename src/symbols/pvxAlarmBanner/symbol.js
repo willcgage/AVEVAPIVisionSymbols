@@ -198,7 +198,7 @@
 
         /**
          * A digital state mapped in StateBands takes that band's index, so it
-         * alarms, sorts and colours exactly as a number in the band would.
+         * alarms, sorts and colors exactly as a number in the band would.
          * Checked before the numeric test: a state name never parses as a
          * number, and a mapped state should not depend on whether it does.
          */
@@ -496,7 +496,7 @@
 
         /* ---- column budget ------------------------------------------------ *
          * As the symbol narrows, drop the least load-bearing column first.
-         * Duration goes before the band label (the chip colour already encodes
+         * Duration goes before the band label (the chip color already encodes
          * severity), and units go last because a bare number can be ambiguous.
          */
         function columns(cfg, width) {

@@ -1,6 +1,6 @@
 /* pvxTreemap — squarified treemap
  * Only the chrome (header, footer, SVG host) is styled here. Tile fills, label
- * colours and the legend all come from the runtime theme tokens, never from
+ * colors and the legend all come from the runtime theme tokens, never from
  * CSS, so the same stylesheet works on light and dark displays.
  * The custom properties below are fallbacks; symbol.js overwrites them on the
  * root element every render. */
@@ -67,7 +67,7 @@
     shape-rendering: crispEdges;
 }
 
-/* Hover outlines rather than changing the fill: the fill is the colour
+/* Hover outlines rather than changing the fill: the fill is the color
    dimension of the chart and the area is the size dimension, so neither may be
    altered by an interaction. */
 .pvx-tm .pvx-tm-tile:hover rect {

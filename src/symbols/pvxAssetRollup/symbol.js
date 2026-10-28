@@ -88,7 +88,7 @@
                 SortBy: 'value',             // value | name
                 SortDescending: true,
 
-                /* -- colour -------------------------------------------------- */
+                /* -- color -------------------------------------------------- */
                 // No bands until someone sets them: a red card is an alarm.
                 Thresholds: '',
                 Target: '',
@@ -541,8 +541,8 @@
             return PVX.fmt.number(v, PVX.config.numberOpts(cfg));
         }
 
-        /** Colour of a card: its threshold band, else above or below target. */
-        function colourOf(v, cfg) {
+        /** Color of a card: its threshold band, else above or below target. */
+        function colorOf(v, cfg) {
             if (v === null) { return ''; }
             if (trim(cfg.Thresholds)) {
                 var b = PVX.thresholds.evaluate(cfg.Thresholds, v);
@@ -623,7 +623,7 @@
             var parts = ['<div class="pvx-arl-grid">'];
             for (var i = 0; i < m.cards.length; i++) {
                 var cd = m.cards[i];
-                var col = colourOf(cd.v, cfg);
+                var col = colorOf(cd.v, cfg);
                 var idx = shown.length;
                 shown.push(cd);
                 var cls = 'pvx-arl-card' + (cd.all ? ' pvx-arl-all' : '') + (cd.others ? ' pvx-arl-others' : '');

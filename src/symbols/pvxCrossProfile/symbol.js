@@ -9,7 +9,7 @@
  * shows how that shape has moved:
  *
  *   - a map of position (across) against time (down, newest at the top),
- *     each cell coloured by how far it is from the target, so a streak, a
+ *     each cell colored by how far it is from the target, so a streak, a
  *     drifting edge or a whole-width step is visible at a glance;
  *   - under it, the current profile, the average profile over the range,
  *     and a band of plus or minus two standard deviations at each position
@@ -280,7 +280,7 @@
                     ', average ' + fmt(ps.mean) + ', ' + fmt(2 * ps.sd) + ' at 2 sigma over time' : ': no values');
             }
 
-            /* ---- colour legend ------------------------------------------ */
+            /* ---- color legend ------------------------------------------ */
             var ly = map.y + map.h + font * 0.6;
             var lw = Math.min(map.w, 220), lx = map.x + (map.w - lw) / 2;
             for (var s = 0; s < 40; s++) {

@@ -94,7 +94,7 @@
                 LabelPosition: 'below',    // below | above | right | inside | none
                 LabelBackground: true,
 
-                // --- colour -------------------------------------------
+                // --- color -------------------------------------------
                 ColorMode: 'threshold',    // threshold | state | single
                 StateMap: 'Running:#2f9e5f, Stopped:#8a8f96, Fault:#c8452f, Alarm:#c8452f',
                 SingleColor: '#3b82c4',
@@ -279,12 +279,12 @@
         }
 
         /* ================================================================== *
-         * Colour / severity
+         * Color / severity
          * ================================================================== */
 
         var stateMapCache = { spec: null, map: null };
 
-        /** Same "key:colour[:label]" grammar as pvxStatusGrid's state map. */
+        /** Same "key:color[:label]" grammar as pvxStatusGrid's state map. */
         function parseStateMap(spec) {
             if (stateMapCache.spec === spec && stateMapCache.map) { return stateMapCache.map; }
             var map = {};
@@ -313,8 +313,8 @@
         }
 
         /**
-         * Colour + severity for one row.
-         * Bad quality wins over every colour mode: a stale tag's last value is
+         * Color + severity for one row.
+         * Bad quality wins over every color mode: a stale tag's last value is
          * often still inside a "normal" band, and painting it green is worse
          * than saying nothing.
          */
@@ -344,7 +344,7 @@
                     return out;
                 }
                 // Fall through to thresholds: a numeric tag mixed into a digital
-                // plan should still get a band colour rather than flat accent.
+                // plan should still get a band color rather than flat accent.
             }
 
             if (mode === 'threshold' || mode === 'state') {
@@ -791,7 +791,7 @@
             el.setAttribute('href', img.url);
             try { el.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', img.url); } catch (e) { /* ignore */ }
             if (cfg.ImageGrayscale) {
-                // Desaturating a busy drawing is what makes coloured markers
+                // Desaturating a busy drawing is what makes colored markers
                 // pop off it; it is a display choice, not a data change.
                 el.setAttribute('style', 'filter:grayscale(100%);-webkit-filter:grayscale(100%)');
             }
@@ -942,8 +942,8 @@
             var border = geom.border;
             var font = geom.font;
             var ext = markerExtent(shape, size);
-            // Ringing the marker in the surface colour is what keeps it legible
-            // over an arbitrary photograph; the theme border colour alone
+            // Ringing the marker in the surface color is what keeps it legible
+            // over an arbitrary photograph; the theme border color alone
             // disappears against mid-grey drawings.
             var ring = t.surface === 'transparent' ? (t.dark ? '#22262b' : '#ffffff') : t.surface;
             var clickable = cfg.ClickAction === 'navigate';
@@ -1006,7 +1006,7 @@
                 drawMarkerShape(g, shape, it.x, it.y, size, st.color, ring, border);
 
                 // Bad quality gets a hollow centre rather than a different hue:
-                // the colour still says "which tag", the hole says "do not trust
+                // the color still says "which tag", the hole says "do not trust
                 // this reading".
                 if (st.bad && size >= 9) {
                     drawMarkerShape(g, shape, it.x, it.y, size * 0.42,
@@ -1206,7 +1206,7 @@
             if (cfg.LabelBackground) {
                 // A chip is what makes text survive a busy drawing. Inside the
                 // marker the chip IS the marker, so the text takes the readable
-                // foreground for the marker colour instead.
+                // foreground for the marker color instead.
                 var bg = box.inside
                     ? 'transparent'
                     : PVX.color.rgba(t.surface === 'transparent' ? (t.dark ? '#22262b' : '#ffffff') : t.surface, 0.86);

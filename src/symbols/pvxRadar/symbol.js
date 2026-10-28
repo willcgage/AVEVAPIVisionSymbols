@@ -106,7 +106,7 @@
                 ShowScaleLabels: false,
                 ShowLegend: true,
 
-                // --- colour ----------------------------------------------
+                // --- color ----------------------------------------------
                 CurrentColor: '#3b82c4',
                 ReferenceColor: '#8a8f96',
                 ColorByThreshold: false
@@ -356,7 +356,7 @@
         /**
          * rows + config -> {axes, series, notes, ...}
          * Each axis is {label, units, cur, ref, dom}; each series entry knows
-         * its colour, its label and its normalised radii.
+         * its color, its label and its normalised radii.
          */
         function buildModel(cfg) {
             if (search) { return buildSearchModel(cfg); }
@@ -910,7 +910,7 @@
                         var src = srcOf(axes[i], ser);
                         if (!src) { continue; }
                         var mColor = ser.color;
-                        // Threshold colouring is what turns "the shape changed"
+                        // Threshold coloring is what turns "the shape changed"
                         // into "THIS axis changed" at a glance.
                         if (cfg.ColorByThreshold && cfg.UseThresholds) {
                             mColor = PVX.thresholds.colorFor(cfg.Thresholds, src.value, ser.color);

@@ -83,7 +83,7 @@
                 SortBy: 'difference',        // difference | display
                 MaxRows: 12,
 
-                /* -- colour ------------------------------------------------- */
+                /* -- color ------------------------------------------------- */
                 SelectionColor: '#d99024',
                 BaselineColor: '',           // blank => AccentColor
 

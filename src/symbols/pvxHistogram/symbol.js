@@ -200,7 +200,7 @@
 
             /* ---- which series are drawn ----------------------------------- */
             // The selected series leads the list so it keeps the configured
-            // colour and stays the one the capability panel describes.
+            // color and stays the one the capability panel describes.
             var drawn = [sel];
             var extra = 0;
             if (cfg.Overlay) {
@@ -502,7 +502,7 @@
                 var rc = barRect(bins[i].from, bins[i].to, freq, gapFrac);
                 ink.push(rc);
                 // "Fully outside" only — a bin straddling the limit contains
-                // conforming product too, and colouring it red would overstate
+                // conforming product too, and coloring it red would overstate
                 // the loss.
                 var outside = cfg.ColorBySpec !== false &&
                     ((lsl !== null && bins[i].to <= lsl) || (usl !== null && bins[i].from >= usl));
@@ -831,7 +831,7 @@
             }
 
             /** Paint the card laid out above. Cpk is the number that decides
-             *  whether anyone acts, so it is the only value that carries colour. */
+             *  whether anyone acts, so it is the only value that carries color. */
             function paintCapability(parent, p2) {
                 var g2 = PVX.svg.el('g', { 'class': 'pvx-hist-cap' }, parent);
                 PVX.svg.el('title', null, g2).textContent =

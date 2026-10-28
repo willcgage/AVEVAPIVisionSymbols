@@ -7,8 +7,8 @@
  * IN TROUBLE". A ranked bar chart runs out of vertical room somewhere around
  * thirty rows; a treemap keeps going because it spends area instead of height.
  *
- * The colour dimension is what makes it more than a fancy bar chart: size shows
- * who is big, colour shows who is in trouble, and the tile that is both is the
+ * The color dimension is what makes it more than a fancy bar chart: size shows
+ * who is big, color shows who is in trouble, and the tile that is both is the
  * one to look at first.
  *
  * WHY SQUARIFIED
@@ -78,7 +78,7 @@
                 GroupDepth: 1,
                 GroupPrefixChars: 3,
 
-                // --- colour ------------------------------------------
+                // --- color ------------------------------------------
                 ColorMode: 'threshold',     // threshold | value | palette | group | single
                 SingleColor: '#3b82c4',
                 ShowColorLegend: true,
@@ -121,7 +121,7 @@
         var rows = [];
         // The group a click drilled into, or null for every group.
         var focus = null;
-        // From an AF search with two attributes or more: the second colours
+        // From an AF search with two attributes or more: the second colors
         // the tiles (by asset path), and any after that are named as unused.
         var colorRows = null;
         var colorAttr = '';
@@ -146,7 +146,7 @@
                 if (PVX.afsource.wanted(cfg)) {
                     var sp = PVX.afsource.split(rows, cfg, 2);
                     if (sp.attrs.length > 1) {
-                        // Size from one quantity, colour from another: load by
+                        // Size from one quantity, color from another: load by
                         // efficiency, say. Paired by asset, never by position.
                         rows = sp.byAttr[0];
                         colorAttr = sp.attrs[1];
@@ -329,7 +329,7 @@
                 }
                 order.sort(byValueDesc);
                 for (i = 0; i < order.length; i++) { order[i].groupIndex = i; }
-                // Colour-by-group needs a stable hue per tile, so stamp the
+                // Color-by-group needs a stable hue per tile, so stamp the
                 // group's ordinal onto its members here rather than looking it
                 // up again in the drawing code.
                 for (i = 0; i < order.length; i++) {
@@ -353,7 +353,7 @@
             // the footer rather than two that have to be added up.
             if (hidden) { notes.push('+' + hidden + ' more not shown'); }
             if (noColor) {
-                notes.push(noColor + (noColor === 1 ? ' tile has' : ' tiles have') + ' no ' + colorAttr + ' to colour by');
+                notes.push(noColor + (noColor === 1 ? ' tile has' : ' tiles have') + ' no ' + colorAttr + ' to color by');
             }
             if (unusedAttrs.length) { notes.push('not used: ' + unusedAttrs.join(', ')); }
 
@@ -631,7 +631,7 @@
         }
 
         /* ================================================================ *
-         * Colour
+         * Color
          * ================================================================ */
 
         /**
@@ -647,15 +647,15 @@
             var single = cfg.SingleColor || '#3b82c4';
 
             // An aggregate is not a measurement, so it never takes a threshold
-            // colour or a ramp position — it would claim a severity it does not
+            // color or a ramp position — it would claim a severity it does not
             // have. Neutral grey says "several things, summed".
             if (item.isOther) {
                 return PVX.color.mix(t.surfaceAlt, t.textMuted, 0.55);
             }
 
-            // The number the colour stands for: the second attribute of an AF
+            // The number the color stands for: the second attribute of an AF
             // search when there is one, else the size itself. A tile with no
-            // second value has nothing to say in colour and stays neutral.
+            // second value has nothing to say in color and stays neutral.
             var cv = item.colorValue === undefined ? item.value : item.colorValue;
             if (cv === null && (cfg.ColorMode === 'value' || cfg.ColorMode === 'threshold')) {
                 return PVX.color.mix(t.surfaceAlt, t.textMuted, 0.3);
@@ -670,7 +670,7 @@
                     return PVX.color.categorical[item.rank % PVX.color.categorical.length];
                 case 'group':
                     // With grouping off every tile is in the same implicit
-                    // group, so this degrades to the flat colour rather than
+                    // group, so this degrades to the flat color rather than
                     // painting the whole frame one arbitrary palette entry.
                     var gi = item.groupIndex;
                     if (gi === undefined || gi === null) { return single; }
@@ -679,7 +679,7 @@
                     return single;
                 case 'threshold':
                 default:
-                    // Falls back to the flat colour when thresholds are off, so
+                    // Falls back to the flat color when thresholds are off, so
                     // the mode never silently paints everything one band.
                     return cfg.UseThresholds
                         ? PVX.thresholds.colorFor(cfg.Thresholds, cv, single)
@@ -687,7 +687,7 @@
             }
         }
 
-        /** The colour the symbol is actually painted on, transparent included. */
+        /** The color the symbol is actually painted on, transparent included. */
         function surfaceOf(t) {
             if (t.surface && t.surface !== 'transparent') { return t.surface; }
             return t.dark ? '#22262b' : '#ffffff';
@@ -696,8 +696,8 @@
         /**
          * Hatched fill for bad quality. An unreadable sensor still occupies its
          * share of the plant, so it keeps its tile; but a solid tile in a
-         * "stale" colour still reads as a real measurement, and this must not.
-         * One pattern per colour per render; ids are unique so several
+         * "stale" color still reads as a real measurement, and this must not.
+         * One pattern per color per render; ids are unique so several
          * instances of the symbol on one display cannot collide.
          */
         function hatchFor(defs, cache, fill) {
@@ -827,7 +827,7 @@
             // ---- chrome --------------------------------------------------
             scope.pvx.title = cfg.Title || 'Treemap';
             scope.pvx.subtitle = PVX.config.statLabel(cfg) + commonUnitsSuffix(cfg, model) +
-                (colorAttr ? ' \u00b7 colour: ' + colorAttr : '');
+                (colorAttr ? ' \u00b7 color: ' + colorAttr : '');
             scope.pvx.error = model.badCount
                 ? (model.badCount + (model.badCount === 1 ? ' source reports' : ' sources report') + ' bad quality')
                 : '';
@@ -892,7 +892,7 @@
             var radius = numIn(cfg.TileRadius, 0, 20, 2);
             var minPx = numIn(cfg.MinTilePx, 6, 200, 26);
 
-            // ---- colour domain (ColorMode 'value') ------------------------
+            // ---- color domain (ColorMode 'value') ------------------------
             // Built from the real tiles only: the aggregate's sum is not a
             // reading and would stretch the ramp to nothing.
             var lo = null, hi = null;
@@ -966,7 +966,7 @@
         }
 
         /**
-         * Which legend, if any, this colour mode can honestly show.
+         * Which legend, if any, this color mode can honestly show.
          * 'palette' and 'single' get none: they encode identity, not magnitude,
          * so a key would only restate the tile labels. 'group' needs groups to
          * actually exist, or the reserved strip would be blank.
@@ -1104,7 +1104,7 @@
             var font = head.font;
 
             // A hairline under the name separates the header from the tiles
-            // without spending a whole band of colour on it.
+            // without spending a whole band of color on it.
             PVX.svg.el('line', {
                 x1: head.x.toFixed(2), y1: (head.y + head.h - 1).toFixed(2),
                 x2: (head.x + head.w).toFixed(2), y2: (head.y + head.h - 1).toFixed(2),
@@ -1138,7 +1138,7 @@
         /**
          * A continuous scale gets a gradient bar with its min and max; a
          * threshold scale gets one swatch per band, because interpolating
-         * between band colours would imply values the scale never produces.
+         * between band colors would imply values the scale never produces.
          *
          * The gradient is built from adjacent slices sampled off the same ramp
          * the tiles use — no <linearGradient>, hence no defs id that could

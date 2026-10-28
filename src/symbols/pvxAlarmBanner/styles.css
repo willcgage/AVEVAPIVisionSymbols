@@ -69,7 +69,7 @@
     font-weight: 600;
     line-height: 1.5;
     white-space: nowrap;
-    /* The background is an alpha wash of the band colour, so the pill reads as
+    /* The background is an alpha wash of the band color, so the pill reads as
        "this band" without the saturated block a solid fill would give. */
     background: rgba(128, 128, 128, 0.14);
 }
@@ -144,7 +144,7 @@
 .pvx-alarm .pvx-alarm-clickable:hover { filter: brightness(1.06); }
 
 /* Severity chip: a full-height bar rather than a dot, so a long list reads as
-   a colour-coded stripe down the left edge at a glance. */
+   a color-coded stripe down the left edge at a glance. */
 .pvx-alarm .pvx-alarm-chip {
     flex: 0 0 auto;
     width: 4px;
