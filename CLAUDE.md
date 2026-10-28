@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
 PVX: 50 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.15.0**, released from
+and an MSI installer generated from the build output. **v1.15.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -93,6 +93,9 @@ through. Do not try to work around the validator.
   afterwards, so it is now checked two ways: `build.js` for symbol sources and
   `tools/check-text.js` for every tracked text file, wired into CI.
 - **CSS must be namespaced** to the symbol's own class.
+- **A color input commits on close:** `ng-model-options="{ updateOn: 'change' }"`.
+  Without it every step of a drag is its own undo entry in PI Vision; a
+  tester's undo history filled with 255 grays from one background pick.
 - **Nothing is dropped silently.** If a symbol excludes a data source — negative
   value in a treemap, non-numeric in a chart — it must say so in the footer.
 
