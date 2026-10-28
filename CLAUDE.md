@@ -225,6 +225,13 @@ Each of these cost real debugging time. Do not rediscover them.
   `api.base()` now asks under the page's own name when the configured host
   differs only past its first DNS label (`api.sameServerByAnotherName`).
   A blank `baseUrl` avoids the question entirely; recommend it.
+- **PI Web API's AF server list proves nothing about reaching AF.**
+  `assetservers` is answered from PI Web API's own Known Servers Table. On the
+  first live server where every check passed, every `assetdatabases` list came
+  back 502: PI Web API could not connect onward to AF as the user (Kerberos
+  delegation for its service account, the reading, not yet confirmed). The check
+  page now lists each server's databases, `classifyError` names 502 as
+  `backend`, and messages quote PI Web API's own `Errors` text.
 - **`theme.isDark` must probe from `parentElement`.** Sampling the symbol's own
   background reads its output, not its context, and latches dark mode on.
 - **Measure text with `getComputedTextLength`.** Glyph-width estimates were

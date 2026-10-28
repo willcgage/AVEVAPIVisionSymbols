@@ -316,9 +316,40 @@
                         return;
                     }
                     t.set('ok', 'AF servers visible: ' + items.map(function (a) { return a.Name; }).join(', '));
-                    return probeEventFrames(mode, items[0]);
+                    return probeDatabases(mode, items);
                 })
                 .catch(function (e) { t.set('warn', describe(e)); });
+        }
+
+        /* -- 4b. AF databases ------------------------------------------------ */
+        /* The AF server list comes from PI Web API's own Known Servers Table:
+           it is answered without connecting to any AF server. Listing a
+           server's databases is the first request that does, as the user, so
+           it is the one that exposes missing Kerberos delegation. A live
+           server passed every check above while every database list failed
+           with 502, and every PVX symbol that reads AF with it. */
+        var afUnreachable = {};
+        function probeDatabases(mode, servers) {
+            var t = addTest('AF databases (' + mode + ')',
+                'Connects to each AF server as this identity — what the Search pane and the Asset Navigator do first.');
+            var lines = [], failed = 0, listed = 0, lastErr = null;
+            return Promise.all(servers.map(function (srv) {
+                return PVX.api.get('assetservers/' + encodeURIComponent(srv.WebId) + '/assetdatabases?selectedFields=Items.Name',
+                                   { auth: mode, cache: false })
+                    .then(function (r) {
+                        var dbs = ((r && r.Items) || []).map(function (d) { return d.Name; });
+                        listed += dbs.length;
+                        lines.push(srv.Name + ': ' + (dbs.length ? dbs.join(', ') : '(none visible to this identity)'));
+                    }, function (e) {
+                        failed += 1;
+                        lastErr = e;
+                        lines.push(srv.Name + ': FAILED \u2014 ' + describe(e));
+                    });
+            })).then(function () {
+                if (failed === servers.length) { afUnreachable[mode] = lastErr; }
+                t.set(failed === servers.length ? 'bad' : failed || !listed ? 'warn' : 'ok', lines.join('\n'));
+                if (!afUnreachable[mode]) { return probeEventFrames(mode, servers[0]); }
+            });
         }
 
         /* -- 5. event frames ------------------------------------------------- */
@@ -399,8 +430,29 @@
                 return;
             }
 
+            // Authenticated but unable to reach any AF server: the symbols
+            // would fail on their first AF request, so this is not "working".
+            var reachable = working.filter(function (m) { return !afUnreachable[m]; });
+            if (!reachable.length) {
+                var ae = afUnreachable[working[0]];
+                var backend = ae && ae.pvxError && ae.pvxError.code === 'backend';
+                box.className = 'verdict bad';
+                box.innerHTML = '<h3>PI Web API answers, but cannot reach AF</h3>' +
+                    '<p>Signing in to PI Web API worked, and it lists the AF servers, but listing the databases ' +
+                    'on every one of them failed (see <em>AF databases</em> above). The symbols that read AF ' +
+                    'will fail the same way, whatever <code>pvx-config.js</code> says.</p>' +
+                    (backend
+                        ? '<p>The answer was 502: PI Web API could not connect onward as you. With Windows ' +
+                          'authentication that is almost always <strong>Kerberos delegation</strong>. In Active ' +
+                          'Directory, the account the PI Web API service runs as must be trusted to delegate to the ' +
+                          'AF servers (and to the PI Data Archives) \u2014 the same arrangement PI Vision\'s ' +
+                          'application pool account already has, which is why PI Vision\'s own symbols work.</p>'
+                        : '<p>The reason is in the test above.</p>');
+                return;
+            }
+
             box.className = 'verdict ok';
-            var best = working.indexOf('iwa') !== -1 ? 'iwa' : working[0];
+            var best = reachable.indexOf('iwa') !== -1 ? 'iwa' : reachable[0];
             // Same origin as this page is exactly where a blank baseUrl looks,
             // whether or not pvx-config.js happens to spell it out: recommend
             // the blank, which keeps working if the server is renamed or the

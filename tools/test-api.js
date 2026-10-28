@@ -119,6 +119,16 @@ apiHandler = (req, res) => {
         json(200, { Items: [{ Name: 'AFSERVER01', WebId: 'F1RS-mock' }] });
         return;
     }
+    if (/^\/piwebapi\/assetservers\/[^/]+\/assetdatabases$/.test(url)) {
+        // What PI Web API sends when it cannot connect onward to AF as the
+        // user: the server list (from its own Known Servers Table) worked.
+        if (scenario === 'af-delegation') {
+            json(502, { Errors: ['Cannot connect to AF server AFSERVER01: the remote server rejected the delegated credentials.'] });
+            return;
+        }
+        json(200, { Items: [{ Name: 'Production', Path: '\\\\AFSERVER01\\Production', WebId: 'F1RD-mock' }] });
+        return;
+    }
     if (url.indexOf('/piwebapi/assetdatabases') === 0) {
         json(200, { Name: 'Production', WebId: 'F1RD-mock' });
         return;
@@ -186,7 +196,8 @@ const SCENARIOS = [
     { id: 'no-cors',       expectWorking: false, expect: /No authentication method worked/, note: 'no CORS headers at all' },
     { id: 'wildcard-cors', expectWorking: false, expect: /Anonymous works, credentials do not/, note: 'Allow-Origin * with credentials \u2014 the partial-pass trap' },
     { id: 'preflight-401', expectWorking: false, expect: /No authentication method worked/, note: 'OPTIONS answered with a challenge' },
-    { id: 'forbidden',     expectWorking: true,  expect: /Working:/,            note: 'authenticated but AF denied' }
+    { id: 'forbidden',     expectWorking: true,  expect: /Working:/,            note: 'authenticated but AF denied' },
+    { id: 'af-delegation', expectWorking: false, expect: /cannot reach AF[\s\S]*Kerberos delegation/, note: 'signs in, lists AF servers, every database list 502' }
 ];
 
 (async function main() {
@@ -397,7 +408,21 @@ const SCENARIOS = [
     const strip = (t) => t.replace(/^[ \t]*(baseUrl|auth)[ \t]*:.*$/mg, '');
     const probes = coRequests.filter((u) => /\/piwebapi\/$/.test(u)).length;
 
+    const said = await page.evaluate(() => {
+        const c = window.PVX.api.classifyError;
+        return {
+            backend: c(502, JSON.stringify({ Errors: ['Cannot connect to AF server X.'] }), false),
+            notFound: c(404, JSON.stringify({ Errors: ['Database not found: \\\\X\\Y'] }), false),
+            html: c(500, '<html>IIS</html>', false)
+        };
+    });
+
     const unitChecks = [
+        ['502 names the AF hop and Kerberos delegation', said.backend.code === 'backend' &&
+            /Kerberos delegation/.test(said.backend.message)],
+        ['...and quotes what PI Web API said', /PI Web API said: Cannot connect to AF server X\./.test(said.backend.message)],
+        ['404 quotes PI Web API\'s reason too', /PI Web API said: Database not found/.test(said.notFound.message)],
+        ['a body that is not PI Web API JSON adds nothing', !/said/.test(said.html.message)],
         ['discovery off: blank baseUrl stays off', unit.unconfigured === 'not-configured'],
         ['discovery on, nothing there: not-configured', unit.autoMissing === 'not-configured' &&
             unit.autoMissingConfigured === false && unit.autoMissingSource === 'none'],

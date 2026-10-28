@@ -3184,18 +3184,51 @@
                 check: 'AF / Data Archive mappings'
             };
         }
+        // PI Web API explains most failures in an Errors array; its words
+        // name the AF server or the path, which no status code can.
+        var said = piErrorText(err);
+        var tail = said ? ' PI Web API said: ' + said : '';
         if (status === 404) {
-            return { code: 'not-found', message: 'Not found. Check the path and the WebID.', check: 'path / WebID' };
+            return { code: 'not-found', message: 'Not found. Check the path and the WebID.' + tail, check: 'path / WebID' };
+        }
+        if (status === 502) {
+            // 502 is PI Web API failing to reach what is behind it, not the
+            // browser failing to reach PI Web API. Live on a server whose
+            // checks all passed, every AF server answered 502 to a database
+            // list: the AF server list comes from the local Known Servers
+            // Table, so only a request that connects to AF exposes it.
+            return {
+                code: 'backend',
+                message: 'PI Web API answered, but could not reach the AF server or PI Data Archive behind it ' +
+                         '(502). With Windows authentication the usual cause is Kerberos delegation: PI Web ' +
+                         'API\'s service account must be allowed to delegate to the AF and Data Archive ' +
+                         'servers, as PI Vision\'s already is.' + tail,
+                check: 'Kerberos delegation from PI Web API\'s service account to AF / Data Archive'
+            };
         }
         if (status >= 500) {
-            return { code: 'server', message: 'PI Web API returned a server error (' + status + ').', check: 'PI Web API logs' };
+            return { code: 'server', message: 'PI Web API returned a server error (' + status + ').' + tail, check: 'PI Web API logs' };
         }
         return {
             code: 'http-' + status,
-            message: 'PI Web API returned HTTP ' + status + (err ? ' — ' + err : ''),
+            message: 'PI Web API returned HTTP ' + status + (said ? ' \u2014 ' + said : err ? ' \u2014 ' + String(err).slice(0, 200) : ''),
             check: 'request'
         };
     }
+
+    /** The Errors (or Message) PI Web API put in a failure body, as one line; '' when none. */
+    function piErrorText(body) {
+        if (!body || typeof body !== 'string') { return ''; }
+        var j = null;
+        try { j = JSON.parse(body); } catch (e) { return ''; }
+        var list = j && (j.Errors || (j.Message ? [j.Message] : null));
+        if (!list || typeof list.length !== 'number') { return ''; }
+        var out = [];
+        for (var i = 0; i < list.length; i++) { if (list[i]) { out.push(String(list[i])); } }
+        var t = out.join(' ').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+        return t.length > 400 ? t.slice(0, 397) + '...' : t;
+    }
+    api.piErrorText = piErrorText;
 
     api.classifyError = classifyError;
 
@@ -3363,7 +3396,7 @@
                         resolve(parsed);
                         return;
                     }
-                    fail(xhr.status, xhr.responseText && xhr.responseText.slice(0, 200));
+                    fail(xhr.status, xhr.responseText || null);
                 };
                 xhr.onerror = function () { fail(0, null); };
                 xhr.ontimeout = function () {
@@ -4354,7 +4387,10 @@
                             }
                             return out;
                         }, function (e) {
-                            state.note = 'The databases on ' + s.Name + ' could not be listed: ' + afErr(e);
+                            // Every server's reason, not the last: one note
+                            // hid two failing servers on a live system.
+                            state.note = (state.note ? state.note + ' ' : '') +
+                                'The databases on ' + s.Name + ' could not be listed: ' + afErr(e);
                             return [];
                         }));
                     }(servers[i]));
@@ -4369,7 +4405,7 @@
                         }
                         return out;
                     }, function (e) {
-                        state.note = 'PI Data Archive servers could not be listed: ' + afErr(e);
+                        state.note = (state.note ? state.note + ' ' : '') + 'PI Data Archive servers could not be listed: ' + afErr(e);
                         return [];
                     }));
                 }
@@ -4596,7 +4632,10 @@
                 state.sources = list;
                 state.busy = false;
                 if (!list.length) {
-                    state.message = state.message || 'PI Web API lists no AF databases this account can read.';
+                    // With errors below, "none you can read" would send someone to
+                    // AF security when the fault is getting to AF at all.
+                    state.message = state.message || (state.note ? 'No AF database could be listed.'
+                        : 'PI Web API lists no AF databases this account can read.');
                     digest();
                     return;
                 }

@@ -208,6 +208,7 @@ function afSearch(db, query) {
 
 let requests = [];
 let noSearch = false;
+let dbListDown = false;   // PI Web API cannot reach AF as the user: 502 on every database list
 
 function api(req, res, url) {
     const u = new URL(url, 'http://x');
@@ -227,6 +228,9 @@ function api(req, res, url) {
         return o ? send(200, out(o)) : send(404, { Errors: ['Not found: ' + q.get('path')] });
     }
     if (rel === 'assetservers') { return items(all.filter((o) => o.type === 'server')); }
+    if (dbListDown && /^assetservers\/[^/]+\/assetdatabases$/.test(rel)) {
+        return send(502, { Errors: ['Cannot connect to AF server AFSRV.'] });
+    }
     if (rel === 'dataservers') { return items(all.filter((o) => o.type === 'dataserver')); }
     if (rel === 'elements/search') {
         if (noSearch) { return send(404, { Errors: ['No such endpoint'] }); }
@@ -368,6 +372,20 @@ async function pane() {
         const toggle = page.locator('.pvx-cfg-af-toggle');
         check('one Search button per AF path field', await toggle.count() === 2, await toggle.count());
         check('nothing is requested until Search is pressed', !requests.some((r) => /^assetservers/.test(r)), requests);
+
+        // Every database list failing is a fault reaching AF, not an empty
+        // AF: the pane must say why, not "none this account can read".
+        dbListDown = true;
+        await toggle.nth(0).click();
+        await settle();
+        check('when no database list answers, the pane says none could be listed',
+            /No AF database could be listed/.test(await msg()), await msg());
+        check('...names the server, Kerberos delegation, and PI Web API\'s own words',
+            /databases on AFSRV could not be listed/.test(await note()) && /Kerberos delegation/.test(await note()) &&
+            /PI Web API said: Cannot connect to AF server AFSRV/.test(await note()), await note());
+        await toggle.nth(0).click();
+        await settle();
+        dbListDown = false;
 
         await toggle.nth(0).click();
         await settle();

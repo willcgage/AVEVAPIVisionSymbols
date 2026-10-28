@@ -449,6 +449,14 @@ executes, from exactly where a symbol executes, and reports which configuration
 actually works rather than which one should. It reads only — nothing there
 writes to PI.
 
+> **"AF databases" is the test that matters most after sign-in.** The AF
+> server list comes from PI Web API's own Known Servers Table and is answered
+> without contacting AF. Listing a server's databases is the first request that
+> connects to AF as the user. If it fails with 502 on every server, the verdict
+> says *PI Web API answers, but cannot reach AF*: PI Web API's service account
+> needs Kerberos delegation to the AF and Data Archive servers, as PI Vision's
+> application pool already has. No `pvx-config.js` setting can fix that.
+
 > **Watch for a partial pass, not just a failure.**
 > The dangerous result is *anonymous succeeds while credentialed requests fail*.
 > Cross-origin that means either `Access-Control-Allow-Origin` is `*` (browsers
