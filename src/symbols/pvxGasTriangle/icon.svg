@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+    <!-- pvxGasTriangle: a triangle in zones, a trail ending in a point -->
+    <polygon points="256,40 486,438 26,438" fill="#f6b26b" />
+    <polygon points="26,438 256,40 210,120 118,438" fill="#6fa8dc" />
+    <polygon points="486,438 340,186 300,260 410,438" fill="#cc4125" />
+    <polygon points="210,120 300,260 410,438 118,438" fill="#93c47d" />
+    <polygon points="256,40 486,438 26,438" stroke="#4a5562" stroke-width="16" stroke-linejoin="round" />
+    <polyline points="250,170 268,214 282,252 306,300" stroke="#4a5562" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="306" cy="300" r="30" fill="#3b82c4" stroke="#1d2a38" stroke-width="12" />
+</svg>

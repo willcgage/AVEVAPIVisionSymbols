@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxPeriodOverlay — "PVX Period Comparison" for AVEVA PI Vision
  * ----------------------------------------------------------------------------
- * DataShape: TimeSeries (a Single data source)
+ * DataShape: TimeSeries (Multiple data sources: the first is folded in full,
+ * any others draw their current period on the same axis)
  *
  * Folds the display's time range into N equal periods and lays them on ONE
  * relative-time axis: today over yesterday over the day before. The older
@@ -30,6 +31,29 @@
  * The axis is LABELLED DIFFERENTLY in each case (clock time vs elapsed time)
  * because they are genuinely different axes, and one label set would be a lie
  * for the other.
+ *
+ * CHANGE FROM A BASELINE
+ *   'delta' and 'pctdelta' draw every period as its difference from a
+ *   baseline at the same point in the period: the median of the older
+ *   periods, or the period before. "Are we above a normal Tuesday, and by
+ *   how much" is then read off a zero line instead of estimated between two
+ *   traces. The envelope becomes the spread of the older periods around that
+ *   baseline. A slot whose baseline is zero has no percent change and is left
+ *   out, and the footer counts it.
+ *
+ * CALENDAR MONTHS
+ *   Months are not a fixed length, so 'month' folds on calendar boundaries:
+ *   each period starts on the 1st and the axis is the day of the month, 31
+ *   days long, with shorter months simply ending early. Months are always
+ *   clock aligned; a month counted back from "now" is not a month.
+ *
+ * SEVERAL TAGS
+ *   The first source is folded in full: its periods, envelope and statistics.
+ *   Each further source draws its CURRENT period on the same axis in its own
+ *   colour, so a pump's flow and its sister pump's flow can be read against
+ *   one history. Tags in different units belong on % change, where each is
+ *   measured from its own baseline. (Until this was added the symbol took one
+ *   source; a display saved then has one and draws exactly as before.)
  *
  * Everything inside `.pvx-po-body` is one imperative SVG. Only the header
  * title, the period caption, the footer note and the quality badge are Angular
@@ -66,7 +90,7 @@
     var definition = {
         typeName: 'pvxPeriodOverlay',
         displayName: 'PVX Period Comparison',
-        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Single,
+        datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
         supportsCollections: true,
         configTitle: 'Format Period Comparison',
@@ -86,12 +110,16 @@
                 ShowLabel: true,
 
                 // Folding
-                PeriodMode: 'auto',          // auto | hour | shift | day | week | custom
+                PeriodMode: 'auto',          // auto | hour | shift | day | week | month | custom
                 ShiftHours: 8,
                 ShiftStartHour: 6,
                 CustomPeriodHours: 24,
                 AlignTo: 'clock',            // clock | windowEnd
                 MaxPeriods: 8,
+
+                // What is drawn
+                ShowAs: 'values',            // values | delta | pctdelta
+                Baseline: 'median',          // median (of the older periods) | previous
 
                 // Traces
                 CurrentStyle: 'bold',        // bold | same
@@ -134,8 +162,8 @@
          * period length and the alignment change what the periods ARE, not
          * merely how they are drawn. Reused across resize renders. */
         var model = {
-            series: null,       // the one series we chart
-            extra: 0,           // sources beyond the first (Single, but be safe)
+            series: null,       // the series folded in full
+            others: [],         // [{series, fold}] further sources, current period only
             points: [],         // its samples, time ordered
             windowStart: 0,
             windowEnd: 0,
@@ -156,10 +184,8 @@
 
             onData: function (d) {
                 var list = PVX.data.series(d) || [];
-                // Single behaviour, but a collection or a stale display can
-                // still deliver more than one; chart the first and say so.
                 model.series = list.length ? list[0] : null;
-                model.extra = Math.max(0, list.length - 1);
+                model.list = list;
                 model.points = model.series ? (model.series.points || []) : [];
                 fold(ctx.config || scope.config || {});
             },
@@ -200,6 +226,8 @@
                 P = PVX.util.clamp(PVX.util.num(cfg.ShiftHours) || 8, 0.25, 168) * HOUR;
             } else if (kind === 'custom') {
                 P = PVX.util.clamp(PVX.util.num(cfg.CustomPeriodHours) || 24, 0.25, 8760) * HOUR;
+            } else if (kind === 'month') {
+                P = 31 * DAY;       // the longest month; shorter ones end early
             } else {
                 kind = 'day';
                 P = DAY;
@@ -242,8 +270,17 @@
             return anchor + Math.floor((t - anchor) / P) * P;
         }
 
+        /** First instant of the local calendar month containing t. */
+        function monthStart(t) {
+            var d = new Date(t);
+            d.setDate(1);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime();
+        }
+
         /** Human name for a period length — "1 day", "8 h", "1 week". */
         function periodName(P) {
+            if (model.kind === 'month') { return '1 month'; }
             if (P === WEEK) { return '1 week'; }
             if (P % DAY === 0) {
                 var d = P / DAY;
@@ -267,12 +304,21 @@
             model.dropped = 0;
             model.gaps = 0;
             model.tooShort = false;
+            model.others = [];
 
             var pts = model.points;
             if (!pts.length) { return; }
 
-            model.windowStart = pts[0].t;
-            model.windowEnd = pts[pts.length - 1].t;
+            // Every source shares the window, so "current" is the same
+            // period for all of them even when one has gone quiet.
+            var wStart = pts[0].t, wEnd = pts[pts.length - 1].t, i;
+            var list = model.list || [];
+            for (i = 1; i < list.length; i++) {
+                var lp = list[i].points || [];
+                if (lp.length) { wStart = Math.min(wStart, lp[0].t); wEnd = Math.max(wEnd, lp[lp.length - 1].t); }
+            }
+            model.windowStart = wStart;
+            model.windowEnd = wEnd;
             var span = model.windowEnd - model.windowStart;
             if (!(span > 0)) { span = 1; }
             model.span = span;
@@ -282,33 +328,58 @@
             model.P = P;
             model.kind = per.kind;
             model.autoKind = per.auto;
-            model.align = (cfg.AlignTo === 'windowEnd') ? 'windowEnd' : 'clock';
-            model.tooShort = span < P;
+            model.align = (cfg.AlignTo === 'windowEnd' && per.kind !== 'month') ? 'windowEnd' : 'clock';
+            model.tooShort = span < (per.kind === 'month' ? 28 * DAY : P);
 
             /* Period 0 starts here. In windowEnd mode that is exactly one period
              * back from the last sample, so period 0 ENDS at "now"; in clock
              * mode it is the last real boundary, so period 0 is the one still in
              * progress and its trace stops part way across the axis. */
-            var newestStart = (model.align === 'windowEnd')
+            var newestStart = per.kind === 'month' ? monthStart(model.windowEnd)
+                : (model.align === 'windowEnd')
                 ? (model.windowEnd - P)
                 : clockBoundary(model.windowEnd, cfg, P, per.kind);
             model.newestStart = newestStart;
 
+            var f = foldPoints(cfg, pts, newestStart, P, per.kind);
+            model.periods = f.periods;
+            model.dropped = f.dropped;
+            model.gaps = f.gaps;
+            for (i = 1; i < list.length; i++) {
+                model.others.push({ series: list[i], fold: foldPoints(cfg, list[i].points || [], newestStart, P, per.kind) });
+            }
+        }
+
+        /** Which period a sample is in, and where that period starts. */
+        function periodOf(t, newestStart, P, kind) {
+            if (kind === 'month') {
+                var ms = monthStart(t);
+                var a = new Date(ms), b = new Date(newestStart);
+                var k = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+                return k < 0 ? { k: 0, start: newestStart } : { k: k, start: ms };
+            }
+            // ceil() puts a sample landing exactly on a boundary at the
+            // START of the newer period, matching how a boundary reads.
+            var kk = Math.ceil((newestStart - t) / P);
+            if (kk < 0) { kk = 0; }
+            return { k: kk, start: newestStart - kk * P };
+        }
+
+        function foldPoints(cfg, pts, newestStart, P, kind) {
+            var out = { periods: [], dropped: 0, gaps: 0 };
             var byIndex = {};
             var maxK = 0;
             var i, k, rel, bucket;
             for (i = 0; i < pts.length; i++) {
-                // ceil() puts a sample landing exactly on a boundary at the
-                // START of the newer period, matching how a boundary reads.
-                k = Math.ceil((newestStart - pts[i].t) / P);
-                if (k < 0) { k = 0; }
-                rel = pts[i].t - (newestStart - k * P);
+                var po = periodOf(pts[i].t, newestStart, P, kind);
+                k = po.k;
+                rel = pts[i].t - po.start;
                 // Float error at a boundary can push rel a hair outside [0,P].
                 if (rel < 0) { rel = 0; }
                 if (rel > P) { rel = P; }
                 bucket = byIndex[k];
                 if (!bucket) {
-                    bucket = byIndex[k] = { k: k, start: newestStart - k * P, pts: [] };
+                    bucket = byIndex[k] = { k: k, start: po.start, pts: [] };
                     if (k > maxK) { maxK = k; }
                 }
                 bucket.pts.push({ t: pts[i].t, v: pts[i].v, rel: rel });
@@ -321,18 +392,19 @@
                 if (!bucket) {
                     // A period inside the range with no samples at all — a gap
                     // in the tag, or a window that does not really cover it.
-                    if (k < cap) { model.gaps += 1; }
+                    if (k < cap) { out.gaps += 1; }
                     continue;
                 }
-                if (model.periods.length >= cap) { model.dropped += 1; continue; }
+                if (out.periods.length >= cap) { out.dropped += 1; continue; }
                 bucket.pts.sort(function (a, b) { return a.rel - b.rel; });
                 bucket.minRel = bucket.pts[0].rel;
                 bucket.maxRel = bucket.pts[bucket.pts.length - 1].rel;
                 // "Partial" drives the footer, not the drawing: a period that
                 // only half covers the axis is still honest to overlay.
                 bucket.partial = (bucket.maxRel - bucket.minRel) < P * 0.9;
-                model.periods.push(bucket);
+                out.periods.push(bucket);
             }
+            return out;
         }
 
         /* ================================================================== *
@@ -531,6 +603,7 @@
 
         /** Wall-clock label — the clock-aligned axis. */
         function clockLabel(rel, P, newestStart) {
+            if (model.kind === 'month') { return 'day ' + (Math.floor(rel / DAY) + 1); }
             var d = new Date(newestStart + rel);
             // Past a couple of days the interesting coordinate is the day, not
             // the hour: on a weekly fold "Mon" says far more than "00:00".
@@ -548,6 +621,7 @@
 
         function axisTitleText() {
             if (model.align === 'windowEnd') { return 'Elapsed into period'; }
+            if (model.kind === 'month') { return 'Day of month'; }
             if (model.P >= 2 * DAY) { return 'Day of week'; }
             return 'Time of day';
         }
@@ -555,6 +629,7 @@
         /** "-1 day", "-3 h" — how far back this period sits. */
         function offsetLabel(k, P) {
             if (k === 0) { return 'current'; }
+            if (model.kind === 'month') { return '-' + k + ' month' + (k === 1 ? '' : 's'); }
             var name, n;
             if (P === WEEK) { name = 'week'; n = k; }
             else if (P % DAY === 0) { name = 'day'; n = k * (P / DAY); }
@@ -567,6 +642,10 @@
         /** The period's own date, which is what people actually say out loud. */
         function dateLabel(start, P) {
             var d = new Date(start);
+            if (model.kind === 'month') {
+                return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] +
+                    ' ' + d.getFullYear();
+            }
             var day = WEEKDAYS[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate();
             if (P >= DAY) { return day; }
             return day + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
@@ -763,6 +842,21 @@
                 buckets.push(bucketize(periods[i], P, G));
             }
 
+            // Further sources: their current period on the same grid, each
+            // measured from its own baseline when change is shown.
+            var showAs = cfg.ShowAs === 'delta' || cfg.ShowAs === 'pctdelta' ? cfg.ShowAs : 'values';
+            var noBase = 0;
+            var others = [];
+            for (i = 0; i < model.others.length; i++) {
+                var ofd = model.others[i].fold;
+                var ob = [];
+                for (k = 0; k < ofd.periods.length; k++) { ob.push(bucketize(ofd.periods[k], P, G)); }
+                if (showAs !== 'values') { noBase += toChange(ob, ofd.periods, G, cfg, showAs).missing; }
+                others.push({ series: model.others[i].series,
+                              cur: ofd.periods.length && ofd.periods[0].k === 0 ? ob[0] : null });
+            }
+            if (showAs !== 'values') { noBase += toChange(buckets, periods, G, cfg, showAs).missing; }
+
             // ---- envelope ---------------------------------------------------------
             var envMode = cfg.EnvelopeMode || 'minmax';
             var lowP = PVX.util.clamp(PVX.util.num(cfg.EnvelopeLowP), 0, 1);
@@ -781,7 +875,8 @@
 
             // ---- value domain -------------------------------------------------------
             var tickCount = PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 10);
-            var domain = valueDomain(cfg, buckets, env, tickCount);
+            var domain = valueDomain(cfg, buckets.concat(others.map(function (o) { return o.cur || []; })), env, tickCount,
+                showAs !== 'values');
             var vTicks = PVX.scale.ticks(domain[0], domain[1], tickCount);
 
             // ---- margins from the actual tick strings --------------------------------
@@ -791,8 +886,9 @@
                     vLabelW = Math.max(vLabelW, PVX.fmt.tick(vTicks[k]).length * tickFont * CHAR_W);
                 }
             }
-            var units = model.series.units || '';
-            var axisTitle = showAxisTitle ? (units ? 'Value (' + units + ')' : 'Value') : '';
+            var units = showAs === 'pctdelta' ? '%' : (model.series.units || '');
+            var axisTitle = !showAxisTitle ? '' : showAs === 'values' ? (units ? 'Value (' + units + ')' : 'Value') :
+                'Change' + (units ? ' (' + units + ')' : '');
             var xTitle = showAxisTitle ? axisTitleText() : '';
             var legendH = showLegend ? (tickFont + 7) : 0;
 
@@ -853,6 +949,14 @@
             var envOp = PVX.util.num(cfg.EnvelopeOpacity);
             envOp = (envOp === null) ? 0.18 : PVX.util.clamp(envOp, 0, 1);
 
+            // In change mode zero IS the baseline, and the line to read from.
+            if (showAs !== 'values' && domain[0] < 0 && domain[1] > 0) {
+                PVX.svg.el('line', {
+                    x1: plot.x.toFixed(2), y1: sy(0).toFixed(2), x2: plot.x1.toFixed(2), y2: sy(0).toFixed(2),
+                    stroke: t.axis, 'stroke-width': 1.2, 'class': 'pvx-po-zero'
+                }, plotG);
+            }
+
             // ---- envelope, first and underneath everything ---------------------------------
             if (wantEnvelope && envOp > 0) {
                 drawEnvelope(plotG, env, G, P, sx, sy, envColor, envOp, smooth, maxGapSlots);
@@ -907,6 +1011,24 @@
                 }
             }
 
+            // ---- further sources: current period only, own colour ----------------------------
+            var otherPal = olderPalette(cfg.CurrentColor || cfg.AccentColor || '#3b82c4', t);
+            for (i = 0; i < others.length; i++) {
+                others[i].color = otherPal[i % otherPal.length];
+                if (!others[i].cur) { continue; }
+                var osegs = segmentsOf(others[i].cur, P, G, breakGap);
+                var og = PVX.svg.el('g', { 'class': 'pvx-po-other' }, plotG);
+                for (k = 0; k < osegs.length; k++) {
+                    var oxy = toXY(osegs[k], sx, sy);
+                    if (oxy.length < 2) { continue; }
+                    PVX.svg.el('path', {
+                        d: PVX.svg.line(oxy, smooth), fill: 'none', stroke: others[i].color,
+                        'stroke-width': (lineW * 1.4).toFixed(2), 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+                        'vector-effect': 'non-scaling-stroke', 'class': 'pvx-po-line'
+                    }, og);
+                }
+            }
+
             // ---- axes -------------------------------------------------------------------------
             PVX.svg.el('line', {
                 x1: plot.x.toFixed(2), y1: plot.y1.toFixed(2),
@@ -954,7 +1076,7 @@
             // ---- legend ----------------------------------------------------------------------------
             if (showLegend) {
                 drawLegend(svgRoot, cfg, t, plot, tickFont, periods, olderCount,
-                    wantEnvelope, wantMedian, envColor, envOp, envMode, lowP, highP);
+                    wantEnvelope, wantMedian, envColor, envOp, envMode, lowP, highP, others);
             }
 
             // ---- statistics --------------------------------------------------------------------------
@@ -999,9 +1121,16 @@
             if (model.gaps) {
                 notes.push(model.gaps + ' period' + (model.gaps === 1 ? '' : 's') + ' had no samples');
             }
-            if (model.extra) {
-                notes.push(model.extra + ' extra source' + (model.extra === 1 ? '' : 's') +
-                    ' ignored — this symbol folds one tag');
+            if (showAs !== 'values') {
+                notes.unshift((showAs === 'pctdelta' ? '% change' : 'change') + ' from ' +
+                    (cfg.Baseline === 'previous' ? 'the period before' : 'the median of the older periods'));
+            }
+            if (noBase) {
+                notes.push(noBase + ' slot' + (noBase === 1 ? '' : 's') + ' with no baseline' +
+                    (showAs === 'pctdelta' ? ' or a zero one' : '') + ' left out');
+            }
+            for (i = 0; i < others.length; i++) {
+                if (!others[i].cur) { notes.push((others[i].series.label || 'source ' + (i + 2)) + ' has no current period'); }
             }
             scope.pvx.note = (rootW >= 240 && rootH >= 150) ? notes.join(' · ') : '';
 
@@ -1009,10 +1138,53 @@
         }
 
         /* ================================================================== *
+         * change from a baseline
+         * ================================================================== */
+
+        /**
+         * Rewrite each period's slots as their change from the baseline at the
+         * same slot, in place. Percent change divides by the baseline's size,
+         * which keeps the order of min and max, so the slot's extremes stay
+         * its extremes. Returns how many slots had no baseline to measure from.
+         */
+        function toChange(buckets, periods, G, cfg, showAs) {
+            var base = [], i, j, missing = 0;
+            var prevIdx = -1;
+            for (j = 1; j < periods.length; j++) { if (periods[j].k >= 1) { prevIdx = j; break; } }
+            for (i = 0; i < G; i++) {
+                if (cfg.Baseline === 'previous') {
+                    base.push(prevIdx > 0 && buckets[prevIdx][i] ? buckets[prevIdx][i].mean : null);
+                    continue;
+                }
+                var means = [];
+                for (j = 1; j < buckets.length; j++) { if (buckets[j][i]) { means.push(buckets[j][i].mean); } }
+                base.push(means.length ? PVX.stats.percentile(means, 0.5) : null);
+            }
+            for (j = 0; j < buckets.length; j++) {
+                for (i = 0; i < G; i++) {
+                    var b = buckets[j][i];
+                    if (!b) { continue; }
+                    var bv = base[i];
+                    if (bv === null || (showAs === 'pctdelta' && Math.abs(bv) < 1e-12)) {
+                        buckets[j][i] = null;
+                        if (j === 0) { missing += 1; }
+                        continue;
+                    }
+                    var f = showAs === 'pctdelta' ? 100 / Math.abs(bv) : 1;
+                    b.min = (b.min - bv) * f;
+                    b.max = (b.max - bv) * f;
+                    b.mean = (b.mean - bv) * f;
+                    b.sum = b.mean * b.n;
+                }
+            }
+            return { missing: missing };
+        }
+
+        /* ================================================================== *
          * domain and ticks
          * ================================================================== */
 
-        function valueDomain(cfg, buckets, env, tickCount) {
+        function valueDomain(cfg, buckets, env, tickCount, withZero) {
             var lo = null, hi = null, i, k;
             var take = function (v) {
                 if (!PVX.util.isNum(v)) { return; }
@@ -1036,6 +1208,7 @@
                 }
             }
             if (lo === null) { return [0, 1]; }
+            if (withZero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
 
             var d = PVX.scale.niceDomain(lo, hi, tickCount);
             if (cfg.YScaleMode === 'fixed') {
@@ -1181,7 +1354,7 @@
          * does have its own hue, so every period gets an entry.
          */
         function drawLegend(parent, cfg, t, plot, font, periods, olderCount,
-                            wantEnvelope, wantMedian, envColor, envOp, envMode, lowP, highP) {
+                            wantEnvelope, wantMedian, envColor, envOp, envMode, lowP, highP, others) {
             var items = [], i;
             var current = cfg.CurrentColor || cfg.AccentColor || '#3b82c4';
 
@@ -1208,6 +1381,14 @@
             }
             if (wantMedian) {
                 items.push({ label: 'median', color: envColor, dashed: true });
+            }
+            // With several tags the first one's entries need its name, or
+            // "current" could be anyone's.
+            if (others && others.length) {
+                items[0].label = (model.series.label || 'source 1') + ', ' + items[0].label;
+                for (i = 0; i < others.length; i++) {
+                    items.push({ label: others[i].series.label || 'source ' + (i + 2), color: others[i].color, opacity: 1 });
+                }
             }
 
             var y = Math.max(font * 0.8, plot.y - font * 0.9);

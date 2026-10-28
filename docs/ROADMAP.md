@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **38 symbols**.
+> [After the plan](#after-the-plan). The library is at **40 symbols**.
 
 ## On originality
 
@@ -509,9 +509,17 @@ Done so far, in order:
 | 8 | pvxComboChart | AF event frames shaded behind the traces, named along the top, coloured by template; a click can show the event. Off by default. |
 | 9 | pvxAssetTree | A flat list and a drop-down layout beside the tree, and an attribute's value on every row with a dot coloured by threshold bands or digital state. |
 | 10 | Settings kept in AF | `PVX.af` reads AF limit traits and string attributes. The Control Chart can take its control limits (Hi/Lo, Target as centre) and its spec (LoLo/HiHi) from the charted attribute's traits; the KPI Card's plan can be the attribute's Target; the Navigation Panel's buttons can come from one AF string attribute shared by every display. Each re-reads once a minute and names what is missing. |
+| 11 | **pvxGasTriangle**, new | Duval's Triangle 1 from IEC 60599 for dissolved gas analysis: methane, ethylene and acetylene as shares of their total, plotted in the seven fault zones with a fading trail over the time range and the zone named in the footer. Gases are matched to sources by name; a minimum total withholds the diagnosis when the levels are too low to mean anything. The zone rules are tested against the drawn outlines at 20,100 points. |
 
-The rest of the order is in the comparison document; next is the Duval
-triangle (`pvxGasTriangle`).
+| 12 | pvxKpiCard | A typed target beside data source 2 and AF; a tolerance within which the change reads On target with no arrow; progress toward the plan as a bar or ring, measured from a chosen zero; time-weighted average, total over time for a rate, standard deviation and percent good as headline or footer statistics; the timestamp as a date, a time with seconds, or an age. |
+
+| 13 | pvxRadialGauge, pvxBarIndicator, **pvxMultiGauge**, new | Both gauges can dim every band but the value's, put major ticks and labels on the band limits, draw minor ticks and run the scale the other way; the bar adds a thermometer style. Several pointers on one scale is a new symbol rather than an option: the two gauges keep PI Vision's Gauge data shape, single-source, which is what lets them follow the scale PI Vision derives from an attribute, and changing that would put every saved gauge at risk. PVX Multi-Pointer Gauge takes several sources on the Table shape the library's other multi-source symbols already use, as needles, markers or rings on a dial or markers or bars on a bar. |
+
+| 14 | pvxPeriodOverlay | Each period as its change, or percent change, from a baseline at the same point in the period (the median of the older periods, or the period before), around a zero line; calendar months as a period, on a day-of-month axis; and further data sources, each drawing its current period on the same axis in its own colour, against its own baseline when change is shown. The symbol took one source until now; a display saved with one draws as before. |
+
+The rest of the order is in the comparison document; next is a new
+`pvxHistoryTable` (a row per time, interpolated or summarised, totals,
+grouping by time, threshold colours, CSV).
 
 ## What next
 

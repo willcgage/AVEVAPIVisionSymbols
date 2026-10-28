@@ -18,7 +18,22 @@
  *
  *   Or the plan is the KPI attribute's own Target trait in AF (PlanFrom
  *   'af'), read through PVX.af once a minute: one place to change a target
- *   that a dozen cards compare against.
+ *   that a dozen cards compare against. Or it is a number typed in the pane
+ *   (PlanFrom 'fixed'), for a target nobody keeps anywhere else.
+ *
+ * TOLERANCE AND PROGRESS
+ *   "On plan" is rarely exact equality. Within the tolerance the change reads
+ *   as on target, in the good colour with no arrow, rather than a red 0.3%
+ *   that sends someone to look at nothing. The progress bar or ring shows
+ *   the headline as a share of the target, measured from a chosen zero, and
+ *   is coloured by whether the target is met in the good direction.
+ *
+ * SUMMARY TYPES
+ *   'sum' adds the samples, which only means something for counts. 'total'
+ *   integrates a rate over time (a flow in t/h totals in t), and 'twavg'
+ *   weights each value by how long it held, which is what an average of
+ *   compressed or plot values needs: they crowd into the changes. Both use
+ *   the trapezoid between samples, as PI does for a continuous tag.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -44,7 +59,8 @@
                 Width: 240,
 
                 Title: '',                  // blank => use the attribute label
-                Statistic: 'last',          // last | avg | min | max | first | range | sum
+                Statistic: 'last',          // last | avg | twavg | min | max | first | range | sum | total | stdev | count | pctgood
+                TotalPer: 'h',              // the rate's time unit for 'total': s | min | h | d
                 ShowSparkline: true,
                 SparkStyle: 'area',         // area | line | bars
                 SparkHeightPct: 38,
@@ -52,7 +68,11 @@
 
                 ShowDelta: true,
                 DeltaBasis: 'window',       // window | plan (plan = data source 2)
-                PlanFrom: 'source',         // source (data source 2) | af (the KPI's Target trait)
+                PlanFrom: 'source',         // source (data source 2) | af (the KPI's Target trait) | fixed
+                TargetValue: '',            // PlanFrom 'fixed'
+                TargetTolerance: '',        // blank, an amount, or a percent ("2%") either side of the plan
+                ProgressStyle: 'none',      // none | bar | ring: the headline as a share of the plan
+                ProgressZero: 0,            // where the progress starts
                 DeltaMode: 'percent',       // percent | absolute | both
                 DeltaLookback: 0.25,        // fraction of the window used as the baseline
                 DeltaGoodDirection: 'up',   // up | down | none
@@ -76,6 +96,7 @@
                 Align: 'left',              // left | center
                 ShowUnits: true,
                 ShowTime: false,
+                TimeFormat: 'short',        // short | datetime | relative
                 CornerRadius: 6
             });
         }
@@ -99,6 +120,7 @@
             valueColor: '',
             edgeColor: '',
             note: '',
+            progress: null,
             align: 'left'
         };
 
@@ -107,6 +129,7 @@
         var sourcePlan = null;
         var sourceCount = 0;
         var extraSources = 0;
+        var quality = null;         // {good, all} samples of the KPI, bad ones included
 
         var traits = PVX.af.watcher(function () { if (ctx && !ctx.destroyed) { ctx.render(); } });
 
@@ -115,6 +138,18 @@
 
             onData: function (d) {
                 var all = PVX.data.series(d);
+                // series() drops what is not a number; the share that was
+                // good needs them counted, so ask the raw samples too.
+                var raw = PVX.data.stateSeries(d);
+                quality = null;
+                if (raw.length) {
+                    var good = 0;
+                    for (var q = 0; q < raw[0].points.length; q++) {
+                        var rp = raw[0].points[q];
+                        if (rp.good !== false && rp.v !== null) { good++; }
+                    }
+                    quality = { good: good, all: raw[0].points.length };
+                }
                 series = all.length ? all[0] : null;
                 sourcePlan = all.length > 1 ? all[1] : null;
                 sourceCount = all.length;
@@ -136,6 +171,13 @@
 
         /** The plan in force: data source 2, or the Target trait as one level. */
         function resolvePlan(cfg) {
+            var pts0 = series && series.points.length ? series.points : null;
+            if (cfg.PlanFrom === 'fixed') {
+                extraSources = Math.max(0, sourceCount - 1);
+                var fv = PVX.util.num(cfg.TargetValue);
+                plan = fv === null ? null : { points: [{ t: pts0 ? pts0[pts0.length - 1].t : 0, v: fv }], fixed: true };
+                return;
+            }
             if (!fromAf(cfg)) {
                 plan = sourcePlan;
                 extraSources = Math.max(0, sourceCount - 2);
@@ -147,8 +189,34 @@
             plan = tv === null || !pts ? null : { points: [{ t: pts[pts.length - 1].t, v: tv }] };
         }
 
+        var PER_MS = { s: 1000, min: 60000, h: 3600000, d: 86400000 };
+
+        /** Trapezoid integral of the points, in value x milliseconds, and its span. */
+        function integral(points) {
+            var area = 0, span = 0;
+            for (var i = 0; i + 1 < points.length; i++) {
+                var dt = points[i + 1].t - points[i].t;
+                if (!(dt > 0)) { continue; }
+                area += (points[i].v + points[i + 1].v) / 2 * dt;
+                span += dt;
+            }
+            return { area: area, span: span };
+        }
+
         function statValue(stats, key, points) {
+            var cfg = ctx && ctx.config ? ctx.config : (scope.config || {});
             switch (key) {
+                case 'twavg':
+                    if (!points || !points.length) { return null; }
+                    var ig = integral(points);
+                    return ig.span > 0 ? ig.area / ig.span : stats.avg;
+                case 'total':
+                    if (!points || points.length < 2) { return null; }
+                    return integral(points).area / (PER_MS[cfg.TotalPer] || PER_MS.h);
+                case 'stdev':
+                    return PVX.stats.stddev(points.map(function (p) { return p.v; }));
+                case 'pctgood':
+                    return quality && quality.all ? 100 * quality.good / quality.all : null;
                 case 'avg': return stats.avg;
                 case 'min': return stats.min;
                 case 'max': return stats.max;
@@ -162,8 +230,8 @@
         }
 
         var STAT_LABEL = {
-            last: 'Last', avg: 'Avg', min: 'Min', max: 'Max',
-            first: 'First', range: 'Range', sum: 'Sum', count: 'Count', plan: 'Plan'
+            last: 'Last', avg: 'Avg', twavg: 'Avg', min: 'Min', max: 'Max', first: 'First', range: 'Range',
+            sum: 'Sum', total: 'Total', stdev: 'Std dev', count: 'Count', pctgood: 'Good', plan: 'Plan'
         };
 
         /**
@@ -174,6 +242,11 @@
          */
         function planValue(cfg) {
             if (!plan || !plan.points.length) { return null; }
+            // A target is a level: the total, spread or quality of one
+            // point says nothing, so those compare with the level itself.
+            if (plan.points.length === 1 && /^(total|stdev|count|pctgood|twavg)$/.test(cfg.Statistic)) {
+                return plan.points[0].v;
+            }
             var v = statValue(PVX.data.stats(plan.points), cfg.Statistic, plan.points);
             return v === undefined ? null : v;
         }
@@ -207,12 +280,17 @@
             scope.pvx.error = (series && !series.good) ? (series.errorDescription || 'Bad data') : '';
 
             var last = points.length ? points[points.length - 1] : null;
-            scope.pvx.time = (cfg.ShowTime && last) ? PVX.fmt.time(last.date || last.time, 'short') : '';
+            var tf = cfg.TimeFormat === 'datetime' || cfg.TimeFormat === 'relative' ? cfg.TimeFormat : 'short';
+            scope.pvx.time = (cfg.ShowTime && last) ? PVX.fmt.time(last.date || last.time, tf) : '';
 
             var headline = statValue(stats, cfg.Statistic, points);
             scope.pvx.value = headline === null || headline === undefined
                 ? '--'
                 : PVX.fmt.number(headline, PVX.config.numberOpts(cfg));
+            if (cfg.Statistic === 'pctgood' && cfg.ShowUnits) { scope.pvx.units = '% good'; }
+            else if (cfg.Statistic === 'total' && cfg.ShowUnits && series && series.units) {
+                scope.pvx.units = totalUnits(series.units, cfg.TotalPer);
+            }
 
             // ---- value colour ------------------------------------------------
             if (scope.MultistateColor) {
@@ -244,6 +322,8 @@
             if (fromAf(cfg) && !plan) {
                 notes.push(traits.phase === 'error' ? 'Target from AF: ' + traits.error
                     : traits.phase === 'ok' ? 'No Target trait on this attribute in AF' : 'Reading the target from AF');
+            } else if (cfg.PlanFrom === 'fixed' && !plan && (vsPlan || progressOn(cfg))) {
+                notes.push('No target value set: open Format and type one');
             } else if (vsPlan && !plan) { notes.push('No plan source: add the plan as data source 2'); }
             else if (vsPlan && target === null) { notes.push('Plan has no value in this time range'); }
             if (extraSources) {
@@ -254,8 +334,15 @@
             var delta = !cfg.ShowDelta ? null
                 : vsPlan ? planDelta(headline, target)
                 : PVX.stats.delta(points, PVX.util.num(cfg.DeltaLookback) || 0.25);
+            var tol = vsPlan ? tolerance(cfg, target) : null;
+            var onTarget = !!(delta && tol !== null && Math.abs(delta.absolute) <= tol);
             scope.pvx.showDelta = !!delta;
-            if (delta) {
+            if (delta && onTarget) {
+                var tPct = delta.percent === null ? '' : ' (' + (delta.percent >= 0 ? '+' : '') + delta.percent.toFixed(1) + '%)';
+                scope.pvx.deltaText = 'On target' + (cfg.DeltaMode === 'absolute' ? '' : tPct);
+                scope.pvx.deltaArrow = '\u25cf';
+                scope.pvx.deltaColor = cfg.DeltaGoodDirection === 'none' ? t.textMuted : (cfg.GoodColor || '#2f9e5f');
+            } else if (delta) {
                 var pctText = delta.percent === null ? '--' : (delta.percent >= 0 ? '+' : '') + delta.percent.toFixed(1) + '%';
                 var absText = (delta.absolute >= 0 ? '+' : '') + PVX.fmt.number(delta.absolute, PVX.config.numberOpts(cfg));
                 scope.pvx.deltaText =
@@ -272,6 +359,12 @@
                     var isGood = (good === 'up' && delta.direction > 0) || (good === 'down' && delta.direction < 0);
                     scope.pvx.deltaColor = isGood ? (cfg.GoodColor || '#2f9e5f') : (cfg.BadColor || '#c8452f');
                 }
+            }
+
+            // ---- progress ------------------------------------------------------
+            scope.pvx.progress = progressOn(cfg) ? progress(cfg, t, headline, target) : null;
+            if (progressOn(cfg) && !scope.pvx.progress && target === null && !scope.pvx.note) {
+                scope.pvx.note = 'Progress needs a plan or target';
             }
 
             // ---- secondary stats ---------------------------------------------
@@ -293,6 +386,57 @@
             if (!scope.$$phase && scope.$root && !scope.$root.$$phase) {
                 try { scope.$digest(); } catch (e) { /* already digesting */ }
             }
+        }
+
+        function progressOn(cfg) { return cfg.ProgressStyle === 'bar' || cfg.ProgressStyle === 'ring'; }
+
+        /** The tolerance either side of the plan, in the KPI's units, or null. */
+        function tolerance(cfg, target) {
+            var raw = String(cfg.TargetTolerance === undefined || cfg.TargetTolerance === null ? '' : cfg.TargetTolerance).trim();
+            if (!raw || target === null) { return null; }
+            var pct = /%$/.test(raw);
+            var n = PVX.util.num(pct ? raw.slice(0, -1) : raw);
+            if (n === null || n < 0) { return null; }
+            return pct ? Math.abs(target) * n / 100 : n;
+        }
+
+        /**
+         * The headline as a share of the way from ProgressZero to the plan.
+         * Met means reaching the plan in the good direction (or within the
+         * tolerance of it); with no good direction the bar keeps the accent.
+         */
+        function progress(cfg, t, headline, target) {
+            if (headline === null || headline === undefined || target === null) { return null; }
+            var zero = PVX.util.num(cfg.ProgressZero);
+            if (zero === null) { zero = 0; }
+            if (Math.abs(target - zero) < 1e-12) { return null; }
+            var share = (headline - zero) / (target - zero) * 100;
+            var tol = tolerance(cfg, target) || 0;
+            var dir = cfg.DeltaGoodDirection;
+            var met = dir === 'down' ? headline <= target + tol : headline >= target - tol;
+            var color = dir === 'none' ? (cfg.AccentColor || '#3b82c4') :
+                met ? (cfg.GoodColor || '#2f9e5f') : (cfg.BadColor || '#c8452f');
+            var fill = PVX.util.clamp(share, 0, 100);
+            return {
+                style: cfg.ProgressStyle,
+                fill: fill.toFixed(1),
+                // r = 15.915 makes the ring's circumference 100, so the
+                // dash length is the percentage itself.
+                dash: fill.toFixed(1) + ' 100',
+                text: Math.round(share) + '%',
+                title: Math.round(share) + '% of ' + (plan && plan.fixed ? 'the target' : 'plan') + ' (' +
+                    PVX.fmt.number(target, PVX.config.numberOpts(cfg)) + ')' +
+                    (zero ? ', counted from ' + PVX.fmt.number(zero, PVX.config.numberOpts(cfg)) : ''),
+                color: color
+            };
+        }
+
+        /** "t/h" totalled per hour is "t"; anything else gets "x h" spelled out. */
+        function totalUnits(units, per) {
+            var p = per && PER_MS[per] ? per : 'h';
+            var m = new RegExp('^(.*?)\\s*/\\s*' + (p === 'min' ? 'min' : p) + '$', 'i').exec(units);
+            if (m && m[1]) { return m[1]; }
+            return units + '\u00b7' + p;
         }
 
         /** Push theme tokens onto the element as CSS custom properties. */

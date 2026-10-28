@@ -351,6 +351,36 @@
             return { Data: sData };
         }
 
+        // A Duval triangle on three sines lands anywhere. This is a unit
+        // with a thermal fault that is getting hotter and starting to arc:
+        // methane falls, ethylene and acetylene rise, so the trail runs from
+        // T2 through T3's edge into DT. Readings are a few hours apart, as an
+        // online DGA monitor reports, not every plot interval.
+        if (shape === 'TimeSeries' && opts.profile === 'dga') {
+            var gData = [], gas = [[], [], []];
+            var every = Math.max(1, Math.round(points / 30));
+            for (var gp = 0; gp < points; gp += every) {
+                var gtm = now - span + (span * gp) / (points - 1);
+                var gf = gp / (points - 1);
+                var wob = (rand() - 0.5) * 6;
+                gas[0].push({ Time: new Date(gtm).toISOString(), Value: round(120 - 60 * gf + wob, 1) });
+                gas[1].push({ Time: new Date(gtm).toISOString(), Value: round(80 + 60 * gf + wob, 1) });
+                gas[2].push({ Time: new Date(gtm).toISOString(), Value: round(Math.max(0, 1 + 40 * gf * gf + wob * 0.3), 1) });
+            }
+            var gNames = ['Methane (CH4)', 'Ethylene (C2H4)', 'Acetylene (C2H2)'];
+            for (var gx = 0; gx < count; gx++) {
+                if (gx < 3) {
+                    gData.push({ Label: 'T-101 ' + gNames[gx], Units: 'ppm', Path: '\\\\AF\\T-101|' + gNames[gx],
+                        IsGood: opts.badIndex === gx ? false : true,
+                        ErrorDescription: opts.badIndex === gx ? 'I/O Timeout' : '', Value: gas[gx] });
+                } else {
+                    gData.push({ Label: tags[gx].name, Units: tags[gx].units, Path: '', IsGood: true,
+                        Value: [{ Time: new Date(now).toISOString(), Value: round(tags[gx].base, 2) }] });
+                }
+            }
+            return { Data: gData };
+        }
+
         if (shape === 'TimeSeries') {
             var data = [];
             for (var s = 0; s < count; s++) {

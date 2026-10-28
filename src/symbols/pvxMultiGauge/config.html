@@ -1,0 +1,181 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Values</div>
+        <div class="pvx-cfg-hint">
+            Each data source is one pointer, on one shared scale: values with the same units that belong
+            together, such as three bearing temperatures. For one value with PI Vision's own scale, use
+            PVX Radial Gauge or PVX Bar Indicator.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-stat">Statistic</label>
+            <select id="pvxmg-stat" ng-model="config.Statistic">
+                <option value="Value">Current value</option>
+                <option value="Average">Average</option>
+                <option value="Minimum">Minimum</option>
+                <option value="Maximum">Maximum</option>
+                <option value="Range">Range</option>
+                <option value="StdDev">Std deviation</option>
+                <option value="Total">Total</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">Everything except <em>Current value</em> is calculated by PI Vision over the display's time range.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-max">Most pointers</label>
+            <input id="pvxmg-max" type="number" ng-model="config.MaxPointers" min="1" max="12" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxmg-colors">Pointer colours</label>
+            <input id="pvxmg-colors" type="text" ng-model="config.PointerColors" placeholder="#c8452f, , #3b82c4" />
+        </div>
+        <div class="pvx-cfg-hint">One per data source, in order, separated by commas; a blank takes the palette's next colour.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Gauge</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxmg-title">Title</label>
+            <input id="pvxmg-title" type="text" ng-model="config.Title" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-shape">Shape</label>
+            <select id="pvxmg-shape" ng-model="config.Shape">
+                <option value="radial">Dial</option>
+                <option value="linear">Bar</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Shape === 'linear'">
+            <label for="pvxmg-orient">Orientation</label>
+            <select id="pvxmg-orient" ng-model="config.Orientation">
+                <option value="horizontal">Horizontal</option>
+                <option value="vertical">Vertical</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-style">Pointers</label>
+            <select id="pvxmg-style" ng-model="config.PointerStyle">
+                <option value="needle">Needles (dial)</option>
+                <option value="marker">Markers on the scale</option>
+                <option value="ring">Rings inside the dial</option>
+                <option value="bar">Bars side by side (bar)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">A style that does not suit the shape falls back to needles on a dial and markers on a bar.</div>
+        <div class="pvx-cfg-row" ng-if="config.Shape !== 'linear'">
+            <label for="pvxmg-start">Start angle</label>
+            <input id="pvxmg-start" type="number" ng-model="config.StartAngle" step="5" min="-180" max="180" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Shape !== 'linear'">
+            <label for="pvxmg-end">End angle</label>
+            <input id="pvxmg-end" type="number" ng-model="config.EndAngle" step="5" min="-180" max="360" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-readout">Show values below</label>
+            <input id="pvxmg-readout" type="checkbox" ng-model="config.ShowReadout" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-units">Show units</label>
+            <input id="pvxmg-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Scale</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-scalemode">Scale</label>
+            <select id="pvxmg-scalemode" ng-model="config.ScaleMode">
+                <option value="fixed">These limits</option>
+                <option value="auto">From the values</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ScaleMode !== 'auto'">
+            <label for="pvxmg-min">Minimum</label>
+            <input id="pvxmg-min" type="number" ng-model="config.MinValue" step="any" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ScaleMode !== 'auto'">
+            <label for="pvxmg-maxv">Maximum</label>
+            <input id="pvxmg-maxv" type="number" ng-model="config.MaxValue" step="any" />
+        </div>
+        <div class="pvx-cfg-hint">From the values moves as they move, and the footer gives the range in use.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-invert">Invert scale</label>
+            <input id="pvxmg-invert" type="checkbox" ng-model="config.InvertScale" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-ticks">Tick count</label>
+            <input id="pvxmg-ticks" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-minor">Minor ticks between</label>
+            <input id="pvxmg-minor" type="number" ng-model="config.MinorTicks" min="0" max="9" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-bandticks">Ticks on band limits</label>
+            <input id="pvxmg-bandticks" type="checkbox" ng-model="config.TicksAtBands" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-labels">Show scale labels</label>
+            <input id="pvxmg-labels" type="checkbox" ng-model="config.ShowScaleLabels" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Bands</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-usethresh">Enable bands</label>
+            <input id="pvxmg-usethresh" type="checkbox" ng-model="config.UseThresholds" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Bands</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-bandop">Band opacity</label>
+            <input id="pvxmg-bandop" type="number" ng-model="config.BandOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-highlight">Highlight the band of source 1</label>
+            <input id="pvxmg-highlight" type="checkbox" ng-model="config.HighlightActiveBand" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-theme">Theme</label>
+            <select id="pvxmg-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-showlabel">Show title</label>
+            <input id="pvxmg-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-transparent">Transparent background</label>
+            <input id="pvxmg-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-bgcolor">Background colour</label>
+            <input id="pvxmg-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-radius">Corner radius</label>
+            <input id="pvxmg-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxmg-decimals">Decimals</label>
+            <select id="pvxmg-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+</div>

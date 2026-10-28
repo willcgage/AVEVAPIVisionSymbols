@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* ============================================================================
- * PVX charts test — Wind Rose, XY bubble, Variability by time, Control Chart, against
+ * PVX charts test — Wind Rose, XY bubble, Variability by time, Control Chart, Gas
+ * Triangle, against
  * data whose right answer is known.
  * ----------------------------------------------------------------------------
  *   node tools/test-charts.js
@@ -29,6 +30,22 @@
  *               past a fixed limit and a run are flagged by rule number;
  *               limits and spec read from data sources use their latest
  *               value; a custom trend length reaches the tooltip text.
+ *   kpi card    time-weighted average, total over time, standard deviation
+ *               and percent good match the hand calculation; a typed target
+ *               within its tolerance reads On target; progress is the share
+ *               of the target.
+ *   period cmp  change from the median of the older periods and from the
+ *               period before, absolute and percent, against hand figures;
+ *               a calendar-month fold names its periods by month; a second
+ *               source draws its own current period.
+ *   multi gauge a value that is not a number gets no pointer, a value off
+ *               the scale is pinned and named, and sources past the limit
+ *               are counted; the readout names each value.
+ *   gas triangle the zone rules agree with the drawn outlines at every
+ *               point of a fine grid, and with the zone boundaries IEC 60599
+ *               tabulates; sources are matched to gases by name in any
+ *               order; the minimum total withholds the zone; a negative or
+ *               non-numeric reading is counted, not plotted.
  *
  * Requires the dev dependency `playwright`. Set PVX_CHROMIUM to use a
  * pre-installed browser.
@@ -333,6 +350,195 @@ function controlChart() {
     check('no page errors', errs.length === 0, errs);
 }
 
+/** The Gas Triangle's own rules and outlines, loaded from src/ without a browser. */
+function loadGasTriangle() {
+    const vm = require('vm');
+    let def = null;
+    const win = {
+        PIVisualization: {
+            deriveVisualizationFromBase: function () {},
+            Extensibility: { Enums: { DatasourceBehaviors: { Multiple: 'Multiple' } } }
+        },
+        PVX: { register: function (pv, d) { def = d; } }
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'symbols', 'pvxGasTriangle', 'symbol.js'), 'utf8'), { window: win });
+    return def.visObjectType;
+}
+
+function inPolygon(pt, poly) {
+    // Ternary to a plane: x = C2H4 + CH4/2, y = CH4. Insideness survives the
+    // shear, so this is enough to test against.
+    const X = (p) => p[1] + p[0] / 2, Y = (p) => p[0];
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = X(poly[i]), yi = Y(poly[i]), xj = X(poly[j]), yj = Y(poly[j]);
+        if ((yi > Y(pt)) !== (yj > Y(pt)) && X(pt) < (xj - xi) * (Y(pt) - yi) / (yj - yi) + xi) { inside = !inside; }
+    }
+    return inside;
+}
+
+function kpiCard() {
+    console.log('');
+    console.log(C.bold + 'KPI card' + C.reset);
+    // 10, 10, 40 an hour apart, then a bad value. By trapezoid: 2100
+    // value-minutes over 120 minutes, so a time-weighted average of 17.5,
+    // where the samples average 20; a total of 35 for a rate per hour.
+    const pts = [[0, 10], [60, 10], [120, 40], [180, 'Bad Input']];
+    const kpi = (cfg) => probe('pvxKpiCard', [series('Feed', 't/h', pts)], 'ShowLabel=false;' + cfg);
+    const tw = kpi('Statistic=twavg;Decimals=2');
+    check('time-weighted average', /17\.50/.test(tw.text), tw.text.slice(0, 40));
+    const av = kpi('Statistic=avg;Decimals=2');
+    check('...where the samples average 20', /20\.00/.test(av.text), av.text.slice(0, 40));
+    const tot = kpi('Statistic=total;TotalPer=h;Decimals=1');
+    check('total over time integrates the rate, in t', /35\.0\s*t\b/.test(tot.text) && !/t\/h/.test(tot.text.slice(0, 20)), tot.text.slice(0, 40));
+    const sd = kpi('Statistic=stdev;Decimals=2');
+    check('standard deviation', /17\.32/.test(sd.text), sd.text.slice(0, 40));
+    const pg = kpi('Statistic=pctgood;Decimals=0');
+    check('percent good counts the bad sample', /75\s*% good/.test(pg.text), pg.text.slice(0, 40));
+    const on = kpi('Statistic=avg;PlanFrom=fixed;TargetValue=21;DeltaBasis=plan;TargetTolerance=5%');
+    check('within the tolerance reads On target', /On target/.test(on.text), on.text.slice(0, 60));
+    const off = kpi('Statistic=avg;PlanFrom=fixed;TargetValue=21;DeltaBasis=plan;TargetTolerance=0.5');
+    check('...outside it the change is shown', /-4\.8% vs plan/.test(off.text) && !/On target/.test(off.text), off.text.slice(0, 60));
+    const prog = kpi('Statistic=avg;PlanFrom=fixed;TargetValue=40;ProgressStyle=bar');
+    check('progress is the share of the target', /\b50%/.test(prog.text), prog.text.slice(0, 60));
+    const none = kpi('PlanFrom=fixed;ProgressStyle=ring');
+    check('progress with no target says so', /No target value set/.test(none.text), none.text.slice(0, 80));
+    const errs = [].concat(tw.errors, tot.errors, sd.errors, pg.errors, on.errors, prog.errors, none.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function multiGauge() {
+    console.log('');
+    console.log(C.bold + 'Multi-pointer gauge' + C.reset);
+    const file = path.join(os.tmpdir(), 'pvx-charts-' + process.pid + '-mg.json');
+    const row = (label, v) => ({ Label: label, Units: '°C', Path: '\\\\AF\\Pump|' + label, IsGood: true, Value: v, Summary: [{ Value: v }] });
+    fs.writeFileSync(file, JSON.stringify({ Rows: [row('Bearing 1', 62), row('Bearing 2', 'Comm Fail'), row('Bearing 3', 140), row('Bearing 4', 40)] }));
+    const run = (cfg) => {
+        const args = [path.join(__dirname, 'probe.js'), 'pvxMultiGauge', '--w', '320', '--h', '320', '--json', '--payload', file,
+            '--out', file.replace(/\.json$/, '.png'), '--config', cfg];
+        let out;
+        try { out = execFileSync(process.execPath, args, { encoding: 'utf8' }); } catch (e) { out = e.stdout || ''; }
+        const json = JSON.parse(out.slice(out.indexOf('{')));
+        const r = json.report || {};
+        return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
+    };
+    const g = run('MinValue=0;MaxValue=100;MaxPointers=3');
+    check('a value that is not a number has no pointer, and the footer says so', /1 not numeric, no pointer/.test(g.footer), g.footer);
+    check('a value off the scale is pinned and named', /1 outside the scale, pinned to the end/.test(g.footer) && g.tips.some((t) => /Bearing 3: 140.*outside the scale/.test(t)), [g.footer, g.tips]);
+    check('sources past the limit are counted', /1 more sources not shown/.test(g.footer), g.footer);
+    check('the readout names each value', /Bearing 1\s*62(\.0+)?\s*°C/.test(g.text) && /Comm Fail/.test(g.text), g.text.slice(0, 120));
+    check('one pointer per numeric source', g.tips.filter((t) => /^Bearing/.test(t)).length === 2, g.tips);
+    const a = run('ScaleMode=auto;Shape=linear;PointerStyle=bar');
+    check('a scale from the values takes them all in, and says so', /scale 20 to 160 from the values/.test(a.footer) && !/outside the scale/.test(a.footer), a.footer);
+    check('no page errors', g.errors.concat(a.errors).length === 0, g.errors.concat(a.errors));
+}
+
+function periodChange() {
+    console.log('');
+    console.log(C.bold + 'Period comparison' + C.reset);
+    // Three days folded by day: 10 all day, then 20, then 30 until noon.
+    // The median of the older two is 15, so today is +15 (+100%); against
+    // the day before it is +10 (+50%). The older days sit at -5 and +5.
+    const pts = [];
+    for (let h = 0; h < 60; h++) { pts.push([h * 60, h < 24 ? 10 : h < 48 ? 20 : 30]); }
+    const run = (cfg, extra) => probe('pvxPeriodOverlay', [series('Feed', 't/h', pts)].concat(extra || []),
+        'PeriodMode=day;AlignTo=clock;Decimals=1;' + cfg);
+    const med = run('ShowAs=delta;Baseline=median');
+    check('change from the median: today departs the older days by 10', /Max departure\s*\+10\.0 t\/h/.test(med.text), med.text.slice(0, 200));
+    check('...and the footer names the baseline', /change from the median of the older periods/.test(med.footer), med.footer);
+    const pct = run('ShowAs=pctdelta;Baseline=median');
+    check('% change: today is 100% over a baseline the older days are 33% either side of', /Max departure\s*\+66\.7 %/.test(pct.text), pct.text.slice(0, 200));
+    const prev = run('ShowAs=delta;Baseline=previous');
+    check('change from the period before', /change from the period before/.test(prev.footer), prev.footer);
+    check('...the axis says change, in the units', /Change \(t\/h\)/.test(prev.text), prev.text.slice(0, 200));
+    const two = run('ShowAs=pctdelta', [series('Feed B', 'kg/s', pts.map((p) => [p[0], p[1] * 2]))]);
+    check('a second source is drawn and named in the legend', /Feed B/.test(two.text) && /Feed, /.test(two.text), two.text.slice(0, 200));
+    // Daily samples across September and October folded by calendar month:
+    // the current period is October, named by month, on a day-of-month axis.
+    const days = [];
+    for (let d = 0; d < 50; d++) { days.push([(-38 + d) * 1440, 5 + (d % 7)]); }
+    const mon = probe('pvxPeriodOverlay', [series('Feed', 't/h', days)], 'PeriodMode=month;LegendLabels=date;ColorMode=palette');
+    check('a calendar-month fold names its periods by month', /Oct 2026/.test(mon.text) && /Sep 2026/.test(mon.text), mon.text.slice(0, 200));
+    check('...on a day-of-month axis', /Day of month/.test(mon.text) && /day 1(?!\d)/.test(mon.text), mon.text.slice(0, 300));
+    const errs = [].concat(med.errors, pct.errors, prev.errors, two.errors, mon.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function gasTriangle() {
+    console.log('');
+    console.log(C.bold + 'Gas triangle' + C.reset);
+    const vis = loadGasTriangle();
+    const classify = vis.classify, ZONES = vis.ZONES;
+
+    // Every point of a 0.5% grid, offset so none sits on a boundary: the
+    // outline that contains it must be the zone the rules give, and exactly
+    // one outline may contain it.
+    let bad = [], n = 0;
+    for (let a = 0.2; a < 100; a += 0.5) {
+        for (let b = 0.15; a + b < 100; b += 0.5) {
+            const c = 100 - a - b, pt = [a, b, c];
+            const holders = ZONES.filter((z) => inPolygon(pt, z.pts)).map((z) => z.code);
+            n++;
+            if (holders.length !== 1 || holders[0] !== classify(a, b, c)) {
+                if (bad.length < 5) { bad.push(pt.map((v) => v.toFixed(2)).join('/') + ' drawn ' + holders.join('+') + ' rule ' + classify(a, b, c)); }
+                else { bad.push(''); }
+            }
+        }
+    }
+    check('outlines and rules agree at all ' + n + ' grid points', bad.length === 0, bad.slice(0, 5));
+    check('each zone code sits inside its own zone',
+        ZONES.every((z) => !z.label || classify(z.label[0], z.label[1], z.label[2]) === z.code),
+        ZONES.filter((z) => z.label && classify(z.label[0], z.label[1], z.label[2]) !== z.code).map((z) => z.code));
+
+    // Boundaries as IEC 60599 tabulates them for Triangle 1.
+    const cases = [
+        [[98, 1, 1], 'PD'], [[97.9, 1.1, 1], 'T1'],
+        [[85, 12, 3], 'T1'], [[70, 26, 4], 'DT'], [[70, 27, 3], 'T2'],
+        [[40, 51, 9], 'T3'], [[30, 50, 20], 'DT'], [[30, 55, 15], 'DT'],
+        [[60, 22, 18], 'D1'], [[60, 23, 17], 'D2'], [[40, 40, 20], 'DT'], [[35, 39, 26], 'D2'],
+        [[20, 50, 30], 'D2'], [[50, 45, 5], 'DT'], [[51, 49, 0], 'T2'], [[48, 50, 2], 'T3']
+    ];
+    const wrong = cases.filter((x) => classify(x[0][0], x[0][1], x[0][2]) !== x[1])
+        .map((x) => x[0].join('/') + ' gave ' + classify(x[0][0], x[0][1], x[0][2]) + ', want ' + x[1]);
+    check('IEC 60599 boundary cases (' + cases.length + ')', wrong.length === 0, wrong);
+
+    // Sources named in reverse order: acetylene, ethylene, methane. 50/30/20
+    // ppm of CH4/C2H4/C2H2 is 50%/30%/20%: C2H2 >= 13 and C2H4 in 23..40, D2.
+    const named = probe('pvxGasTriangle', [
+        series('T-1 Acetylene', 'ppm', [[0, 2], [60, 20]]),
+        series('T-1 Ethylene', 'ppm', [[0, 40], [60, 30]]),
+        series('T-1 Methane', 'ppm', [[0, 58], [60, 50]]),
+        series('T-1 Hydrogen', 'ppm', [[0, 10], [60, 10]])
+    ]);
+    check('gases matched by name in any order', /^D2 · Discharges of high energy/.test(named.footer), named.footer);
+    check('...the footer gives the shares', /CH4 50% · C2H4 30% · C2H2 20%/.test(named.footer), named.footer);
+    check('...and counts the extra source', /1 extra source ignored/.test(named.footer), named.footer);
+    check('...and does not claim the order was assumed', !/gases by order/.test(named.footer), named.footer);
+    check('the point tooltip has ppm, share and zone', named.tips.some((t) => /CH4: 50(\.0+)? ppm \(50\.0%\)/.test(t) && /D2: Discharges of high energy/.test(t)), named.tips.filter((t) => /ppm/.test(t)));
+    check('the trail has a point per instant', named.tips.filter((t) => /ppm/.test(t)).length === 2, named.tips.length);
+
+    const unnamed = probe('pvxGasTriangle', [
+        series('A', 'ppm', [[0, 90]]), series('B', 'ppm', [[0, 10]]), series('C', 'ppm', [[0, 0]])
+    ]);
+    check('unnamed sources are taken in order, and the footer says so', /^T1 · /.test(unnamed.footer) && /gases by order/.test(unnamed.footer), unnamed.footer);
+
+    const low = probe('pvxGasTriangle', [
+        series('Methane', 'ppm', [[0, 5]]), series('Ethylene', 'ppm', [[0, 3]]), series('Acetylene', 'ppm', [[0, 2]])
+    ], 'MinTotalPpm=50');
+    check('below the minimum total the zone is not named', /Below 50 ppm: zone not named/.test(low.footer) && !/D2 · /.test(low.footer), low.footer);
+
+    const dirty = probe('pvxGasTriangle', [
+        series('Methane', 'ppm', [[0, 50], [60, -3], [120, 'Calc Failed'], [180, 50]]),
+        series('Ethylene', 'ppm', [[0, 30]]), series('Acetylene', 'ppm', [[0, 20]])
+    ]);
+    check('a negative reading is counted, not plotted', /1 with a negative ppm not plotted/.test(dirty.footer), dirty.footer);
+    check('a non-numeric reading is counted, not plotted', /1 bad or non-numeric not plotted/.test(dirty.footer), dirty.footer);
+    check('...and the good points still plot', dirty.tips.filter((t) => /ppm/.test(t)).length === 2, dirty.tips.length);
+
+    const errs = [].concat(named.errors, unnamed.errors, low.errors, dirty.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
     try {
         windRose();
@@ -341,6 +547,10 @@ function controlChart() {
         sankeyFixed();
         boxByTime();
         controlChart();
+        gasTriangle();
+        kpiCard();
+        multiGauge();
+        periodChange();
     } catch (e) {
         failures += 1;
         console.log('  ' + C.red + 'FAIL' + C.reset + ' ' + (e.stack || e.message));

@@ -24,14 +24,16 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
 | [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
+| [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Multiple |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
+| [`pvxMultiGauge`](#pvxmultigauge) | PVX Multi-Pointer Gauge | Table | Multiple |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
 | [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
 | [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | Table | Multiple |
-| [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Single |
+| [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Multiple |
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
 | [`pvxRadar`](#pvxradar) | PVX Fingerprint | Table | Multiple |
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
@@ -258,7 +260,7 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 | `MinValue` | `0` |  |
 | `MaxValue` | `100` |  |
 | `UseSymbolScale` | `true` | false => trust PI Vision's Indicator |
-| `BarStyle` | `"solid"` | solid \| gradient \| segmented |
+| `BarStyle` | `"solid"` | solid \| gradient \| segmented \| thermometer |
 | `SegmentCount` | `20` |  |
 | `BarThicknessPct` | `30` | % of the cross axis the bar occupies |
 | `RoundedBar` | `true` |  |
@@ -269,6 +271,10 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 | `TickCount` | `5` |  |
 | `ScalePosition` | `"end"` | start = above/left, end = below/right |
 | `ShowMinMaxLabels` | `true` |  |
+| `MinorTicks` | `0` | per major interval |
+| `TicksAtBands` | `false` | major ticks and labels on the band limits |
+| `HighlightActiveBand` | `false` | dim every band but the value's |
+| `InvertScale` | `false` | maximum at the left / bottom |
 | `ShowTarget` | `false` |  |
 | `TargetValue` | `75` |  |
 | `TargetColor` | `"#1d2126"` |  |
@@ -801,6 +807,40 @@ symbol selector (see the definition). This is the first symbol in the library wh
 
 ---
 
+## pvxGasTriangle
+
+**PVX Gas Triangle** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+acetylene in a transformer's oil, in ppm)
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `400` |  |
+| `Title` | `""` | blank => "Duval triangle" |
+| `MinTotalPpm` | `""` | blank => always name the zone |
+| `MaxPairGapHours` | `0` | 0 => no limit |
+| `ShowTrail` | `true` |  |
+| `TrailLength` | `60` | samples; 0 => every one in range |
+| `ShowGrid` | `true` |  |
+| `ShowZoneLabels` | `true` |  |
+| `ZoneOpacity` | `0.32` |  |
+| `ZoneColors` | `""` | "T3:#c00000, D2:#1f4e9c" overrides |
+| `LegendPosition` | `"auto"` | auto \| right \| none |
+
+---
+
 ## pvxHeatmap
 
 **PVX Heatmap** · data shape `TimeSeries` · multiple data sources · collections not supported
@@ -924,14 +964,19 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `120` |  |
 | `Title` | `""` | blank => use the attribute label |
-| `Statistic` | `"last"` | last \| avg \| min \| max \| first \| range \| sum |
+| `Statistic` | `"last"` | last \| avg \| twavg \| min \| max \| first \| range \| sum \| total \| stdev \| count \| pctgood |
+| `TotalPer` | `"h"` | the rate's time unit for 'total': s \| min \| h \| d |
 | `ShowSparkline` | `true` |  |
 | `SparkStyle` | `"area"` | area \| line \| bars |
 | `SparkHeightPct` | `38` |  |
 | `SmoothLine` | `true` |  |
 | `ShowDelta` | `true` |  |
 | `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) |
-| `PlanFrom` | `"source"` | source (data source 2) \| af (the KPI's Target trait) |
+| `PlanFrom` | `"source"` | source (data source 2) \| af (the KPI's Target trait) \| fixed |
+| `TargetValue` | `""` | PlanFrom 'fixed' |
+| `TargetTolerance` | `""` | blank, an amount, or a percent ("2%") either side of the plan |
+| `ProgressStyle` | `"none"` | none \| bar \| ring: the headline as a share of the plan |
+| `ProgressZero` | `0` | where the progress starts |
 | `DeltaMode` | `"percent"` | percent \| absolute \| both |
 | `DeltaLookback` | `0.25` | fraction of the window used as the baseline |
 | `DeltaGoodDirection` | `"up"` | up \| down \| none |
@@ -945,6 +990,7 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `EdgeWidth` | `4` |  |
 | `ValueColorFromThreshold` | `false` |  |
 | `Align` | `"left"` | left \| center |
+| `TimeFormat` | `"short"` | short \| datetime \| relative |
 
 ---
 
@@ -986,6 +1032,51 @@ symbol selector (see the definition). This symbol does not read PI Vision's data
 | `ShowHistory` | `true` |  |
 | `HistoryCount` | `5` |  |
 | `ReadOnlyPreview` | `false` |  |
+
+---
+
+## pvxMultiGauge
+
+**PVX Multi-Pointer Gauge** · data shape `Table` · multiple data sources · collections supported
+
+PVX Radial Gauge and PVX Bar Indicator each take one attribute, and keep PI Vision's Gauge data shape, which is what lets them follow the scale PI Vision derives from the attribute. A dial with a pointer per source needs several sources, so it is this symbol instead, on the Table shape the library's other multi-source symbols already use on live servers: the single-value gauges and every display saved with them stay exactly as they were.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `false` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `SortColumn` | `"Value"` |  |
+| `Title` | `""` |  |
+| `Statistic` | `"Value"` | Value \| Average \| Minimum \| Maximum \| Range \| StdDev \| Total |
+| `Shape` | `"radial"` | radial \| linear |
+| `Orientation` | `"horizontal"` | linear only |
+| `PointerStyle` | `"needle"` | radial: needle \| marker \| ring; linear: marker \| bar |
+| `PointerColors` | `""` | "#c00, , #08f": one per source, blank = palette |
+| `MaxPointers` | `8` |  |
+| `ScaleMode` | `"fixed"` | fixed \| auto |
+| `MinValue` | `0` |  |
+| `MaxValue` | `100` |  |
+| `StartAngle` | `-120` |  |
+| `EndAngle` | `120` |  |
+| `InvertScale` | `false` |  |
+| `TickCount` | `5` |  |
+| `MinorTicks` | `0` |  |
+| `TicksAtBands` | `false` |  |
+| `ShowScaleLabels` | `true` |  |
+| `ShowBands` | `true` |  |
+| `BandOpacity` | `0.28` |  |
+| `HighlightActiveBand` | `false` | the band source 1 is in |
+| `ShowReadout` | `true` |  |
 
 ---
 
@@ -1136,9 +1227,9 @@ The question this symbol answers is "which five assets are driving 80% of my dow
 
 ## pvxPeriodOverlay
 
-**PVX Period Comparison** · data shape `TimeSeries` · single data source · collections supported
+**PVX Period Comparison** · data shape `TimeSeries` · multiple data sources · collections supported
 
-Folds the display's time range into N equal periods and lays them on ONE relative-time axis: today over yesterday over the day before. The older periods collapse into a min/max envelope, which turns the picture into the "golden batch" comparison — is today running inside the shape the last week ran in, and where exactly did it leave?
+any others draw their current period on the same axis)
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1156,12 +1247,14 @@ Folds the display's time range into N equal periods and lays them on ONE relativ
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `800` |  |
 | `Title` | `""` |  |
-| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| custom |
+| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| month \| custom |
 | `ShiftHours` | `8` |  |
 | `ShiftStartHour` | `6` |  |
 | `CustomPeriodHours` | `24` |  |
 | `AlignTo` | `"clock"` | clock \| windowEnd |
 | `MaxPeriods` | `8` |  |
+| `ShowAs` | `"values"` | values \| delta \| pctdelta |
+| `Baseline` | `"median"` | median (of the older periods) \| previous |
 | `CurrentStyle` | `"bold"` | bold \| same |
 | `FadeOlder` | `true` |  |
 | `ColorMode` | `"fade"` | fade \| palette |
@@ -1296,7 +1389,7 @@ The question this symbol answers is "does this asset still LOOK like it used to"
 
 **PVX Radial Gauge** · data shape `Gauge` · single data source · collections supported
 
-Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value colour follows the active threshold band - Auto light/dark theming, fully responsive typography
+Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value colour follows the active threshold band - Auto light/dark theming, fully responsive typography - Options: dim the bands the value is not in, major ticks on the band limits, minor ticks, and a scale that runs the other way
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1323,6 +1416,10 @@ Features - Configurable sweep angle (full circle through to a shallow arc) - Thr
 | `ShowScaleLabels` | `true` |  |
 | `ShowTicks` | `true` |  |
 | `TickCount` | `5` |  |
+| `MinorTicks` | `0` | per major interval |
+| `TicksAtBands` | `false` | major ticks and labels on the band limits |
+| `HighlightActiveBand` | `false` | dim every band but the value's |
+| `InvertScale` | `false` | maximum at the start angle |
 | `ShowTarget` | `false` |  |
 | `TargetValue` | `75` |  |
 | `TargetColor` | `"#1d2126"` |  |

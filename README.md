@@ -3,7 +3,7 @@
 [![CI](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml/badge.svg)](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-Thirty-three production-ready custom symbols that fill the gaps in PI Vision's stock
+Forty production-ready custom symbols that fill the gaps in PI Vision's stock
 palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
@@ -32,19 +32,21 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxBoxPlot/icon.svg) | **PVX Variability** | Quartiles, whiskers and outliers, one box per tag. Twenty identical assets side by side — the wide box is the one to go and look at. |
 | ![](src/symbols/pvxDeviation/icon.svg) | **PVX Deviation from Target** | Deviation from setpoint with the tolerance band shaded, excursions coloured by direction, and time-in-band, excursion count and longest excursion computed from real sample intervals. |
 | ![](src/symbols/pvxWaterfall/icon.svg) | **PVX Waterfall** | Floating bars bridging a start value to an end value through signed steps, with connectors and running subtotals. Mass and energy balances, yield-loss accounting. |
-| ![](src/symbols/pvxPeriodOverlay/icon.svg) | **PVX Period Comparison** | Folds the window into N periods overlaid on a common relative-time axis, with a min/max envelope from the older ones. Today over yesterday over the golden batch. |
+| ![](src/symbols/pvxPeriodOverlay/icon.svg) | **PVX Period Comparison** | Folds the window into N periods overlaid on a common relative-time axis, with a min/max envelope from the older ones. Today over yesterday over the golden batch. Hours, shifts, days, weeks or calendar months; values, or change and percent change from a baseline; further tags draw their current period alongside. |
 | ![](src/symbols/pvxTreemap/icon.svg) | **PVX Treemap** | Squarified rectangles sized by one statistic and coloured by another. Size shows who is big, colour shows who is in trouble; the tile that is both is the one to look at. |
 | ![](src/symbols/pvxSankey/icon.svg) | **PVX Flow** | Weighted ribbons between nodes with per-node balance checking — where inflow and outflow disagree, you have a leak, a bad meter or a missing tag. |
 | ![](src/symbols/pvxRadar/icon.svg) | **PVX Fingerprint** | Normalised multi-axis polygon over a reference profile. Shape recognition: does this asset still look like it used to. |
 | ![](src/symbols/pvxDonut/icon.svg) | **PVX Contribution** | Share of a total with the total in the hole. The config pane is honest that a ranked bar reads better for magnitude. |
 | ![](src/symbols/pvxProfile/icon.svg) | **PVX Spatial Profile** | Values along a *physical* axis — kiln zones, column trays, cell voltages — with a limit envelope and a faded "shadow" profile so drift shows as a change of shape. |
 | ![](src/symbols/pvxOperatingMap/icon.svg) | **PVX Operating Map** | The live operating point on a compressor or pump map: surge line, control line, speed lines and stonewall, a fading trail showing direction of travel, and surge margin as a number. The curves can live on the AF element, so the map follows asset swapping. |
-| ![](src/symbols/pvxRadialGauge/icon.svg) | **PVX Radial Gauge** | Threshold-banded dial. Configurable sweep from a shallow arc to a full ring, needle or progress arc, target marker. |
-| ![](src/symbols/pvxBarIndicator/icon.svg) | **PVX Bar Indicator** | Horizontal or vertical level bar. Solid, gradient or segmented; threshold bands on the track; target marker. |
+| ![](src/symbols/pvxRadialGauge/icon.svg) | **PVX Radial Gauge** | Threshold-banded dial. Configurable sweep from a shallow arc to a full ring, needle or progress arc, target marker; optionally the value's band highlighted, ticks on the band limits, minor ticks, and an inverted scale. |
+| ![](src/symbols/pvxBarIndicator/icon.svg) | **PVX Bar Indicator** | Horizontal or vertical level bar. Solid, gradient, segmented or thermometer; threshold bands on the track; target marker; optionally the value's band highlighted, ticks on the band limits, minor ticks, and an inverted scale. |
+| ![](src/symbols/pvxMultiGauge/icon.svg) | **PVX Multi-Pointer Gauge** | Several values on one scale, as a dial (needles, markers or rings) or a bar (markers or side-by-side bars), each in its own colour with a readout row. A value that is not a number or is off the scale is named, not dropped. |
 | ![](src/symbols/pvxSparkline/icon.svg) | **PVX Multi Sparkline** | One dense row per tag — name, micro-trend, current value. Twenty tags at a glance, which the stock trend cannot do. |
 | ![](src/symbols/pvxCompare/icon.svg) | **PVX Condition Compare** | Splits the time range by a rule on one tag ("yield < 92%") and ranks every other tag by how differently it behaves while the rule holds, with paired histograms per tag. What is different about the bad hours, without the trip to Excel. |
 | ![](src/symbols/pvxXYScatter/icon.svg) | **PVX XY Scatter** | Correlation of one tag against another with least-squares regression, R², time-coloured points and an operating-envelope box. A bubble mode lets a third tag set each point's size. |
 | ![](src/symbols/pvxWindRose/icon.svg) | **PVX Wind Rose** | Direction against speed as stacked polar bars: where the wind blows from and how hard, weighted by time rather than sample count. Bars in percent of time, hours, or 100% per direction; with speed bands off it is a plain polar bar chart. |
+| ![](src/symbols/pvxGasTriangle/icon.svg) | **PVX Gas Triangle** | Duval's Triangle 1 (IEC 60599) for transformer oil: methane, ethylene and acetylene as shares of their total, in the seven fault zones, with a fading trail over the time range and the zone named. Gases are matched to sources by name; below a minimum total the zone is not named. |
 | ![](src/symbols/pvxHeatmap/icon.svg) | **PVX Heatmap** | Hour-of-day × day calendar, tag × time-bucket matrix, or value × time density weighted by time spent. Makes diurnal and shift patterns obvious, and shows a hunting valve as two bands where a trend shows a smear. |
 | ![](src/symbols/pvxPareto/icon.svg) | **PVX Ranked Bar** | Sorted bars with an optional cumulative Pareto line. "Which five assets drive 80% of the loss." A bar can open the asset's display. |
 
@@ -55,7 +57,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxAnnunciator/icon.svg) | **PVX Annunciator** | Latching alarm tiles with the ISA-18.2 ringback state, so an excursion that starts and clears between two refreshes is still there when someone looks. First-out marking for cascades. |
 | ![](src/symbols/pvxSitePlan/icon.svg) | **PVX Site Plan** | Live values pinned to a plant drawing by percentage coordinates. The offline answer to a map symbol — no tile provider required. |
 | ![](src/symbols/pvxStateDuration/icon.svg) | **PVX Time in State** | Time-in-state timeline or stacked bar per digital tag, with uptime percentage and transition count. Downtime accounting with no Event Frames, no AF templates and no PI Web API. |
-| ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number, delta against earlier in the range or against a plan source, inline sparkline with the plan line, footer statistics, and an edge coloured by the headline's band. |
+| ![](src/symbols/pvxKpiCard/icon.svg) | **PVX KPI Card** | Headline number (latest, averages plain or time-weighted, a rate totalled over time, spread, percent good), delta against earlier in the range or against a plan from a source, AF or typed in, with a tolerance that reads On target, a progress bar or ring toward the plan, inline sparkline with the plan line, footer statistics, and an edge coloured by the headline's band. |
 | ![](src/symbols/pvxAssetTable/icon.svg) | **PVX Asset Table** | One row per asset, one column per attribute, each cell coloured by its own limits or state map, a status dot for the worst cell, and the row opening the unit's display with that unit as the asset. Rows come from the data sources, or from the elements under the current asset so an area with more units gets more rows. |
 | ![](src/symbols/pvxStatusGrid/icon.svg) | **PVX Status Grid** | Responsive tile grid coloured by thresholds or by a digital state map. Four tile styles, optional drill-down. |
 | ![](src/symbols/pvxAlarmBanner/icon.svg) | **PVX Exception Banner** | Shows only the tags currently outside limits, worst first, with dwell time. List, ticker or summary mode. |
@@ -111,7 +113,7 @@ runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode; pick one and drag an attribute onto the display to place it (any
-attribute for the nine that take their settings from the format pane alone). That is the whole installation for thirty-three of the thirty-eight.
+attribute for the nine that take their settings from the format pane alone). That is the whole installation for thirty-four of the forty.
 
 Dropped the wrong attribute on a symbol? Open its format pane: every PVX
 symbol lists its data sources at the top, with **Remove** on each row (click
@@ -246,7 +248,7 @@ some updates; `PVX.bootstrap` carries them across the rest, per data source.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 684 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 720 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, content clipped out of reach, and a placeholder name
 ("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to
@@ -270,7 +272,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange` and `pvxEmbeddedPage` from a feature-level comparison with Software Athlete's Vision Library+.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle` and `pvxMultiGauge` from a feature-level comparison with Software Athlete's Vision Library+.
 
 ---
 

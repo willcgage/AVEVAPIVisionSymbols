@@ -15,6 +15,11 @@
             shift period. If the display range is shorter than one period there is nothing to
             compare, and the footer says so instead of drawing something misleading.
         </div>
+        <div class="pvx-cfg-hint">
+            The first data source is folded in full. Each further one draws its current period
+            on the same axis in its own colour; for tags in different units, show
+            <em>% change</em> below, where each is measured from its own baseline.
+        </div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -28,6 +33,7 @@
                 <option value="shift">Shift</option>
                 <option value="day">1 day</option>
                 <option value="week">1 week</option>
+                <option value="month">Calendar month</option>
                 <option value="custom">Custom hours</option>
             </select>
         </div>
@@ -48,6 +54,11 @@
         <div class="pvx-cfg-hint" ng-if="config.PeriodMode === 'shift'">
             Shifts are counted from that hour on each day, in the browser's local time — the
             same clock the control room reads.
+        </div>
+
+        <div class="pvx-cfg-hint" ng-if="config.PeriodMode === 'month'">
+            Each period starts on the 1st and the axis is the day of the month; shorter months end
+            early. Months always follow the calendar, whatever the alignment below.
         </div>
 
         <div class="pvx-cfg-row" ng-if="config.PeriodMode === 'custom'">
@@ -73,6 +84,26 @@
             "now" and the axis is labelled in elapsed time. This is the right answer for
             <em>"the last 8 hours against the 8 before that"</em>. These two settings answer
             different questions — pick the one that matches yours.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-showas">Show</label>
+            <select id="pvxpo-showas" ng-model="config.ShowAs">
+                <option value="values">Values</option>
+                <option value="delta">Change from the baseline</option>
+                <option value="pctdelta">% change from the baseline</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowAs === 'delta' || config.ShowAs === 'pctdelta'">
+            <label for="pvxpo-baseline">Baseline</label>
+            <select id="pvxpo-baseline" ng-model="config.Baseline">
+                <option value="median">Median of the older periods</option>
+                <option value="previous">The period before</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ShowAs === 'delta' || config.ShowAs === 'pctdelta'">
+            Every period is drawn as its difference from the baseline at the same point in the
+            period, around a zero line; the envelope is then the older periods' spread around it.
         </div>
 
         <div class="pvx-cfg-row">

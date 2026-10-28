@@ -2025,6 +2025,54 @@
         return out;
     };
 
+    /**
+     * A gauge's ticks: majors from ticks() plus both ends, the band limits
+     * when asked (an operator reads a dial by its limits, not by round
+     * numbers), and minorPer evenly spaced minors between majors. Returns
+     * {major:[{v, band}], minor:[v]}, majors ascending. A band limit within
+     * a third of a step of a round tick replaces it rather than crowding it.
+     */
+    scale.gaugeTicks = function (min, max, count, opts) {
+        var o = opts || {};
+        var span = (max - min) || 1;
+        var near = Math.max(span * 0.015, scale.tickStep(min, max, count) * 0.34);
+        var major = [];
+        var base = scale.ticks(min, max, count);
+        if (!base.length || base[0] > min + span * 1e-6) { base.unshift(min); }
+        if (base[base.length - 1] < max - span * 1e-6) { base.push(max); }
+        var i, j;
+        for (i = 0; i < base.length; i++) {
+            if (base[i] >= min - span * 1e-9 && base[i] <= max + span * 1e-9) { major.push({ v: base[i], band: false }); }
+        }
+        var edges = o.bandEdges || [];
+        for (i = 0; i < edges.length; i++) {
+            var e = edges[i];
+            if (!(e > min + near && e < max - near)) { continue; }
+            var replaced = false;
+            for (j = 0; j < major.length; j++) {
+                if (Math.abs(major[j].v - e) <= near && j > 0 && j < major.length - 1) {
+                    major[j] = { v: e, band: true };
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) { major.push({ v: e, band: true }); }
+        }
+        major.sort(function (a, b) { return a.v - b.v; });
+        var minor = [];
+        var per = Math.max(0, Math.min(9, parseInt(o.minorPer, 10) || 0));
+        if (per && base.length > 1) {
+            for (i = 0; i + 1 < base.length; i++) {
+                var a = base[i], b = base[i + 1];
+                for (j = 1; j <= per; j++) {
+                    var mv = a + (b - a) * j / (per + 1);
+                    if (mv > min && mv < max) { minor.push(mv); }
+                }
+            }
+        }
+        return { major: major, minor: minor };
+    };
+
     /* ------------------------------------------------------------------ *
      * svg — element + path construction
      * ------------------------------------------------------------------ */
