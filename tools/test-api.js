@@ -122,7 +122,7 @@ apiHandler = (req, res) => {
     if (/^\/piwebapi\/assetservers\/[^/]+\/assetdatabases$/.test(url)) {
         // What PI Web API sends when it cannot connect onward to AF as the
         // user: the server list (from its own Known Servers Table) worked.
-        if (scenario === 'af-delegation') {
+        if (scenario === 'af-delegation' || (scenario === 'af-delegation-iwa' && authed)) {
             json(502, { Errors: ['Cannot connect to AF server AFSERVER01: the remote server rejected the delegated credentials.'] });
             return;
         }
@@ -197,7 +197,8 @@ const SCENARIOS = [
     { id: 'wildcard-cors', expectWorking: false, expect: /Anonymous works, credentials do not/, note: 'Allow-Origin * with credentials \u2014 the partial-pass trap' },
     { id: 'preflight-401', expectWorking: false, expect: /No authentication method worked/, note: 'OPTIONS answered with a challenge' },
     { id: 'forbidden',     expectWorking: true,  expect: /Working:/,            note: 'authenticated but AF denied' },
-    { id: 'af-delegation', expectWorking: false, expect: /cannot reach AF[\s\S]*Kerberos delegation/, note: 'signs in, lists AF servers, every database list 502' }
+    { id: 'af-delegation', expectWorking: false, expect: /cannot reach AF[\s\S]*Kerberos delegation[\s\S]*setspn -Q HTTP\/127\.0\.0\.1[\s\S]*setspn -S HTTP\/127\.0\.0\.1 DOMAIN/, note: 'signs in, lists AF servers, every database list 502; steps name this address' },
+    { id: 'af-delegation-iwa', expectWorking: false, expect: /cannot reach AF as you[\s\S]*Kerberos delegation/, note: 'anonymous reaches AF, Windows sign-in does not \u2014 never recommend anonymous' }
 ];
 
 (async function main() {
@@ -229,7 +230,7 @@ const SCENARIOS = [
         // 'auth-required' and 'forbidden' need SOMETHING that looks like a
         // credential; withCredentials alone sends no cookie in a fresh context,
         // so stand one in to exercise the credentialed path.
-        if (sc.id === 'auth-required' || sc.id === 'forbidden') {
+        if (sc.id === 'auth-required' || sc.id === 'forbidden' || sc.id === 'af-delegation-iwa') {
             await page.context().addCookies([{ name: 'mock-auth', value: '1', url: 'http://127.0.0.1:' + API_PORT }]);
         }
 

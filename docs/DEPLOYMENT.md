@@ -456,6 +456,16 @@ writes to PI.
 > says *PI Web API answers, but cannot reach AF*: PI Web API's service account
 > needs Kerberos delegation to the AF and Data Archive servers, as PI Vision's
 > application pool already has. No `pvx-config.js` setting can fix that.
+>
+> The verdict then lists the steps, written for the address the page was opened
+> by. On the first live server the cause was an alias with no SPN:
+> `setspn -Q HTTP/<alias>` answered "No such SPN found", so browsers fell back
+> to NTLM, which cannot be forwarded to AF. Ticking PI Web API's *Do not require
+> user authentication* made the databases list, which confirms the diagnosis,
+> but leave it off: with it on, every user is the service account to PI and AF.
+> The fix is `setspn -S HTTP/<alias> DOMAIN\serviceaccount` for the full and
+> short alias, delegation from that account to the `AFServer/` and `PIServer/`
+> services, a PI Web API restart and `klist purge`.
 
 > **Watch for a partial pass, not just a failure.**
 > The dangerous result is *anonymous succeeds while credentialed requests fail*.
