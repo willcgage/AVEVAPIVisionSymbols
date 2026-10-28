@@ -23,6 +23,18 @@ in ES5 with no third-party libraries.
 
 ## The symbols
 
+**Picture guide.** Four 1920×1080 PNGs in [docs/symbol-guide/](docs/symbol-guide/)
+show every symbol with its name and one line on what it does, sized to drop
+onto a PI Vision display with the Image symbol:
+[values, gauges and alarms](docs/symbol-guide/pvx-symbols-1-values-gauges-alarms.png),
+[trends and analysis](docs/symbol-guide/pvx-symbols-2-trends-analysis.png),
+[breakdowns, profiles and layouts](docs/symbol-guide/pvx-symbols-3-breakdowns-profiles-layouts.png) and
+[navigation, events and data entry](docs/symbol-guide/pvx-symbols-4-navigation-events-entry.png).
+[All 50 on one poster](docs/symbol-guide/pvx-symbols-all-50.png) (3840 px wide) is
+for a wall screen or print; at 1920 its text is too small to read. They were
+rendered from 1.15.1 on sample data and are not rebuilt by the build, so a
+symbol that changes its look after that will not match its picture.
+
 ### Charts and analytics
 
 | | Symbol | What it's for |
@@ -190,7 +202,7 @@ dev/
   harness.html         offline preview app
   pv-mock.js           PI Vision host stub + synthetic data generator
 dist/                  build output — this is what you deploy
-docs/                  reference, deployment, authoring guide, roadmap
+docs/                  reference, deployment, authoring guide, roadmap, picture guide
 ```
 
 ### npm scripts
