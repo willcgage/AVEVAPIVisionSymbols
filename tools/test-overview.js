@@ -7,7 +7,9 @@
  *
  * Built for the PI Vision Overview Build Guide: drill-down to the element,
  * the Navigation Panel's hierarchy strip, the Asset Table, the Event
- * Timeline scoped to the current asset, and the text size control. Also the
+ * Timeline scoped to the current asset, and the text size control. Also
+ * the Event List: its columns, filter, sort, groups and totals, and where
+ * a click on a row goes. Also the
  * clicks that move the display's time range (a heatmap cell, an event bar)
  * and the Navigation Panel's icons, tooltips and {value} addresses.
  *
@@ -137,11 +139,48 @@ function rules() {
         JSON.stringify(PVX.color.categorical) === JSON.stringify(pal0) && PVX.color.status.alarm === '#c8452f' &&
         PVX.theme.tokens({ Theme: 'light' }).surface === '#ffffff');
 
+    eventListRules();
+
     const def = win.PVMock.get('pvxAssetTable');
     check('asset table: registered', !!def);
     check('asset table: defaults to no bands', def.getDefaultConfig().Thresholds === '');
     check('asset table: a saved placeholder is cleared on load',
         def.loadConfig({ Thresholds: win.PVX.thresholds.DEFAULT }).Thresholds === '');
+}
+
+function eventListRules() {
+    const win = loadBuilt(['pvxEventList']);
+    const V = win.PVMock.get('pvxEventList').visObjectType;
+    const cols = V.parseColumns('name, Reason Code, asset, NAME, ; duration');
+    check('event list: columns in order, an unknown word is an attribute, a repeat is dropped',
+        JSON.stringify(cols.map((c) => c.key)) === JSON.stringify(['name', 'attr:reason code', 'element', 'duration']) &&
+        cols[1].label === 'Reason Code', cols.map((c) => c.key));
+    check('event list: a blank column list is the default one', V.parseColumns('  ').length === 5);
+    check('event list: the group attribute is read even when not shown',
+        JSON.stringify(V.attributeNames(cols, { GroupBy: 'attribute', GroupAttribute: 'Shift' })) === JSON.stringify(['Reason Code', 'Shift']));
+    check('event list: overlapping time is counted once in the union',
+        V.unionMs([{ from: 0, to: 10 }, { from: 5, to: 20 }, { from: 30, to: 40 }]) === 30);
+
+    const ev = (name, start, end, rc) => ({ name, template: 'D', start, end, open: end === null, elName: '',
+        attrs: rc === undefined ? {} : { 'reason code': { value: rc, units: '' } } });
+    const evs = [ev('a', 0, 10, 'Trip'), ev('b', 20, 50), ev('c', 5, 25, 'Mech'), ev('d', 60, null, 'Mech')];
+    const base = { cols, filter: '', sortKey: 'start', desc: true, groupBy: 'none', now: 100,
+        textOf: (e, c) => (c.kind === 'name' ? e.name : '') };
+    let L = V.buildList(evs, base);
+    check('event list: newest first by default', L.groups[0].rows.map((e) => e.name).join('') === 'dbca');
+    check('event list: an active event is timed to now', L.durMs === 10 + 30 + 20 + 40 && L.open === 1, L.durMs);
+    L = V.buildList(evs, Object.assign({}, base, { sortKey: 'attr:reason code', desc: true }));
+    check('event list: a blank value sorts last either way', L.groups[0].rows[3].name === 'b', L.groups[0].rows.map((e) => e.name));
+    L = V.buildList(evs, Object.assign({}, base, { sortKey: 'attr:reason code', desc: false }));
+    check('event list: ... ascending too', L.groups[0].rows[3].name === 'b', L.groups[0].rows.map((e) => e.name));
+    L = V.buildList(evs, Object.assign({}, base, { filter: ' C ' }));
+    check('event list: the filter matches shown text, without case', L.shown === 1 && L.hidden === 3);
+    L = V.buildList(evs, Object.assign({}, base, { groupBy: 'attribute', groupAttribute: 'Reason Code' }));
+    check('event list: groups alphabetical, unassigned last',
+        L.groups.map((g) => g.label + g.count).join(',') === 'Mech2,Trip1,(unassigned)1', L.groups.map((g) => g.label));
+    check('event list: a group\'s duration and union', L.groups[0].durMs === 60 && L.groups[0].union === 60);
+    L = V.buildList(evs, Object.assign({}, base, { openOnly: true }));
+    check('event list: only active events', L.shown === 1 && L.closedHidden === 3);
 }
 
 /* ------------------------------------------------------------ mock AF ---- */
@@ -173,8 +212,21 @@ FRAMES[K301] = [{ Name: 'K-301 trip', StartTime: iso(300), EndTime: iso(280), se
     { Name: 'Seal leak', StartTime: iso(200), EndTime: iso(150), self: 'ef2' }];
 FRAMES[K302] = [{ Name: 'Seal leak', StartTime: iso(200), EndTime: iso(150), self: 'ef2' },
     { Name: 'K-302 high vibration', StartTime: iso(90), EndTime: iso(60), self: 'ef3' }];
-FRAMES[S1] = [{ Name: 'Station 1 ESD test', StartTime: iso(400), EndTime: iso(390), self: 'ef4' }];
-FRAMES[K303] = [{ Name: 'K-303 start', StartTime: iso(100), EndTime: iso(95), self: 'ef5' }];
+FRAMES[S1] = [{ Name: 'Station 1 ESD test', StartTime: iso(400), EndTime: iso(390), self: 'ef4', template: 'Test' }];
+// "K-303 start" overlaps "K-302 high vibration" by five minutes, and
+// "K-303 surge" has not ended: PI's year-9999 sentinel.
+FRAMES[K303] = [{ Name: 'K-303 start', StartTime: iso(100), EndTime: iso(85), self: 'ef5' },
+    { Name: 'K-303 surge', StartTime: iso(45), EndTime: '9999-12-31T23:59:59Z', self: 'ef6' }];
+// Each frame's primary referenced element: the first one listing it.
+const PRIMARY = {};
+Object.keys(FRAMES).forEach((k) => FRAMES[k].forEach((f) => { if (!PRIMARY[f.self]) { PRIMARY[f.self] = k; } }));
+// Event frame attribute values, [value, units].
+const EF_ATTRS = {
+    ef1: { 'Reason Code': ['Trip', ''], 'Lost Production': [12.5, 't'] },
+    ef2: { 'Reason Code': ['Mechanical', ''], 'Lost Production': [4, 't'] },
+    ef3: { 'Reason Code': ['Mechanical', ''] },
+    ef6: { 'Lost Production': [{ Name: 'Bad Input', Value: 307 }, ''] }
+};
 
 // AF limit traits, by attribute path.
 const TRAITS = {};
@@ -255,11 +307,27 @@ function route(method, url, via) {
             if (q.get('templateName')) { list = list.filter((p) => byPath[p.toLowerCase()].template === q.get('templateName')); }
             return { status: 200, body: { Items: list.slice(0, max).map(elementOut) } };
         }
+        // The database holds each frame once, however many elements it references.
         const frames = m[1] === 'elements' ? (FRAMES[o.path] || [])
-            : Object.keys(FRAMES).reduce((all, k) => all.concat(FRAMES[k]), []);
-        return { status: 200, body: { Items: frames.slice(0, max).map((f) => ({
-            Name: f.Name, StartTime: f.StartTime, EndTime: f.EndTime, TemplateName: 'Downtime',
-            Links: { Self: 'http://x/piwebapi/eventframes/' + f.self } })) } };
+            : Object.keys(FRAMES).reduce((all, k) => all.concat(FRAMES[k].filter((f) => PRIMARY[f.self] === k)), []);
+        const wantPrimary = /PrimaryReferencedElement/.test(q.get('selectedFields') || '');
+        return { status: 200, body: { Items: frames.slice(0, max).map((f) => {
+            const links = { Self: 'http://x/piwebapi/eventframes/' + f.self };
+            if (wantPrimary) { links.PrimaryReferencedElement = 'http://x/piwebapi/elements/' + wid('e', PRIMARY[f.self]); }
+            return { Name: f.Name, StartTime: f.StartTime, EndTime: f.EndTime, TemplateName: f.template || 'Downtime', Links: links };
+        }) } };
+    }
+    m = /^elements\/([^/]+)$/.exec(rel);
+    if (m) {
+        const o = byWebId[m[1]];
+        return o && o.kind === 'element' ? { status: 200, body: { Name: nameOf(o.path), Path: o.path } } : notFound;
+    }
+    m = /^streamsets\/([^/]+)\/value$/.exec(rel);
+    if (m && /^ef\d+$/.test(m[1])) {
+        const attrs = EF_ATTRS[m[1]] || {};
+        const want = (q.get('nameFilter') || '').toLowerCase();
+        return { status: 200, body: { Items: Object.keys(attrs).filter((a) => !want || a.toLowerCase() === want).map((a) => ({
+            Name: a, Value: { Timestamp: iso(1), Value: attrs[a][0], UnitsAbbreviation: attrs[a][1], Good: typeof attrs[a][0] !== 'object' } })) } };
     }
     return { status: 404, body: { Errors: ['No mock for ' + method + ' ' + rel] } };
 }
@@ -362,6 +430,122 @@ async function mount(a) {
     window.__scope = scope;
 }
 
+/** The Event List against the mock AF database. */
+async function eventList(open, texts, hash, settle) {
+    const pg = eventList.pg;
+    const EL = { DatabasePath: DB, StartTime: '*-1d',
+        Columns: 'name, element, start, end, duration, Reason Code, Lost Production' };
+    const names = () => texts('#box tbody tr[data-pvx-i] td:first-child');
+    const foot = async () => ((await texts('#box .pvx-evl-footer'))[0] || '').replace(/\s+/g, ' ');
+
+    await open('pvxEventList', { asset: '', config: EL });
+    let rows = await names();
+    check('event list: one row per event, newest first',
+        JSON.stringify(rows) === JSON.stringify(['K-303 surge', 'K-302 high vibration', 'K-303 start', 'Seal leak', 'K-301 trip', 'Station 1 ESD test']), rows);
+    const efAsk = requests.filter((r) => /^GET assetdatabases\/Wd:[^?]*\/eventframes\?/.test(r));
+    check('event list: one event query, with the fields it shows and the primary element',
+        efAsk.length === 1 && /selectedFields=Items.Name;Items.StartTime;Items.EndTime;Items.TemplateName;Items.Links.Self;Items.Links.PrimaryReferencedElement/.test(efAsk[0]) &&
+        /searchMode=Overlapped/.test(efAsk[0]) && /maxCount=501/.test(efAsk[0]), efAsk);
+    check('event list: element names and attribute values in one batch',
+        requests.filter((r) => r === 'POST batch').length === 1 &&
+        requests.filter((r) => /^batch: GET elements\/We:/.test(r)).length === 4 &&
+        requests.filter((r) => /^batch: GET streamsets\/ef\d\/value/.test(r)).length === 6 &&
+        !requests.some((r) => /^batch: GET streamsets.*nameFilter/.test(r)), requests);
+    const first = await texts('#box tbody tr[data-pvx-i="0"] td');
+    check('event list: an active event says so and is marked',
+        first[1] === 'K-303' && first[3] === 'active' && (await pg.$$('#box tr.pvx-evl-open')).length === 1, first);
+    check('event list: the asset is the element\'s name', (await texts('#box tbody tr[data-pvx-i="3"] td'))[1] === 'K-301');
+    const heads = await texts('#box th');
+    check('event list: units shared by a column go in its header', heads[6] === 'Lost Production (t)', heads);
+    const trip = await texts('#box tbody tr[data-pvx-i="4"] td');
+    check('event list: attribute values in their columns', trip[5] === 'Trip' && trip[6] === '12.5', trip);
+    check('event list: a digital state shows its name, marked as bad quality',
+        first[6] === 'Bad Input' && (await pg.$$('#box tr[data-pvx-i="0"] td.pvx-evl-bad')).length === 1, first);
+    let f = await foot();
+    check('event list: count, listed duration and active count', /6 events · 2h \d+m listed · 1 active/.test(f), f);
+    check('event list: says where active events are timed to, and the overlap it counts twice',
+        /active events timed to now/.test(f) && /events overlap: 5m of the total is counted twice/.test(f), f);
+    const total = await texts('#box tr.pvx-evl-grand td');
+    check('event list: a total row with the count', total[0] === 'Total · 6 events', total);
+
+    await pg.fill('#box .pvx-evl-filter', 'seal');
+    await settle();
+    rows = await names();
+    f = await foot();
+    check('event list: typing filters the rows', JSON.stringify(rows) === JSON.stringify(['Seal leak']) && /1 of 6 match "seal"/.test(f), [rows, f]);
+    await pg.fill('#box .pvx-evl-filter', 'mech');
+    await settle();
+    check('event list: the filter reads attribute columns too', (await names()).length === 2, await names());
+    await pg.fill('#box .pvx-evl-filter', '');
+    await settle();
+
+    await pg.click('#box th[data-pvx-sort="duration"]');
+    await settle();
+    rows = await names();
+    check('event list: a heading click sorts, longest first',
+        rows[0] === 'Seal leak' && rows[1] === 'K-303 surge' && rows[5] === 'Station 1 ESD test', rows);
+    await pg.click('#box th[data-pvx-sort="duration"]');
+    await settle();
+    check('event list: a second click reverses', (await names())[0] === 'Station 1 ESD test', await names());
+    await pg.click('#box th[data-pvx-sort="name"]');
+    await settle();
+    check('event list: a text column sorts A to Z first', (await names())[0] === 'K-301 trip', await names());
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { GroupBy: 'attribute', GroupAttribute: 'Reason Code', AttributeTotals: 'sum' }) });
+    const groups = await texts('#box tr.pvx-evl-group td');
+    check('event list: grouped by an attribute, alphabetical, unassigned last',
+        JSON.stringify(groups) === JSON.stringify(['Mechanical2', 'Trip1', '(unassigned)3']), groups);
+    const subs = await texts('#box tr.pvx-evl-total:not(.pvx-evl-grand) td:first-child');
+    check('event list: a subtotal per group', subs.length === 3 && subs[0] === 'Subtotal · 2 events', subs);
+    const grand = await texts('#box tr.pvx-evl-grand td');
+    check('event list: an attribute column totals its numbers only', grand[6] === '16.5', grand);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { Columns: 'name, start, Reason Code' }) });
+    check('event list: with one attribute the batch names it, and no element is looked up',
+        requests.some((r) => /^batch: GET streamsets\/ef1\/value\?.*nameFilter=Reason Code/.test(r)) &&
+        !requests.some((r) => /^batch: GET elements\//.test(r)) &&
+        !requests.some((r) => /PrimaryReferencedElement/.test(r)), requests);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { Columns: 'name, Shift' }) });
+    f = await foot();
+    check('event list: an attribute no event has is named', /no event has "Shift"/.test(f), f);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { MaxEvents: 2 }) });
+    f = await foot();
+    check('event list: a capped read says so', (await names()).length === 2 && /only the first 2 events read/.test(f), f);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { OpenOnly: true }) });
+    f = await foot();
+    check('event list: only active events, the rest counted', (await names()).length === 1 && /5 ended, not shown/.test(f), f);
+
+    await open('pvxEventList', { asset: K302, config: Object.assign({}, EL, { AssetScope: 'asset' }) });
+    rows = await names();
+    check('event list: the display\'s asset only',
+        JSON.stringify(rows) === JSON.stringify(['K-302 high vibration', 'Seal leak']) &&
+        requests.some((r) => /^GET elements\/We:.*K-302\/eventframes\?/.test(r)), [rows, requests]);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { ClickAction: 'time' }) });
+    await pg.click('#box tbody tr[data-pvx-i="3"]');
+    let h = await hash();
+    check('event list: a row sets this display to the event',
+        /^#\/Displays\/101\/Overview\?/.test(h) && /starttime=\d{4}-/.test(h) && /endtime=\d{4}-/.test(h), h);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { ClickAction: 'asset' }) });
+    await pg.click('#box tbody tr[data-pvx-i="3"]');
+    h = await hash();
+    check('event list: a row shows its asset, keeping the display', h === '#/Displays/101/Overview?asset=' + K301, h);
+
+    await open('pvxEventList', { asset: '', config: Object.assign({}, EL, { ClickAction: 'navigate', NavigateTarget: '205' }) });
+    await pg.click('#box tbody tr[data-pvx-i="1"]');
+    h = await hash();
+    check('event list: a row opens another display at its time and asset',
+        /^#\/Displays\/205\?/.test(h) && h.indexOf('asset=' + K302) !== -1 && /starttime=\d{4}-/.test(h), h);
+
+    await open('pvxEventList', { asset: '', config: EL, configured: false });
+    const msg = await pg.$eval('#box', (n) => n.textContent);
+    check('event list: unconfigured says what to do', /PI Web API is not configured/.test(msg) && /piwebapi-check\.html/.test(msg), msg.slice(0, 200));
+}
+
 async function page() {
     console.log('');
     console.log(C.bold + 'Overview symbols on a mock PI Web API (built files)' + C.reset);
@@ -372,6 +556,7 @@ async function page() {
     const browser = await chromium.launch(launchOpts);
     try {
         const pg = await browser.newPage();
+        eventList.pg = pg;
         const errors = [];
         pg.on('pageerror', (e) => errors.push(e.message));
         const hashFor = (asset, display) => '#/Displays/' + (display || 101) + '/Overview' +
@@ -602,6 +787,8 @@ async function page() {
         check('analytics auto: the data source\'s database, said in the footer',
             requests.some((r) => r === 'GET assetdatabases?path=' + DB) &&
             body.indexOf('database ' + DB + ' from this symbol\'s data source') !== -1, body.slice(-200));
+
+        await eventList(open, texts, hash, settle);
 
         /* ---- Asset Navigator --------------------------------------------- *
          * Nothing configured: PI Web API beside PI Vision, the database the

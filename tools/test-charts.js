@@ -562,6 +562,36 @@ function loadCore() {
     return win.PVX;
 }
 
+function crossProfile() {
+    console.log('');
+    console.log(C.bold + 'Cross profile: order, map, 2-sigma' + C.reset);
+    const vis = loadSymbol('pvxCrossProfile');
+    const o = vis.order(['Gauge 10', 'Gauge 9', 'Edge', 'Gauge 1.5'], 'number');
+    check('by number: 1.5, 9, 10, then the name with none', o.order.join() === '3,1,0,2' && o.unnumbered === 1, o);
+    check('as listed: unchanged', vis.order(['b', 'a'], 'source').order.join() === '0,1');
+
+    // Three positions, four intervals of 10 over 0..40.
+    const cols = [
+        { points: [{ t: 1, v: 10 }, { t: 3, v: 20 }, { t: 25, v: 30 }] },
+        { points: [{ t: -5, v: 7 }, { t: 35, v: 9 }] },
+        { points: [{ t: 2, v: 'I/O Timeout' }] }
+    ];
+    const g = vis.grid(cols, 4, 0, 40);
+    check('a cell is the average of its interval', g.cells[0][0] === 15 && g.cells[2][0] === 30, g.cells);
+    check('an empty interval holds the last value, from before the range too',
+        g.cells[1][0] === 15 && g.cells[0][1] === 7 && g.cells[3][1] === 9, g.cells.map((r) => r.join('/')));
+    check('a position with no numbers is a blank column, named, its text counted out',
+        g.empty.join() === '2' && g.cells[0][2] === null && g.excluded === 1, g);
+    const sm = vis.summary(vis.grid([{ points: [{ t: 0, v: 1 }] }, { points: [{ t: 0, v: 3 }] }, { points: [{ t: 0, v: 5 }] }], 2, 0, 10));
+    check('2-sigma across the current profile', sm.cd && sm.cd.mean === 3 && sm.cd.sd === 2, sm.cd);
+    check('a position that never moves has no spread along time', sm.mdSd === 0, sm.mdSd);
+
+    const run = probe('pvxCrossProfile', null);
+    check('the mock sheet: both 2-sigma figures in the footer', /Across, now: 2σ/.test(run.footer) && /Along, each position: 2σ/.test(run.footer), run.footer);
+    check('a tooltip per position, with its spread', run.tips.some((t) => /^CD Gauge 1 Basis Weight: now .*2 sigma over time$/.test(t)), run.tips.slice(0, 2));
+    check('no page errors', run.errors.length === 0, run.errors);
+}
+
 function spectrum() {
     console.log('');
     console.log(C.bold + 'Spectrum: FFT, peaks, bands' + C.reset);
@@ -768,7 +798,7 @@ function historyTable() {
 (() => {
     // `--only spectrum` runs one section, for the inner loop; CI runs all.
     const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
-        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum };
+        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile };
     const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
         Object.keys(sections).forEach((k) => {

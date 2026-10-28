@@ -1,0 +1,268 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Event source</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-db">AF database path</label>
+            <input id="pvxevl-db" type="text" ng-model="config.DatabasePath"
+                   placeholder="\\AFSERVER01\Production" />
+            <!-- pvx:afpicker key=DatabasePath kind=database -->
+        </div>
+        <div class="pvx-cfg-hint">
+            This symbol reads Event Frames from <strong>PI Web API</strong>, not from PI Vision's own
+            data pipeline. Leave the database blank to use the database of the attribute dropped on
+            it, or of the display's asset. If the symbol says it cannot reach PI Web API, open
+            <code>ext/piwebapi-check.html</code>, which says what to change.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-scope">Events of</label>
+            <select id="pvxevl-scope" ng-model="config.AssetScope">
+                <option value="none">The whole database</option>
+                <option value="asset">The display's asset</option>
+                <option value="assetTree">The display's asset and everything below it</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.AssetScope === 'assetTree'">
+            <label for="pvxevl-scopemax">Elements searched (max)</label>
+            <input id="pvxevl-scopemax" type="number" ng-model="config.MaxScopeElements" min="1" max="2000" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.AssetScope && config.AssetScope !== 'none'">
+            The asset is the one in the display's URL, or else the element of the attribute this
+            symbol was placed with. Below the asset, each element is one sub-request in a single
+            batch, and the footer says when the element limit cut the search short.
+        </div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-template">Event Frame template</label>
+            <input id="pvxevl-template" type="text" ng-model="config.TemplateName"
+                   placeholder="Leave blank for every template" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-namefilter">Event name filter</label>
+            <input id="pvxevl-namefilter" type="text" ng-model="config.NameFilter" placeholder="Downtime*" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-elemfilter">Referenced element filter</label>
+            <input id="pvxevl-elemfilter" type="text" ng-model="config.ElementNameFilter" placeholder="Mill*" />
+        </div>
+        <div class="pvx-cfg-hint"><code>*</code> and <code>?</code> wildcards, as in PI Web API. These are
+            applied by PI Web API before anything comes back; the filter box above the table only hides
+            rows already read.</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-searchmode">Search mode</label>
+            <select id="pvxevl-searchmode" ng-model="config.SearchMode">
+                <option value="Overlapped">Overlapped</option>
+                <option value="Inclusive">Inclusive</option>
+                <option value="StartInclusive">Start inclusive</option>
+                <option value="EndInclusive">End inclusive</option>
+                <option value="BackwardFromStartTime">Backward from start</option>
+                <option value="ForwardFromStartTime">Forward from start</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            <strong>Overlapped</strong> includes the event that started before the time range and is
+            still active, which is usually the one an operator is looking for.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-max">Max events</label>
+            <input id="pvxevl-max" type="number" ng-model="config.MaxEvents" min="1" max="5000" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-refresh">Refresh (seconds)</label>
+            <input id="pvxevl-refresh" type="number" ng-model="config.RefreshSeconds" min="5" max="86400" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The footer says when more events matched than were read. The list also re-reads whenever
+            the display's time range or asset changes.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Time range</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-start">Start</label>
+            <input id="pvxevl-start" type="text" ng-model="config.StartTime" placeholder="*-7d" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-end">End</label>
+            <input id="pvxevl-end" type="text" ng-model="config.EndTime" placeholder="*" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Used only when the display's URL carries no time range; the display's own time bar wins.
+            Each row shows the event's whole duration, not only the part inside the time range.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Columns</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-cols">Columns, in order</label>
+            <input id="pvxevl-cols" type="text" ng-model="config.Columns"
+                   placeholder="name, element, start, end, duration" />
+        </div>
+        <div class="pvx-cfg-hint">
+            <code>name</code>, <code>element</code> (the asset), <code>template</code>,
+            <code>start</code>, <code>end</code> and <code>duration</code>, in any order. Any other
+            word is the name of an <strong>event attribute</strong>, for example
+            <code>name, Reason Code, Operator, duration</code>. Attribute values are read in one
+            batched request; an attribute no event has is named in the footer.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-unit">Duration unit</label>
+            <select id="pvxevl-unit" ng-model="config.DurationUnit">
+                <option value="auto">Automatic</option>
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+                <option value="days">Days</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-time">Times</label>
+            <select id="pvxevl-time" ng-model="config.TimeFormat">
+                <option value="short">10/28 14:05</option>
+                <option value="datetime">Oct 28 14:05:12</option>
+                <option value="iso">ISO 8601 (UTC)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-open">Mark active events</label>
+            <input id="pvxevl-open" type="checkbox" ng-model="config.HighlightOpen" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-filterbox">Filter box</label>
+            <input id="pvxevl-filterbox" type="checkbox" ng-model="config.ShowFilterBox" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-filter">Start with this filter</label>
+            <input id="pvxevl-filter" type="text" ng-model="config.Filter" placeholder="Leave blank to show every row" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The filter keeps the rows whose text contains it, in any column, without case. What an
+            operator types in the box is not saved with the display.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-openonly">Only active events</label>
+            <input id="pvxevl-openonly" type="checkbox" ng-model="config.OpenOnly" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-sort">Sort by</label>
+            <input id="pvxevl-sort" type="text" ng-model="config.SortBy" placeholder="start" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-desc">Largest or newest first</label>
+            <input id="pvxevl-desc" type="checkbox" ng-model="config.SortDescending" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Any column word from the list above. Operators can click a column heading to sort by it,
+            and again to reverse; that is not saved either.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Groups and totals</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-groupby">Group rows by</label>
+            <select id="pvxevl-groupby" ng-model="config.GroupBy">
+                <option value="none">No groups</option>
+                <option value="template">Event Frame template</option>
+                <option value="element">Asset (referenced element)</option>
+                <option value="attribute">Event attribute value</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.GroupBy === 'attribute'">
+            <label for="pvxevl-groupattr">Attribute name</label>
+            <input id="pvxevl-groupattr" type="text" ng-model="config.GroupAttribute" placeholder="Reason Code" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.GroupBy !== 'none'">
+            Events with no value go in an <strong>(unassigned)</strong> group, last, rather than being
+            left out.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-totals">Totals</label>
+            <input id="pvxevl-totals" type="checkbox" ng-model="config.Totals" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-attrtotals">Attribute columns</label>
+            <select id="pvxevl-attrtotals" ng-model="config.AttributeTotals" ng-disabled="!config.Totals">
+                <option value="none">No total</option>
+                <option value="sum">Sum</option>
+                <option value="avg">Average</option>
+                <option value="min">Minimum</option>
+                <option value="max">Maximum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A count and the summed duration per group and for the list. The total is the sum of the
+            durations listed, so where events overlap it counts the overlap twice; the footer says by
+            how much. <strong>PVX Event Analytics</strong> merges overlaps and clips to the time range,
+            for a downtime total. Attribute totals are taken over the numeric values only.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-click">Clicking a row</label>
+            <select id="pvxevl-click" ng-model="config.ClickAction">
+                <option value="none">Does nothing</option>
+                <option value="time">Shows the event's time range on this display</option>
+                <option value="asset">Shows the event's asset on this display</option>
+                <option value="navigate">Opens another display at the event's time and asset</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+            <label for="pvxevl-target">Display</label>
+            <input id="pvxevl-target" type="text" ng-model="config.NavigateTarget" placeholder="101 or /Displays/101/Unit-Detail" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The time range is the event's, with a little either side. The asset is the event's primary
+            referenced element.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-csvbtn">CSV button</label>
+            <input id="pvxevl-csvbtn" type="checkbox" ng-model="config.ShowDownload" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-showheader">Show title</label>
+            <input id="pvxevl-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxevl-title">Title</label>
+            <input id="pvxevl-title" type="text" ng-model="config.Title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-theme">Theme</label>
+            <select id="pvxevl-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-transparent">Transparent background</label>
+            <input id="pvxevl-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-bgcolor">Background colour</label>
+            <input id="pvxevl-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxevl-radius">Corner radius</label>
+            <input id="pvxevl-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

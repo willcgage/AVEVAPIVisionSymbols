@@ -15,13 +15,13 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **44 symbols**.
+> [After the plan](#after-the-plan). The library is at **46 symbols**.
 
 ## On originality
 
 This roadmap was informed by surveying what the commercial PI Vision symbol
 market sells — chiefly [Software Athlete's Vision Library+](https://www.software-athlete.com/pages/pi-vision-custom-widgets-collection)
-(44 symbols) and the individual symbols on
+(45 symbols) and the individual symbols on
 [Cedric Canguilhem's store](https://cedriccanguilhem.gumroad.com/l/all-custom-symbols) —
 alongside AVEVA's own documentation for what PI Vision 2025 ships natively.
 
@@ -525,9 +525,12 @@ Done so far, in order:
 
 | 21 | **pvxSpectrum**, new | Which cycles are in a tag and how big each is: recorded values resampled onto an even grid (the footer says how many values made it), the level or slope removed, a Hann, Hamming or Blackman window, and an FFT, with amplitude in the tag's own units or in decibels. Frequency in Hz, per minute or per hour, chosen by the data unless set, on a linear or log axis. The largest peaks are marked with frequency and period; bands with an optional limit turn red and are named in the footer when anything in them is larger. The save button writes the spectrum as CSV. |
 
-The rest of the order is in the comparison document; next is a
-cross-direction profile, one tag per position across the sheet,
-`pvxCrossProfile`.
+| 22 | **pvxCrossProfile**, new | One data source per position across a sheet, web, kiln or stack: a map of position against time, newest at the top, each cell the average of its interval and coloured by its distance from a target (or by value); under it the current profile, the average profile and a band of two standard deviations over time at each position. The footer gives the 2-sigma across the current profile and the average 2-sigma along time at one position. Positions in listed order or by the number in each name. `pvxProfile` keeps the one-moment profile with limits; this adds the time it lacks. |
+
+| 23 | **pvxEventList**, new | One row per event frame, read only, from PI Web API: name, asset, template, start, end, duration and any event attributes, in the columns and order set in the pane. Rows can be filtered by typing, sorted by any heading, and grouped by template, asset or an attribute value, with a subtotal per group and a total; attribute columns can total their numbers. A click shows the event's time range or its asset on this display, or opens another display at both. Each row keeps the event's whole duration, so the total is the sum of the rows and the footer says how much of it overlapping events count twice; Event Analytics still merges and clips for a downtime figure. |
+
+The rest of the order is in the comparison document; next is batch
+comparison.
 
 ## What next
 

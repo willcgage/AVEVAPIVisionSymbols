@@ -3,13 +3,13 @@
 [![CI](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml/badge.svg)](https://github.com/willcgage/AVEVAPIVisionSymbols/actions/workflows/ci.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-Forty-four production-ready custom symbols that fill the gaps in PI Vision's stock
+Forty-six production-ready custom symbols that fill the gaps in PI Vision's stock
 palette: analytics charts, KPI and status panels, navigation controls, Event
 Frame analysis and manual data entry. Plus the build, preview and
 verification tooling to keep adding more.
 
-Thirty-one of them run entirely on PI Vision's own data pipeline — no PI Web
-API, no server-side prerequisites beyond copying a folder. Six reach further
+Thirty-two of them run entirely on PI Vision's own data pipeline — no PI Web
+API, no server-side prerequisites beyond copying a folder. Seven reach further
 (Event Frames, the AF hierarchy, writing values back) and need PI Web API, and
 seven more use it for an optional extra; see
 **[docs/PI-WEB-API.md](docs/PI-WEB-API.md)**.
@@ -40,6 +40,7 @@ in ES5 with no third-party libraries.
 | ![](src/symbols/pvxRadar/icon.svg) | **PVX Fingerprint** | Normalised multi-axis polygon over a reference profile. Shape recognition: does this asset still look like it used to. |
 | ![](src/symbols/pvxDonut/icon.svg) | **PVX Contribution** | Share of a total with the total in the hole. The config pane is honest that a ranked bar reads better for magnitude. |
 | ![](src/symbols/pvxProfile/icon.svg) | **PVX Spatial Profile** | Values along a *physical* axis — kiln zones, column trays, cell voltages — with a limit envelope and a faded "shadow" profile so drift shows as a change of shape. |
+| ![](src/symbols/pvxCrossProfile/icon.svg) | **PVX Cross Profile** | A measurement at many positions across a sheet over time: a map of position against time coloured by distance from target, so a streak or a drifting edge shows at once, with the current and average profile and each position's 2-sigma band under it. |
 | ![](src/symbols/pvxOperatingMap/icon.svg) | **PVX Operating Map** | The live operating point on a compressor or pump map: surge line, control line, speed lines and stonewall, a fading trail showing direction of travel, and surge margin as a number. The curves can live on the AF element, so the map follows asset swapping. |
 | ![](src/symbols/pvxRadialGauge/icon.svg) | **PVX Radial Gauge** | Threshold-banded dial. Configurable sweep from a shallow arc to a full ring, needle or progress arc, target marker; optionally the value's band highlighted, ticks on the band limits, minor ticks, and an inverted scale. |
 | ![](src/symbols/pvxBarIndicator/icon.svg) | **PVX Bar Indicator** | Horizontal or vertical level bar. Solid, gradient, segmented or thermometer; threshold bands on the track; target marker; optionally the value's band highlighted, ticks on the band limits, minor ticks, and an inverted scale. |
@@ -73,6 +74,7 @@ in ES5 with no third-party libraries.
 |---|---|---|
 | ![](src/symbols/pvxEventGantt/icon.svg) | **PVX Event Timeline** | Event Frames as swimlanes per asset, stacked where they overlap, with open events drawn to the edge rather than faked as finished. The native Events Table is a list; this shows pattern and clustering. A hierarchy mode nests child frames under their parents (batch, unit procedure, phase) and flags the steps that ran longer than typical. Can show only the events of the display's current asset, or of it and everything under it. |
 | ![](src/symbols/pvxEventAnalytics/icon.svg) | **PVX Event Analytics** | Which reason code costs the most hours. Durations are clipped to the window and overlapping events merged before summing — and the footer says when merging changed the total, because a downtime figure that double-counts ends up in a report. |
+| ![](src/symbols/pvxEventList/icon.svg) | **PVX Event List** | One row per event frame, read only: name, asset, template, start, end, duration and any event attributes (Reason Code, Operator). A filter box, a sort on any heading, groups with subtotals and a total. A click shows the event's time range or asset, or opens another display at both. Each row is the event as recorded, so where events overlap the footer says how much the total counts twice. |
 | ![](src/symbols/pvxAssetTree/icon.svg) | **PVX Asset Navigator** | Browses the live AF hierarchy and sets the display's asset context, so a unit added in AF appears without editing a display. Lazy-loaded, keyboard navigable. Also a flat list or a drop-down for a display header, and a value per row with a status colour. |
 | ![](src/symbols/pvxManualEntry/icon.svg) | **PVX Manual Entry** | Writes one value to an attribute or PI point, with range validation before sending and a confirm step before committing. |
 | ![](src/symbols/pvxEntryTable/icon.svg) | **PVX Shift Log** | The same at operator-rounds scale: several attributes, one form, one submit — reporting per row, so three saved and one refused reads as exactly that. |
@@ -118,7 +120,7 @@ runtime and site settings in `ext\libraries\pvx`. Both take the
 drive and PIPC folder PI Vision is installed in (`INSTALLDRIVE` / `PIPCFOLDER`,
 or `-Drive` / `-PIPCFolder`), defaulting to `PIHOME64`. The PVX symbols appear at the bottom of the symbol palette in display
 edit mode; pick one and drag an attribute onto the display to place it (any
-attribute for the ten that take their settings from the format pane alone). That is the whole installation for thirty-eight of the forty-four.
+attribute for the eleven that take their settings from the format pane alone). That is the whole installation for thirty-nine of the forty-six.
 
 Dropped the wrong attribute on a symbol? Open its format pane: every PVX
 symbol lists its data sources at the top, with **Remove** on each row (click
@@ -258,7 +260,7 @@ some updates; `PVX.bootstrap` carries them across the rest, per data source.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 792 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 828 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, content clipped out of reach, and a placeholder name
 ("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to
@@ -282,7 +284,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone` and `pvxSpectrum` from a feature-level comparison with Software Athlete's Vision Library+.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone`, `pvxSpectrum`, `pvxCrossProfile` and `pvxEventList` from a feature-level comparison with Software Athlete's Vision Library+.
 
 ---
 

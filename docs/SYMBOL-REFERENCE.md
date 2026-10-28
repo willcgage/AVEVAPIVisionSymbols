@@ -18,6 +18,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
 | [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
 | [`pvxControlChart`](#pvxcontrolchart) | PVX Control Chart | TimeSeries | Multiple |
+| [`pvxCrossProfile`](#pvxcrossprofile) | PVX Cross Profile | TimeSeries | Multiple |
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
@@ -25,6 +26,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
 | [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
+| [`pvxEventList`](#pvxeventlist) | PVX Event List | Value | Single |
 | [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
@@ -547,6 +549,38 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 
 ---
 
+## pvxCrossProfile
+
+**PVX Cross Profile** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock crossprofile
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `""` |  |
+| `PositionOrder` | `"source"` | source \| number (from each name) |
+| `Rows` | `48` | time intervals in the map |
+| `Target` | `""` | blank: the average of every cell |
+| `ColorSpan` | `""` | blank: the largest deviation seen |
+| `ColorMode` | `"diverging"` | diverging \| sequential |
+| `ShowProfile` | `true` |  |
+| `ShowAverage` | `true` |  |
+| `Sigma` | `2` | the band, in standard deviations |
+| `LineColor` | `"#3b82c4"` |  |
+
+---
+
 ## pvxDataHealth
 
 **PVX Data Health** · data shape `TimeSeries` · multiple data sources · collections not supported
@@ -852,6 +886,56 @@ symbol selector (see the definition). This is the first symbol in the library wh
 | `ShowSummary` | `true` |  |
 | `ClickAction` | `"none"` | none \| navigate \| time |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxEventList
+
+**PVX Event List** · data shape `Value` · single data source · collections not supported
+
+symbol selector, and gives a blank database path a database (see the definition). Every row comes from PI Web API through PVX.api.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `"Events"` |  |
+| `DatabasePath` | `""` |  |
+| `TemplateName` | `""` |  |
+| `NameFilter` | `""` |  |
+| `ElementNameFilter` | `""` |  |
+| `SearchMode` | `"Overlapped"` |  |
+| `AssetScope` | `"none"` | none \| asset \| assetTree |
+| `MaxScopeElements` | `200` |  |
+| `MaxEvents` | `500` |  |
+| `RefreshSeconds` | `60` |  |
+| `StartTime` | `"*-7d"` |  |
+| `EndTime` | `"*"` |  |
+| `Columns` | `"name, element, start, end, duration"` |  |
+| `DurationUnit` | `"auto"` | auto \| minutes \| hours \| days |
+| `TimeFormat` | `"short"` | short \| datetime \| iso |
+| `HighlightOpen` | `true` |  |
+| `Filter` | `""` | the filter box's starting text |
+| `ShowFilterBox` | `true` |  |
+| `OpenOnly` | `false` |  |
+| `SortBy` | `"start"` | a column word from Columns |
+| `SortDescending` | `true` |  |
+| `GroupBy` | `"none"` | none \| template \| element \| attribute |
+| `GroupAttribute` | `""` |  |
+| `Totals` | `true` |  |
+| `AttributeTotals` | `"none"` | none \| sum \| avg \| min \| max |
+| `ClickAction` | `"none"` | none \| time \| asset \| navigate |
+| `NavigateTarget` | `""` |  |
+| `ShowDownload` | `true` |  |
 
 ---
 

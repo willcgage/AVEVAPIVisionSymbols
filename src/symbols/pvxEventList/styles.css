@@ -1,0 +1,222 @@
+/* pvxEventList: every selector namespaced under .pvx-evl. The custom
+   properties are fallbacks; symbol.js writes the theme's on every render. */
+
+.pvx-evl {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-open: #d99024;
+    --pvx-stripe: rgba(0, 0, 0, 0.13);
+    color: var(--pvx-text);
+}
+
+.pvx-evl .pvx-evl-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-evl .pvx-evl-header {
+    color: var(--pvx-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pvx-evl .pvx-evl-header .pvx-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pvx-evl .pvx-evl-filter {
+    flex: 0 1 180px;
+    min-width: 60px;
+    margin-left: auto;
+    font: inherit;
+    font-size: 11px;
+    color: var(--pvx-text);
+    background: var(--pvx-surface);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    padding: 2px 6px;
+}
+
+.pvx-evl .pvx-evl-filter:focus {
+    outline: none;
+    border-color: var(--pvx-muted);
+}
+
+.pvx-evl .pvx-evl-bodywrap {
+    padding: 0;
+    min-height: 0;
+}
+
+.pvx-evl .pvx-evl-body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    position: relative;
+}
+
+/* Rows scroll both ways under a header row that stays put. */
+.pvx-evl .pvx-evl-scroll {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow: auto;
+}
+
+.pvx-evl .pvx-evl-table {
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+}
+
+.pvx-evl .pvx-evl-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--pvx-surface-alt);
+    color: var(--pvx-muted);
+    font-weight: 600;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+
+.pvx-evl .pvx-evl-table th.pvx-evl-sorted {
+    color: var(--pvx-text);
+}
+
+.pvx-evl .pvx-evl-arrow {
+    margin-left: 3px;
+    font-size: 10px;
+}
+
+.pvx-evl .pvx-evl-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-evl .pvx-evl-left { text-align: left; }
+.pvx-evl .pvx-evl-right { text-align: right; }
+
+/* A still-active event: a bar down its left edge in the status warning
+   colour, so it is found without reading the End column. */
+.pvx-evl .pvx-evl-open td:first-child {
+    box-shadow: inset 3px 0 0 var(--pvx-open);
+}
+
+.pvx-evl .pvx-evl-open td {
+    font-weight: 600;
+}
+
+.pvx-evl .pvx-evl-bad {
+    color: var(--pvx-muted);
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, var(--pvx-stripe) 5px 7px);
+}
+
+.pvx-evl .pvx-evl-group td {
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--pvx-muted);
+    background: var(--pvx-surface-alt);
+    padding-top: 5px;
+}
+
+.pvx-evl .pvx-evl-group-n {
+    margin-left: 6px;
+    font-weight: 400;
+}
+
+.pvx-evl .pvx-evl-total td {
+    font-weight: 600;
+    border-top: 1px solid var(--pvx-muted);
+}
+
+.pvx-evl .pvx-evl-grand td {
+    background: var(--pvx-surface-alt);
+}
+
+.pvx-evl .pvx-evl-none td {
+    padding: 12px 8px;
+    text-align: center;
+    color: var(--pvx-muted);
+}
+
+.pvx-evl.pvx-evl-clickable tbody tr[data-pvx-i] {
+    cursor: pointer;
+}
+
+.pvx-evl .pvx-evl-table tbody tr[data-pvx-i]:hover td {
+    box-shadow: inset 0 0 0 9999px rgba(128, 128, 128, 0.08);
+}
+
+.pvx-evl .pvx-evl-table tbody tr.pvx-evl-open[data-pvx-i]:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--pvx-open), inset 0 0 0 9999px rgba(128, 128, 128, 0.08);
+}
+
+.pvx-evl .pvx-evl-empty {
+    padding: 16px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--pvx-muted);
+}
+
+.pvx-evl .pvx-evl-empty-head {
+    font-weight: 600;
+    color: var(--pvx-text);
+    margin-bottom: 4px;
+}
+
+.pvx-evl .pvx-evl-warn .pvx-evl-empty-head { color: #b8781a; }
+.pvx-evl .pvx-evl-alarm .pvx-evl-empty-head { color: #c8452f; }
+
+.pvx-evl .pvx-evl-footer {
+    padding: 2px 6px 3px 8px;
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+    gap: 8px;
+}
+
+.pvx-evl .pvx-evl-summary {
+    flex: 0 0 auto;
+    color: var(--pvx-text);
+    white-space: nowrap;
+}
+
+.pvx-evl .pvx-evl-note {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pvx-evl .pvx-evl-csv {
+    flex: 0 0 auto;
+    font: inherit;
+    font-weight: 600;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    padding: 1px 7px;
+    cursor: pointer;
+}
+
+.pvx-evl .pvx-evl-csv:hover,
+.pvx-evl .pvx-evl-csv:focus {
+    border-color: var(--pvx-muted);
+}

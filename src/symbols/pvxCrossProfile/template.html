@@ -1,0 +1,22 @@
+<div class="pvx pvx-xprof"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-xprof-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-xprof-footer" ng-if="pvx.stats || pvx.note">
+            <span class="pvx-truncate pvx-num pvx-xprof-stats" ng-if="pvx.stats" title="{{pvx.stats}}">{{pvx.stats}}</span>
+            <span class="pvx-truncate pvx-xprof-note" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

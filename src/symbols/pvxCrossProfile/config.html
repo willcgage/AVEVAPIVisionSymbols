@@ -1,0 +1,86 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Positions</div>
+        <div class="pvx-cfg-hint">
+            One data source per position across the sheet, web, kiln or stack. The map runs
+            across in position order and down in time, newest at the top.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-order">Order across</label>
+            <select id="pvxxp-order" ng-model="config.PositionOrder">
+                <option value="source">As the data sources are listed</option>
+                <option value="number">By the number in each name</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            By number puts "Gauge 10" after "Gauge 9", whatever order they were added in.
+            A name with no number goes last, and the footer says how many.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-rows">Time intervals</label>
+            <input id="pvxxp-rows" type="number" ng-model="config.Rows" min="2" max="500" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Rows in the map, each the average of the values in its interval. An interval
+            with none holds the last value, as a scanner's profile does between scans.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-mode">Colour by</label>
+            <select id="pvxxp-mode" ng-model="config.ColorMode">
+                <option value="diverging">Distance from the target</option>
+                <option value="sequential">Value, low to high</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-target">Target</label>
+            <input id="pvxxp-target" type="text" ng-model="config.Target" placeholder="the average" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-span">Full colour at &plusmn;</label>
+            <input id="pvxxp-span" type="text" ng-model="config.ColorSpan" placeholder="the largest seen" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Blue below the target, red above, white on it. Set the span to the tolerance
+            and anything fully coloured is out of it.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Profile</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-showprof">Show the profile under the map</label>
+            <input id="pvxxp-showprof" type="checkbox" ng-model="config.ShowProfile" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-showavg">Show the average profile</label>
+            <input id="pvxxp-showavg" type="checkbox" ng-model="config.ShowAverage" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-sigma">Band (standard deviations)</label>
+            <input id="pvxxp-sigma" type="number" ng-model="config.Sigma" min="0" max="6" step="0.5" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The band is how far each position wanders over the time range. The footer gives
+            the 2-sigma across the current profile and the average 2-sigma along time at one
+            position.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-line">Line colour</label>
+            <input id="pvxxp-line" type="color" ng-model="config.LineColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxp-showlabel">Show title</label>
+            <input id="pvxxp-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxxp-title">Title</label>
+            <input id="pvxxp-title" type="text" ng-model="config.Title" placeholder="Cross profile, N positions" />
+        </div>
+    </div>
+
+</div>

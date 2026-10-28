@@ -357,7 +357,7 @@
             var dbPath = $('afdb').value.trim();
             if (!dbPath) { return; }
             var t = addTest('Event Frames (' + mode + ')',
-                'The actual query pvxEventGantt and pvxEventAnalytics will make.');
+                'The actual query pvxEventGantt, pvxEventAnalytics and pvxEventList will make.');
             return PVX.api.get('assetdatabases?path=' + encodeURIComponent(dbPath), { auth: mode, cache: false })
                 .then(function (db) {
                     return PVX.api.eventFrames({

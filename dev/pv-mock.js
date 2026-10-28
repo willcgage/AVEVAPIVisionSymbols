@@ -351,6 +351,28 @@
             return { Data: sData };
         }
 
+        // A cross profile of unrelated tags is noise. This is basis weight
+        // across a paper machine: edges a little light, a heavy streak at
+        // two thirds of the width that starts halfway through the window,
+        // and the whole sheet drifting slowly, scanned every two minutes.
+        if (shape === 'TimeSeries' && opts.profile === 'crossprofile') {
+            var cData = [];
+            for (var cp = 0; cp < count; cp++) {
+                var pos = count > 1 ? cp / (count - 1) : 0.5;
+                var cv = [];
+                for (var ct = now - span; ct <= now; ct += 120000) {
+                    var cf = (ct - (now - span)) / span;
+                    var edge = -2.5 * Math.pow(Math.abs(pos - 0.5) * 2, 4);
+                    var streak = cf > 0.5 && Math.abs(pos - 0.66) < 0.08 ? 2.2 : 0;
+                    cv.push({ Time: new Date(ct).toISOString(),
+                        Value: round(80 + edge + streak + 1.2 * Math.sin(cf * 6.3) + (rand() - 0.5) * 0.8, 2) });
+                }
+                cData.push({ Label: 'CD Gauge ' + (cp + 1) + ' Basis Weight', Units: 'g/m2',
+                    Path: '\\\\AF\\PM1 Scanner|Gauge ' + (cp + 1), IsGood: opts.badIndex === cp ? false : true, Value: cv });
+            }
+            return { Data: cData };
+        }
+
         // A spectrum of a generic sine shows one line and tests nothing. This
         // is a pressure loop hunting with a 20 minute period, a 7 minute
         // ripple from a recycle, and noise, recorded every 20 seconds or so
