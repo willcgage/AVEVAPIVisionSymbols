@@ -82,6 +82,28 @@
             </div>
         </div>
 
+        <div class="pvx-cfg-row" ng-if="config.Mode !== 'hierarchy'">
+            <label for="pvxnav-itemsfrom">Buttons come from</label>
+            <select id="pvxnav-itemsfrom" ng-model="config.ItemsFrom">
+                <option value="config">The list below</option>
+                <option value="af">An AF attribute</option>
+            </select>
+        </div>
+        <div ng-if="config.Mode !== 'hierarchy' && config.ItemsFrom === 'af'">
+            <div class="pvx-cfg-stack">
+                <label for="pvxnav-itemsattr">AF attribute holding the menu</label>
+                <input id="pvxnav-itemsattr" type="text" ng-model="config.ItemsAttribute"
+                       placeholder="\\AF server\Database\Site|Navigation Menu" />
+                <!-- pvx:afpicker key=ItemsAttribute kind=attribute -->
+            </div>
+            <div class="pvx-cfg-hint">
+                A string attribute whose value is the menu, in the same one-button-per-line form as
+                the list below. Every display that names it shows the same buttons, and a change in AF
+                reaches all of them within a minute, without editing a display. Until it is read, or
+                if it cannot be, the list below is used and the panel says why.
+            </div>
+        </div>
+
         <div class="pvx-cfg-stack" ng-if="config.Mode !== 'hierarchy'">
             <label for="pvxnav-items">Items &mdash; one button per line</label>
             <textarea id="pvxnav-items" ng-model="config.Items" rows="7"
@@ -93,6 +115,17 @@
             <b>Format:</b> <code>Label | target | extra</code><br />
             Blank lines are ignored, and a line starting with <code>#</code> is a comment.
             Spaces around the <code>|</code> are trimmed.
+        </div>
+
+        <div class="pvx-cfg-hint" ng-if="config.Mode !== 'hierarchy'">
+            <b>Icon and tooltip</b> &mdash; start the label with an icon name in brackets, and put the tooltip
+            after <code>--</code>: <code>[home] Overview -- Plant overview | 101</code>.
+            A label of only an icon, such as <code>[back]</code>, makes an icon button.
+            Icons: home, back, forward, up, down, trend, alarm, table, gauge, clock, map, list, settings, info,
+            report, power, star, menu, external, kiosk, toolbar, timebar, sidebar, plant, search.<br />
+            <b>Address from data</b> &mdash; write <code>{value}</code> in a target and the button uses the
+            current value of this symbol's data source there, so an AF attribute can hold the display id or
+            asset path: <code>Details | {value}</code>.
         </div>
 
         <div class="pvx-cfg-hint">

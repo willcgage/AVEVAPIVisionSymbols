@@ -40,8 +40,8 @@
             </select>
         </div>
 
-        <div class="pvx-cfg-stack" ng-if="config.InputType === 'digital'">
-            <label for="pvxme-states">Digital states</label>
+        <div class="pvx-cfg-stack" ng-if="config.InputType === 'digital' || (config.Control === 'buttons' && config.InputType !== 'boolean')">
+            <label for="pvxme-states">{{config.InputType === 'digital' ? 'Digital states' : 'Choices'}}</label>
             <input id="pvxme-states" type="text" ng-model="config.DigitalStates"
                    placeholder="Running, Stopped, Fault" />
         </div>
@@ -78,6 +78,70 @@
         <div class="pvx-cfg-row">
             <label for="pvxme-decimals">Decimals</label>
             <input id="pvxme-decimals" type="text" ng-model="config.Decimals" placeholder="auto" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">How it is entered</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxme-control">Control</label>
+            <select id="pvxme-control" ng-model="config.Control">
+                <option value="field">Field or dropdown</option>
+                <option value="stepper">Stepper (number)</option>
+                <option value="slider">Slider (number with a minimum and maximum)</option>
+                <option value="switch">Switch (two positions)</option>
+                <option value="buttons">A button for each choice</option>
+                <option value="value">Value button (writes one value)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A switch is True/False, 0/1 for a number, or the two digital states with the off state first.
+            Until the operator picks something, a switch or a row of buttons shows the value PI holds now.
+            A pick that has not been written yet is outlined. If the control does not suit the input type,
+            the symbol uses the field and says why.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.Control === 'stepper' || config.Control === 'slider'">
+            <label for="pvxme-step">Step</label>
+            <input id="pvxme-step" type="text" ng-model="config.StepSize" placeholder="1" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Control === 'switch'">
+            <label for="pvxme-swoff">Off caption</label>
+            <input id="pvxme-swoff" type="text" ng-model="config.SwitchOffLabel" placeholder="the state's name" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Control === 'switch'">
+            <label for="pvxme-swon">On caption</label>
+            <input id="pvxme-swon" type="text" ng-model="config.SwitchOnLabel" placeholder="the state's name" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Control === 'switch' || config.Control === 'buttons' || config.Control === 'slider' || config.Control === 'field'">
+            <label for="pvxme-onchange">Write as soon as it is changed</label>
+            <input id="pvxme-onchange" type="checkbox" ng-model="config.WriteOnChange" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.WriteOnChange">
+            Flipping the switch, clicking a button, letting go of the slider or picking from the dropdown
+            writes at once, through the confirmation if that is on. A typed value and a stepper still wait
+            for the button.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.Control === 'value'">
+            <label for="pvxme-press">Value written</label>
+            <input id="pvxme-press" type="text" ng-model="config.PressValue" placeholder="1" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Control === 'value'">
+            <label for="pvxme-reset">Then write back</label>
+            <input id="pvxme-reset" type="text" ng-model="config.ResetValue" placeholder="blank = nothing" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Control === 'value' && config.ResetValue">
+            <label for="pvxme-resetsec">After (seconds)</label>
+            <input id="pvxme-resetsec" type="number" ng-model="config.ResetSeconds" min="0.5" max="3600" step="0.5" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.Control === 'value'">
+            The button writes this one value, checked against the input type and limits like a typed one.
+            With a value to write back, it is a momentary button: for example 1, then 0 two seconds later.
+            The write-back is sent once with no confirmation of its own, and the button stays locked until
+            it has gone. If the display is closed in between, the write-back is sent at once. If it fails,
+            the symbol says what the attribute may still hold.
         </div>
     </div>
 

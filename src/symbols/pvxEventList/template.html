@@ -1,0 +1,31 @@
+<!--
+    pvxEventList template: thin on purpose. The table inside .pvx-evl-body is
+    written by symbol.js as one string per render, so a refresh never digests
+    a binding per cell. Only the header, the filter box and the footer are
+    bound.
+-->
+<div class="pvx pvx-evl"
+     ng-class="{'pvx-evl-clickable': pvx.clickable}"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-evl-surface">
+
+        <div class="pvx-header pvx-evl-header" ng-if="(config.ShowLabel && pvx.title) || pvx.showFilter">
+            <div class="pvx-title pvx-truncate" ng-if="config.ShowLabel && pvx.title" title="{{pvx.title}}">{{pvx.title}}</div>
+            <input class="pvx-evl-filter" type="search" ng-if="pvx.showFilter"
+                   ng-model="pvx.filter" ng-change="pvx.onFilter()"
+                   placeholder="Filter" title="Show only the events whose row contains this text" />
+        </div>
+
+        <div class="pvx-body pvx-evl-bodywrap">
+            <div class="pvx-evl-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-evl-footer" ng-if="pvx.summary || pvx.note || pvx.canDownload || pvx.saveNote">
+            <span class="pvx-evl-summary pvx-num" ng-if="pvx.summary">{{pvx.summary}}</span>
+            <span class="pvx-evl-note pvx-truncate" title="{{pvx.note}}">{{pvx.saveNote || pvx.note}}</span>
+            <button type="button" class="pvx-evl-csv" ng-if="pvx.canDownload"
+                    ng-click="pvx.download()" title="Save the rows shown as a CSV file">CSV</button>
+        </div>
+
+    </div>
+</div>

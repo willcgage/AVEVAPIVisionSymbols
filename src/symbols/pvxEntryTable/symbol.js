@@ -81,10 +81,28 @@
                 ShowLabel: true,
 
                 /* -- the rows ------------------------------------------------- *
-                 * One row per line:  <path> | <label> | <units> | <min>:<max>
+                 * One row per line:
+                 *   <path> | <label> | <units> | <min>:<max> | <control>
                  * Only the path is required. See parseRows() for why the field
-                 * separator is a pipe with a SPACE beside it. */
+                 * separator is a pipe with a SPACE beside it. A line [Name]
+                 * starts a section. */
                 Rows: '',
+
+                /* -- layout ---------------------------------------------------- *
+                 * 'list' is the sheet this symbol always drew, a row per
+                 * reading. 'form' puts each reading in a cell of a grid of
+                 * FormColumns, section by section. */
+                Layout: 'list',           // list | form | slots
+                FormColumns: 2,
+
+                /* -- the time-slot grid (Layout 'slots') ----------------------- *
+                 * One column per slot, from SlotStart (a PI time, snapped to
+                 * the interval) every SlotInterval, SlotCount of them. Each
+                 * cell shows what PI holds in its slot and writes at the
+                 * slot's time. */
+                SlotStart: '*-7h',
+                SlotInterval: '1h',
+                SlotCount: 8,
 
                 /* -- optional base -------------------------------------------- *
                  * With this set, a row may be a bare attribute name. It is the
@@ -101,6 +119,21 @@
                 SubmitLabel: 'Submit readings',
                 AllowPartial: true,
                 ClearAfterSubmit: true,
+
+                /* -- checks and what is written ---------------------------------- *
+                 * 'hard' refuses a value outside a row's min:max, as this
+                 * symbol always did; 'soft' lets it through after the
+                 * confirmation says so. A row's own "warn lo:hi" is always soft. */
+                LimitMode: 'hard',         // hard | soft
+                // A value already at that time: replaced (PI Web API's own
+                // default, and what was always written), kept beside the new
+                // one, or kept instead of it.
+                ExistingValues: 'replace', // replace | insert | protect
+                AllowQuestionable: false,
+                // A column pasted from a spreadsheet fills the rows down; a
+                // CSV file of name,value[,time] lines fills them by name.
+                PasteRows: false,
+                ShowImport: false,
 
                 /* -- when the values happened ------------------------------------ */
                 TimestampMode: 'now',      // now | custom | perRow
@@ -130,7 +163,9 @@
             busy: false,          // a submit is in flight — the whole form locks
             pending: null,        // validated writes awaiting confirmation
             message: null,        // {tone, text, detail}
-            lastSubmit: null      // {ok, failed} counts from the last submit
+            lastSubmit: null,     // {ok, failed} counts from the last submit
+            slots: { times: [], step: 0, error: '', key: '' },
+            user: ''              // PI Web API's name for the viewer, for "prefill user"
         };
 
         var liveCfg = scope.config || {};
@@ -202,6 +237,76 @@
 
         function isPreview(cfg) { return cfg.ReadOnlyPreview === true; }
 
+        function isForm(cfg) { return trim(cfg.Layout).toLowerCase() === 'form'; }
+
+        function isSlots(cfg) { return trim(cfg.Layout).toLowerCase() === 'slots'; }
+
+        /* "30m", "1h", "8h", "1d" -> ms, or null. */
+        function intervalMs(text) {
+            var m = /^(\d+(?:\.\d+)?)\s*(s|m|min|h|d|w)$/i.exec(trim(text));
+            if (!m) { return null; }
+            var u = m[2].toLowerCase() === 'min' ? 'm' : m[2].toLowerCase();
+            var ms = parseFloat(m[1]) * UNIT_MS[u];
+            return ms >= 60000 ? ms : null;
+        }
+
+        /**
+         * The slot times: SlotStart resolved, snapped down to the interval in
+         * local time (so hourly slots sit on the hour and 8h slots on 06:00,
+         * 14:00 and 22:00 only when the interval divides the day from local
+         * midnight), then SlotCount of them.
+         * @returns {Object} {times:[ms], step, error}
+         */
+        function slotTimes(cfg, now) {
+            var step = intervalMs(cfg.SlotInterval);
+            if (step === null) { return { times: [], step: 0, error: 'Slot interval "' + trim(cfg.SlotInterval) + '" is not a duration such as 30m, 1h or 8h.' }; }
+            var start = PVX.nav.parseTime(trim(cfg.SlotStart) || '*-7h', now);
+            if (start === null) { return { times: [], step: step, error: 'Slot start "' + trim(cfg.SlotStart) + '" is not a PI time such as *-8h or t+6h.' }; }
+            var off = new Date(start).getTimezoneOffset() * 60000;
+            if (step <= 86400000) { start = Math.floor((start - off) / step) * step + off; }
+            var n = intIn(cfg.SlotCount, 1, 48, 8);
+            var out = [];
+            for (var k = 0; k < n; k++) { out.push(start + k * step); }
+            return { times: out, step: step, error: '' };
+        }
+
+        function slotLabel(ms, step) {
+            var d = new Date(ms);
+            var pad = function (x) { return (x < 10 ? '0' : '') + x; };
+            var hm = pad(d.getHours()) + ':' + pad(d.getMinutes());
+            if (step >= 86400000) { return pad(d.getDate()) + '/' + pad(d.getMonth() + 1); }
+            return hm;
+        }
+
+        /**
+         * The sixth field of a row: required, warn lo:hi, prefill last|user|text,
+         * comma separated. @returns {Object} {required, warn, prefill, error}
+         */
+        function parseOptions(text) {
+            var out = { required: false, warnMin: null, warnMax: null, prefill: '', error: '' };
+            var parts = trim(text) ? String(text).split(',') : [];
+            for (var i = 0; i < parts.length; i++) {
+                var tok = trim(parts[i]);
+                if (!tok) { continue; }
+                var low = tok.toLowerCase();
+                var m;
+                if (low === 'required') { out.required = true; continue; }
+                if ((m = /^warn\s+(.+)$/i.exec(tok))) {
+                    var r = parseRange(m[1]);
+                    if (r.min === null && r.max === null) { out.error = 'warn needs a lo:hi range, such as warn 10:90'; continue; }
+                    out.warnMin = r.min; out.warnMax = r.max;
+                    continue;
+                }
+                if ((m = /^prefill\s+(.+)$/i.exec(tok))) { out.prefill = trim(m[1]); continue; }
+                out.error = 'option "' + tok + '" is not one of required, warn lo:hi, prefill last, prefill user or prefill <text>';
+            }
+            return out;
+        }
+
+        /* Kinds that are picked rather than typed. After a write they go
+         * back to showing what PI holds, as in Manual Entry. */
+        var PICKED = { slider: 1, 'switch': 1, buttons: 1 };
+
         /* ================================================================ *
          * the row grammar
          * ================================================================ *
@@ -250,10 +355,15 @@
         function parseRows(cfg) {
             var base = trim(cfg.ElementPath);
             var out = [];
+            var section = '', sectionOpen = false;
             String(cfg.Rows || '').split(/\r?\n/).forEach(function (line) {
                 var raw = trim(line);
                 // '#' comments so a site can leave a note in a rounds sheet.
                 if (!raw || raw.charAt(0) === '#') { return; }
+                // [Pump house] starts a section. No AF path starts with '[',
+                // so a sheet saved before sections existed reads the same.
+                var sec = /^\[(.*)\]$/.exec(raw);
+                if (sec) { section = trim(sec[1]); sectionOpen = true; return; }
 
                 var f = splitFields(raw);
                 var pathText = trim(f[0]);
@@ -262,6 +372,12 @@
                 var absolute = pathText.indexOf('\\\\') === 0;
                 var full = absolute ? pathText : (base ? base + '|' + pathText : '');
                 var range = parseRange(f[3]);
+                var control = PVX.entry.parse(f[4]);
+                var ctlError = control.error;
+                if (!ctlError && control.kind === 'slider' && (range.min === null || range.max === null)) {
+                    ctlError = 'a slider needs a min:max range in the fourth field';
+                }
+                var opts = parseOptions(f[5]);
 
                 out.push({
                     key: 'r' + out.length,
@@ -279,10 +395,30 @@
                         message: 'This row is a relative attribute name, but no element path is set.',
                         check: 'ElementPath'
                     },
+                    // Kept apart from error, which the path lookup clears:
+                    // a row whose path resolves but whose control cannot be
+                    // read must still not be written.
+                    ctlError: ctlError ? {
+                        message: 'Control: ' + ctlError + '.',
+                        check: 'the fifth field of this row',
+                        short: 'bad control'
+                    } : (opts.error ? {
+                        message: 'Options: ' + opts.error + '.',
+                        check: 'the sixth field of this row',
+                        short: 'bad option'
+                    } : null),
+                    required: opts.required,
+                    warnMin: opts.warnMin,
+                    warnMax: opts.warnMax,
+                    prefill: opts.prefill,
+                    control: control,
+                    section: section,
+                    sectionStart: sectionOpen,
                     current: null,
                     status: '',
                     note: ''
                 });
+                sectionOpen = false;
             });
             return out;
         }
@@ -291,9 +427,14 @@
         function rowSignature(rows, cfg) {
             var parts = [];
             for (var i = 0; i < rows.length; i++) {
-                parts.push(rows[i].path + '\u0002' + rows[i].label + '\u0002' + rows[i].units);
+                var c = rows[i].control;
+                parts.push(rows[i].path + '\u0002' + rows[i].label + '\u0002' + rows[i].units + '\u0002' +
+                    c.kind + ':' + c.step + ':' + c.wide + ':' + c.choices.map(function (x) { return x.value + '=' + x.label; }).join('/') +
+                    '\u0002' + rows[i].min + ':' + rows[i].max + '\u0002' + (rows[i].sectionStart ? rows[i].section : ''));
             }
-            return parts.join('\u0003') + '||' + (cfg.TimestampMode === 'perRow' ? 'per' : 'one');
+            return parts.join('\u0003') + '||' + (cfg.TimestampMode === 'perRow' ? 'per' : 'one') +
+                '||' + (isSlots(cfg) ? 'slots:' + state.slots.times.join(',') : (isForm(cfg) ? 'form' : 'list')) +
+                '||' + (cfg.AllowQuestionable === true ? 'q' : '');
         }
 
         /* ================================================================ *
@@ -388,6 +529,7 @@
                     if (!v) { continue; }
                     var raw = unwrap(v.Value);
                     rows[k].current = {
+                        raw: raw,
                         display: displayValue(raw, cfg),
                         timestamp: v.Timestamp,
                         good: v.Good !== false
@@ -450,6 +592,10 @@
             // submit reported. Re-parsing must not blank a half-filled sheet.
             carryOver(parsed, state.rows);
             state.rows = parsed;
+            updateSlots(cfg);
+            if (!state.user && needsUser(parsed)) {
+                PVX.api.userName().then(function (n) { if (n && !ctx.destroyed) { state.user = n; ctx.render(); } });
+            }
 
             var gen = ++generation;
             if (state.phase !== 'ready') { state.phase = 'resolving'; }
@@ -460,7 +606,7 @@
                     if (stale(gen)) { return null; }
                     state.phase = 'ready';
                     ctx.render();
-                    return readCurrent(parsed, cfg, gen);
+                    return isSlots(cfg) ? readSlots(parsed, cfg, gen) : readCurrent(parsed, cfg, gen);
                 })
                 .then(function () {
                     if (stale(gen)) { return; }
@@ -470,6 +616,78 @@
                     state.phase = 'ready';
                     ctx.render();
                 });
+        }
+
+        function needsUser(rows) {
+            for (var i = 0; i < rows.length; i++) { if (rows[i].prefill.toLowerCase() === 'user') { return true; } }
+            return false;
+        }
+
+        /**
+         * The slot times, kept while anything is typed in the grid: an hour
+         * rolling over must not move a reading typed for 06:00 into 07:00.
+         */
+        function updateSlots(cfg) {
+            if (!isSlots(cfg)) { return; }
+            var key = trim(cfg.SlotStart) + '|' + trim(cfg.SlotInterval) + '|' + cfg.SlotCount;
+            if (key === state.slots.key && slotsTyped()) { return; }
+            var st = slotTimes(cfg, Date.now());
+            st.key = key;
+            if (st.times.join() !== state.slots.times.join()) {
+                for (var i = 0; i < state.rows.length; i++) { state.rows[i].slotTyped = null; state.rows[i].slotStatus = null; state.rows[i].archived = null; }
+            }
+            state.slots = st;
+        }
+
+        function slotsTyped() {
+            for (var i = 0; i < state.rows.length; i++) {
+                var t = state.rows[i].slotTyped || [];
+                for (var k = 0; k < t.length; k++) { if (trim(t[k])) { return true; } }
+            }
+            return false;
+        }
+
+        /**
+         * What PI holds in each slot: one recorded-values read per row over
+         * the whole grid, in one batch. The newest value inside a slot is
+         * its value; a slot with none is blank.
+         */
+        function readSlots(rows, cfg, gen) {
+            var times = state.slots.times, step = state.slots.step;
+            if (!times.length) { return Promise.resolve(); }
+            var from = new Date(times[0]).toISOString();
+            var to = new Date(times[times.length - 1] + step - 1).toISOString();
+            var reqs = {}, idx = [];
+            for (var i = 0; i < rows.length; i++) {
+                if (!rows[i].webId) { continue; }
+                reqs['h' + idx.length] = { Method: 'GET', Resource: apiUrl('streams/' + encodeURIComponent(rows[i].webId) +
+                    '/recorded?startTime=' + encodeURIComponent(from) + '&endTime=' + encodeURIComponent(to) +
+                    '&maxCount=1000&selectedFields=Items.Timestamp;Items.Value;Items.Good') };
+                idx.push(i);
+            }
+            if (!idx.length) { return Promise.resolve(); }
+            return PVX.api.batch(reqs, { cache: false }).then(function (res) {
+                if (stale(gen)) { return; }
+                var split = PVX.api.batchResults(res);
+                for (var j = 0; j < idx.length; j++) {
+                    var r = rows[idx[j]];
+                    var body = split.ok['h' + j];
+                    r.archived = [];
+                    for (var k = 0; k < times.length; k++) { r.archived.push(null); }
+                    r.archiveFailed = body === undefined;
+                    var items = (body && body.Items) || [];
+                    for (var x = 0; x < items.length; x++) {
+                        var d = PVX.fmt.toDate(items[x].Timestamp);
+                        if (!d) { continue; }
+                        var slot = Math.floor((d.getTime() - times[0]) / step);
+                        if (slot < 0 || slot >= times.length) { continue; }
+                        var raw = unwrap(items[x].Value);
+                        r.archived[slot] = { raw: raw, display: displayValue(raw, cfg), good: items[x].Good !== false };
+                    }
+                }
+            })['catch'](function () {
+                for (var j = 0; j < idx.length; j++) { rows[idx[j]].archived = null; rows[idx[j]].archiveFailed = true; }
+            });
         }
 
         /** Preserve typed values and per-row status across a re-parse. */
@@ -486,6 +704,11 @@
                 next[j].note = old.note;
                 next[j].typed = old.typed;
                 next[j].typedStamp = old.typedStamp;
+                next[j].questionable = old.questionable;
+                next[j].prefilled = old.prefilled;
+                next[j].slotTyped = old.slotTyped;
+                next[j].slotStatus = old.slotStatus;
+                next[j].archived = old.archived;
             }
         }
 
@@ -591,15 +814,23 @@
             for (var i = 0; i < state.rows.length; i++) {
                 var n = ui.rowNodes[i];
                 if (!n) { continue; }
+                if (n.cells) {
+                    state.rows[i].slotTyped = n.cells.map(function (c) { return c.input.value; });
+                    continue;
+                }
                 state.rows[i].typed = n.input ? n.input.value : '';
                 state.rows[i].typedStamp = n.stamp ? n.stamp.value : '';
+                state.rows[i].questionable = !!(n.q && n.q.checked);
             }
         }
 
         function filledCount() {
             var c = 0;
             for (var i = 0; i < state.rows.length; i++) {
-                if (trim(state.rows[i].typed)) { c += 1; }
+                if (isSlots(liveCfg)) {
+                    var t = state.rows[i].slotTyped || [];
+                    for (var k = 0; k < t.length; k++) { if (trim(t[k])) { c += 1; } }
+                } else if (trim(state.rows[i].typed)) { c += 1; }
             }
             return c;
         }
@@ -607,7 +838,7 @@
         function writableCount() {
             var c = 0;
             for (var i = 0; i < state.rows.length; i++) {
-                if (state.rows[i].webId) { c += 1; }
+                if (state.rows[i].webId && !state.rows[i].ctlError) { c += 1; }
             }
             return c;
         }
@@ -622,8 +853,9 @@
             var errors = [];
             var perRow = trim(cfg.TimestampMode) === 'perRow';
             var setStamp = { ok: true, iso: '*' };
+            var slots = isSlots(cfg);
 
-            if (trim(cfg.TimestampMode) === 'custom') {
+            if (!slots && trim(cfg.TimestampMode) === 'custom') {
                 setStamp = resolveStamp(ui && ui.stampInput ? ui.stampInput.value : '', false);
                 if (!setStamp.ok) {
                     return { ok: false, writes: [], errors: [{ index: -1, text: 'The sheet ' + setStamp.error + '.' }] };
@@ -632,32 +864,31 @@
 
             for (var i = 0; i < state.rows.length; i++) {
                 var r = state.rows[i];
+                if (slots) {
+                    var typed = r.slotTyped || [];
+                    for (var k = 0; k < typed.length; k++) {
+                        var cell = trim(typed[k]);
+                        if (!cell) { continue; }
+                        var at = state.slots.times[k];
+                        // A slot still to come is a reading nobody has taken.
+                        if (at > Date.now() + 60000) {
+                            errors.push({ index: i, slot: k, text: r.label + ' at ' + slotLabel(at, state.slots.step) + ': that time has not come yet.' });
+                            continue;
+                        }
+                        var cw = checkValue(r, i, typed[k], cell, new Date(at).toISOString(), cfg, errors);
+                        if (cw) {
+                            cw.key = r.key + '@' + k;
+                            cw.slot = k;
+                            cw.label = r.label + ' · ' + slotLabel(at, state.slots.step);
+                            writes.push(cw);
+                        }
+                    }
+                    continue;
+                }
                 var text = trim(r.typed);
-                if (!text) { continue; }               // blank rows are simply not sent
-
-                if (!r.webId) {
-                    errors.push({ index: i, text: r.label + ': this row did not resolve, so it cannot be written.' });
-                    continue;
-                }
-
-                // Not PVX.util.num: that strips non-numeric characters so charts
-                // survive "12.3 kg". Here "12.3kg" is a typo the operator must
-                // see, not a number to be guessed at.
-                if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(text)) {
-                    errors.push({ index: i, text: r.label + ': "' + text + '" is not a number.' });
-                    continue;
-                }
-                var value = parseFloat(text);
-                if (!isFinite(value)) {
-                    errors.push({ index: i, text: r.label + ': "' + text + '" is not a number.' });
-                    continue;
-                }
-                if (r.min !== null && value < r.min) {
-                    errors.push({ index: i, text: r.label + ': ' + value + ' is below ' + r.min + '.' });
-                    continue;
-                }
-                if (r.max !== null && value > r.max) {
-                    errors.push({ index: i, text: r.label + ': ' + value + ' is above ' + r.max + '.' });
+                if (!text) {
+                    // A required row is the one blank that is not simply skipped.
+                    if (r.required && !r.error && !r.ctlError) { errors.push({ index: i, text: r.label + ' is required.' }); }
                     continue;
                 }
 
@@ -670,20 +901,101 @@
                     }
                     stamp = rs.iso;
                 }
-
-                writes.push({
-                    key: r.key,
-                    index: i,
-                    webId: r.webId,
-                    value: value,
-                    timestamp: stamp,
-                    label: r.label,
-                    units: r.units,
-                    display: PVX.fmt.number(value, { decimals: cfg.Decimals })
-                });
+                var w = checkValue(r, i, r.typed, text, stamp, cfg, errors);
+                if (w) { writes.push(w); }
             }
 
-            return { ok: errors.length === 0 && writes.length > 0, writes: writes, errors: errors };
+            var warned = 0;
+            for (var j = 0; j < writes.length; j++) { if (writes[j].warn) { warned += 1; } }
+            return { ok: errors.length === 0 && writes.length > 0, writes: writes, errors: errors, warned: warned };
+        }
+
+        /**
+         * One value, checked as the row says: a write, or null with the
+         * reason pushed on errors. A value outside a soft limit is a write
+         * carrying `warn`, which the confirmation has to show.
+         */
+        function checkValue(r, i, typed, text, stamp, cfg, errors) {
+            if (r.ctlError) {
+                errors.push({ index: i, text: r.label + ': ' + r.ctlError.message });
+                return null;
+            }
+            if (!r.webId) {
+                errors.push({ index: i, text: r.label + ': this row did not resolve, so it cannot be written.' });
+                return null;
+            }
+
+            var kind = r.control.kind;
+            if (kind === 'text') {
+                return writeOf(r, i, typed, stamp, text);
+            }
+            if (r.control.choices.length) {
+                // Picked from a list, but checked against it anyway: the
+                // list can be edited while a choice is still in the row.
+                // A typed or pasted caption counts as its choice.
+                var found = null;
+                for (var c = 0; c < r.control.choices.length; c++) {
+                    if (PVX.entry.same(r.control.choices[c].value, text) || PVX.entry.same(r.control.choices[c].label, text)) {
+                        found = r.control.choices[c];
+                    }
+                }
+                if (!found) {
+                    errors.push({ index: i, text: r.label + ': "' + text + '" is not one of its choices.' });
+                    return null;
+                }
+                // A plain switch writes True/False; choices that are all
+                // numbers write numbers; anything else is a state name.
+                var wv = r.control.plain ? (found.value === 'True')
+                    : (PVX.entry.numericChoices(r.control.choices) ? parseFloat(found.value) : found.value);
+                return writeOf(r, i, wv, stamp, found.label);
+            }
+
+            // Not PVX.util.num: that strips non-numeric characters so charts
+            // survive "12.3 kg". Here "12.3kg" is a typo the operator must
+            // see, not a number to be guessed at.
+            if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(text)) {
+                errors.push({ index: i, text: r.label + ': "' + text + '" is not a number.' });
+                return null;
+            }
+            var value = parseFloat(text);
+            if (!isFinite(value)) {
+                errors.push({ index: i, text: r.label + ': "' + text + '" is not a number.' });
+                return null;
+            }
+            var soft = trim(cfg.LimitMode).toLowerCase() === 'soft';
+            var warn = '';
+            if (r.min !== null && value < r.min) {
+                if (!soft) { errors.push({ index: i, text: r.label + ': ' + value + ' is below ' + r.min + '.' }); return null; }
+                warn = 'below the limit of ' + r.min;
+            } else if (r.max !== null && value > r.max) {
+                if (!soft) { errors.push({ index: i, text: r.label + ': ' + value + ' is above ' + r.max + '.' }); return null; }
+                warn = 'above the limit of ' + r.max;
+            } else if (r.warnMin !== null && value < r.warnMin) {
+                warn = 'below the usual ' + r.warnMin;
+            } else if (r.warnMax !== null && value > r.warnMax) {
+                warn = 'above the usual ' + r.warnMax;
+            }
+            var w = writeOf(r, i, value, stamp, PVX.fmt.number(value, { decimals: cfg.Decimals }));
+            w.warn = warn;
+            return w;
+        }
+
+        function writeOf(r, i, value, stamp, display) {
+            var ev = trim(liveCfg.ExistingValues).toLowerCase();
+            return {
+                key: r.key,
+                index: i,
+                webId: r.webId,
+                value: value,
+                timestamp: stamp,
+                label: r.label,
+                units: r.units,
+                display: display,
+                questionable: !isSlots(liveCfg) && !!r.questionable,
+                // Replace is PI Web API's default, so nothing is added for it
+                // and a sheet saved before this option writes exactly as it did.
+                updateOption: ev === 'insert' ? 'Insert' : (ev === 'protect' ? 'NoReplace' : '')
+            };
         }
 
         /* ================================================================ *
@@ -705,7 +1017,7 @@
                 return;
             }
 
-            if (cfg.AllowPartial === false && filledCount() < writableCount()) {
+            if (!isSlots(cfg) && cfg.AllowPartial === false && filledCount() < writableCount()) {
                 state.message = {
                     tone: 'warn',
                     text: 'Every row needs a value',
@@ -742,7 +1054,10 @@
                 return;
             }
 
-            if (cfg.RequireConfirm !== false) {
+            // A value outside its usual range is always confirmed, whatever
+            // RequireConfirm says: letting it through unasked would make the
+            // soft limit no limit at all.
+            if (cfg.RequireConfirm !== false || v.warned) {
                 // The confirmation approves THESE values, captured now, not
                 // whatever is in the boxes by the time it is clicked.
                 state.pending = v.writes;
@@ -761,10 +1076,16 @@
             for (var j = 0; j < errors.length; j++) {
                 var idx = errors[j].index;
                 if (idx >= 0 && state.rows[idx]) {
+                    if (errors[j].slot !== undefined) { setSlotStatus(state.rows[idx], errors[j].slot, 'invalid'); continue; }
                     state.rows[idx].status = 'invalid';
                     state.rows[idx].note = 'check';
                 }
             }
+        }
+
+        function setSlotStatus(r, k, st) {
+            if (!r.slotStatus) { r.slotStatus = []; }
+            r.slotStatus[k] = st;
         }
 
         function onConfirm() {
@@ -787,7 +1108,70 @@
          * one failure. The form is locked for the flight and unlocked
          * afterwards, whatever the outcome.
          */
+        /**
+         * Protect: a value already at a write's own time is kept, and that
+         * write is not sent. Asked once, in one batch, for every write with a
+         * time of its own ('*' is PI's clock, where nothing is yet). The
+         * write itself also carries NoReplace, so if this check could not
+         * be made PI still keeps the old value.
+         * @returns {Promise} resolves {send:[writes], kept:[writes]}
+         */
+        function protectCheck(writes) {
+            var reqs = {}, ask = [];
+            for (var i = 0; i < writes.length; i++) {
+                if (writes[i].updateOption !== 'NoReplace' || writes[i].timestamp === '*') { continue; }
+                reqs['x' + ask.length] = { Method: 'GET', Resource: apiUrl('streams/' + encodeURIComponent(writes[i].webId) +
+                    '/recordedattime?time=' + encodeURIComponent(writes[i].timestamp) + '&retrievalMode=Exact&selectedFields=Timestamp;Value;Good') };
+                ask.push(i);
+            }
+            if (!ask.length) { return Promise.resolve({ send: writes, kept: [] }); }
+            return PVX.api.batch(reqs, { cache: false }).then(function (res) {
+                var split = PVX.api.batchResults(res);
+                var keep = {};
+                for (var j = 0; j < ask.length; j++) {
+                    var b = split.ok['x' + j];
+                    var v = b && b.Value;
+                    // PI answers an exact time with no value as a system
+                    // state ("No Data"), not as an error.
+                    var none = !b || v === null || v === undefined ||
+                        (typeof v === 'object' && v.IsSystem && /no data|no result|pt created/i.test(String(v.Name || '')));
+                    if (!none) { keep[ask[j]] = true; }
+                }
+                var out = { send: [], kept: [] };
+                for (var k = 0; k < writes.length; k++) { (keep[k] ? out.kept : out.send).push(writes[k]); }
+                return out;
+            }, function () { return { send: writes, kept: [] }; });
+        }
+
         function sendWrites(writes) {
+            var cfg = liveCfg;
+            state.busy = true;
+            state.pending = null;
+            state.message = { tone: 'info', text: 'Checking for values already there…', detail: '' };
+            ctx.render();
+            protectCheck(writes).then(function (pc) {
+                if (ctx.destroyed) { return; }
+                for (var i = 0; i < pc.kept.length; i++) {
+                    var kw = pc.kept[i], kr = state.rows[kw.index];
+                    if (!kr) { continue; }
+                    if (kw.slot !== undefined) { setSlotStatus(kr, kw.slot, 'kept'); }
+                    else { kr.status = 'kept'; kr.note = 'kept'; kr.failDetail = 'PI already holds a value at that time, so it was kept and this one not written.'; }
+                }
+                if (!pc.send.length) {
+                    state.busy = false;
+                    state.message = { tone: 'warn', text: 'Nothing written', detail: keptText(pc.kept.length) };
+                    ctx.render();
+                    return;
+                }
+                doWrites(pc.send, pc.kept.length);
+            });
+        }
+
+        function keptText(n) {
+            return n ? n + (n === 1 ? ' value was' : ' values were') + ' kept: PI already holds a value at that time.' : '';
+        }
+
+        function doWrites(writes, keptN) {
             var cfg = liveCfg;
             state.busy = true;
             state.pending = null;
@@ -797,6 +1181,7 @@
             var i;
             for (i = 0; i < writes.length; i++) {
                 byIndex[writes[i].key] = writes[i];
+                if (writes[i].slot !== undefined) { setSlotStatus(state.rows[writes[i].index], writes[i].slot, 'sending'); continue; }
                 if (state.rows[writes[i].index]) {
                     state.rows[writes[i].index].status = 'sending';
                     state.rows[writes[i].index].note = '\u2026';
@@ -814,15 +1199,28 @@
                 for (i = 0; i < res.ok.length; i++) {
                     okKeys[res.ok[i].key] = true;
                     var w = byIndex[res.ok[i].key];
+                    if (w && w.slot !== undefined && state.rows[w.index]) {
+                        // A saved cell is cleared, and the read-back below
+                        // shows the value PI now holds in its place.
+                        setSlotStatus(state.rows[w.index], w.slot, 'saved');
+                        var cellN = ui && ui.rowNodes[w.index] && ui.rowNodes[w.index].cells && ui.rowNodes[w.index].cells[w.slot];
+                        if (cellN) { cellN.input.value = ''; }
+                        if (state.rows[w.index].slotTyped) { state.rows[w.index].slotTyped[w.slot] = ''; }
+                        continue;
+                    }
                     if (w && state.rows[w.index]) {
                         state.rows[w.index].status = 'saved';
                         state.rows[w.index].note = 'saved';
                         // Clear only the rows that ACTUALLY saved. Clearing a
                         // failed row would throw away a reading the operator
                         // still has to send, and they may no longer remember it.
-                        if (cfg.ClearAfterSubmit !== false) {
+                        var picked = PICKED[state.rows[w.index].control.kind];
+                        if (cfg.ClearAfterSubmit !== false || picked) {
                             state.rows[w.index].typed = '';
                             state.rows[w.index].typedStamp = '';
+                            state.rows[w.index].questionable = false;
+                            // Prefilled again on the next render, for the next round.
+                            state.rows[w.index].prefilled = false;
                             if (ui && ui.rowNodes[w.index] && ui.rowNodes[w.index].input) {
                                 ui.rowNodes[w.index].input.value = '';
                                 // The per-row timestamp goes with it. Leaving it
@@ -830,6 +1228,7 @@
                                 // row silently inherits the previous reading's
                                 // time, which is a wrong timestamp nobody chose.
                                 if (ui.rowNodes[w.index].stamp) { ui.rowNodes[w.index].stamp.value = ''; }
+                                if (ui.rowNodes[w.index].q) { ui.rowNodes[w.index].q.checked = false; }
                             }
                         }
                     }
@@ -840,6 +1239,7 @@
                     var w2 = byIndex[f.key];
                     var code = (f.error && f.error.code) || '';
                     if (code === 'forbidden') { forbidden += 1; }
+                    if (w2 && w2.slot !== undefined && state.rows[w2.index]) { setSlotStatus(state.rows[w2.index], w2.slot, 'failed'); continue; }
                     if (w2 && state.rows[w2.index]) {
                         state.rows[w2.index].status = 'failed';
                         // 'refused' rather than 'not permitted': the column is
@@ -854,10 +1254,13 @@
 
                 state.lastSubmit = { ok: res.ok.length, failed: res.failed.length };
                 state.message = summarise(res, forbidden);
+                if (keptN) { state.message.detail = (state.message.detail ? state.message.detail + ' ' : '') + keptText(keptN); if (state.message.tone === 'ok') { state.message.tone = 'warn'; } }
 
                 // Read back, so the "now" column shows what PI holds rather
                 // than what we believe we sent.
-                if (!stale(gen)) { readCurrent(state.rows, cfg, gen).then(function () { ctx.render(); }); }
+                if (!stale(gen)) {
+                    (isSlots(cfg) ? readSlots(state.rows, cfg, gen) : readCurrent(state.rows, cfg, gen)).then(function () { ctx.render(); });
+                }
                 ctx.render();
             });
         }
@@ -941,6 +1344,17 @@
             u.submit = el('button', 'pvx-btn pvx-etable-submit', u.actions);
             u.submit.type = 'button';
             on(u.submit, 'click', function () { onSubmit(); });
+            // A CSV of name,value[,time] lines, read in the browser: nothing
+            // is sent until the operator submits what it filled in.
+            u.importBtn = el('button', 'pvx-btn pvx-etable-import', u.actions);
+            u.importBtn.type = 'button';
+            setText(u.importBtn, 'Import CSV');
+            u.importFile = el('input', 'pvx-etable-file', u.actions);
+            u.importFile.type = 'file';
+            u.importFile.setAttribute('accept', '.csv,text/csv,text/plain');
+            u.importFile.style.display = 'none';
+            on(u.importBtn, 'click', function () { if (!state.busy) { u.importFile.value = ''; u.importFile.click(); } });
+            on(u.importFile, 'change', function () { onImportFile(u.importFile); });
 
             /* The confirmation replaces the submit button rather than sitting
              * beside it, so a second submit cannot be started while it is up. */
@@ -978,23 +1392,68 @@
 
             ui.rows.innerHTML = '';
             ui.rowNodes = [];
+            ui.grids = [];
+            if (isSlots(cfg)) { buildSlots(cfg); return; }
             var perRow = trim(cfg.TimestampMode) === 'perRow';
+            var form = isForm(cfg);
+            var parent = ui.rows;
 
             for (var i = 0; i < state.rows.length; i++) {
                 var r = state.rows[i];
-                var node = el('div', 'pvx-etable-row', ui.rows);
+
+                // A section is a heading in the list, and a heading over its
+                // own grid in the form, so a wide field never straddles two.
+                if (r.sectionStart || (form && i === 0)) {
+                    if (form) {
+                        var sec = el('div', 'pvx-etable-sec', ui.rows);
+                        if (r.section) { setText(el('div', 'pvx-etable-section', sec), r.section); }
+                        parent = el('div', 'pvx-etable-grid', sec);
+                        ui.grids.push(parent);
+                    } else if (r.section) {
+                        setText(el('div', 'pvx-etable-section', ui.rows), r.section);
+                    }
+                }
+
+                var node = el('div', 'pvx-etable-row', parent);
+                if (r.control.wide) { node.setAttribute('data-wide', 'yes'); }
 
                 var label = el('label', 'pvx-etable-c-label', node);
                 var current = el('span', 'pvx-etable-c-current pvx-num', node);
                 var wrap = el('span', 'pvx-etable-c-input', node);
-                var input = el('input', 'pvx-etable-input', wrap);
-                input.type = 'number';
-                // 'any', or a browser silently refuses decimals on the default
-                // integer step, before validateAll() ever sees the text.
-                input.setAttribute('step', 'any');
-                input.id = PVX.util.uid('pvx-et-in');
-                label.setAttribute('for', input.id);
+                var ctl = PVX.entry.build({
+                    kind: r.control.kind,
+                    parent: wrap,
+                    inputClass: 'pvx-etable-input',
+                    min: r.min,
+                    max: r.max,
+                    step: r.control.step,
+                    choices: r.control.choices,
+                    listen: on,
+                    format: function (v) {
+                        var n = PVX.util.num(v);
+                        return n === null ? String(v) : PVX.fmt.number(n, { decimals: liveCfg.Decimals });
+                    },
+                    onPick: function () { onRowInput(); }
+                });
+                var input = ctl.input;
+                if (ctl.focus) {
+                    ctl.focus.id = PVX.util.uid('pvx-et-in');
+                    label.setAttribute('for', ctl.focus.id);
+                }
                 if (r.typed) { input.value = r.typed; }
+
+                // Questionable: kept with the value in PI, for whoever reads it.
+                var q = null;
+                if (cfg.AllowQuestionable === true) {
+                    var ql = el('label', 'pvx-etable-q', wrap);
+                    q = el('input', 'pvx-etable-q-box', ql);
+                    q.type = 'checkbox';
+                    if (r.questionable) { q.checked = true; }
+                    setText(el('span', '', ql), '?');
+                    ql.setAttribute('title', 'Mark this reading as questionable');
+                    q.setAttribute('aria-label', r.label + ': questionable');
+                    on(q, 'change', function () { onRowInput(); });
+                }
 
                 var stamp = null;
                 if (perRow) {
@@ -1007,15 +1466,231 @@
 
                 var status = el('span', 'pvx-etable-c-status', node);
 
-                // Enter anywhere in the sheet submits — the operator's hands are
-                // on the keyboard, not the mouse.
-                on(input, 'keydown', onRowKey);
-                on(input, 'input', onRowInput);
+                if (!PICKED[r.control.kind]) {
+                    // Enter anywhere in the sheet submits — the operator's
+                    // hands are on the keyboard, not the mouse.
+                    on(input, 'keydown', onRowKey);
+                    on(input, 'input', onRowInput);
+                    on(input, 'paste', pasteHandler(i, -1));
+                }
 
                 ui.rowNodes.push({
                     node: node, label: label, current: current,
-                    input: input, stamp: stamp, status: status
+                    input: input, ctl: ctl, stamp: stamp, status: status, q: q
                 });
+            }
+        }
+
+        /**
+         * The time-slot grid: a row per reading, a column per slot. Every
+         * cell is a plain box (a choice is typed by its value or caption),
+         * with what PI already holds in that slot shown faintly behind it.
+         */
+        function buildSlots(cfg) {
+            var times = state.slots.times;
+            var wrapT = el('div', 'pvx-etable-slotwrap', ui.rows);
+            var table = el('table', 'pvx-etable-slots', wrapT);
+            var head = el('tr', 'pvx-etable-slothead', el('thead', '', table));
+            setText(el('th', 'pvx-etable-slot-name', head), 'Reading');
+            for (var k = 0; k < times.length; k++) {
+                var th = el('th', 'pvx-etable-slot-time', head);
+                setText(th, slotLabel(times[k], state.slots.step));
+                th.setAttribute('title', PVX.fmt.time(times[k], 'datetime'));
+            }
+            var body = el('tbody', '', table);
+            for (var i = 0; i < state.rows.length; i++) {
+                var r = state.rows[i];
+                var tr = el('tr', 'pvx-etable-slotrow', body);
+                var label = el('th', 'pvx-etable-slot-label', tr);
+                var cells = [];
+                for (var c = 0; c < times.length; c++) {
+                    var td = el('td', 'pvx-etable-slot', tr);
+                    var input = el('input', 'pvx-etable-input pvx-etable-slot-input pvx-num', td);
+                    input.type = 'text';
+                    input.setAttribute('aria-label', r.label + ' at ' + slotLabel(times[c], state.slots.step));
+                    if (r.slotTyped && r.slotTyped[c]) { input.value = r.slotTyped[c]; }
+                    on(input, 'keydown', onRowKey);
+                    on(input, 'input', onRowInput);
+                    on(input, 'paste', pasteHandler(i, c));
+                    cells.push({ td: td, input: input });
+                }
+                ui.rowNodes.push({ node: tr, label: label, cells: cells });
+            }
+        }
+
+        function pasteHandler(row, slot) {
+            return function (ev) {
+                if (liveCfg.PasteRows !== true || state.busy) { return; }
+                var text = '';
+                try { text = (ev.clipboardData || window.clipboardData).getData('text'); } catch (e) { return; }
+                // One value is an ordinary paste into the box.
+                if (!/[\r\n\t]/.test(String(text).replace(/[\r\n]+$/, ''))) { return; }
+                if (ev.preventDefault) { ev.preventDefault(); }
+                pasteGrid(String(text), row, slot);
+            };
+        }
+
+        /** Set a row's box (or a slot's) to a value, as if it were typed. */
+        function setTyped(i, slot, value) {
+            var n = ui && ui.rowNodes[i];
+            var r = state.rows[i];
+            if (!n || !r || r.error || r.ctlError) { return false; }
+            if (slot >= 0) {
+                if (!n.cells || !n.cells[slot]) { return false; }
+                n.cells[slot].input.value = value;
+                return true;
+            }
+            // A switch, buttons or a slider are picked, not typed: a pasted
+            // value is not guessed onto them.
+            if (PICKED[r.control.kind] || !n.input) { return false; }
+            if (n.input.tagName === 'SELECT') {
+                var ok = false;
+                for (var o = 0; o < r.control.choices.length; o++) {
+                    var ch = r.control.choices[o];
+                    if (PVX.entry.same(ch.value, value) || PVX.entry.same(ch.label, value)) { n.input.value = ch.value; ok = true; }
+                }
+                return ok;
+            }
+            n.input.value = value;
+            return true;
+        }
+
+        /** The row a pasted or imported name means: its label, attribute or path. */
+        function rowByName(name) {
+            var want = trim(name).toLowerCase();
+            if (!want) { return -1; }
+            for (var i = 0; i < state.rows.length; i++) {
+                var r = state.rows[i];
+                if (r.label.toLowerCase() === want || r.path.toLowerCase() === want || leafOf(r.path).toLowerCase() === want) { return i; }
+            }
+            return -1;
+        }
+
+        /**
+         * A block from a spreadsheet. A first cell that names a row puts the
+         * rest of its line on that row; otherwise the lines go down the rows
+         * from the box it was pasted into, and in the grid the cells across
+         * the slots as well.
+         */
+        function pasteGrid(text, row, slot) {
+            var lines = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+            var set = 0, skipped = 0;
+            for (var l = 0; l < lines.length; l++) {
+                var cells = lines[l].split('\t');
+                var named = cells.length > 1 ? rowByName(cells[0]) : -1;
+                var ri = named >= 0 ? named : row + l;
+                var vals = named >= 0 ? cells.slice(1) : cells;
+                if (ri >= state.rows.length) { skipped += vals.length; continue; }
+                var start = named >= 0 ? (slot >= 0 ? 0 : -1) : slot;
+                if (start < 0) {
+                    if (setTyped(ri, -1, trim(vals[0]))) { set += 1; } else { skipped += 1; }
+                    continue;
+                }
+                for (var c = 0; c < vals.length; c++) {
+                    if (!trim(vals[c])) { continue; }
+                    if (setTyped(ri, start + c, trim(vals[c]))) { set += 1; } else { skipped += 1; }
+                }
+            }
+            captureTyped();
+            state.message = { tone: skipped ? 'warn' : 'info', text: 'Pasted ' + set + (set === 1 ? ' value' : ' values'),
+                detail: skipped ? skipped + ' not placed: past the last row or slot, or on a row that is picked, not typed.' : 'Nothing is written until you submit.' };
+            ctx.render();
+        }
+
+        function onImportFile(input) {
+            var f = input.files && input.files[0];
+            if (!f || typeof FileReader === 'undefined') { return; }
+            var rd = new FileReader();
+            rd.onload = function () { if (!ctx.destroyed) { importCsv(String(rd.result || ''), f.name); } };
+            rd.onerror = function () {
+                state.message = { tone: 'error', text: 'Could not read ' + f.name, detail: 'The browser refused to read the file.' };
+                ctx.render();
+            };
+            rd.readAsText(f);
+        }
+
+        /** One CSV line into fields, with "quoted, fields" and "" inside them. */
+        function csvFields(line) {
+            var out = [], cur = '', q = false;
+            for (var i = 0; i < line.length; i++) {
+                var ch = line.charAt(i);
+                if (q) {
+                    if (ch === '"' && line.charAt(i + 1) === '"') { cur += '"'; i += 1; }
+                    else if (ch === '"') { q = false; }
+                    else { cur += ch; }
+                } else if (ch === '"') { q = true; }
+                else if (ch === ',') { out.push(cur); cur = ''; }
+                else { cur += ch; }
+            }
+            out.push(cur);
+            return out;
+        }
+
+        /**
+         * name,value[,time] per line, by the row's label, attribute name or
+         * path. The time goes in the row's own time box when the sheet has
+         * one; in the grid it chooses the slot. Nothing is written until the
+         * operator submits; what could not be placed is said.
+         */
+        function importCsv(text, fileName) {
+            var lines = text.replace(/\r\n?/g, '\n').split('\n');
+            var slots = isSlots(liveCfg);
+            var perRow = trim(liveCfg.TimestampMode) === 'perRow';
+            var set = 0, unmatched = [], noSlot = 0, skipped = 0;
+            for (var l = 0; l < lines.length; l++) {
+                if (!trim(lines[l])) { continue; }
+                var f = csvFields(lines[l]);
+                var ri = rowByName(f[0]);
+                if (ri < 0) {
+                    // A header line is not a reading.
+                    if (l === 0 && /value/i.test(f[1] || '')) { continue; }
+                    unmatched.push(trim(f[0]));
+                    continue;
+                }
+                var val = trim(f[1]);
+                if (!val) { continue; }
+                if (slots) {
+                    var at = parseTimestamp(f[2], Date.now());
+                    var k = at === null ? -1 : state.slots.times.indexOf(at);
+                    if (k < 0) { noSlot += 1; continue; }
+                    if (setTyped(ri, k, val)) { set += 1; } else { skipped += 1; }
+                    continue;
+                }
+                if (!setTyped(ri, -1, val)) { skipped += 1; continue; }
+                set += 1;
+                if (perRow && trim(f[2]) && ui.rowNodes[ri] && ui.rowNodes[ri].stamp) { ui.rowNodes[ri].stamp.value = trim(f[2]); }
+            }
+            captureTyped();
+            var bits = [];
+            if (unmatched.length) { bits.push(unmatched.length + ' not a row here: ' + unmatched.slice(0, 5).join(', ') + (unmatched.length > 5 ? '\u2026' : '')); }
+            if (noSlot) { bits.push(noSlot + ' with no slot at that time'); }
+            if (skipped) { bits.push(skipped + ' on a row that is picked, not typed'); }
+            state.message = { tone: bits.length ? 'warn' : 'info',
+                text: 'Imported ' + set + (set === 1 ? ' value' : ' values') + ' from ' + fileName,
+                detail: bits.length ? bits.join('; ') + '.' : 'Nothing is written until you submit.' };
+            ctx.render();
+        }
+
+        /**
+         * "prefill last|user|text": put a starting value in an empty box,
+         * once, until it is sent or cleared. Only boxes that are typed in or
+         * chosen from a list; a picked control shows what PI holds already.
+         */
+        function applyPrefill() {
+            for (var i = 0; i < state.rows.length; i++) {
+                var r = state.rows[i];
+                var n = ui.rowNodes[i];
+                if (!r.prefill || r.prefilled || !n || !n.input || trim(r.typed) || r.error || r.ctlError || PICKED[r.control.kind]) { continue; }
+                var how = r.prefill.toLowerCase();
+                var v = null;
+                if (how === 'last') { v = r.current && r.current.raw !== null && r.current.raw !== undefined && r.current.raw !== '' ? String(r.current.raw) : null; }
+                else if (how === 'user') { v = state.user || null; }
+                else { v = r.prefill; }
+                if (v === null || trim(n.input.value)) { continue; }
+                if (setTyped(i, -1, v)) {
+                    r.prefilled = true;
+                    r.typed = n.input.value;
+                }
             }
         }
 
@@ -1121,42 +1796,64 @@
             var wantCurrent = cfg.ShowCurrentValues !== false && rootW >= CURRENT_W;
             var wantStatus = cfg.ShowRowStatus !== false && rootW >= STATUS_W;
 
+            var form = isForm(cfg);
+            var slots = isSlots(cfg);
+            ui.form.setAttribute('data-layout', slots ? 'slots' : (form ? 'form' : 'list'));
+            if (slots) { renderSlots(cfg, preview); }
+            else { applyPrefill(); }
+            if (form) {
+                // Fewer columns than asked for when the symbol is too narrow
+                // for them: a cell under about 170px cannot hold a label and
+                // a control side by side with the reading under them.
+                var cols = Math.max(1, Math.min(intIn(cfg.FormColumns, 1, 6, 2), Math.floor((rootW - 16) / 170)));
+                for (var g = 0; g < ui.grids.length; g++) {
+                    ui.grids[g].style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+                }
+            }
             ui.form.setAttribute('data-compact', compact ? 'yes' : 'no');
             ui.form.setAttribute('data-current', wantCurrent ? 'yes' : 'no');
             ui.form.setAttribute('data-status', wantStatus ? 'yes' : 'no');
 
             // The column header earns its line only when there is height for it.
-            show(ui.head, !compact && rootH >= 200);
+            show(ui.head, !form && !slots && !compact && rootH >= 200);
 
             var resolving = state.phase === 'resolving';
             var i;
-            for (i = 0; i < state.rows.length; i++) {
+            for (i = 0; i < state.rows.length && !slots; i++) {
                 var r = state.rows[i];
                 var n = ui.rowNodes[i];
                 if (!n) { continue; }
 
-                setText(n.label, r.label + (r.units ? ' (' + r.units + ')' : ''));
+                setText(n.label, r.label + (r.units ? ' (' + r.units + ')' : '') + (r.required ? ' *' : ''));
+                if (n.input) { n.input.classList.toggle('pvx-etable-prefilled', !!r.prefilled && n.input.value === r.typed); }
+                if (n.q) { n.q.disabled = state.busy || preview; }
                 n.label.setAttribute('title', r.path || r.label);
 
-                if (r.error) {
+                var bad = r.error || r.ctlError;
+                if (bad) {
                     // A bad row says so in its own status cell and is left
                     // un-writable; the other rows carry on working.
                     setText(n.current, '');
-                    setText(n.status, 'no path');
+                    setText(n.status, bad.short || 'no path');
                     n.node.setAttribute('data-status', 'error');
-                    n.input.disabled = true;
-                    n.input.setAttribute('title', r.error.message + '  Check: ' + r.error.check);
+                    n.ctl.sync({ current: null, disabled: true });
+                    n.input.setAttribute('title', bad.message + '  Check: ' + bad.check);
+                    n.node.setAttribute('title', bad.message + '  Check: ' + bad.check);
                 } else {
-                    setText(n.current, r.current ? r.current.display : (resolving ? '\u2026' : '--'));
+                    n.node.removeAttribute('title');
+                    setText(n.current, r.current ? captionOf(r, r.current) : (resolving ? '\u2026' : '--'));
                     setText(n.status, r.note || '');
                     n.node.setAttribute('data-status', r.status || '');
-                    n.input.disabled = state.busy || preview;
+                    n.ctl.sync({ current: r.current ? r.current.raw : null, disabled: state.busy || preview });
                     n.input.setAttribute('title',
                         r.min !== null || r.max !== null
                             ? rangeText(r) : (r.path || ''));
-                    n.input.setAttribute('placeholder', rangeText(r) || '');
-                    if (r.min !== null) { n.input.setAttribute('min', r.min); } else { n.input.removeAttribute('min'); }
-                    if (r.max !== null) { n.input.setAttribute('max', r.max); } else { n.input.removeAttribute('max'); }
+                    var k = r.control.kind;
+                    if (k === 'number' || k === 'stepper') {
+                        n.input.setAttribute('placeholder', rangeText(r) || '');
+                        if (r.min !== null) { n.input.setAttribute('min', r.min); } else { n.input.removeAttribute('min'); }
+                        if (r.max !== null) { n.input.setAttribute('max', r.max); } else { n.input.removeAttribute('max'); }
+                    }
                 }
                 if (n.stamp) { n.stamp.disabled = state.busy || preview; }
                 if (r.failDetail && r.status === 'failed') {
@@ -1167,8 +1864,10 @@
             }
 
             /* ---- one timestamp for the set --------------------------------- */
-            var custom = trim(cfg.TimestampMode) === 'custom';
+            var custom = !slots && trim(cfg.TimestampMode) === 'custom';
             show(ui.stampRow, custom);
+            show(ui.importBtn, cfg.ShowImport === true);
+            ui.importBtn.disabled = state.busy || preview;
             ui.stampInput.disabled = state.busy || preview;
 
             /* ---- actions ---------------------------------------------------- */
@@ -1184,7 +1883,7 @@
                 ui.confirmYes.style.color = PVX.color.readable(cfg.AccentColor || '#3b82c4');
             } else {
                 var filled = filledCount();
-                var allOrNothing = cfg.AllowPartial === false;
+                var allOrNothing = cfg.AllowPartial === false && !slots;
                 var short = allOrNothing ? Math.max(0, writableCount() - filled) : 0;
 
                 setText(ui.submit, state.busy
@@ -1226,6 +1925,42 @@
             }
         }
 
+        function renderSlots(cfg, preview) {
+            var times = state.slots.times;
+            for (var i = 0; i < state.rows.length; i++) {
+                var r = state.rows[i];
+                var n = ui.rowNodes[i];
+                if (!n || !n.cells) { continue; }
+                setText(n.label, r.label + (r.units ? ' (' + r.units + ')' : ''));
+                var bad = r.error || r.ctlError;
+                n.label.setAttribute('title', bad ? bad.message + '  Check: ' + bad.check : (r.path || r.label) + (rangeText(r) ? '\n' + rangeText(r) : ''));
+                n.node.setAttribute('data-status', bad ? 'error' : '');
+                for (var k = 0; k < n.cells.length; k++) {
+                    var cell = n.cells[k];
+                    var a = r.archived && r.archived[k];
+                    var future = times[k] > Date.now() + 60000;
+                    cell.input.disabled = !!bad || state.busy || preview || future;
+                    cell.input.setAttribute('placeholder', a ? captionOf(r, a) : '');
+                    cell.input.setAttribute('title', (a ? 'PI holds ' + captionOf(r, a) + ' in this slot. A value typed here is written at ' : 'Written at ') +
+                        PVX.fmt.time(times[k], 'datetime') + (future ? ' (not yet)' : '') + '.');
+                    cell.td.setAttribute('data-archived', a ? 'yes' : 'no');
+                    cell.td.setAttribute('data-status', (r.slotStatus && r.slotStatus[k]) || '');
+                }
+            }
+            if (state.slots.error && !state.message) {
+                state.message = { tone: 'error', text: 'The slots cannot be laid out', detail: state.slots.error };
+            }
+        }
+
+        /** The value now, by its caption when the row lists one for it. */
+        function captionOf(r, cur) {
+            var list = r.control.choices;
+            for (var i = 0; i < list.length; i++) {
+                if (PVX.entry.same(list[i].value, cur.raw)) { return list[i].label; }
+            }
+            return cur.display;
+        }
+
         function rangeText(r) {
             if (r.min !== null && r.max !== null) { return r.min + ' to ' + r.max; }
             if (r.min !== null) { return 'min ' + r.min; }
@@ -1240,8 +1975,11 @@
          */
         function renderConfirm(cfg) {
             var writes = state.pending;
+            var warned = 0;
+            for (var w = 0; w < writes.length; w++) { if (writes[w].warn) { warned += 1; } }
             setText(ui.confirmText,
-                'Write ' + writes.length + (writes.length === 1 ? ' value' : ' values') + '?');
+                'Write ' + writes.length + (writes.length === 1 ? ' value' : ' values') + '?' +
+                (warned ? ' ' + warned + (warned === 1 ? ' is' : ' are') + ' outside the usual range.' : ''));
 
             if (ui.confirmList.childNodes.length !== writes.length) {
                 ui.confirmList.innerHTML = '';
@@ -1257,7 +1995,10 @@
             for (var j = 0; j < writes.length; j++) {
                 setText(ui.confirmItems[j].name, writes[j].label);
                 setText(ui.confirmItems[j].value,
-                    writes[j].display + (writes[j].units ? ' ' + writes[j].units : ''));
+                    writes[j].display + (writes[j].units ? ' ' + writes[j].units : '') +
+                    (writes[j].questionable ? ' (questionable)' : '') +
+                    (writes[j].warn ? ' \u26a0 ' + writes[j].warn : ''));
+                ui.confirmItems[j].value.parentNode.setAttribute('data-warn', writes[j].warn ? 'yes' : 'no');
             }
         }
 
@@ -1276,6 +2017,7 @@
             n.style.setProperty('--pvx-ok', PVX.color.status.normal);
             n.style.setProperty('--pvx-warn', PVX.color.status.warning);
             n.style.setProperty('--pvx-alarm', PVX.color.status.alarm);
+            n.style.setProperty('--pvx-ctl-accent', cfg.AccentColor || '#3b82c4');
         }
 
         function digest() {

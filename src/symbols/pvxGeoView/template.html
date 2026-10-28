@@ -1,0 +1,24 @@
+<!--
+    pvxGeoView. The map, its tiles, markers and buttons are built by
+    symbol.js inside .pvx-geo-body; Angular owns the title and the footer,
+    which names every source without a location and why.
+-->
+<div class="pvx pvx-geo"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px',
+                'background': config.Transparent ? 'transparent' : 'var(--pvx-surface)'}">
+    <div class="pvx-surface pvx-geo-surface">
+
+        <div class="pvx-header" ng-if="pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-geo-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.note">
+            <span class="pvx-truncate pvx-geo-note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+</div>

@@ -1,5 +1,7 @@
 <div class="c-config-content pvx-cfg">
 
+    <!-- pvx:afsearch -->
+
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Traces</div>
 
@@ -20,9 +22,11 @@
                     <option value="bar">Bar</option>
                     <option value="step">Step</option>
                     <option value="scatter">Scatter</option>
+                    <option value="range">Range to the next source</option>
+                    <option value="states">State bands</option>
                     <option value="hidden">Hidden</option>
                 </select>
-                <select class="pvx-cfg-tr-axis" ng-if="r.type !== 'hidden'" ng-model="r.axis"
+                <select class="pvx-cfg-tr-axis" ng-if="r.type !== 'hidden' && r.type !== 'states'" ng-model="r.axis"
                         ng-change="runtimeData.pvxTraces.commit()" aria-label="Axis of trace {{r.index}}">
                     <option value="left">Left axis</option>
                     <option value="right">Right axis</option>
@@ -42,9 +46,24 @@
                        ng-model="r.width" ng-change="runtimeData.pvxTraces.commit()" min="0.5" max="6" step="0.5"
                        placeholder="px" aria-label="Line width of trace {{r.index}} in px"
                        title="Line width in px; blank uses Line width below" />
+                <input type="text" class="pvx-cfg-tr-ma" ng-if="runtimeData.pvxTraces.numeric(r)" ng-model="r.ma"
+                       ng-change="runtimeData.pvxTraces.commit()" ng-class="{'pvx-cfg-tr-bad': runtimeData.pvxTraces.maBad(r)}"
+                       placeholder="Avg" aria-label="Moving average of trace {{r.index}}"
+                       title="Moving average: a count of values such as 20, or a time such as 1h or 30m. Blank for none." />
+                <label class="pvx-cfg-tr-fit" ng-if="runtimeData.pvxTraces.numeric(r)"
+                       title="Draw a straight-line fit through the trace, with its slope per hour on hover">
+                    <input type="checkbox" ng-model="r.fit" ng-change="runtimeData.pvxTraces.commit()" /> Fit
+                </label>
             </div>
             <div class="pvx-cfg-hint" ng-if="!runtimeData.pvxTraces.rows.length">
                 Add data sources to the chart, then set how each one is drawn here.
+            </div>
+            <div class="pvx-cfg-hint">
+                <em>Range to the next source</em> shades between this source and the one after it,
+                for a minimum and maximum pair; the next source is not drawn on its own.
+                <em>State bands</em> shades the chart's background by a digital tag's state, in the
+                colours under State bands below. <em>Avg</em> adds a moving average, over a count
+                of values (20) or a time (1h). <em>Fit</em> adds a straight-line fit.
             </div>
             <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxTraces.hasMissing()">
                 A row marked No data source is kept as written and applies if a source is added at that position.
@@ -65,12 +84,15 @@
                 <code>index:type[:axis][:#colour]</code>.
                 <br /><em>index</em> counts the data sources in the order they were added (1 = first).
                 <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
-                <code>step</code>, <code>scatter</code> or <code>hidden</code>.
+                <code>step</code>, <code>scatter</code>, <code>range</code> (shades to the next
+                source), <code>states</code> (background bands by state) or <code>hidden</code>.
                 <br /><em>axis</em> is <code>left</code> or <code>right</code>.
                 <br /><em>colour</em> is a hex value such as <code>#8267b0</code>.
                 <br />A line or step can also be <code>dashed</code> or <code>dotted</code> and take a
                 width such as <code>1px</code>.
-                <br />Example: <code>1:bar, 2:line:right, 3:line:#5aa0d6:dashed:1px</code>.
+                <br />Add <code>ma20</code> or <code>ma1h</code> for a moving average over 20 values or
+                one hour, and <code>fit</code> for a straight-line fit.
+                <br />Example: <code>1:bar, 2:line:right, 3:line:#5aa0d6:dashed:1px:ma1h:fit</code>.
                 Anything not listed uses the default type on the left axis.
                 <button type="button" class="pvx-cfg-band-link" ng-if="runtimeData.pvxTraces"
                         ng-click="runtimeData.pvxTraces.toggleText()">Back to fields</button>
@@ -121,6 +143,18 @@
             column and so keep their resolution.
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxcombo-panels">Panels</label>
+            <select id="pvxcombo-panels" ng-model="config.Panels">
+                <option value="shared">All traces on one plot</option>
+                <option value="separate">One panel per trace</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            One panel per trace stacks a strip for each trace, each with its own scale, over one
+            time axis: for tags whose units have nothing in common. Limit bands go on every panel
+            whose trace is on the left axis.
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxcombo-maxpts">Max points per trace</label>
             <input id="pvxcombo-maxpts" type="number" ng-model="config.MaxPointsPerTrace" min="20" max="5000" step="20" />
         </div>
@@ -141,6 +175,14 @@
             <label for="pvxcombo-leftlabel">Left axis label</label>
             <input id="pvxcombo-leftlabel" type="text" ng-model="config.LeftLabel" placeholder="Leave blank for none" />
         </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-leftscale">Scale</label>
+            <select id="pvxcombo-leftscale" ng-model="config.LeftScale">
+                <option value="linear">Linear</option>
+                <option value="log">Logarithmic</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.LeftScale === 'log'">A logarithmic scale cannot show zero or a negative value; the footer counts any it leaves out.</div>
         <div class="pvx-cfg-row">
             <label for="pvxcombo-leftmin">Minimum</label>
             <input id="pvxcombo-leftmin" type="text" ng-model="config.LeftMin" placeholder="auto" />
@@ -164,6 +206,14 @@
             <input id="pvxcombo-rightlabel" type="text" ng-model="config.RightLabel" placeholder="Leave blank for none" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxcombo-rightscale">Scale</label>
+            <select id="pvxcombo-rightscale" ng-model="config.RightScale">
+                <option value="linear">Linear</option>
+                <option value="log">Logarithmic</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.RightScale === 'log'">A logarithmic scale cannot show zero or a negative value; the footer counts any it leaves out.</div>
+        <div class="pvx-cfg-row">
             <label for="pvxcombo-rightmin">Minimum</label>
             <input id="pvxcombo-rightmin" type="text" ng-model="config.RightMin" placeholder="auto" />
         </div>
@@ -185,6 +235,100 @@
         <div class="pvx-cfg-row">
             <label for="pvxcombo-bandop">Band opacity</label>
             <input id="pvxcombo-bandop" type="number" ng-model="config.LimitBandOpacity" min="0" max="1" step="0.02" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">State bands</div>
+
+        <div class="pvx-cfg-hint">
+            For a trace drawn as State bands: the colour of each state. A state not listed gets a
+            colour of its own.
+        </div>
+        <!-- pvx:states key=StateColors kind=colors -->
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-stateop">Band opacity</label>
+            <input id="pvxcombo-stateop" type="number" ng-model="config.StateOpacity" min="0" max="1" step="0.02" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rulers</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-rulers">Show rulers</label>
+            <input id="pvxcombo-rulers" type="checkbox" ng-model="config.Rulers" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Click the chart to place ruler A and again for B; drag either to move it. A table under
+            the chart gives each trace's value at both, the change, and the minimum, maximum,
+            time-weighted average, standard deviation, count and trend between them. Rulers are
+            not saved with the display and do nothing while it is being edited.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Event frames</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-events">Show event frames</label>
+            <input id="pvxcombo-events" type="checkbox" ng-model="config.ShowEvents" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Shades each AF event frame in the window behind the traces, with its name along the
+            top and its times on hover. Read through PI Web API, so it needs the site's
+            <code>pvx-config.js</code> to reach it; the footer says what is missing if it cannot.
+        </div>
+        <div ng-if="config.ShowEvents">
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evscope">Events from</label>
+                <select id="pvxcombo-evscope" ng-model="config.EventScope">
+                    <option value="asset">The display's asset</option>
+                    <option value="database">The whole database</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-hint">The display's asset is the one in its address, else the element of the first data source. Its events follow an asset swap.</div>
+            <div class="pvx-cfg-stack" ng-if="config.EventScope === 'database'">
+                <label for="pvxcombo-evdb">AF database</label>
+                <input id="pvxcombo-evdb" type="text" ng-model="config.EventDatabasePath" placeholder="Blank: the data source's database" />
+                <!-- pvx:afpicker key=EventDatabasePath kind=database -->
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxcombo-evtpl">Event template</label>
+                <input id="pvxcombo-evtpl" type="text" ng-model="config.EventTemplate" placeholder="Any" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxcombo-evname">Name filter</label>
+                <input id="pvxcombo-evname" type="text" ng-model="config.EventNameFilter" placeholder="Any, or a pattern such as Trip*" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evmax">At most</label>
+                <input id="pvxcombo-evmax" type="number" ng-model="config.EventMax" min="1" max="500" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evcolor">Colour</label>
+                <input id="pvxcombo-evcolor" type="color" ng-model="config.EventColor" />
+                <button type="button" ng-click="config.EventColor = ''" ng-disabled="!config.EventColor" title="One colour per event template again">Auto</button>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evop">Shading opacity</label>
+                <input id="pvxcombo-evop" type="number" ng-model="config.EventOpacity" min="0" max="1" step="0.02" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evlabels">Show names</label>
+                <input id="pvxcombo-evlabels" type="checkbox" ng-model="config.EventLabels" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evclick">Clicking an event</label>
+                <select id="pvxcombo-evclick" ng-model="config.EventClick">
+                    <option value="none">Does nothing</option>
+                    <option value="time">Shows that event on the display</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxcombo-evrefresh">Check for new events every (s)</label>
+                <input id="pvxcombo-evrefresh" type="number" ng-model="config.EventRefreshSeconds" min="10" />
+            </div>
         </div>
     </div>
 

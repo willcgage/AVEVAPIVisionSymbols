@@ -1,0 +1,344 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Data</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-series">Data source charted</label>
+            <input id="pvxspc-series" type="number" ng-model="config.SeriesIndex" min="1" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            One data source is charted. Others may sit beside it as the source of its limits or
+            specification, below.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-sample">Samples</label>
+            <select id="pvxspc-sample" ng-model="config.SampleMode">
+                <option value="interval">Averages over even intervals</option>
+                <option value="recorded">Recorded values as stored</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.SampleMode !== 'recorded'">
+            <label for="pvxspc-intervals">Intervals across the time range</label>
+            <input id="pvxspc-intervals" type="number" ng-model="config.Intervals" min="10" max="2000" step="10" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The run rules assume evenly spaced samples. PI stores a value only when it changes, so
+            by default the recorded values are time-weighted onto an even grid. Choose
+            <em>Recorded</em> only for a tag sampled at a fixed rate with compression off, such as a
+            lab result entered once per batch.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chart</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-type">Chart type</label>
+            <select id="pvxspc-type" ng-model="config.ChartType">
+                <option value="imr">Individuals and moving range (I-MR)</option>
+                <option value="xbarr">X-bar and range</option>
+                <option value="xbars">X-bar and standard deviation</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.ChartType !== 'imr'">
+            <label for="pvxspc-size">Subgroup size</label>
+            <input id="pvxspc-size" type="number" ng-model="config.SubgroupSize" min="2" max="10" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            X-bar charts group consecutive samples. Use the range chart up to about 8 per subgroup
+            and the standard deviation chart above that, where the range wastes information.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-sigma">Limit width (sigma)</label>
+            <select id="pvxspc-sigma" ng-model="config.Sigma">
+                <option value="2">2</option>
+                <option value="2.5">2.5</option>
+                <option value="3">3</option>
+                <option value="3.5">3.5</option>
+                <option value="4">4</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-secondary">Show the range or deviation chart</label>
+            <input id="pvxspc-secondary" type="checkbox" ng-model="config.ShowSecondary" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-hist">Show the distribution beside the chart</label>
+            <input id="pvxspc-hist" type="checkbox" ng-model="config.ShowHistogram" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The strip shares the value axis and carries the normal curve the limits assume. It
+            appears once the symbol is wide enough to keep the chart readable.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Control limits</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-limitsrc">Limits from</label>
+            <select id="pvxspc-limitsrc" ng-model="config.LimitSource">
+                <option value="window">The whole time range</option>
+                <option value="baseline">A baseline at the start of the range</option>
+                <option value="fixed">Values typed here</option>
+                <option value="sources">Other data sources</option>
+                <option value="af">The attribute's limits in AF</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'af'">
+            <label for="pvxspc-afucl">Upper control limit</label>
+            <select id="pvxspc-afucl" ng-model="config.AfUclTrait">
+                <option value="Maximum">Maximum</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Hi">Hi</option>
+                <option value="Target">Target</option>
+                <option value="Lo">Lo</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Minimum">Minimum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'af'">
+            <label for="pvxspc-aflcl">Lower control limit</label>
+            <select id="pvxspc-aflcl" ng-model="config.AfLclTrait">
+                <option value="Maximum">Maximum</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Hi">Hi</option>
+                <option value="Target">Target</option>
+                <option value="Lo">Lo</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Minimum">Minimum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'af'">
+            Read from the limit traits of the charted attribute through PI Web API, so a limit changed
+            in AF reaches every display at once. The Target trait is the centre line; without one, the
+            centre is midway between the two limits. Re-read every minute.
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'window' || !config.LimitSource">
+            Limits recomputed from everything shown. Good for a first look; a sustained shift then
+            pulls the limits along with it, so the chart under-reports it.
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'baseline'">
+            <label for="pvxspc-baseline">Baseline points</label>
+            <input id="pvxspc-baseline" type="number" ng-model="config.BaselinePoints" min="5" max="500" step="1" />
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'baseline'">
+            Limits come from the first plotted points only, so everything after is judged against a
+            known period. Set the display's start time on a stretch of normal running. At least 20
+            to 25 points give limits worth trusting.
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'fixed'">
+            <label for="pvxspc-fcenter">Centre line</label>
+            <input id="pvxspc-fcenter" type="text" ng-model="config.FixedCenter" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'fixed'">
+            <label for="pvxspc-fucl">Upper control limit</label>
+            <input id="pvxspc-fucl" type="text" ng-model="config.FixedUCL" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'fixed'">
+            <label for="pvxspc-flcl">Lower control limit</label>
+            <input id="pvxspc-flcl" type="text" ng-model="config.FixedLCL" placeholder="mirror of the upper" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'sources'">
+            <label for="pvxspc-csrc">Centre line</label>
+            <select id="pvxspc-csrc" ng-model="config.CenterSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'sources'">
+            <label for="pvxspc-usrc">Upper control limit</label>
+            <select id="pvxspc-usrc" ng-model="config.UclSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.LimitSource === 'sources'">
+            <label for="pvxspc-lsrc">Lower control limit</label>
+            <select id="pvxspc-lsrc" ng-model="config.LclSource">
+                <option value="0">Mirror of the upper</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.LimitSource === 'fixed' || config.LimitSource === 'sources'">
+            Limits held as AF attributes or PI tags follow a grade or recipe change without anyone
+            editing the display. The latest value of each source in the time range is used. With no
+            lower limit it mirrors the upper one about the centre line.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Run rules</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-rules">Rule set</label>
+            <select id="pvxspc-rules" ng-model="config.RuleSet">
+                <option value="nelson">Nelson, all eight</option>
+                <option value="we">Western Electric (1, 2, 5, 6)</option>
+                <option value="limits">Outside the limits only</option>
+                <option value="custom">Choose the rules</option>
+                <option value="none">None</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.RuleSet === 'custom'">
+            <label for="pvxspc-custom">Rules</label>
+            <input id="pvxspc-custom" type="text" ng-model="config.CustomRules" placeholder="1, 2, 5, 6" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.RuleSet === 'custom'">
+            <label for="pvxspc-run2">Rule 2: points on one side</label>
+            <input id="pvxspc-run2" type="number" ng-model="config.RunLength" min="6" max="15" step="1" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.RuleSet === 'custom'">
+            <label for="pvxspc-run3">Rule 3: points rising or falling</label>
+            <input id="pvxspc-run3" type="number" ng-model="config.TrendLength" min="4" max="10" step="1" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.RuleSet === 'custom'">
+            <label for="pvxspc-run4">Rule 4: points alternating</label>
+            <input id="pvxspc-run4" type="number" ng-model="config.AlternateLength" min="8" max="20" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            1: a point beyond the limits. 2: a run on one side of the centre line (9 by Nelson, 8 by
+            Western Electric). 3: six points steadily rising or falling. 4: fourteen points
+            alternating. 5: two of three beyond 2 sigma on one side. 6: four of five beyond 1 sigma
+            on one side. 7: fifteen points within 1 sigma. 8: eight points beyond 1 sigma on either
+            side. Every extra rule finds smaller shifts sooner and also raises false alarms, which is
+            why Western Electric uses four.
+        </div>
+        <div class="pvx-cfg-hint">
+            Red marks a point beyond the limits, amber any other rule. Hover a point for the rules it
+            breaks. Rules are evaluated while the display is open; nothing is written to PI or AF.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Specification</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-lsl">Lower spec limit (LSL)</label>
+            <input id="pvxspc-lsl" type="text" ng-model="config.LSL" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-lslsrc">or from data source</label>
+            <select id="pvxspc-lslsrc" ng-model="config.LslSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-usl">Upper spec limit (USL)</label>
+            <input id="pvxspc-usl" type="text" ng-model="config.USL" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-uslsrc">or from data source</label>
+            <select id="pvxspc-uslsrc" ng-model="config.UslSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-specaf">Take the spec from AF</label>
+            <input id="pvxspc-specaf" type="checkbox" ng-model="config.SpecFromAf" />
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.SpecFromAf">
+            <label for="pvxspc-aflsl">LSL trait</label>
+            <select id="pvxspc-aflsl" ng-model="config.AfLslTrait">
+                <option value="Minimum">Minimum</option>
+                <option value="LoLo">LoLo</option>
+                <option value="Lo">Lo</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.SpecFromAf">
+            <label for="pvxspc-afusl">USL trait</label>
+            <select id="pvxspc-afusl" ng-model="config.AfUslTrait">
+                <option value="Hi">Hi</option>
+                <option value="HiHi">HiHi</option>
+                <option value="Maximum">Maximum</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-show="config.SpecFromAf">
+            A trait the attribute has replaces the value above; one it lacks leaves the typed value.
+            The Target trait, when there is one, is the target.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-target">Target</label>
+            <input id="pvxspc-target" type="text" ng-model="config.Target" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-cap">Show Cpk and Ppk</label>
+            <input id="pvxspc-cap" type="checkbox" ng-model="config.ShowCapability" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-speclines">Draw the spec lines</label>
+            <input id="pvxspc-speclines" type="checkbox" ng-model="config.ShowSpecLines" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Control limits are what the process does; spec limits are what the customer needs. Cpk
+            uses the within-subgroup sigma and Ppk the overall one, so a Ppk well below Cpk says the
+            process drifts between subgroups. Leave one limit blank for a one-sided specification.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-title">Title</label>
+            <input id="pvxspc-title" type="text" ng-model="config.Title" placeholder="the attribute name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-zones">Shade the sigma zones</label>
+            <input id="pvxspc-zones" type="checkbox" ng-model="config.ShowZones" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-grid">Show grid</label>
+            <input id="pvxspc-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-ticks">Value ticks</label>
+            <input id="pvxspc-ticks" type="number" ng-model="config.TickCount" min="2" max="10" step="1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-accent">Trace colour</label>
+            <input id="pvxspc-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-theme">Theme</label>
+            <select id="pvxspc-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-showlabel">Show title</label>
+            <input id="pvxspc-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-units">Show units in title</label>
+            <input id="pvxspc-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-decimals">Decimals</label>
+            <select id="pvxspc-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-transparent">Transparent background</label>
+            <input id="pvxspc-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-bgcolor">Background colour</label>
+            <input id="pvxspc-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspc-radius">Corner radius</label>
+            <input id="pvxspc-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+</div>

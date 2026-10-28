@@ -54,7 +54,8 @@
         configTitle: 'Format Treemap',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // An AF search can supply the rows instead (PVX.afsource); off by default.
+            return window.PVX.afsource.defaults(window.PVX.config.base({
                 DataShape: 'Table',
                 // Positional contract with PI Vision's Summary cells; kept in
                 // step with Statistic by PVX.config.syncStatColumns().
@@ -72,7 +73,7 @@
                 // --- hierarchy ---------------------------------------
                 // PI hands us a flat list, so hierarchy has to come out of the
                 // tag name or the AF path.
-                GroupBy: 'none',            // none | delimiter | prefix
+                GroupBy: 'none',            // none | delimiter | prefix | parent
                 GroupDelimiter: '\\',
                 GroupDepth: 1,
                 GroupPrefixChars: 3,
@@ -99,9 +100,9 @@
                 ShowBorders: true,
 
                 // --- interaction -------------------------------------
-                ClickAction: 'none',        // none | navigate
+                ClickAction: 'none',        // none | navigate | drill
                 NavigateTarget: ''
-            });
+            }));
         }
     };
 
@@ -111,10 +112,20 @@
         // Only the chrome is Angular-bound; every tile is SVG.
         scope.pvx = {
             title: '', subtitle: '', note: '', count: '', error: '',
-            background: '', showHeader: false, showFooter: false
+            background: '', showHeader: false, showFooter: false,
+            // Drill-down trail: "All > Station 1". A click goes back up.
+            crumbs: [],
+            crumb: function () { focus = null; ctx.render(); }
         };
 
         var rows = [];
+        // The group a click drilled into, or null for every group.
+        var focus = null;
+        // From an AF search with two attributes or more: the second colours
+        // the tiles (by asset path), and any after that are named as unused.
+        var colorRows = null;
+        var colorAttr = '';
+        var unusedAttrs = [];
         // Tiles currently on screen, in draw order. The click handler maps a
         // tile index back through this array, so it must stay in sync.
         var view = [];
@@ -127,7 +138,25 @@
             onData: function (d) {
                 // Parse against exactly the column the chosen statistic asks
                 // for — see PVX.config.statColumns.
-                rows = PVX.data.rows(d, PVX.config.statColumns(scope.config || {})) || [];
+                var cfg = scope.config || {};
+                rows = PVX.data.rows(d, PVX.config.statColumns(cfg)) || [];
+                colorRows = null;
+                colorAttr = '';
+                unusedAttrs = [];
+                if (PVX.afsource.wanted(cfg)) {
+                    var sp = PVX.afsource.split(rows, cfg, 2);
+                    if (sp.attrs.length > 1) {
+                        // Size from one quantity, colour from another: load by
+                        // efficiency, say. Paired by asset, never by position.
+                        rows = sp.byAttr[0];
+                        colorAttr = sp.attrs[1];
+                        colorRows = {};
+                        for (var i = 0; i < sp.byAttr[1].length; i++) {
+                            colorRows[String(sp.byAttr[1][i].assetPath).toLowerCase()] = sp.byAttr[1][i];
+                        }
+                        unusedAttrs = sp.unused;
+                    }
+                }
             },
 
             onConfigChange: function (newCfg) {
@@ -178,6 +207,15 @@
                 return name ? name.slice(0, chars) : 'Ungrouped';
             }
 
+            if (mode === 'parent') {
+                // The AF hierarchy itself: the element one level up. From an
+                // AF search the row says so; from a dropped attribute it is
+                // read off the attribute's path.
+                if (row.parent) { return row.parent; }
+                var el = PVX.nav.parentOf(PVX.nav.assetOf(row.path));
+                return el ? el.slice(el.lastIndexOf('\\') + 1) : 'Ungrouped';
+            }
+
             if (mode === 'delimiter') {
                 var delim = cfg.GroupDelimiter;
                 if (delim === undefined || delim === null || delim === '') { delim = '\\'; }
@@ -215,8 +253,11 @@
             var badCount = 0;
             var negatives = 0;
 
+            var noColor = 0;
             for (i = 0; i < rows.length; i++) {
                 var r = rows[i];
+                // Drilled into one group: only its tiles, laid out flat.
+                if (focus !== null && groupOf(r, cfg) !== focus) { continue; }
                 var v = PVX.data.statValue(r, cfg);
                 if (v === null || v === undefined || !isFinite(v)) { skipped += 1; continue; }
                 if (v <= 0) {
@@ -228,7 +269,14 @@
                     continue;
                 }
                 if (!r.good) { badCount += 1; }
+                var cv;
+                if (colorRows) {
+                    var cr = colorRows[String(r.assetPath).toLowerCase()];
+                    cv = cr ? PVX.data.statValue(cr, cfg) : null;
+                    if (cv === null || cv === undefined || !isFinite(cv)) { cv = null; noColor += 1; }
+                }
                 items.push({
+                    colorValue: cv,
                     label: r.label || ('Row ' + (i + 1)),
                     path: r.path || '',
                     units: r.units || '',
@@ -304,6 +352,10 @@
             // slivers it merges later, so that there is one combined count in
             // the footer rather than two that have to be added up.
             if (hidden) { notes.push('+' + hidden + ' more not shown'); }
+            if (noColor) {
+                notes.push(noColor + (noColor === 1 ? ' tile has' : ' tiles have') + ' no ' + colorAttr + ' to colour by');
+            }
+            if (unusedAttrs.length) { notes.push('not used: ' + unusedAttrs.join(', ')); }
 
             // --- empty states ---------------------------------------------
             var headline = '', detail = '';
@@ -601,10 +653,18 @@
                 return PVX.color.mix(t.surfaceAlt, t.textMuted, 0.55);
             }
 
+            // The number the colour stands for: the second attribute of an AF
+            // search when there is one, else the size itself. A tile with no
+            // second value has nothing to say in colour and stays neutral.
+            var cv = item.colorValue === undefined ? item.value : item.colorValue;
+            if (cv === null && (cfg.ColorMode === 'value' || cfg.ColorMode === 'threshold')) {
+                return PVX.color.mix(t.surfaceAlt, t.textMuted, 0.3);
+            }
+
             switch (cfg.ColorMode) {
                 case 'value':
                     var span = domain[1] - domain[0];
-                    var f = span > 0 ? (item.value - domain[0]) / span : 1;
+                    var f = span > 0 ? (cv - domain[0]) / span : 1;
                     return PVX.color.ramp(valueStops(), f);
                 case 'palette':
                     return PVX.color.categorical[item.rank % PVX.color.categorical.length];
@@ -622,7 +682,7 @@
                     // Falls back to the flat colour when thresholds are off, so
                     // the mode never silently paints everything one band.
                     return cfg.UseThresholds
-                        ? PVX.thresholds.colorFor(cfg.Thresholds, item.value, single)
+                        ? PVX.thresholds.colorFor(cfg.Thresholds, cv, single)
                         : single;
             }
         }
@@ -755,13 +815,19 @@
             svgRoot.setAttribute('preserveAspectRatio', 'none');
             PVX.svg.clear(svgRoot);
 
-            var grouped = !tiny && (cfg.GroupBy === 'delimiter' || cfg.GroupBy === 'prefix');
+            var groupable = cfg.GroupBy === 'delimiter' || cfg.GroupBy === 'prefix' || cfg.GroupBy === 'parent';
+            // A drill-down only means something while there are groups.
+            if (!groupable || cfg.ClickAction !== 'drill') { focus = null; }
+            var grouped = !tiny && groupable && focus === null;
+            scope.pvx.crumbs = focus !== null && !compact
+                ? [{ label: 'All', i: 0 }, { label: focus, i: 1, last: true }] : [];
             var maxTiles = tiny ? 4 : intIn(cfg.MaxTiles, 1, 400, 60);
             var model = buildModel(cfg, maxTiles, grouped);
 
             // ---- chrome --------------------------------------------------
             scope.pvx.title = cfg.Title || 'Treemap';
-            scope.pvx.subtitle = PVX.config.statLabel(cfg) + commonUnitsSuffix(cfg, model);
+            scope.pvx.subtitle = PVX.config.statLabel(cfg) + commonUnitsSuffix(cfg, model) +
+                (colorAttr ? ' \u00b7 colour: ' + colorAttr : '');
             scope.pvx.error = model.badCount
                 ? (model.badCount + (model.badCount === 1 ? ' source reports' : ' sources report') + ' bad quality')
                 : '';
@@ -832,7 +898,8 @@
             var lo = null, hi = null;
             for (i = 0; i < model.items.length; i++) {
                 if (model.items[i].isOther) { continue; }
-                var v = model.items[i].value;
+                var v = model.items[i].colorValue === undefined ? model.items[i].value : model.items[i].colorValue;
+                if (v === null) { continue; }
                 if (lo === null || v < lo) { lo = v; }
                 if (hi === null || v > hi) { hi = v; }
             }
@@ -871,7 +938,7 @@
             var opts = { cfg: cfg, theme: t, defs: defs, hatch: hatchCache,
                 pad: pad, radius: radius, minPx: minPx, domain: domain,
                 total: model.total, border: borderColor, tiny: tiny,
-                clickable: cfg.ClickAction === 'navigate' };
+                clickable: cfg.ClickAction === 'navigate' || cfg.ClickAction === 'drill' };
 
             var tilesG = PVX.svg.el('g', { 'class': 'pvx-tm-tiles' }, svgRoot);
             var sources = 0, otherCount = 0;
@@ -950,6 +1017,8 @@
                 ' — ' + PVX.fmt.number(item.value, PVX.config.numberOpts(cfg)) +
                 (item.units ? ' ' + item.units : '') +
                 (o.total > 0 ? ' · ' + ((item.value / o.total) * 100).toFixed(1) + '% of total' : '') +
+                (item.colorValue !== undefined ? '\n' + colorAttr + ': ' +
+                    (item.colorValue === null ? 'no value' : PVX.fmt.number(item.colorValue, PVX.config.numberOpts(cfg))) : '') +
                 (item.groupLabel ? '\n' + item.groupLabel : '') +
                 (item.good ? '' : '\n BAD QUALITY' + (item.error ? ': ' + item.error : '')) +
                 (item.path ? '\n' + item.path : '');
@@ -1237,12 +1306,12 @@
         }
 
         function onClick(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'drill') { return; }
             activate(tileIndexOf(ev.target));
         }
 
         function onKeyDown(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'drill') { return; }
             var k = ev.keyCode || ev.which;
             if (k !== 13 && k !== 32) { return; }   // Enter, Space
             var i = tileIndexOf(ev.target);
@@ -1258,6 +1327,13 @@
             // The aggregate tile stands for several assets, so there is no one
             // asset to drill into.
             if (!item || item.isOther) { return; }
+            // Drill-down: a tile in a group opens that group; inside it, a
+            // tile goes where a navigating click would.
+            if (liveCfg.ClickAction === 'drill' && focus === null && item.group !== null && item.group !== undefined) {
+                focus = item.group;
+                ctx.render();
+                return;
+            }
             var target = String(liveCfg.NavigateTarget || '').trim();
             // With no target and no asset path there is nowhere to go, and
             // navigating to the current URL would just flicker the display.

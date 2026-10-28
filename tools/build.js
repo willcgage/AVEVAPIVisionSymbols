@@ -315,14 +315,18 @@ function build() {
     }
 
     const baseCss = read(path.join(SHARED_DIR, 'base.css'));
-    // The text size control follows the Data sources list in every pane: it
-    // applies to every symbol the same way, so no pane should have to ask.
+    // The text size control and the saving and data-state options follow the
+    // Data sources list in every pane: they apply to every symbol the same
+    // way, so no pane should have to ask.
     const sourcesPane = read(path.join(SHARED_DIR, 'config-sources.html')) +
-        read(path.join(SHARED_DIR, 'config-text.html'));
+        read(path.join(SHARED_DIR, 'config-text.html')) +
+        read(path.join(SHARED_DIR, 'config-common.html'));
     const bandsEditor = read(path.join(SHARED_DIR, 'config-bands.html'));
     const afPicker = read(path.join(SHARED_DIR, 'config-afpicker.html'));
     const statesEditor = read(path.join(SHARED_DIR, 'config-states.html'));
     const tagsEditor = read(path.join(SHARED_DIR, 'config-tags.html'));
+    const afSearch = read(path.join(SHARED_DIR, 'config-afsearch.html'));
+    const filterPane = read(path.join(SHARED_DIR, 'config-filter.html'));
 
     // --- symbols ----------------------------------------------------------
     const symbols = discoverSymbols();
@@ -356,7 +360,7 @@ function build() {
         write(path.join(EXT, 'sym-' + typeName + '-config.html'),
             withTagsEditors(typeName,
                 withStatesEditors(typeName,
-                    withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, config, afPicker), sourcesPane), bandsEditor, js),
+                    withBandsEditor(typeName, withSourcesPane(typeName, withAfPickers(typeName, withAfSearch(typeName, withFilterPane(typeName, config, filterPane, js), afSearch, js), afPicker), sourcesPane), bandsEditor, js),
                     statesEditor),
                 tagsEditor));
         // Shared base styles are prepended to every symbol stylesheet. PI Vision
@@ -427,6 +431,35 @@ function withSourcesPane(typeName, config, pane) {
         return config;
     }
     return m[0] + pane + config.slice(m[0].length);
+}
+
+// A symbol that can take its rows from an AF search (PVX.afsource) shows the
+// search settings where its pane has <!-- pvx:afsearch -->. Its defaults
+// must come through PVX.afsource.defaults, or the pane would edit keys the
+// symbol never reads.
+const AFSEARCH_MARKER = /^[ \t]*<!--\s*pvx:afsearch\s*-->[ \t]*\n/m;
+
+function withAfSearch(typeName, config, snippet, js) {
+    if (!AFSEARCH_MARKER.test(config)) { return config; }
+    if (!/PVX\.afsource\.defaults\(/.test(js)) {
+        problem(typeName, 'config.html has <!-- pvx:afsearch --> but symbol.js does not take PVX.afsource.defaults()');
+        return config;
+    }
+    return config.replace(AFSEARCH_MARKER, snippet);
+}
+
+// Shared filters (PVX.filter): where a pane has <!-- pvx:filter -->, the
+// obey and channel settings. Like the AF search, its defaults must come from
+// PVX.filter.defaults(), or a saved display would have no keys to bind.
+const FILTER_MARKER = /^[ \t]*<!--\s*pvx:filter\s*-->[ \t]*\n/m;
+
+function withFilterPane(typeName, config, snippet, js) {
+    if (!FILTER_MARKER.test(config)) { return config; }
+    if (!/PVX\.filter\.defaults\(/.test(js)) {
+        problem(typeName, 'config.html has <!-- pvx:filter --> but symbol.js does not take PVX.filter.defaults()');
+        return config;
+    }
+    return config.replace(FILTER_MARKER, snippet);
 }
 
 // Threshold bands are edited as rows (limit, colour, label), not by typing

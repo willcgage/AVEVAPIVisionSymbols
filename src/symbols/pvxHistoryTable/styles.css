@@ -1,0 +1,183 @@
+/* pvxHistoryTable: every selector namespaced under .pvx-htable. The custom
+   properties are fallbacks; symbol.js writes the theme's on every render. */
+
+.pvx-htable {
+    --pvx-surface: #ffffff;
+    --pvx-surface-alt: #f4f6f8;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-stripe: rgba(0, 0, 0, 0.13);
+    color: var(--pvx-text);
+}
+
+.pvx-htable .pvx-htable-surface {
+    background: var(--pvx-surface);
+    border-color: var(--pvx-border);
+    border-radius: inherit;
+}
+
+.pvx-htable .pvx-htable-header {
+    color: var(--pvx-muted);
+}
+
+.pvx-htable .pvx-htable-bodywrap {
+    padding: 0;
+    min-height: 0;
+}
+
+.pvx-htable .pvx-htable-body {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    position: relative;
+}
+
+/* Rows scroll both ways; the header row and the time column stay put, so a
+   long history keeps its column names and a wide one keeps its times. */
+.pvx-htable .pvx-htable-scroll {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow: auto;
+}
+
+.pvx-htable .pvx-htable-table {
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+}
+
+.pvx-htable .pvx-htable-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--pvx-surface-alt);
+    color: var(--pvx-muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-align: right;
+    vertical-align: bottom;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+.pvx-htable .pvx-htable-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-htable .pvx-htable-units {
+    display: block;
+    font-weight: 400;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-htable .pvx-htable-table th.pvx-htable-timehead {
+    text-align: left;
+    left: 0;
+    z-index: 3;
+}
+
+.pvx-htable .pvx-htable-badhead {
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, var(--pvx-stripe) 5px 7px);
+}
+
+.pvx-htable .pvx-htable-table td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--pvx-border);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.pvx-htable .pvx-htable-table td.pvx-htable-time {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    text-align: left;
+    background: var(--pvx-surface);
+    color: var(--pvx-muted);
+}
+
+.pvx-htable .pvx-htable-text {
+    color: var(--pvx-muted);
+    font-style: italic;
+}
+
+.pvx-htable .pvx-htable-bad {
+    color: var(--pvx-muted);
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, var(--pvx-stripe) 5px 7px);
+}
+
+.pvx-htable .pvx-htable-group td {
+    position: sticky;
+    left: 0;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--pvx-muted);
+    background: var(--pvx-surface-alt);
+    padding-top: 5px;
+}
+
+.pvx-htable .pvx-htable-total td {
+    font-weight: 600;
+    border-top: 1px solid var(--pvx-muted);
+}
+
+.pvx-htable .pvx-htable-total td.pvx-htable-time {
+    color: var(--pvx-text);
+}
+
+.pvx-htable .pvx-htable-grand td {
+    background: var(--pvx-surface-alt);
+}
+
+.pvx-htable .pvx-htable-table tbody tr:hover td {
+    box-shadow: inset 0 0 0 9999px rgba(128, 128, 128, 0.08);
+}
+
+.pvx-htable .pvx-htable-empty {
+    padding: 16px 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--pvx-muted);
+}
+
+.pvx-htable .pvx-htable-footer {
+    padding: 2px 6px 3px 8px;
+    font-size: 10.5px;
+    color: var(--pvx-muted);
+}
+
+.pvx-htable .pvx-htable-note {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pvx-htable .pvx-htable-csv {
+    flex: 0 0 auto;
+    font: inherit;
+    font-weight: 600;
+    color: var(--pvx-text);
+    background: var(--pvx-surface-alt);
+    border: 1px solid var(--pvx-border);
+    border-radius: 3px;
+    padding: 1px 7px;
+    cursor: pointer;
+}
+
+.pvx-htable .pvx-htable-csv:hover,
+.pvx-htable .pvx-htable-csv:focus {
+    border-color: var(--pvx-muted);
+}

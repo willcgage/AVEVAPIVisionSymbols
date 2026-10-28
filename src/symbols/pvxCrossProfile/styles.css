@@ -1,0 +1,48 @@
+/* pvxCrossProfile: only the chrome is styled here; cell and line colours
+ * come from the format pane and the runtime theme. The custom properties
+ * are fallbacks that symbol.js overwrites on the root every render. */
+
+.pvx-xprof {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    color: var(--pvx-text);
+}
+
+.pvx-xprof .pvx-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-xprof .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-xprof .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-xprof .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-xprof .pvx-xprof-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Neighbouring cells must meet without a hairline between them. */
+.pvx-xprof .pvx-xprof-cell {
+    shape-rendering: crispEdges;
+    pointer-events: none;
+}
+
+.pvx-xprof .pvx-xprof-band,
+.pvx-xprof .pvx-xprof-avg,
+.pvx-xprof .pvx-xprof-current {
+    pointer-events: none;
+}

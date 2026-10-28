@@ -1,0 +1,12 @@
+<!--
+    pvxDisplayMenu. The bar is built by symbol.js inside .pvx-dmenu-body, and
+    its drop-downs on document.body, so Angular owns nothing in either. The
+    note it shows when a line is left out or the AF menu cannot be read is
+    drawn in the bar itself: a footer would take the whole of a 40px bar.
+-->
+<div class="pvx pvx-dmenu"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-dmenu-surface">
+        <div class="pvx-dmenu-body"></div>
+    </div>
+</div>

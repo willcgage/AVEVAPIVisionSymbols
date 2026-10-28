@@ -279,10 +279,10 @@
         /* ---- tier 3: closed ---- */
         { n: 'pvxTimePicker', t: 'Time Range Picker', tier: 3, closed: 1, cat: 'Navigation', shape: '—', effort: 'M',
           d: 'Calendar plus a PI-time expression field with live validation.',
-          c: 'Not building. PI Vision\'s own time control already does this, and does it for the whole display rather than for one symbol. The navigation panel covers the preset-button case.' },
+          c: 'Built later as pvxTimeRange, when the owner asked for every item of a later feature comparison. The original reason for declining: PI Vision\'s own time control already does this, and does it for the whole display rather than for one symbol. The navigation panel covers the preset-button case.' },
         { n: 'pvxWebView', t: 'Web View', tier: 3, closed: 1, cat: 'Navigation', shape: '—', effort: 'S',
           d: 'An iframe for a work instruction, camera feed or report.',
-          c: 'Not building. X-Frame-Options and frame-ancestors block the target more often than not, and the failure is a blank rectangle the symbol cannot detect or explain. A symbol that silently shows nothing is worse than no symbol.' },
+          c: 'Built later as pvxEmbeddedPage, which names the blank-frame failure instead of hiding it. The original reason for declining: X-Frame-Options and frame-ancestors block the target more often than not, and the failure is a blank rectangle the symbol cannot detect or explain. A symbol that silently shows nothing is worse than no symbol.' },
         { n: 'pvxAlarmSound', t: 'Audible Alarm', tier: 3, closed: 1, cat: 'Status', shape: 'Table', effort: 'S',
           d: 'Plays a tone when a data source crosses into a configured band.',
           c: 'Not building. Browser autoplay policy needs a click on exactly the unattended kiosk nobody is standing at, so it fails precisely where it would be useful. In a staffed control room the DCS annunciator is the right layer.' },

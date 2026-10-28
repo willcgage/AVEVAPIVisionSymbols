@@ -207,7 +207,18 @@
                 if (colon === -1) { bad.push(s); continue; }
 
                 var to = tail.slice(0, colon).trim();
-                var idx = parseInt(tail.slice(colon + 1).trim(), 10);
+                var what = tail.slice(colon + 1).trim();
+                // "= 12.5" is a fixed flow: a stream nobody meters (a design
+                // figure, a contract quantity) that still belongs in the
+                // balance. The '=' keeps it from ever reading as a source
+                // number, so removing a data source never renumbers it.
+                if (what.charAt(0) === '=') {
+                    var fixed = parseFloat(what.slice(1));
+                    if (!from || !to || !isFinite(fixed)) { bad.push(s); continue; }
+                    out.push({ from: from, to: to, src: 0, fixed: fixed, seq: out.length, auto: false });
+                    continue;
+                }
+                var idx = parseInt(what, 10);
                 if (!from || !to || !isFinite(idx) || idx < 1) { bad.push(s); continue; }
 
                 out.push({ from: from, to: to, src: idx, seq: out.length, auto: false });
@@ -496,11 +507,12 @@
             var belowMin = 0;
             var selfLoops = [];
             var badCount = 0;
+            var fixedCount = 0;
 
             for (i = 0; i < entries.length; i++) {
                 var e = entries[i];
 
-                if (e.src > rows.length) {
+                if (e.src && e.src > rows.length) {
                     // More links than data sources: the topology names a tag
                     // that was never dropped on the symbol.
                     missingSrc.push(e.from + ' > ' + e.to + ' (source ' + e.src + ')');
@@ -513,8 +525,12 @@
                     continue;
                 }
 
-                var row = rows[e.src - 1];
-                var v = PVX.data.statValue(row, cfg);
+                // A fixed flow borrows nothing from a row but its units, taken
+                // from the first source so the tooltip reads like its peers.
+                var row = e.src ? rows[e.src - 1] : {
+                    units: rows.length ? rows[0].units : '', good: true, label: 'Fixed value', path: ''
+                };
+                var v = e.src ? PVX.data.statValue(row, cfg) : e.fixed;
                 if (v === null || v === undefined || !isFinite(v)) { noValue += 1; continue; }
                 if (v <= 0) {
                     // A ribbon's thickness IS its value. There is no width that
@@ -526,8 +542,9 @@
                 if (v < minLink) { belowMin += 1; continue; }
 
                 if (row.good === false) { badCount += 1; }
+                if (!e.src) { fixedCount += 1; }
                 links.push({
-                    from: e.from, to: e.to, value: v, src: e.src,
+                    from: e.from, to: e.to, value: v, src: e.src, fixed: !e.src,
                     units: row.units || '', good: row.good !== false,
                     error: row.errorDescription || '',
                     path: row.path || '', label: row.label || '',
@@ -653,6 +670,10 @@
             }
             if (componentCount > 1 && live.length) {
                 notes.push(componentCount + ' separate flows');
+            }
+            // A typed number in a diagram of measurements is said, not hidden.
+            if (fixedCount) {
+                notes.push(fixedCount + (fixedCount === 1 ? ' fixed flow' : ' fixed flows') + ', not measured');
             }
 
             // --- empty states ----------------------------------------------
@@ -1226,6 +1247,7 @@
                 PVX.fmt.number(l.value, PVX.config.numberOpts(cfg)) +
                 (l.units ? ' ' + l.units : '') +
                 (l.label ? '\n' + l.label : '') +
+                (l.fixed ? ' (typed in Links, not measured)' : '') +
                 (l.good ? '' : '\n BAD QUALITY' + (l.error ? ': ' + l.error : '')) +
                 (l.path ? '\n' + l.path : '');
         }

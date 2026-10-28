@@ -22,6 +22,42 @@
             <div class="pvx-combo-body"></div>
         </div>
 
+        <!-- Rulers: the values at A and B and the statistics between them.
+             Only there when Rulers is on; symbol.js fills pvx.rulers. -->
+        <div class="pvx-combo-rulers-table" ng-if="pvx.rulers">
+            <div class="pvx-combo-rulers-head" ng-if="pvx.rulers.hint || pvx.rulers.a">
+                <span ng-if="pvx.rulers.hint" class="pvx-combo-rulers-hint">{{pvx.rulers.hint}}</span>
+                <button type="button" class="pvx-combo-rulers-clear" ng-if="pvx.rulers.a"
+                        ng-click="pvx.clearRulers()" title="Take both rulers off the chart">Clear</button>
+            </div>
+            <div class="pvx-combo-rulers-scroll" ng-if="pvx.rulers.rows.length">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Source</th><th>A</th>
+                            <th ng-if="pvx.rulers.both">B</th><th ng-if="pvx.rulers.both">Change</th>
+                            <th ng-if="pvx.rulers.both">Min</th><th ng-if="pvx.rulers.both">Max</th>
+                            <th ng-if="pvx.rulers.both" title="Time-weighted between the rulers">Avg</th>
+                            <th ng-if="pvx.rulers.both">Std dev</th><th ng-if="pvx.rulers.both">Count</th>
+                            <th ng-if="pvx.rulers.both" title="Slope of a straight-line fit between the rulers">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="r in pvx.rulers.rows track by $index" ng-class="{'pvx-combo-rulers-time': r.time}">
+                            <td class="pvx-combo-rulers-name" title="{{r.label}}">
+                                <span class="pvx-combo-rulers-key" ng-if="!r.time" ng-style="{'background': r.color}"></span>{{r.label}}
+                            </td>
+                            <td>{{r.a}}</td>
+                            <td ng-if="pvx.rulers.both">{{r.b}}</td><td ng-if="pvx.rulers.both">{{r.delta}}</td>
+                            <td ng-if="pvx.rulers.both">{{r.min}}</td><td ng-if="pvx.rulers.both">{{r.max}}</td>
+                            <td ng-if="pvx.rulers.both">{{r.avg}}</td><td ng-if="pvx.rulers.both">{{r.std}}</td>
+                            <td ng-if="pvx.rulers.both">{{r.n}}</td><td ng-if="pvx.rulers.both">{{r.trend}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="pvx-footer" ng-if="pvx.note">
             <span class="pvx-truncate pvx-combo-note" title="{{pvx.note}}">{{pvx.note}}</span>
         </div>

@@ -9,37 +9,52 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | Symbol | Display name | Data shape | Data sources |
 |---|---|---|---|
 | [`pvxAlarmBanner`](#pvxalarmbanner) | PVX Exception Banner | Table | Multiple |
+| [`pvxAlarmTone`](#pvxalarmtone) | PVX Alarm Tone | Table | Multiple |
 | [`pvxAnnunciator`](#pvxannunciator) | PVX Annunciator | Table | Multiple |
-| [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | Table | Multiple |
+| [`pvxAssetRollup`](#pvxassetrollup) | PVX Asset Rollup | Value | Single |
+| [`pvxAssetTable`](#pvxassettable) | PVX Asset Table | — | Multiple |
 | [`pvxAssetTree`](#pvxassettree) | PVX Asset Navigator | Value | Single |
 | [`pvxBarIndicator`](#pvxbarindicator) | PVX Bar Indicator | Gauge | Single |
 | [`pvxBoxPlot`](#pvxboxplot) | PVX Variability | TimeSeries | Multiple |
-| [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | TimeSeries | Multiple |
+| [`pvxComboChart`](#pvxcombochart) | PVX Combo Chart | — | Multiple |
 | [`pvxCompare`](#pvxcompare) | PVX Condition Compare | TimeSeries | Multiple |
+| [`pvxControlChart`](#pvxcontrolchart) | PVX Control Chart | TimeSeries | Multiple |
+| [`pvxCrossProfile`](#pvxcrossprofile) | PVX Cross Profile | TimeSeries | Multiple |
 | [`pvxDataHealth`](#pvxdatahealth) | PVX Data Health | TimeSeries | Multiple |
 | [`pvxDeviation`](#pvxdeviation) | PVX Deviation from Target | TimeSeries | Multiple |
+| [`pvxDisplayMenu`](#pvxdisplaymenu) | PVX Display Menu | Value | Single |
 | [`pvxDonut`](#pvxdonut) | PVX Contribution | Table | Multiple |
+| [`pvxEmbeddedPage`](#pvxembeddedpage) | PVX Embedded Page | Value | Single |
 | [`pvxEntryTable`](#pvxentrytable) | PVX Shift Log | Value | Single |
 | [`pvxEventAnalytics`](#pvxeventanalytics) | PVX Event Analytics | Value | Single |
 | [`pvxEventGantt`](#pvxeventgantt) | PVX Event Timeline | Value | Single |
+| [`pvxEventList`](#pvxeventlist) | PVX Event List | — | Single |
+| [`pvxGasTriangle`](#pvxgastriangle) | PVX Gas Triangle | TimeSeries | Multiple |
+| [`pvxGeoView`](#pvxgeoview) | PVX Geo View | Table | Multiple |
 | [`pvxHeatmap`](#pvxheatmap) | PVX Heatmap | TimeSeries | Multiple |
 | [`pvxHistogram`](#pvxhistogram) | PVX Distribution | TimeSeries | Multiple |
+| [`pvxHistoryTable`](#pvxhistorytable) | PVX History Table | TimeSeries | Multiple |
 | [`pvxKpiCard`](#pvxkpicard) | PVX KPI Card | TimeSeries | Multiple |
+| [`pvxLookupTable`](#pvxlookuptable) | PVX Lookup Table | Value | Single |
 | [`pvxManualEntry`](#pvxmanualentry) | PVX Manual Entry | Value | Single |
+| [`pvxMultiGauge`](#pvxmultigauge) | PVX Multi-Pointer Gauge | Table | Multiple |
 | [`pvxNavPanel`](#pvxnavpanel) | PVX Navigation Panel | Value | Single |
 | [`pvxOperatingMap`](#pvxoperatingmap) | PVX Operating Map | TimeSeries | Multiple |
-| [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | Table | Multiple |
-| [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Single |
+| [`pvxPareto`](#pvxpareto) | PVX Ranked Bar | — | Multiple |
+| [`pvxPeriodOverlay`](#pvxperiodoverlay) | PVX Period Comparison | TimeSeries | Multiple |
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
-| [`pvxRadar`](#pvxradar) | PVX Fingerprint | Table | Multiple |
+| [`pvxRadar`](#pvxradar) | PVX Fingerprint | — | Multiple |
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
+| [`pvxReplay`](#pvxreplay) | PVX Replay | Value | Single |
 | [`pvxSankey`](#pvxsankey) | PVX Flow | Table | Multiple |
 | [`pvxSitePlan`](#pvxsiteplan) | PVX Site Plan | Table | Multiple |
 | [`pvxSlideshow`](#pvxslideshow) | PVX Display Slideshow | Value | Single |
 | [`pvxSparkline`](#pvxsparkline) | PVX Multi Sparkline | TimeSeries | Multiple |
+| [`pvxSpectrum`](#pvxspectrum) | PVX Spectrum | TimeSeries | Multiple |
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
-| [`pvxTreemap`](#pvxtreemap) | PVX Treemap | Table | Multiple |
+| [`pvxTimeRange`](#pvxtimerange) | PVX Time Range | Value | Single |
+| [`pvxTreemap`](#pvxtreemap) | PVX Treemap | — | Multiple |
 | [`pvxWaterfall`](#pvxwaterfall) | PVX Waterfall | Table | Multiple |
 | [`pvxWindRose`](#pvxwindrose) | PVX Wind Rose | TimeSeries | Multiple |
 | [`pvxXYScatter`](#pvxxyscatter) | PVX XY Scatter | TimeSeries | Multiple |
@@ -68,7 +83,10 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `Columns` | `["Value"]` |  |
 | `Title` | `"Exceptions"` |  |
 | `StateBands` | `""` |  |
-| `Mode` | `"list"` | list \| ticker \| summary |
+| `Deadband` | `""` |  |
+| `Mode` | `"list"` | list \| ticker \| summary \| history |
+| `HistoryMaxValues` | `10000` | per data source |
+| `HistoryRefreshSeconds` | `60` |  |
 | `DenseMode` | `false` |  |
 | `MaxRows` | `12` |  |
 | `RowHeight` | `24` |  |
@@ -87,6 +105,46 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `TickerSpeed` | `60` | px/sec |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxAlarmTone
+
+**PVX Alarm Tone** · data shape `Table` · multiple data sources · collections not supported
+
+Sounds a tone when one of its data sources goes into alarm, and keeps sounding until the alarm is silenced, acknowledged or clears. The same threshold bands, digital state map and deadband as the Annunciator and the Exception Banner decide what an alarm is.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `StateBands` | `""` |  |
+| `SeverityFrom` | `"thresholds"` | thresholds \| quality |
+| `MinSeverityBand` | `1` | sound from this band up |
+| `Deadband` | `""` |  |
+| `Tone` | `"beep"` | beep \| twoTone \| pulse \| chime \| siren |
+| `TopBandTone` | `"same"` | same, or a tone for the highest band |
+| `Volume` | `60` | 0-100 |
+| `RepeatSeconds` | `10` | 0 = once per alarm |
+| `ResoundOnEscalation` | `true` |  |
+| `SoundStanding` | `true` |  |
+| `ShowList` | `true` |  |
+| `MaxListed` | `3` |  |
+| `SharedAck` | `false` |  |
+| `AckAttributePath` | `""` |  |
+| `AckPollSeconds` | `15` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
 
 ---
 
@@ -118,6 +176,7 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `MaxTiles` | `24` |  |
 | `SeverityFrom` | `"thresholds"` | thresholds \| quality |
 | `MinSeverityBand` | `1` |  |
+| `Deadband` | `""` |  |
 | `ShowValue` | `true` |  |
 | `ShowStateText` | `true` |  |
 | `ShowDuration` | `true` |  |
@@ -142,11 +201,11 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 
 ---
 
-## pvxAssetTable
+## pvxAssetRollup
 
-**PVX Asset Table** · data shape `Table` · multiple data sources · collections not supported
+**PVX Asset Rollup** · data shape `Value` · single data source · collections not supported
 
-@mock assets
+symbol selector, and gives the search a starting asset (see the definition). Every number comes from PI Web API through PVX.api.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -161,26 +220,38 @@ A LATCHING alarm panel, in the tradition of a hardwired control-room annunciator
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
 | `Title` | `""` |  |
-| `RowSource` | `"sources"` | sources \| search |
 | `SearchRoot` | `""` | used when the URL names no asset |
 | `SearchTemplate` | `""` |  |
-| `SearchDescendants` | `false` |  |
-| `MaxRows` | `50` |  |
-| `RefreshSeconds` | `30` |  |
-| `ColumnSpec` | `""` |  |
-| `RowLabel` | `"name"` | name \| parentName \| path |
-| `NameHeader` | `"Asset"` |  |
-| `StateMap` | `Running:#2f9e5f, Stopped:#8a8f96, Fault:#c84…` |  |
-| `CellStyle` | `"text"` | text \| fill \| dot |
-| `StatusColumn` | `"worst"` | worst \| none |
-| `ShowBadQuality` | `true` |  |
-| `SortBy` | `"none"` | none \| name \| worst \| column |
-| `SortColumn` | `""` |  |
-| `SortDescending` | `false` |  |
-| `ClickAction` | `"none"` | none \| navigate |
+| `SearchNameFilter` | `""` |  |
+| `SearchDescendants` | `true` |  |
+| `MaxElements` | `500` |  |
+| `RefreshSeconds` | `60` |  |
+| `Attribute` | `""` | e.g. Production Rate; blank counts the assets |
+| `Aggregate` | `"sum"` | count \| countDistinct \| sum \| min \| max \| avg \| median \| stddev |
+| `CountWhen` | `""` | count only: values equal to this (e.g. Running) |
+| `GroupBy` | `"none"` | none \| template \| parent \| attribute |
+| `GroupAttribute` | `""` |  |
+| `TopN` | `8` |  |
+| `ShowOthers` | `true` |  |
+| `ShowAll` | `true` | a first card over every asset, when split |
+| `SortBy` | `"value"` | value \| name |
+| `SortDescending` | `true` |  |
+| `Target` | `""` |  |
+| `TargetDirection` | `"higher"` | higher \| lower is better |
+| `ClickAction` | `"none"` | none \| asset (parent cards) \| navigate |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxAssetTable
+
+**PVX Asset Table** · data shape `—` · multiple data sources · collections not supported
+
+@mock assets
+
+| Option | Default | Notes |
+|---|---|---|
 
 ---
 
@@ -223,6 +294,12 @@ symbol selector (see the definition). Like pvxEventGantt, this symbol has no PI 
 | `HighlightCurrent` | `true` |  |
 | `AutoExpandToCurrent` | `true` |  |
 | `RememberExpanded` | `true` |  |
+| `Layout` | `"tree"` | tree \| list \| dropdown |
+| `ValueAttribute` | `""` | an attribute read on every row's element |
+| `ValueBands` | `""` | threshold grammar: colours numeric values |
+| `StateMap` | `""` | State:colour[:label]: colours digital values |
+| `ShowValueDot` | `true` |  |
+| `ValueRefreshSeconds` | `30` |  |
 
 ---
 
@@ -249,7 +326,7 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 | `MinValue` | `0` |  |
 | `MaxValue` | `100` |  |
 | `UseSymbolScale` | `true` | false => trust PI Vision's Indicator |
-| `BarStyle` | `"solid"` | solid \| gradient \| segmented |
+| `BarStyle` | `"solid"` | solid \| gradient \| segmented \| thermometer |
 | `SegmentCount` | `20` |  |
 | `BarThicknessPct` | `30` | % of the cross axis the bar occupies |
 | `RoundedBar` | `true` |  |
@@ -260,6 +337,10 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 | `TickCount` | `5` |  |
 | `ScalePosition` | `"end"` | start = above/left, end = below/right |
 | `ShowMinMaxLabels` | `true` |  |
+| `MinorTicks` | `0` | per major interval |
+| `TicksAtBands` | `false` | major ticks and labels on the band limits |
+| `HighlightActiveBand` | `false` | dim every band but the value's |
+| `InvertScale` | `false` | maximum at the left / bottom |
 | `ShowTarget` | `false` |  |
 | `TargetValue` | `75` |  |
 | `TargetColor` | `"#1d2126"` |  |
@@ -273,7 +354,7 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 
 **PVX Variability** · data shape `TimeSeries` · multiple data sources · collections not supported
 
-The question this symbol answers is "twenty identical assets, which one is misbehaving". A trend of twenty tags is unreadable; twenty boxes side by side are not — the wide box or the long upper whisker is the asset to go and look at. So the symbol is built entirely around COMPARISON: identical geometry per series, one shared value axis, and sort orders that put the outlier asset at the front.
+box per hour, shift, day or week of a single source.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -312,6 +393,13 @@ The question this symbol answers is "twenty identical assets, which one is misbe
 | `TickCount` | `5` |  |
 | `ScaleMin` | `""` |  |
 | `ScaleMax` | `""` |  |
+| `GroupBy` | `"source"` | source \| hour \| shift \| day \| week |
+| `GroupSource` | `1` | by time: the data source cut into buckets |
+| `ShiftHours` | `8` | shift: length, a divisor of 24 |
+| `ShiftStart` | `6` | shift: hour the first shift of the day starts |
+| `OverlayValue` | `""` | a typed setpoint or limit |
+| `OverlaySource` | `"0"` | a data source instead; '0' = none |
+| `OverlayLabel` | `""` |  |
 | `NameWidthPct` | `26` | horizontal orientation only |
 | `SortBy` | `"none"` | none\|name\|medianAsc\|medianDesc\|spreadDesc |
 | `MaxBoxes` | `30` |  |
@@ -321,52 +409,12 @@ The question this symbol answers is "twenty identical assets, which one is misbe
 
 ## pvxComboChart
 
-**PVX Combo Chart** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Combo Chart** · data shape `—` · multiple data sources · collections not supported
 
 PI Vision's native trend draws every trace the same way on one scale, so the moment a question spans two units — "did efficiency hold while we pushed production?" — the answer moves to Excel. This symbol keeps it on the display: production as bars, efficiency as a line on a right-hand axis, the operating limit as a shaded band, run/stop as a stepped strip, one frame, one time axis, one glance.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `DataQueryMode` | `"ModePlotValues"` |  |
-| `Intervals` | `300` |  |
-| `Title` | `""` |  |
-| `TraceSpec` | `""` |  |
-| `DefaultType` | `"line"` |  |
-| `SmoothLines` | `false` |  |
-| `LineWidth` | `1.8` |  |
-| `AreaOpacity` | `0.25` |  |
-| `BarOpacity` | `0.85` |  |
-| `StackBars` | `false` |  |
-| `MinBarWidth` | `4` |  |
-| `ShowLeftAxis` | `true` |  |
-| `ShowRightAxis` | `true` |  |
-| `LeftMin` | `""` |  |
-| `LeftMax` | `""` |  |
-| `RightMin` | `""` |  |
-| `RightMax` | `""` |  |
-| `LeftLabel` | `""` |  |
-| `RightLabel` | `""` |  |
-| `ShowGrid` | `true` |  |
-| `TickCount` | `5` |  |
-| `TimeTickCount` | `5` |  |
-| `LimitBands` | `""` |  |
-| `LimitBandOpacity` | `0.14` |  |
-| `ShowLegend` | `true` |  |
-| `LegendPosition` | `"top"` | top \| bottom \| none |
-| `ShowValues` | `false` |  |
-| `ShowTooltips` | `true` |  |
-| `MaxPointsPerTrace` | `600` |  |
 
 ---
 
@@ -403,6 +451,98 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 | `SelectionColor` | `"#d99024"` |  |
 | `BaselineColor` | `""` | blank => AccentColor |
 | `ShowMedians` | `true` |  |
+
+---
+
+## pvxControlChart
+
+**PVX Control Chart** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock spc
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `SeriesIndex` | `1` |  |
+| `Title` | `""` |  |
+| `ChartType` | `"imr"` | imr \| xbarr \| xbars |
+| `SubgroupSize` | `5` | X-bar charts: consecutive points per subgroup |
+| `SampleMode` | `"interval"` | interval \| recorded |
+| `Intervals` | `120` | interval mode: points across the time range |
+| `Sigma` | `3` | limit width, 2 to 4 |
+| `LimitSource` | `"window"` | window \| baseline \| fixed \| sources \| af |
+| `BaselinePoints` | `25` | baseline: the first N plotted points |
+| `FixedCenter` | `""` |  |
+| `FixedUCL` | `""` |  |
+| `FixedLCL` | `""` |  |
+| `CenterSource` | `"0"` |  |
+| `UclSource` | `"0"` |  |
+| `LclSource` | `"0"` |  |
+| `AfUclTrait` | `"Hi"` |  |
+| `AfLclTrait` | `"Lo"` |  |
+| `RuleSet` | `"nelson"` | nelson \| we \| limits \| custom \| none |
+| `CustomRules` | `"1, 2, 5, 6"` |  |
+| `RunLength` | `9` | custom: points in a row for rule 2 |
+| `TrendLength` | `6` | custom: points rising or falling for rule 3 |
+| `AlternateLength` | `14` | custom: points alternating for rule 4 |
+| `LSL` | `""` |  |
+| `USL` | `""` |  |
+| `Target` | `""` |  |
+| `LslSource` | `"0"` | a data source overrides the typed LSL |
+| `UslSource` | `"0"` |  |
+| `SpecFromAf` | `false` | LSL, USL and Target from AF limit traits |
+| `AfLslTrait` | `"LoLo"` |  |
+| `AfUslTrait` | `"HiHi"` |  |
+| `ShowCapability` | `true` |  |
+| `ShowSecondary` | `true` |  |
+| `ShowHistogram` | `true` |  |
+| `ShowZones` | `true` |  |
+| `ShowSpecLines` | `true` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
+
+---
+
+## pvxCrossProfile
+
+**PVX Cross Profile** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock crossprofile
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `""` |  |
+| `PositionOrder` | `"source"` | source \| number (from each name) |
+| `Rows` | `48` | time intervals in the map |
+| `Target` | `""` | blank: the average of every cell |
+| `ColorSpan` | `""` | blank: the largest deviation seen |
+| `ColorMode` | `"diverging"` | diverging \| sequential |
+| `ShowProfile` | `true` |  |
+| `ShowAverage` | `true` |  |
+| `Sigma` | `2` | the band, in standard deviations |
+| `LineColor` | `"#3b82c4"` |  |
 
 ---
 
@@ -495,6 +635,56 @@ A normal trend answers "what was the value". A control engineer is almost never 
 
 ---
 
+## pvxDisplayMenu
+
+**PVX Display Menu** · data shape `Value` · single data source · collections not supported
+
+symbol into the selector and names the asset a relative menu attribute hangs off (see ItemsAttribute).
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `0` | *(shared)* |
+| `ItemsFrom` | `"config"` | config \| af |
+| `ItemsAttribute` | `""` |  |
+| `Items` | `[home] Overview | 101
+Units
+    Unit 1 | 201…` |  |
+| `Layout` | `"bar"` | bar \| side |
+| `SubmenuOpen` | `"click"` | click \| hover |
+| `Collapse` | `"narrow"` | never \| narrow \| always |
+| `MenuLabel` | `"Menu"` |  |
+| `IconPosition` | `"start"` | start \| end |
+| `KeepAsset` | `true` |  |
+| `KeepTime` | `true` |  |
+| `OpenInNewTab` | `false` |  |
+| `ShowActive` | `true` |  |
+| `ShowBack` | `false` |  |
+| `ShowKioskToggle` | `false` |  |
+| `ShowToolbarToggle` | `false` |  |
+| `ShowTimebarToggle` | `false` |  |
+| `ShowSidebarToggle` | `false` |  |
+| `LogoUrl` | `""` |  |
+| `LogoPosition` | `"start"` | start \| end |
+| `LogoHeight` | `0` | 0: the bar's height less padding |
+| `LogoTarget` | `""` |  |
+| `LogoAlt` | `"Logo"` |  |
+| `ItemColor` | `""` | text; blank follows the theme |
+| `HighlightColor` | `""` | active and hover; blank: AccentColor |
+| `FontSize` | `13` |  |
+| `ShowDivider` | `false` |  |
+
+---
+
 ## pvxDonut
 
 **PVX Contribution** · data shape `Table` · multiple data sources · collections not supported
@@ -520,7 +710,8 @@ The question this symbol answers is "how is my total split between these sources
 | `Title` | `""` |  |
 | `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
 | `InnerRadiusPct` | `58` |  |
-| `StartAngle` | `0` | degrees, 0 = 12 o'clock |
+| `Shape` | `"full"` | full \| half: a half ring over the top, 9 to 3 o'clock |
+| `StartAngle` | `0` | degrees, 0 = 12 o'clock; full ring only |
 | `Clockwise` | `true` |  |
 | `PadAngle` | `0.6` | degrees of gap between slices |
 | `SortMode` | `"valueDesc"` | valueDesc \| valueAsc \| name \| none |
@@ -545,6 +736,39 @@ The question this symbol answers is "how is my total split between these sources
 
 ---
 
+## pvxEmbeddedPage
+
+**PVX Embedded Page** · data shape `Value` · single data source · collections not supported
+
+come from it, for a URL held in an AF attribute.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Url` | `""` | blank, a PI Vision display id, a path, or http(s):// |
+| `UrlSource` | `"config"` | config \| source (the data source's value is the address) |
+| `KeepAsset` | `true` | PI Vision displays only |
+| `KeepTime` | `true` |  |
+| `Kiosk` | `true` |  |
+| `RefreshMinutes` | `0` | 0 = never |
+| `Zoom` | `100` | percent |
+| `Restrict` | `false` | sandbox the frame |
+| `LoadTimeoutSeconds` | `20` |  |
+| `ShowToolbar` | `true` |  |
+| `Title` | `""` |  |
+
+---
+
 ## pvxEntryTable
 
 **PVX Shift Log** · data shape `Value` · single data source · collections not supported
@@ -566,6 +790,11 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `CornerRadius` | `6` | *(shared)* |
 | `Title` | `"Shift log"` |  |
 | `Rows` | `""` |  |
+| `Layout` | `"list"` | list \| form \| slots |
+| `FormColumns` | `2` |  |
+| `SlotStart` | `"*-7h"` |  |
+| `SlotInterval` | `"1h"` |  |
+| `SlotCount` | `8` |  |
 | `ElementPath` | `""` |  |
 | `ShowCurrentValues` | `true` |  |
 | `RefreshSeconds` | `60` |  |
@@ -573,6 +802,11 @@ symbol selector (see the definition). Everything here goes through PI Web API vi
 | `SubmitLabel` | `"Submit readings"` |  |
 | `AllowPartial` | `true` |  |
 | `ClearAfterSubmit` | `true` |  |
+| `LimitMode` | `"hard"` | hard \| soft |
+| `ExistingValues` | `"replace"` | replace \| insert \| protect |
+| `AllowQuestionable` | `false` |  |
+| `PasteRows` | `false` |  |
+| `ShowImport` | `false` |  |
 | `TimestampMode` | `"now"` | now \| custom \| perRow |
 | `ShowRowStatus` | `true` |  |
 | `CompactRows` | `false` |  |
@@ -609,22 +843,39 @@ symbol selector (see the definition). Like pvxEventGantt, every number here come
 | `RefreshSeconds` | `120` |  |
 | `StartTime` | `"*-7d"` |  |
 | `EndTime` | `"*"` |  |
-| `GroupBy` | `"template"` | template \| element \| attribute \| name \| none |
+| `GroupBy` | `"template"` | template \| element \| attribute \| name \| none \| day \| week \| month \| weekday |
 | `GroupAttribute` | `""` | e.g. Reason Code |
 | `NamePattern` | `""` | regex; capture group 1 is the group |
-| `Metric` | `"totalDuration"` | totalDuration \| count \| meanDuration \| maxDuration |
-| `Chart` | `"pareto"` | pareto \| bars \| donut \| table |
+| `WeekStart` | `"monday"` | monday \| sunday — for week and weekday groups |
+| `SplitBy` | `"none"` | none \| the GroupBy choices |
+| `SplitAttribute` | `""` |  |
+| `SplitMode` | `"stacked"` | stacked \| percent |
+| `SplitTopN` | `6` |  |
+| `DrillBy` | `"none"` | the level a click on a group opens |
+| `DrillAttribute` | `""` |  |
+| `DrillBy2` | `"none"` | and the one below that |
+| `DrillAttribute2` | `""` |  |
+| `Metric` | `"totalDuration"` | totalDuration \| count \| meanDuration \| maxDuration \| attrSum \| attrMean \| attrMin \| attrMax \| attrMedian \| attrStdDev |
+| `MetricAttribute` | `""` | the event attribute an attr* metric summarises |
+| `MetricUnits` | `""` | blank: the attribute's own units |
+| `MetricDecimals` | `""` | blank: chosen from the size of the number |
+| `Chart` | `"pareto"` | pareto \| bars \| donut \| table \| pivot \| cards |
 | `ShowCumulative` | `true` |  |
 | `EightyLine` | `true` |  |
 | `TopN` | `10` |  |
 | `GroupRemainderAsOther` | `true` |  |
 | `ShowValues` | `true` |  |
 | `DurationUnit` | `"auto"` | auto \| minutes \| hours \| days |
-| `ColorMode` | `"single"` | single \| palette \| threshold |
+| `ColorMode` | `"single"` | single \| palette \| threshold \| target |
 | `BarColor` | `"#3b82c4"` |  |
 | `ShowSummary` | `true` |  |
 | `ShowOpenEventNote` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
+| `TableTotals` | `false` | a totals row under the table |
+| `PivotShading` | `true` | pivot cells shaded by size |
+| `CardTotal` | `true` | cards: a first card for everything |
+| `Targets` | `""` | lines of `Group \| target`; `* \| target` for the rest |
+| `TargetDirection` | `"lower"` | lower \| higher — which side of the target is good |
+| `ClickAction` | `"none"` | none \| navigate \| drill |
 | `NavigateTarget` | `""` |  |
 
 ---
@@ -675,8 +926,94 @@ symbol selector (see the definition). This is the first symbol in the library wh
 | `MinBarPx` | `3` |  |
 | `ShowOpenEvents` | `true` |  |
 | `ShowSummary` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
+| `ClickAction` | `"none"` | none \| navigate \| time |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxEventList
+
+**PVX Event List** · data shape `—` · single data source · collections not supported
+
+symbol selector, and gives a blank database path a database (see the definition). Every row comes from PI Web API through PVX.api.
+
+| Option | Default | Notes |
+|---|---|---|
+
+---
+
+## pvxGasTriangle
+
+**PVX Gas Triangle** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+acetylene in a transformer's oil, in ppm)
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `400` |  |
+| `Title` | `""` | blank => "Duval triangle" |
+| `MinTotalPpm` | `""` | blank => always name the zone |
+| `MaxPairGapHours` | `0` | 0 => no limit |
+| `ShowTrail` | `true` |  |
+| `TrailLength` | `60` | samples; 0 => every one in range |
+| `ShowGrid` | `true` |  |
+| `ShowZoneLabels` | `true` |  |
+| `ZoneOpacity` | `0.32` |  |
+| `ZoneColors` | `""` | "T3:#c00000, D2:#1f4e9c" overrides |
+| `LegendPosition` | `"auto"` | auto \| right \| none |
+
+---
+
+## pvxGeoView
+
+**PVX Geo View** · data shape `Table` · multiple data sources · collections supported
+
+Where each marker goes: - 'af' (default): the Latitude and Longitude attributes of the data source's AF element, read through PI Web API once a minute. The names are settings, since sites call them Lat, GPS Latitude, ... - 'list': typed in the format pane, "Name | lat | lon" per line, matched to a data source by its label, its element's name or its element path. A source with no location is named in the footer, never left off quietly.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `LocationFrom` | `"af"` | af \| list |
+| `LatAttribute` | `"Latitude"` |  |
+| `LonAttribute` | `"Longitude"` |  |
+| `Locations` | `""` |  |
+| `StateMap` | `""` |  |
+| `MarkerSize` | `14` |  |
+| `ShowLabels` | `true` |  |
+| `ShowValues` | `false` |  |
+| `ShowLegend` | `true` |  |
+| `InitialView` | `"fit"` | fit \| fixed |
+| `CenterLat` | `0` |  |
+| `CenterLon` | `0` |  |
+| `Zoom` | `4` |  |
+| `MaxFitZoom` | `15` |  |
+| `TileOpacity` | `1` |  |
+| `ClickAction` | `"none"` | none \| asset \| display |
+| `ClickDisplay` | `""` |  |
+| `Title` | `""` |  |
 
 ---
 
@@ -702,6 +1039,7 @@ Two ways of folding time into a grid:
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `400` |  |
 | `Mode` | `"calendar"` | calendar \| matrix \| density |
+| `RowColors` | `false` | matrix: each tag its own colour, scaled to its own range |
 | `Aggregate` | `"avg"` | avg \| max \| min \| last \| range \| count |
 | `BucketCount` | `24` | matrix + density: number of time columns |
 | `ValueBins` | `20` | density: number of value rows |
@@ -724,6 +1062,7 @@ Two ways of folding time into a grid:
 | `ShowRowLabels` | `true` |  |
 | `ShowColumnLabels` | `true` |  |
 | `RowLabelWidthPct` | `22` |  |
+| `ClickAction` | `"none"` | none \| time: a cell sets the display's time range |
 
 ---
 
@@ -751,6 +1090,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `SeriesIndex` | `1` | 1-based, matches the data source list |
 | `Overlay` | `false` |  |
 | `Bins` | `"auto"` | 'auto' = Freedman-Diaconis |
+| `Weighting` | `"samples"` | samples \| time: bars in time held, not sample count |
 | `BinWidth` | `""` | overrides Bins when set |
 | `RangeMin` | `""` |  |
 | `RangeMax` | `""` |  |
@@ -764,6 +1104,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `NormalCurveColor` | `"#c8452f"` |  |
 | `ShowMeanLine` | `true` |  |
 | `ShowMedianLine` | `false` |  |
+| `Quantiles` | `""` | e.g. "5, 50, 95": a marker at each percentile |
 | `ShowSigmaLines` | `false` |  |
 | `LSL` | `""` |  |
 | `USL` | `""` |  |
@@ -774,6 +1115,43 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `ShowGrid` | `true` |  |
 | `TickCount` | `5` |  |
 | `ShowAxisLabels` | `true` |  |
+
+---
+
+## pvxHistoryTable
+
+**PVX History Table** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock default
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `false` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `Title` | `""` |  |
+| `Mode` | `"interpolated"` | interpolated \| summary \| recorded |
+| `Interval` | `"1h"` | n s\|m\|h\|d\|w\|mo, aligned to the clock |
+| `Interpolate` | `"linear"` | linear \| step |
+| `Statistic` | `"twavg"` | summary: see STAT_NAMES |
+| `TotalPer` | `"h"` | summary total: rate units are per s\|min\|h\|d |
+| `PartialIntervals` | `"show"` | summary: show \| hide the cut-off first and last |
+| `TimeLabel` | `"start"` | summary: start \| end \| range |
+| `NewestFirst` | `true` |  |
+| `MaxRows` | `1000` |  |
+| `GroupBy` | `"none"` | none \| day \| week \| month |
+| `Totals` | `"none"` | none \| auto \| avg \| min \| max \| sum |
+| `TimeFormat` | `"auto"` | auto \| datetime \| short \| time \| date \| iso |
+| `ShowDownload` | `true` |  |
 
 ---
 
@@ -799,13 +1177,19 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `120` |  |
 | `Title` | `""` | blank => use the attribute label |
-| `Statistic` | `"last"` | last \| avg \| min \| max \| first \| range \| sum |
+| `Statistic` | `"last"` | last \| avg \| twavg \| min \| max \| first \| range \| sum \| total \| stdev \| count \| pctgood |
+| `TotalPer` | `"h"` | the rate's time unit for 'total': s \| min \| h \| d |
 | `ShowSparkline` | `true` |  |
 | `SparkStyle` | `"area"` | area \| line \| bars |
 | `SparkHeightPct` | `38` |  |
 | `SmoothLine` | `true` |  |
 | `ShowDelta` | `true` |  |
 | `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) |
+| `PlanFrom` | `"source"` | source (data source 2) \| af (the KPI's Target trait) \| fixed |
+| `TargetValue` | `""` | PlanFrom 'fixed' |
+| `TargetTolerance` | `""` | blank, an amount, or a percent ("2%") either side of the plan |
+| `ProgressStyle` | `"none"` | none \| bar \| ring: the headline as a share of the plan |
+| `ProgressZero` | `0` | where the progress starts |
 | `DeltaMode` | `"percent"` | percent \| absolute \| both |
 | `DeltaLookback` | `0.25` | fraction of the window used as the baseline |
 | `DeltaGoodDirection` | `"up"` | up \| down \| none |
@@ -819,6 +1203,48 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `EdgeWidth` | `4` |  |
 | `ValueColorFromThreshold` | `false` |  |
 | `Align` | `"left"` | left \| center |
+| `TimeFormat` | `"short"` | short \| datetime \| relative |
+
+---
+
+## pvxLookupTable
+
+**PVX Lookup Table** · data shape `Value` · single data source · collections not supported
+
+symbol selector, and gives a blank database path a database. Every row comes from PI Web API through PVX.api.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `""` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Title` | `""` |  |
+| `DatabasePath` | `""` |  |
+| `TableName` | `""` |  |
+| `RefreshSeconds` | `300` |  |
+| `Columns` | `""` | blank: every column, in the table's order |
+| `TimeFormat` | `"short"` | short \| datetime \| date \| iso |
+| `RowFilter` | `""` | one "Column op value" per line, all must hold |
+| `TimeColumn` | `""` | a date column: only rows in the display's range |
+| `Filter` | `""` |  |
+| `ShowFilterBox` | `true` |  |
+| `SortBy` | `""` |  |
+| `SortDescending` | `false` |  |
+| `GroupBy` | `""` |  |
+| `MaxRows` | `1000` |  |
+| `ColorColumn` | `""` |  |
+| `ClickAction` | `"none"` | none \| asset \| navigate |
+| `AssetColumn` | `""` | a column holding an element path |
+| `NavigateTarget` | `""` | may hold {Column} tokens |
+| `ShowDownload` | `true` |  |
 
 ---
 
@@ -849,6 +1275,14 @@ symbol selector (see the definition). This symbol does not read PI Vision's data
 | `InputType` | `"number"` | number \| text \| digital \| boolean |
 | `DigitalStates` | `""` | comma separated, for InputType digital |
 | `Units` | `""` |  |
+| `Control` | `"field"` | field \| stepper \| slider \| switch \| buttons \| value |
+| `StepSize` | `"1"` | stepper and slider |
+| `SwitchOffLabel` | `""` | blank = the state's own name |
+| `SwitchOnLabel` | `""` |  |
+| `WriteOnChange` | `false` |  |
+| `PressValue` | `""` |  |
+| `ResetValue` | `""` |  |
+| `ResetSeconds` | `2` |  |
 | `MinValue` | `""` |  |
 | `MaxValue` | `""` |  |
 | `RequireConfirm` | `true` |  |
@@ -860,6 +1294,51 @@ symbol selector (see the definition). This symbol does not read PI Vision's data
 | `ShowHistory` | `true` |  |
 | `HistoryCount` | `5` |  |
 | `ReadOnlyPreview` | `false` |  |
+
+---
+
+## pvxMultiGauge
+
+**PVX Multi-Pointer Gauge** · data shape `Table` · multiple data sources · collections supported
+
+PVX Radial Gauge and PVX Bar Indicator each take one attribute, and keep PI Vision's Gauge data shape, which is what lets them follow the scale PI Vision derives from the attribute. A dial with a pointer per source needs several sources, so it is this symbol instead, on the Table shape the library's other multi-source symbols already use on live servers: the single-value gauges and every display saved with them stay exactly as they were.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `false` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `Columns` | `["Value"]` |  |
+| `SortColumn` | `"Value"` |  |
+| `Title` | `""` |  |
+| `Statistic` | `"Value"` | Value \| Average \| Minimum \| Maximum \| Range \| StdDev \| Total |
+| `Shape` | `"radial"` | radial \| linear |
+| `Orientation` | `"horizontal"` | linear only |
+| `PointerStyle` | `"needle"` | radial: needle \| marker \| ring; linear: marker \| bar |
+| `PointerColors` | `""` | "#c00, , #08f": one per source, blank = palette |
+| `MaxPointers` | `8` |  |
+| `ScaleMode` | `"fixed"` | fixed \| auto |
+| `MinValue` | `0` |  |
+| `MaxValue` | `100` |  |
+| `StartAngle` | `-120` |  |
+| `EndAngle` | `120` |  |
+| `InvertScale` | `false` |  |
+| `TickCount` | `5` |  |
+| `MinorTicks` | `0` |  |
+| `TicksAtBands` | `false` |  |
+| `ShowScaleLabels` | `true` |  |
+| `ShowBands` | `true` |  |
+| `BandOpacity` | `0.28` |  |
+| `HighlightActiveBand` | `false` | the band source 1 is in |
+| `ShowReadout` | `true` |  |
 
 ---
 
@@ -883,6 +1362,8 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
 | `Mode` | `"time"` | display \| asset \| time \| custom \| hierarchy |
+| `ItemsFrom` | `"config"` | config \| af |
+| `ItemsAttribute` | `""` |  |
 | `Items` | `8 hours | *-8h | *
 24 hours | *-24h | *
 7 da…` |  |
@@ -958,59 +1439,20 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 
 ## pvxPareto
 
-**PVX Ranked Bar** · data shape `Table` · multiple data sources · collections not supported
+**PVX Ranked Bar** · data shape `—` · multiple data sources · collections not supported
 
 The question this symbol answers is "which five assets are driving 80% of my downtime / energy / scrap". That is a *ranking* question, so the symbol is built around one sorted list of (name, value) pairs plus an optional cumulative-percentage line on its own 0-100% axis.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `SortDescending` | `true` |  |
-| `Title` | `""` | blank => generic heading |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev |
-| `Orientation` | `"horizontal"` | horizontal \| vertical |
-| `SortMode` | `"valueDesc"` | valueDesc \| valueAsc \| name \| none |
-| `TopN` | `0` | 0 = show everything |
-| `GroupRemainderAsOther` | `true` |  |
-| `MaxBars` | `40` |  |
-| `BarGap` | `0.25` | fraction of each category slot |
-| `NameWidthPct` | `28` | horizontal orientation only |
-| `ShowCumulative` | `true` |  |
-| `CumulativeColor` | `"#c8452f"` |  |
-| `ShowEightyLine` | `true` |  |
-| `EightyLineValue` | `80` |  |
-| `ColorMode` | `"single"` | single \| palette \| threshold \| rank |
-| `BarColor` | `"#3b82c4"` |  |
-| `ShowValues` | `true` |  |
-| `ValuePosition` | `"end"` | end \| inside \| none |
-| `ShowPercentOfTotal` | `false` |  |
-| `ShowAxis` | `true` |  |
-| `ShowGrid` | `true` |  |
-| `TickCount` | `5` |  |
-| `NameFrom` | `"label"` | label \| element |
-| `HideZero` | `false` |  |
-| `ClickAction` | `"none"` | none \| navigate |
-| `NavigateTarget` | `""` |  |
 
 ---
 
 ## pvxPeriodOverlay
 
-**PVX Period Comparison** · data shape `TimeSeries` · single data source · collections supported
+**PVX Period Comparison** · data shape `TimeSeries` · multiple data sources · collections supported
 
-Folds the display's time range into N equal periods and lays them on ONE relative-time axis: today over yesterday over the day before. The older periods collapse into a min/max envelope, which turns the picture into the "golden batch" comparison — is today running inside the shape the last week ran in, and where exactly did it leave?
+any others draw their current period on the same axis)
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1028,12 +1470,23 @@ Folds the display's time range into N equal periods and lays them on ONE relativ
 | `DataQueryMode` | `"ModePlotValues"` |  |
 | `Intervals` | `800` |  |
 | `Title` | `""` |  |
-| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| custom |
+| `PeriodMode` | `"auto"` | auto \| hour \| shift \| day \| week \| month \| custom \| events |
 | `ShiftHours` | `8` |  |
 | `ShiftStartHour` | `6` |  |
 | `CustomPeriodHours` | `24` |  |
 | `AlignTo` | `"clock"` | clock \| windowEnd |
 | `MaxPeriods` | `8` |  |
+| `EventDatabasePath` | `""` | blank = the first source's database |
+| `EventTemplate` | `""` |  |
+| `EventNameFilter` | `""` |  |
+| `EventElementFilter` | `""` |  |
+| `EventScope` | `"none"` | none \| asset (the display's asset) |
+| `EventAlign` | `"start"` | start \| end \| normalized |
+| `MaxEvents` | `200` |  |
+| `GoldenEvents` | `""` | names, * and ? allowed, comma separated |
+| `GoldenTolerance` | `"5%"` | 5% \| 2 (units) \| 2s (standard deviations) |
+| `ShowAs` | `"values"` | values \| delta \| pctdelta |
+| `Baseline` | `"median"` | median (of the older periods) \| previous |
 | `CurrentStyle` | `"bold"` | bold \| same |
 | `FadeOlder` | `true` |  |
 | `ColorMode` | `"fade"` | fade \| palette |
@@ -1118,49 +1571,12 @@ Every other chart in this library plots against TIME. This one plots against POS
 
 ## pvxRadar
 
-**PVX Fingerprint** · data shape `Table` · multiple data sources · collections supported
+**PVX Fingerprint** · data shape `—` · multiple data sources · collections supported
 
 The question this symbol answers is "does this asset still LOOK like it used to". It is a shape-recognition instrument, not a reading instrument: the axes carry different units (°F, A, klb/h, %), each is normalised to its own 0..1, and what the operator compares is the outline — not the numbers. Anything that needs magnitudes compared should be a bar chart instead, and the config pane says so.
 
 | Option | Default | Notes |
 |---|---|---|
-| `Theme` | `"auto"` | *(shared)* |
-| `Transparent` | `false` | *(shared)* |
-| `ShowLabel` | `true` | *(shared)* |
-| `ShowUnits` | `true` | *(shared)* |
-| `ShowTime` | `false` | *(shared)* |
-| `Decimals` | `"auto"` | *(shared)* |
-| `CompactNumbers` | `false` | *(shared)* |
-| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
-| `UseThresholds` | `true` | *(shared)* |
-| `AccentColor` | `"#3b82c4"` | *(shared)* |
-| `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `Title` | `""` |  |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
-| `ScaleMode` | `"perAxisData"` | perAxisData \| perAxisFixed \| shared |
-| `AxisLimits` | `""` | "0:200, 40:90, 0:100" — positional |
-| `SeriesMode` | `"single"` | single \| reference \| compare |
-| `ReferenceLabel` | `"Reference"` |  |
-| `CurrentLabel` | `"Current"` |  |
-| `FillOpacity` | `0.25` |  |
-| `LineWidth` | `2` |  |
-| `ShowPoints` | `true` |  |
-| `PointRadius` | `3` |  |
-| `ShowAxisLines` | `true` |  |
-| `ShowRings` | `true` |  |
-| `RingCount` | `4` |  |
-| `RingStyle` | `"polygon"` | polygon \| circle |
-| `StartAngle` | `0` | degrees, 0 = 12 o'clock, clockwise + |
-| `MaxAxes` | `12` |  |
-| `ShowAxisLabels` | `true` |  |
-| `ShowValueLabels` | `false` |  |
-| `ShowScaleLabels` | `false` |  |
-| `ShowLegend` | `true` |  |
-| `CurrentColor` | `"#3b82c4"` |  |
-| `ReferenceColor` | `"#8a8f96"` |  |
-| `ColorByThreshold` | `false` |  |
 
 ---
 
@@ -1168,7 +1584,7 @@ The question this symbol answers is "does this asset still LOOK like it used to"
 
 **PVX Radial Gauge** · data shape `Gauge` · single data source · collections supported
 
-Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value colour follows the active threshold band - Auto light/dark theming, fully responsive typography
+Features - Configurable sweep angle (full circle through to a shallow arc) - Threshold bands drawn on the dial, driven by the shared PVX threshold spec - Needle or progress-arc styles - Optional target/setpoint marker - Value colour follows the active threshold band - Auto light/dark theming, fully responsive typography - Options: dim the bands the value is not in, major ticks on the band limits, minor ticks, and a scale that runs the other way
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1195,12 +1611,50 @@ Features - Configurable sweep angle (full circle through to a shallow arc) - Thr
 | `ShowScaleLabels` | `true` |  |
 | `ShowTicks` | `true` |  |
 | `TickCount` | `5` |  |
+| `MinorTicks` | `0` | per major interval |
+| `TicksAtBands` | `false` | major ticks and labels on the band limits |
+| `HighlightActiveBand` | `false` | dim every band but the value's |
+| `InvertScale` | `false` | maximum at the start angle |
 | `ShowTarget` | `false` |  |
 | `TargetValue` | `75` |  |
 | `TargetColor` | `"#1d2126"` |  |
 | `ValueColorFromThreshold` | `true` |  |
 | `ValueColor` | `"#1d2126"` |  |
 | `ShowStateLabel` | `false` |  |
+
+---
+
+## pvxReplay
+
+**PVX Replay** · data shape `Value` · single data source · collections not supported
+
+symbol selector. Like pvxTimeRange this is a control.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `ReplayFrom` | `"*-1d"` | PI time: where playback starts |
+| `ReplayTo` | `"*"` | PI time: where it ends |
+| `WindowSpan` | `"1h"` | how much the display shows at each step |
+| `Step` | `"10m"` | how far each step moves |
+| `StepSeconds` | `3` | wall-clock seconds between steps |
+| `Loop` | `false` |  |
+| `ShowSlider` | `true` |  |
+| `ShowReadout` | `true` |  |
+| `ButtonColor` | `"#3b82c4"` |  |
+| `ButtonRadius` | `4` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
 
 ---
 
@@ -1372,6 +1826,49 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 
 ---
 
+## pvxSpectrum
+
+**PVX Spectrum** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock spectrum
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `SeriesIndex` | `1` |  |
+| `Title` | `""` |  |
+| `Points` | `1024` | even samples, a power of two |
+| `Interpolate` | `"linear"` | linear \| step |
+| `Window` | `"hann"` | hann \| hamming \| blackman \| rect |
+| `Detrend` | `"mean"` | mean \| linear \| none |
+| `FreqUnit` | `"auto"` | auto \| hz \| perMin \| perHour |
+| `MaxFreq` | `""` | blank: up to the Nyquist frequency |
+| `XScale` | `"linear"` | linear \| log |
+| `YScale` | `"amplitude"` | amplitude \| db |
+| `PeakCount` | `3` |  |
+| `PeakMinPercent` | `10` |  |
+| `ShowPeriod` | `true` | label a peak with its period too |
+| `Bands` | `""` |  |
+| `BandColor` | `"#3b82c4"` |  |
+| `AlarmColor` | `"#c8452f"` |  |
+| `LineColor` | `"#3b82c4"` |  |
+| `FillArea` | `true` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
+
+---
+
 ## pvxStateDuration
 
 **PVX Time in State** · data shape `TimeSeries` · multiple data sources · collections not supported
@@ -1457,11 +1954,11 @@ This is the overview panel operators put at the top of a display: every tag gets
 
 ---
 
-## pvxTreemap
+## pvxTimeRange
 
-**PVX Treemap** · data shape `Table` · multiple data sources · collections not supported
+**PVX Time Range** · data shape `Value` · single data source · collections not supported
 
-The question this symbol answers is "which of my hundred tags is both BIG and IN TROUBLE". A ranked bar chart runs out of vertical room somewhere around thirty rows; a treemap keeps going because it spends area instead of height.
+symbol selector. Like pvxNavPanel this is a control, and it sets the display's time range by the same route, PVX.nav.setTimeRange, a hash change that the browser's Back button undoes.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -1476,30 +1973,32 @@ The question this symbol answers is "which of my hundred tags is both BIG and IN
 | `UseThresholds` | `true` | *(shared)* |
 | `AccentColor` | `"#3b82c4"` | *(shared)* |
 | `CornerRadius` | `6` | *(shared)* |
-| `Columns` | `["Value"]` |  |
-| `SortColumn` | `"Value"` |  |
-| `SortDescending` | `true` |  |
-| `Title` | `""` | blank => generic heading |
-| `Statistic` | `"Value"` | Value\|Average\|Minimum\|Maximum\|Range\|StdDev\|Total |
-| `GroupBy` | `"none"` | none \| delimiter \| prefix |
-| `GroupDelimiter` | `"\\"` |  |
-| `GroupDepth` | `1` |  |
-| `GroupPrefixChars` | `3` |  |
-| `ColorMode` | `"threshold"` | threshold \| value \| palette \| group \| single |
-| `SingleColor` | `"#3b82c4"` |  |
-| `ShowColorLegend` | `true` |  |
-| `MinTilePx` | `26` |  |
-| `ShowOther` | `true` |  |
-| `OtherLabel` | `"Other"` |  |
-| `MaxTiles` | `60` |  |
-| `ShowValues` | `true` |  |
-| `ShowPercent` | `false` |  |
-| `LabelMode` | `"auto"` | auto \| nameOnly \| valueOnly \| both |
-| `TilePadding` | `2` |  |
-| `TileRadius` | `2` |  |
-| `ShowBorders` | `true` |  |
-| `ClickAction` | `"none"` | none \| navigate |
-| `NavigateTarget` | `""` |  |
+| `Presets` | `1 hour | *-1h | *
+8 hours | *-8h | *
+Today |…` |  |
+| `ShowPresets` | `true` |  |
+| `PresetStyle` | `"buttons"` | buttons \| dropdown |
+| `ShowCustom` | `true` |  |
+| `CustomInput` | `"calendar"` | calendar \| text |
+| `ShowStep` | `true` |  |
+| `ShowNow` | `true` |  |
+| `ShowReadout` | `true` |  |
+| `Layout` | `"row"` | row \| column |
+| `ButtonColor` | `"#3b82c4"` |  |
+| `ButtonRadius` | `4` |  |
+| `ShowTitle` | `false` |  |
+| `Title` | `""` |  |
+
+---
+
+## pvxTreemap
+
+**PVX Treemap** · data shape `—` · multiple data sources · collections not supported
+
+The question this symbol answers is "which of my hundred tags is both BIG and IN TROUBLE". A ranked bar chart runs out of vertical room somewhere around thirty rows; a treemap keeps going because it spends area instead of height.
+
+| Option | Default | Notes |
+|---|---|---|
 
 ---
 
@@ -1620,6 +2119,10 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `TickCount` | `5` |  |
 | `ShowGrid` | `true` |  |
 | `MaxPairGapSeconds` | `60` |  |
+| `YSources` | `"second"` | second \| all |
+| `GateSource` | `"0"` |  |
+| `GateMin` | `""` |  |
+| `GateMax` | `""` |  |
 | `PointSize` | `3` |  |
 | `PointOpacity` | `0.65` |  |
 | `ColorMode` | `"single"` | single \| time \| threshold |
@@ -1630,6 +2133,7 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `BubbleMaxSize` | `16` | px radius of the largest size value |
 | `ShowRegression` | `true` |  |
 | `RegressionColor` | `"#c8452f"` |  |
+| `FitType` | `"linear"` | linear \| poly2 \| poly3 |
 | `ShowEquation` | `true` |  |
 | `ShowR2` | `true` |  |
 | `ShowEnvelope` | `false` |  |
@@ -1637,6 +2141,8 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `EnvelopeXMax` | `""` |  |
 | `EnvelopeYMin` | `""` |  |
 | `EnvelopeYMax` | `""` |  |
+| `EnvelopeShape` | `"box"` | box \| polygon |
+| `EnvelopePolygon` | `""` | "x,y; x,y; x,y ..." corners in order |
 | `ShowPointCount` | `true` |  |
 
 ---

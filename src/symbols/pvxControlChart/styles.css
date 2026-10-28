@@ -1,0 +1,65 @@
+/* pvxControlChart: "PVX Control Chart"
+ * Only the chrome is styled here; every chart colour comes from the runtime
+ * theme tokens. The custom properties are fallbacks that symbol.js overwrites
+ * on the root every render. */
+
+.pvx-spc {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    color: var(--pvx-text);
+}
+
+.pvx-spc .pvx-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-spc .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-spc .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-spc .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-spc .pvx-spc-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.pvx-spc .pvx-spc-zone {
+    pointer-events: none;
+    shape-rendering: crispEdges;
+}
+
+.pvx-spc .pvx-spc-line {
+    pointer-events: none;
+}
+
+.pvx-spc .pvx-spc-stats {
+    flex: 1 1 auto;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.pvx-spc .pvx-spc-note {
+    flex: 0 1 auto;
+    text-align: right;
+    opacity: 0.75;
+}
+
+/* A broken rule is the one thing on this symbol an engineer must not miss. */
+.pvx-spc .pvx-spc-out {
+    color: #c8452f;
+    font-weight: 600;
+    opacity: 1;
+}

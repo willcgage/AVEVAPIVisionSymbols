@@ -33,6 +33,11 @@
             <input id="pvxbi-usescale" type="checkbox" ng-model="config.UseSymbolScale" />
         </div>
         <div class="pvx-cfg-hint">Uncheck to follow the scale PI Vision calculates from the attribute instead.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-invert">Invert scale</label>
+            <input id="pvxbi-invert" type="checkbox" ng-model="config.InvertScale" />
+        </div>
+        <div class="pvx-cfg-hint">Puts the maximum at the left (or bottom), and the bar fills from the right (or top).</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxbi-showscale">Show scale</label>
@@ -41,6 +46,14 @@
         <div class="pvx-cfg-row">
             <label for="pvxbi-tickcount">Tick count</label>
             <input id="pvxbi-tickcount" type="number" ng-model="config.TickCount" min="2" max="12" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-minor">Minor ticks between</label>
+            <input id="pvxbi-minor" type="number" ng-model="config.MinorTicks" min="0" max="9" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-bandticks">Ticks on band limits</label>
+            <input id="pvxbi-bandticks" type="checkbox" ng-model="config.TicksAtBands" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-scalepos">Scale position</label>
@@ -68,6 +81,7 @@
                 <option value="solid">Solid</option>
                 <option value="gradient">Gradient</option>
                 <option value="segmented">Segmented</option>
+                <option value="thermometer">Thermometer</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
@@ -132,6 +146,10 @@
         <div class="pvx-cfg-row">
             <label for="pvxbi-bandop">Band opacity</label>
             <input id="pvxbi-bandop" type="number" ng-model="config.BandOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbi-highlight">Highlight the value's band</label>
+            <input id="pvxbi-highlight" type="checkbox" ng-model="config.HighlightActiveBand" />
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxbi-valcolor">Colour bar by band</label>

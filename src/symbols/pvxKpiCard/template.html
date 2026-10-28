@@ -10,11 +10,27 @@
             <div class="pvx-kpi-valuerow">
                 <span class="pvx-kpi-value pvx-num" ng-style="{'color': pvx.valueColor}">{{pvx.value}}</span>
                 <span class="pvx-kpi-units" ng-if="pvx.units">{{pvx.units}}</span>
+                <span class="pvx-kpi-ring" ng-if="pvx.progress && pvx.progress.style === 'ring'" title="{{pvx.progress.title}}">
+                    <svg viewBox="0 0 36 36" class="pvx-kpi-ring-svg">
+                        <circle class="pvx-kpi-ring-track" cx="18" cy="18" r="15.915" fill="none" stroke-width="3.6"></circle>
+                        <circle class="pvx-kpi-ring-fill" cx="18" cy="18" r="15.915" fill="none" stroke-width="3.6"
+                                transform="rotate(-90 18 18)" stroke-linecap="butt"
+                                ng-attr-stroke="{{pvx.progress.color}}" ng-attr-stroke-dasharray="{{pvx.progress.dash}}"></circle>
+                    </svg>
+                    <span class="pvx-kpi-ring-text pvx-num">{{pvx.progress.text}}</span>
+                </span>
             </div>
 
             <div class="pvx-kpi-delta" ng-if="pvx.showDelta" ng-style="{'color': pvx.deltaColor}">
                 <span class="pvx-kpi-arrow">{{pvx.deltaArrow}}</span>
                 <span class="pvx-num">{{pvx.deltaText}}</span>
+            </div>
+
+            <div class="pvx-kpi-bar" ng-if="pvx.progress && pvx.progress.style === 'bar'" title="{{pvx.progress.title}}">
+                <div class="pvx-kpi-bar-track">
+                    <div class="pvx-kpi-bar-fill" ng-style="{'width': pvx.progress.fill + '%', 'background': pvx.progress.color}"></div>
+                </div>
+                <span class="pvx-kpi-bar-text pvx-num">{{pvx.progress.text}}</span>
             </div>
         </div>
 

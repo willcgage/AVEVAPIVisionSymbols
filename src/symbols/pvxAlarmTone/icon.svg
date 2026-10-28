@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Alarm tone">
+    <!-- A speaker sounding, with a red alarm dot -->
+    <path d="M72 200 L160 200 L264 112 L264 400 L160 312 L72 312 Z" fill="none" stroke="#d6dbe1" stroke-width="24" stroke-linejoin="round"/>
+    <path d="M320 192 A96 96 0 0 1 320 320" fill="none" stroke="#d6dbe1" stroke-width="24" stroke-linecap="round"/>
+    <path d="M376 136 A168 168 0 0 1 376 376" fill="none" stroke="#d6dbe1" stroke-width="24" stroke-linecap="round"/>
+    <circle cx="408" cy="104" r="48" fill="#c8452f"/>
+</svg>

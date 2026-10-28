@@ -1,6 +1,6 @@
 {
   "name": "pvx-symbols",
-  "version": "1.14.1",
+  "version": "1.15.0",
   "description": "PVX — an extended custom symbol library for AVEVA PI Vision (charts, KPI/status, navigation)",
   "license": "MIT",
   "private": true,
@@ -18,6 +18,9 @@
     "test:limits": "node tools/build.js && node tools/test-limits.js",
     "test:overview": "node tools/build.js && node tools/test-overview.js",
     "test:charts": "node tools/test-charts.js",
+    "test:overlay": "node tools/test-overlay.js",
+    "test:alarms": "node tools/test-alarms.js",
+    "test:entry": "node tools/test-entry.js",
     "installer": "node tools/build.js --clean --package && node tools/wix.js",
     "verify:msi": "node tools/verify-msi.js",
     "check:text": "node tools/check-text.js"

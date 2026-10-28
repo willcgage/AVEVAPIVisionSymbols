@@ -42,6 +42,19 @@
  *   PI Vision contract every other symbol on the display already follows, so
  *   one click here re-points the whole display — which is the entire reason a
  *   navigator is worth having.
+ *
+ * LAYOUTS AND VALUES
+ *   Layout 'tree' is the lazy tree above. 'list' is every element under the
+ *   root in one flat list from a single search request (capped, and said so),
+ *   for a short hierarchy where the tree's clicks are in the way. 'dropdown'
+ *   is the same list in a native select, which fits a display header and,
+ *   being native, opens outside the symbol's box rather than being clipped.
+ *
+ *   ValueAttribute names an attribute every row's element is read for, shown
+ *   at the end of the row with a status dot coloured by ValueBands (numbers)
+ *   or StateMap (digital states). Only the rows on screen are read, in two
+ *   batched requests, and again on a timer; a row whose element lacks the
+ *   attribute shows a dash and says so on hover, rather than vanishing.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -64,6 +77,9 @@
      * whole object graph — links, security, extended properties — for every
      * element, which on a 500-child level is megabytes for five fields. */
     var CHILD_FIELDS = 'Items.Name;Items.WebId;Items.Path;Items.HasChildren;Items.TemplateName';
+    /* Rows read for ValueAttribute per refresh; more than a screenful is not
+     * on screen, and each one costs two sub-requests the first time. */
+    var MAX_VALUE_ROWS = 200;
     var ROOT_FIELDS = 'Name;WebId;Path;HasChildren;TemplateName';
     var DB_FIELDS = 'Name;WebId;Path';
 
@@ -138,7 +154,15 @@
                 /* -- context -------------------------------------------------- */
                 HighlightCurrent: true,
                 AutoExpandToCurrent: true,
-                RememberExpanded: true
+                RememberExpanded: true,
+
+                /* -- layout and values ------------------------------------------ */
+                Layout: 'tree',            // tree | list | dropdown
+                ValueAttribute: '',        // an attribute read on every row's element
+                ValueBands: '',            // threshold grammar: colours numeric values
+                StateMap: '',              // State:colour[:label]: colours digital values
+                ShowValueDot: true,
+                ValueRefreshSeconds: 30
             });
         }
     };
@@ -209,9 +233,17 @@
         var boundClear = null;
         var restoreBudget = RESTORE_BUDGET;
 
+        // The flat list behind Layout 'list' and 'dropdown'.
+        var flat = { items: [], truncated: false, error: null };
+
+        // ValueAttribute: attribute WebIds and values by node key.
+        var vals = { attr: '', ids: {}, data: {}, sig: '', nodes: [], gen: 0, failed: 0, capped: false,
+            timer: null, timerSecs: 0, soon: null };
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-tree-body',
             render: render,
+            bandKeys: ['ValueBands'],
 
             // The data source is otherwise ignored, but with no database or
             // root configured the tree opens on its database.
@@ -510,7 +542,7 @@
          * ================================================================ */
 
         function expand(node, cfg, gen) {
-            if (!node || !node.hasChildren) { return Promise.resolve(null); }
+            if (!node || !node.hasChildren || node.flat) { return Promise.resolve(null); }
             node.expanded = true;
             if (cfg.RememberExpanded !== false) { expandedPaths[node.key] = true; }
             return fetchChildren(node, cfg, gen);
@@ -524,7 +556,7 @@
         }
 
         function toggle(node, cfg) {
-            if (!node || !node.hasChildren) { return; }
+            if (!node || !node.hasChildren || node.flat) { return; }
             if (node.expanded) { collapse(node, cfg); return; }
             expand(node, cfg, generation);
             ctx.render();
@@ -669,6 +701,8 @@
 
             var gen = ++generation;
             root = null;
+            flat.items = [];
+            flat.truncated = false;
             outsideRoot = false;
             restoreBudget = RESTORE_BUDGET;
             exitSearch(false);
@@ -679,6 +713,7 @@
                 .then(function (node) {
                     if (stale(gen)) { return null; }
                     root = node;
+                    if (layoutOf(cfg) !== 'tree') { return loadFlat(cfg, gen); }
                     endWait();
                     state.phase = 'ok';
                     focusKey = node.key;
@@ -687,7 +722,7 @@
                     return expandToDepth(root, depth, cfg, gen, { left: EAGER_BUDGET });
                 })
                 .then(function () {
-                    if (stale(gen)) { return null; }
+                    if (stale(gen) || layoutOf(cfg) !== 'tree') { return null; }
                     return autoExpandToCurrent(cfg, gen);
                 })
                 .then(function () {
@@ -700,6 +735,173 @@
                     root = null;
                     ctx.render();
                 });
+        }
+
+        function layoutOf(cfg) {
+            return cfg.Layout === 'list' || cfg.Layout === 'dropdown' ? cfg.Layout : 'tree';
+        }
+
+        /**
+         * Every element under the root, for the list and drop-down layouts:
+         * one search request, filtered server-side, capped at MaxChildren.
+         */
+        function loadFlat(cfg, gen) {
+            var max = intIn(cfg.MaxChildren, 1, 5000, 500);
+            var base = root.isDatabase
+                ? 'assetdatabases/' + encodeURIComponent(root.webId) + '/elements'
+                : 'elements/' + encodeURIComponent(root.webId) + '/elements';
+            var q = ['searchFullHierarchy=true', 'selectedFields=' + CHILD_FIELDS, 'maxCount=' + (max + 1)];
+            state.step = 'listing the elements under ' + root.name;
+            return PVX.api.get(base + '?' + q.concat(filterQuery(cfg)).join('&'), { cache: false }).then(function (res) {
+                if (stale(gen)) { return null; }
+                var items = (res && res.Items) || [];
+                flat.truncated = items.length > max;
+                if (flat.truncated) { items = items.slice(0, max); }
+                flat.items = items.map(function (raw) {
+                    var n = makeNode(raw, root, false);
+                    n.flat = true;
+                    // Depth below the root, from the path, for the drop-down's indent.
+                    var rel = relPath(n);
+                    n.depth = rel ? rel.split(/[\\\/]/).length - 1 : 0;
+                    return n;
+                });
+                endWait();
+                state.phase = 'ok';
+                if (flat.items.length) { focusKey = flat.items[0].key; }
+                ctx.render();
+                return null;
+            });
+        }
+
+        /* ---- ValueAttribute ------------------------------------------------ */
+
+        function valueAttr(cfg) { return trim(cfg.ValueAttribute); }
+
+        /** Ask for values when the rows on screen change; render never waits. */
+        function wantValues(cfg, nodes) {
+            var attr = valueAttr(cfg);
+            ensureValueTimer(cfg);
+            if (!attr) { vals.sig = ''; return; }
+            if (attr !== vals.attr) { vals.attr = attr; vals.ids = {}; vals.data = {}; }
+            var list = [];
+            for (var i = 0; i < nodes.length && list.length < MAX_VALUE_ROWS; i++) {
+                if (nodes[i] && !nodes[i].isDatabase && nodes[i].path) { list.push(nodes[i]); }
+            }
+            vals.capped = nodes.length > MAX_VALUE_ROWS && list.length === MAX_VALUE_ROWS;
+            var sig = attr + '\u0001' + list.map(function (n) { return n.key; }).join('\u0001');
+            vals.nodes = list;
+            if (sig === vals.sig) { return; }
+            vals.sig = sig;
+            if (vals.soon !== null) { clearTimeout(vals.soon); }
+            vals.soon = setTimeout(function () { vals.soon = null; readValues(false); }, 0);
+        }
+
+        function ensureValueTimer(cfg) {
+            var secs = PVX.util.num(cfg.ValueRefreshSeconds);
+            secs = valueAttr(cfg) ? PVX.util.clamp(secs === null ? 30 : secs, 5, 86400) : 0;
+            if (secs === vals.timerSecs) { return; }
+            if (vals.timer !== null) { clearInterval(vals.timer); vals.timer = null; }
+            vals.timerSecs = secs;
+            if (secs) { vals.timer = setInterval(function () { readValues(true); }, secs * 1000); }
+        }
+
+        function readValues(all) {
+            if (ctx.destroyed || !vals.attr || !vals.nodes.length || state.phase !== 'ok') { return; }
+            var gen = ++vals.gen;
+            var attr = vals.attr;
+            var nodes = vals.nodes.slice();
+            var reqs = {}, asks = {}, n = 0;
+            nodes.forEach(function (node) {
+                if (vals.ids.hasOwnProperty(node.key)) { return; }
+                var id = 'a' + (n++);
+                asks[id] = node.key;
+                reqs[id] = { Method: 'GET', Resource: PVX.api.base() + '/attributes?path=' +
+                    encodeURIComponent(node.path + '|' + attr) + '&selectedFields=WebId' };
+            });
+            var resolve = n ? PVX.api.batch(reqs, { cache: false }).then(function (res) {
+                var r = PVX.api.batchResults(res);
+                for (var id in asks) {
+                    if (!asks.hasOwnProperty(id)) { continue; }
+                    if (r.ok[id] && r.ok[id].WebId) { vals.ids[asks[id]] = r.ok[id].WebId; continue; }
+                    var st = r.failed[id] && r.failed[id].status;
+                    // 404 is an element without that attribute: a dash, not an error.
+                    if (st === 404) { vals.ids[asks[id]] = ''; vals.data[asks[id]] = { missing: true }; }
+                }
+            }) : Promise.resolve();
+
+            resolve.then(function () {
+                if (gen !== vals.gen || ctx.destroyed) { return null; }
+                var vreqs = {}, cells = {}, m = 0;
+                nodes.forEach(function (node) {
+                    var webId = vals.ids[node.key];
+                    if (!webId) { return; }
+                    if (!all && vals.data[node.key] && !vals.data[node.key].failed) { return; }
+                    var id = 'v' + (m++);
+                    cells[id] = node.key;
+                    vreqs[id] = { Method: 'GET', Resource: PVX.api.base() + '/streams/' + encodeURIComponent(webId) +
+                        '/value?selectedFields=Timestamp;Value;UnitsAbbreviation;Good' };
+                });
+                if (!m) { return null; }
+                return PVX.api.batch(vreqs, { cache: false }).then(function (res) {
+                    if (gen !== vals.gen || ctx.destroyed) { return; }
+                    var r = PVX.api.batchResults(res);
+                    var failed = 0;
+                    for (var id in cells) {
+                        if (!cells.hasOwnProperty(id)) { continue; }
+                        var v = r.ok[id];
+                        if (!v) { failed += 1; vals.data[cells[id]] = { failed: true, status: r.failed[id] && r.failed[id].status }; continue; }
+                        var raw = v.Value;
+                        var digital = !!(raw && typeof raw === 'object');
+                        vals.data[cells[id]] = {
+                            raw: raw,
+                            state: digital ? PVX.states.text(raw) : '',
+                            num: digital ? null : PVX.util.num(raw),
+                            units: v.UnitsAbbreviation || '',
+                            good: v.Good !== false,
+                            time: v.Timestamp
+                        };
+                    }
+                    vals.failed = failed;
+                });
+            }).then(function () {
+                if (gen === vals.gen && !ctx.destroyed) { ctx.render(); }
+            })['catch'](function () {
+                // The whole batch failed: say so in the footer, keep the tree.
+                if (gen !== vals.gen || ctx.destroyed) { return; }
+                vals.failed = nodes.length;
+                ctx.render();
+            });
+        }
+
+        /** {text, color, title} for a node's value, or null when none is asked for. */
+        function valueOf(cfg, node) {
+            var attr = valueAttr(cfg);
+            if (!attr || !node || node.isDatabase) { return null; }
+            var v = vals.data[node.key];
+            if (!v) { return { text: '', color: '', title: attr + ': reading\u2026' }; }
+            if (v.missing) { return { text: '\u2014', color: '', title: 'This element has no attribute "' + attr + '".' }; }
+            if (v.failed) { return { text: '?', color: PVX.color.status.alarm, title: attr + ': the read failed' + (v.status ? ' (HTTP ' + v.status + ')' : '') + '.' }; }
+            var text, col = '';
+            if (v.state) {
+                text = v.state;
+                var map = PVX.states.parse(cfg.StateMap, 'map');
+                for (var i = 0; i < map.length; i++) {
+                    if (map[i].state.toLowerCase() === v.state.toLowerCase()) {
+                        col = map[i].color;
+                        if (map[i].label) { text = map[i].label; }
+                        break;
+                    }
+                }
+            } else if (v.num !== null) {
+                text = PVX.fmt.number(v.num, PVX.config.numberOpts(cfg)) + (v.units ? ' ' + v.units : '');
+                var band = PVX.thresholds.evaluate(cfg.ValueBands, v.num);
+                if (band) { col = band.color; }
+            } else {
+                text = PVX.states.text(v.raw) || '--';
+            }
+            if (!v.good) { col = PVX.color.status.stale || col; }
+            return { text: text, color: col,
+                title: attr + ': ' + text + (v.good ? '' : ' (bad quality)') + (v.time ? '\n' + PVX.fmt.time(v.time, 'datetime') : '') };
         }
 
         /**
@@ -1110,6 +1312,9 @@
             }
             unbindHost();
             unbindSearch();
+            if (vals.timer !== null) { clearInterval(vals.timer); vals.timer = null; }
+            if (vals.soon !== null) { clearTimeout(vals.soon); vals.soon = null; }
+            vals.gen += 1;
             // Anything still in flight resolves into stale() and is discarded.
             generation += 1;
             root = null;
@@ -1197,6 +1402,13 @@
                 return out;
             }
             if (!root) { return out; }
+            if (layoutOf(cfg) === 'list') {
+                for (var f = 0; f < flat.items.length; f++) {
+                    out.push({ node: flat.items[f], level: 1, setSize: flat.items.length, posInSet: f + 1 });
+                }
+                if (flat.truncated) { notes.push('first ' + flat.items.length + ' elements only: raise the most per level, or filter'); }
+                return out;
+            }
             out.push({ node: root, level: 1, setSize: 1, posInSet: 1 });
             walk(root, 2, out);
             return out;
@@ -1232,7 +1444,8 @@
             // itself removes — and the layout would oscillate frame to frame.
             var rootW = Math.max(20, (c.node && c.node.clientWidth) || c.width || 20);
             var rootH = Math.max(20, (c.node && c.node.clientHeight) || c.height || 20);
-            var tiny = rootW < MIN_W || rootH < MIN_H;
+            var layout = layoutOf(cfg);
+            var tiny = layout === 'dropdown' ? (rootW < 100 || rootH < 22) : (rootW < MIN_W || rootH < MIN_H);
 
             notes = [];
             currentKey = pathKey(PVX.nav.currentAsset());
@@ -1250,7 +1463,7 @@
             var hadFocus = !!(active && host.contains && host.contains(active));
 
             bindHost(host);
-            bindSearchChrome(cfg, tiny, rootH);
+            bindSearchChrome(cfg, tiny || layout === 'dropdown', rootH);
             clear(host);
             rows = [];
 
@@ -1294,6 +1507,17 @@
                 return;
             }
 
+            if (layout === 'dropdown' && !search.active) {
+                host.removeAttribute('role');
+                buildDropdown(host, cfg, t);
+                if (flat.truncated) { notes.push('first ' + flat.items.length + ' elements only'); }
+                if (state.db.from) { notes.push('database ' + state.db.path + ' from ' + state.db.from); }
+                valueNotes(cfg);
+                scope.pvx.note = notes.join(' \u00b7 ');
+                digest();
+                return;
+            }
+
             rows = flatten(cfg);
 
             if (search.active && !rows.length) {
@@ -1328,7 +1552,7 @@
                 // are about to point the whole display at.
                 // and it earns its width sooner there than a full path column
                 // would, so it gets a lower threshold of its own.
-                path: search.active
+                path: search.active || layout === 'list'
                     ? rootW >= CONTEXT_MIN_W
                     : (!!cfg.ShowPath && rootW >= PATH_MIN_W)
             };
@@ -1357,9 +1581,65 @@
                 notes.push('the display’s asset is not under this root');
             }
             if (state.db.from) { notes.push('database ' + state.db.path + ' from ' + state.db.from); }
+            wantValues(cfg, rows.map(function (r) { return r.node; }));
+            valueNotes(cfg);
             scope.pvx.note = notes.join(' \u00b7 ');
 
             digest();
+        }
+
+        function valueNotes(cfg) {
+            if (!valueAttr(cfg)) { return; }
+            if (vals.failed) { notes.push(vals.failed + (vals.failed === 1 ? ' value' : ' values') + ' could not be read'); }
+            if (vals.capped) { notes.push('values for the first ' + MAX_VALUE_ROWS + ' rows only'); }
+        }
+
+        /**
+         * The drop-down layout: a native select over the flat list, indented
+         * by depth, on the display's current asset.
+         */
+        function buildDropdown(host, cfg, t) {
+            var wrap = div('pvx-tree-dd');
+            var sel = document.createElement('select');
+            sel.className = 'pvx-tree-dd-select';
+            sel.setAttribute('aria-label', scope.pvx.title || 'Asset');
+            var current = -1;
+            var none = document.createElement('option');
+            none.value = '';
+            none.textContent = flat.items.length ? 'Choose an asset\u2026' : 'No elements under ' + (root ? root.name : 'this root');
+            sel.appendChild(none);
+            for (var i = 0; i < flat.items.length; i++) {
+                var n = flat.items[i];
+                var o = document.createElement('option');
+                o.value = String(i);
+                var pad = '';
+                for (var d = 0; d < n.depth; d++) { pad += '\u00a0\u00a0\u00a0'; }
+                o.textContent = pad + n.name;
+                if (currentKey && n.key === currentKey) { current = i; }
+                sel.appendChild(o);
+            }
+            sel.value = current === -1 ? '' : String(current);
+            sel.onchange = function () {
+                var k = parseInt(sel.value, 10);
+                if (isFinite(k) && flat.items[k]) { activate(flat.items[k]); }
+            };
+            wrap.appendChild(sel);
+
+            var node = current === -1 ? null : flat.items[current];
+            wantValues(cfg, node ? [node] : []);
+            var v = valueOf(cfg, node);
+            if (v) {
+                if (cfg.ShowValueDot !== false && v.color) {
+                    var dot = div('pvx-tree-dot');
+                    dot.style.background = v.color;
+                    wrap.appendChild(dot);
+                }
+                var val = div('pvx-tree-value pvx-truncate');
+                val.textContent = v.text;
+                val.title = v.title;
+                wrap.appendChild(val);
+            }
+            host.appendChild(wrap);
         }
 
         /* ---- chrome ------------------------------------------------------- */
@@ -1493,7 +1773,7 @@
             // Indent by padding rather than by nested containers: a flat row list
             // with aria-level is a valid tree and keeps arrow-key movement a
             // simple index step instead of a walk.
-            var depth = search.active ? 0 : node.depth;
+            var depth = search.active || node.flat ? 0 : node.depth;
             el.style.paddingLeft = (4 + depth * indent) + 'px';
 
             // Title carries what the row cannot: the full path, and the reason a
@@ -1504,6 +1784,12 @@
 
             el.appendChild(buildTwisty(node, t));
             if (cols.icons) { el.appendChild(buildIcon(node, t)); }
+            var v = valueOf(cfg, node);
+            if (v && cfg.ShowValueDot !== false) {
+                var dot = div('pvx-tree-dot');
+                if (v.color) { dot.style.background = v.color; } else { dot.className += ' pvx-tree-dot-none'; }
+                el.appendChild(dot);
+            }
 
             var name = div('pvx-tree-name pvx-truncate');
             // textContent, never innerHTML: element names come from AF and must
@@ -1523,6 +1809,13 @@
                     pth.textContent = ptext;
                     el.appendChild(pth);
                 }
+            }
+
+            if (v) {
+                var valEl = div('pvx-tree-value pvx-truncate');
+                valEl.textContent = v.text;
+                valEl.title = v.title;
+                el.appendChild(valEl);
             }
 
             if (node.loading) {
@@ -1588,7 +1881,7 @@
          */
         function buildTwisty(node, t) {
             var box = div('pvx-tree-twisty');
-            if (search.active || !node.hasChildren) { return box; }
+            if (search.active || node.flat || !node.hasChildren) { return box; }
             box.className += ' pvx-tree-twisty-on';
             box.setAttribute('data-pvx-toggle', '1');
             box.setAttribute('aria-hidden', 'true');

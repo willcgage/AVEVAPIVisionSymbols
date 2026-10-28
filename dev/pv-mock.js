@@ -323,6 +323,108 @@
             return { Data: wData };
         }
 
+        // A control chart on a generic sine is out of control everywhere,
+        // which tests nothing. This is a filler in control for most of the
+        // window, with one spike past the limits and a sustained shift of
+        // about 1.5 sigma over the last fifth: rules 1, 2, 5 and 6 each have
+        // something real to find. Sources 2 and 3 are the spec limits as
+        // tags, steady, the way a recipe holds them.
+        if (shape === 'TimeSeries' && opts.profile === 'spc') {
+            var sData = [], fill = [];
+            for (var sp = 0; sp < points; sp++) {
+                var stm = now - span + (span * sp) / (points - 1);
+                var frac = sp / (points - 1);
+                // Sum of uniforms: near-normal, sd about 2.0 g, seeded.
+                var noise = (rand() + rand() + rand() + rand() - 2) * 3.46;
+                var v = 500 + noise + (frac > 0.8 ? 3 : 0) + (sp === Math.round(points * 0.35) ? 9 : 0);
+                fill.push({ Time: new Date(stm).toISOString(), Value: round(v, 2) });
+            }
+            sData.push({ Label: 'Line 3 Fill Weight', Units: 'g', Path: '\\\\AF\\Line 3|Fill Weight',
+                IsGood: opts.badIndex === 0 ? false : true, Value: fill });
+            var specs = [['Line 3 Fill Weight USL', 510], ['Line 3 Fill Weight LSL', 490]];
+            for (var sx2 = 1; sx2 < count; sx2++) {
+                var spec = specs[sx2 - 1] || [tags[sx2].name, tags[sx2].base];
+                sData.push({ Label: spec[0], Units: 'g', Path: '', IsGood: true,
+                    Value: [{ Time: new Date(now - span).toISOString(), Value: spec[1] },
+                        { Time: new Date(now).toISOString(), Value: spec[1] }] });
+            }
+            return { Data: sData };
+        }
+
+        // A cross profile of unrelated tags is noise. This is basis weight
+        // across a paper machine: edges a little light, a heavy streak at
+        // two thirds of the width that starts halfway through the window,
+        // and the whole sheet drifting slowly, scanned every two minutes.
+        if (shape === 'TimeSeries' && opts.profile === 'crossprofile') {
+            var cData = [];
+            for (var cp = 0; cp < count; cp++) {
+                var pos = count > 1 ? cp / (count - 1) : 0.5;
+                var cv = [];
+                for (var ct = now - span; ct <= now; ct += 120000) {
+                    var cf = (ct - (now - span)) / span;
+                    var edge = -2.5 * Math.pow(Math.abs(pos - 0.5) * 2, 4);
+                    var streak = cf > 0.5 && Math.abs(pos - 0.66) < 0.08 ? 2.2 : 0;
+                    cv.push({ Time: new Date(ct).toISOString(),
+                        Value: round(80 + edge + streak + 1.2 * Math.sin(cf * 6.3) + (rand() - 0.5) * 0.8, 2) });
+                }
+                cData.push({ Label: 'CD Gauge ' + (cp + 1) + ' Basis Weight', Units: 'g/m2',
+                    Path: '\\\\AF\\PM1 Scanner|Gauge ' + (cp + 1), IsGood: opts.badIndex === cp ? false : true, Value: cv });
+            }
+            return { Data: cData };
+        }
+
+        // A spectrum of a generic sine shows one line and tests nothing. This
+        // is a pressure loop hunting with a 20 minute period, a 7 minute
+        // ripple from a recycle, and noise, recorded every 20 seconds or so
+        // (unevenly, as exception reporting stores it).
+        if (shape === 'TimeSeries' && opts.profile === 'spectrum') {
+            var fData = [];
+            for (var fs = 0; fs < count; fs++) {
+                var fv = [];
+                var ft = now - span;
+                while (ft <= now) {
+                    var ph = (ft - (now - span)) / 60000;
+                    var fval = 52 + 4 * Math.sin(2 * Math.PI * ph / 20 + fs) + 1.5 * Math.sin(2 * Math.PI * ph / 7) +
+                        (rand() - 0.5) * 1.2;
+                    fv.push({ Time: new Date(ft).toISOString(), Value: round(fval, 3) });
+                    ft += 15000 + Math.floor(rand() * 10000);
+                }
+                fData.push({ Label: fs ? tags[fs].name : 'Reactor 2 Pressure', Units: fs ? tags[fs].units : 'kPa',
+                    Path: '\\\\AF\\Reactor 2|Pressure', IsGood: opts.badIndex === fs ? false : true, Value: fv });
+            }
+            return { Data: fData };
+        }
+
+        // A Duval triangle on three sines lands anywhere. This is a unit
+        // with a thermal fault that is getting hotter and starting to arc:
+        // methane falls, ethylene and acetylene rise, so the trail runs from
+        // T2 through T3's edge into DT. Readings are a few hours apart, as an
+        // online DGA monitor reports, not every plot interval.
+        if (shape === 'TimeSeries' && opts.profile === 'dga') {
+            var gData = [], gas = [[], [], []];
+            var every = Math.max(1, Math.round(points / 30));
+            for (var gp = 0; gp < points; gp += every) {
+                var gtm = now - span + (span * gp) / (points - 1);
+                var gf = gp / (points - 1);
+                var wob = (rand() - 0.5) * 6;
+                gas[0].push({ Time: new Date(gtm).toISOString(), Value: round(120 - 60 * gf + wob, 1) });
+                gas[1].push({ Time: new Date(gtm).toISOString(), Value: round(80 + 60 * gf + wob, 1) });
+                gas[2].push({ Time: new Date(gtm).toISOString(), Value: round(Math.max(0, 1 + 40 * gf * gf + wob * 0.3), 1) });
+            }
+            var gNames = ['Methane (CH4)', 'Ethylene (C2H4)', 'Acetylene (C2H2)'];
+            for (var gx = 0; gx < count; gx++) {
+                if (gx < 3) {
+                    gData.push({ Label: 'T-101 ' + gNames[gx], Units: 'ppm', Path: '\\\\AF\\T-101|' + gNames[gx],
+                        IsGood: opts.badIndex === gx ? false : true,
+                        ErrorDescription: opts.badIndex === gx ? 'I/O Timeout' : '', Value: gas[gx] });
+                } else {
+                    gData.push({ Label: tags[gx].name, Units: tags[gx].units, Path: '', IsGood: true,
+                        Value: [{ Time: new Date(now).toISOString(), Value: round(tags[gx].base, 2) }] });
+                }
+            }
+            return { Data: gData };
+        }
+
         if (shape === 'TimeSeries') {
             var data = [];
             for (var s = 0; s < count; s++) {

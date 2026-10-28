@@ -36,7 +36,8 @@
         <div class="pvx-cfg-hint">
             One link per entry, entries separated by <code>|</code>:<br />
             <code>From &gt; To : sourceIndex</code><br />
-            <em>sourceIndex</em> is the 1-based position of the data source in the list above that supplies the magnitude — data source 1 is the first attribute dropped on the symbol. Spaces around every token are ignored.
+            <em>sourceIndex</em> is the 1-based position of the data source in the list above that supplies the magnitude — data source 1 is the first attribute dropped on the symbol. Spaces around every token are ignored.<br />
+            For a stream nobody meters, write a fixed value after <code>=</code> instead: <code>Reactor &gt; Losses : =4.5</code>. It is counted in the balance like any other link, and the footer says how many links are fixed.
         </div>
         <div class="pvx-cfg-hint">
             <strong>Worked example.</strong> A reactor fed by one stream, producing product and venting the rest. Drop three attributes on the symbol: <em>1</em> feed flow, <em>2</em> product flow, <em>3</em> vent flow. Then write:<br />

@@ -41,6 +41,18 @@
             full of.
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxhist-weighting">Bars count</label>
+            <select id="pvxhist-weighting" ng-model="config.Weighting">
+                <option value="samples">Samples</option>
+                <option value="time">Time held</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Time held weighs each value by how long it lasted, so a burst of samples during an upset
+            does not outweigh hours of steady running. The axis reads in hours (or percent of time).
+            The statistics, Cp and Cpk stay per sample.
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxhist-binwidth">Bin width</label>
             <input id="pvxhist-binwidth" type="text" ng-model="config.BinWidth" placeholder="auto" />
         </div>
@@ -194,6 +206,14 @@
         </div>
         <div class="pvx-cfg-hint">
             A mean well away from the median is the quickest sign the distribution is skewed.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxhist-quantiles">Percentile markers</label>
+            <input id="pvxhist-quantiles" type="text" ng-model="config.Quantiles" placeholder="e.g. 5, 50, 95" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Up to six, as percentages. With bars by time held, P95 is the value the tag was at or below
+            for 95% of the time.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-sigma">Sigma markers (&plusmn;1, 2, 3&sigma;)</label>

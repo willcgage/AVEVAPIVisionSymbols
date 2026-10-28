@@ -1,0 +1,127 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Gases</div>
+        <div class="pvx-cfg-hint">
+            Add methane (CH<sub>4</sub>), ethylene (C<sub>2</sub>H<sub>4</sub>) and acetylene
+            (C<sub>2</sub>H<sub>2</sub>) in ppm. A source whose name says which gas it is is used as that
+            gas in any order; otherwise the first three are taken as CH<sub>4</sub>, C<sub>2</sub>H<sub>4</sub>
+            and C<sub>2</sub>H<sub>2</sub>, and the footer says so. Further sources are ignored.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-intervals">Resolution (points per gas)</label>
+            <input id="pvxgt-intervals" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-min">Minimum total (ppm)</label>
+            <input id="pvxgt-min" type="text" ng-model="config.MinTotalPpm" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            IEC 60599 applies the triangle only once the gases are above the levels typical for the unit:
+            the shares of three tiny readings are noise. Below this total of the three, the point is still
+            drawn but the zone is not named. Blank always names it.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-gap">Max pairing gap (h)</label>
+            <input id="pvxgt-gap" type="number" ng-model="config.MaxPairGapHours" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Each point uses every gas's newest reading at that moment. A limit here leaves out a point where one
+            gas's reading is older than this, as with a lab result entered weeks after the others; the footer
+            counts them. <code>0</code> is no limit.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Triangle</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxgt-title">Title</label>
+            <input id="pvxgt-title" type="text" ng-model="config.Title" placeholder="Duval triangle" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-trail">Show trail</label>
+            <input id="pvxgt-trail" type="checkbox" ng-model="config.ShowTrail" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-traillen">Trail length (points)</label>
+            <input id="pvxgt-traillen" type="number" ng-model="config.TrailLength" min="0" step="10" ng-disabled="!config.ShowTrail" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The trail is the newest points in the display's time range, fading with age, so the direction a unit
+            is moving shows. <code>0</code> draws every point in range.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-grid">Show grid</label>
+            <input id="pvxgt-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-labels">Show zone codes</label>
+            <input id="pvxgt-labels" type="checkbox" ng-model="config.ShowZoneLabels" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-legend">Zone legend</label>
+            <select id="pvxgt-legend" ng-model="config.LegendPosition">
+                <option value="auto">Auto (when wide)</option>
+                <option value="right">Right</option>
+                <option value="none">None</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-op">Zone opacity</label>
+            <input id="pvxgt-op" type="number" ng-model="config.ZoneOpacity" min="0" max="1" step="0.05" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxgt-colors">Zone colours</label>
+            <input id="pvxgt-colors" type="text" ng-model="config.ZoneColors" placeholder="T3:#c00000, D2:#1f4e9c" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Only the zones listed change: PD, T1, T2, T3, D1, D2 and DT. The zones are those of Duval's Triangle 1
+            in IEC 60599: PD partial discharges, T1 to T3 thermal faults below 300 &deg;C, 300 to 700 &deg;C and
+            above 700 &deg;C, D1 and D2 discharges of low and high energy, DT a mix of electrical and thermal.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-theme">Theme</label>
+            <select id="pvxgt-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-showlabel">Show title</label>
+            <input id="pvxgt-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-accent">Point colour</label>
+            <input id="pvxgt-accent" type="color" ng-model="config.AccentColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-transparent">Transparent background</label>
+            <input id="pvxgt-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-bgcolor">Background colour</label>
+            <input id="pvxgt-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-radius">Corner radius</label>
+            <input id="pvxgt-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxgt-decimals">Decimals</label>
+            <select id="pvxgt-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+            </select>
+        </div>
+    </div>
+
+</div>

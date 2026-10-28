@@ -1,7 +1,7 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 35 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
-and an MSI installer generated from the build output. **v1.14.1**, released from
+PVX: 50 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+and an MSI installer generated from the build output. **v1.15.0**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
 tag). CI and the release workflow are green, and
@@ -17,15 +17,18 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 630 render checks — the gate, and slow
+node tools/verify.js                 # 900 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # nav hierarchy, Asset Table, scoped Event Timeline, text zoom vs a mock AF
-node tools/test-charts.js            # Wind Rose and XY bubble numbers vs known-answer payloads
+node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
+node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
+node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
+node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout, options, paste/CSV, time-slot grid vs a mock PI Web API
 node tools/docgen.js                 # regenerate docs/SYMBOL-REFERENCE.md
 node tools/wix.js                    # generate the WiX installer source
 node tools/verify-msi.js             # read a built MSI's tables and assert them
@@ -34,7 +37,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 35 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 50 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -43,6 +46,7 @@ file used to claim.
 node tools/probe.js pvxHistogram --w 900 --h 480 --config "LSL=100;USL=140"
 node tools/probe.js pvxComboChart --dark --config "TraceSpec=1:bar,2:line:right"
 node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
+node tools/probe.js pvxComboChart --config "Rulers=true" --clicks "0.3,0.5;0.8,0.5"
 ```
 
 Config pairs split on **`;`**, not `,` — values contain commas.
@@ -59,7 +63,7 @@ PVX_CHROMIUM=/opt/pw-browsers/chromium-<build>/chrome-linux/chrome node tools/ve
 $env:PVX_CHROMIUM="$env:LOCALAPPDATA\ms-playwright\chromium-<build>\chrome-win64\chrome.exe"
 ```
 
-Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js` and `test-charts.js`. Without it you get
+Honoured by `verify.js`, `probe.js`, `test-api.js`, `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`, `test-overview.js`, `test-charts.js`, `test-overlay.js`, `test-alarms.js` and `test-entry.js`. Without it you get
 "Executable doesn't exist" — do **not** run `npx playwright install` to fix it,
 just point the variable at a build you already have.
 
@@ -125,11 +129,12 @@ silently destroys a site's PI Web API settings on upgrade.
   drifts either way.
 - `src/shared/pvx-core.js` → `ext/libraries/pvx/pvx-core.js`. Namespaces: `util`,
   `fmt`, `color`, `theme`, `thresholds`, `scale`, `svg`, `data`, `stats`, `nav`,
-  `layout`, `config`, `api`, `ack`. Symbols contain only what makes them differ.
+  `layout`, `config`, `api`, `ack`, `download`. Symbols contain only what makes them differ.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
-- Symbols get data through PI Vision's pipeline. Only five reach PI Web API via
-  `PVX.api`, configured once per site in `pvx-config.js`. A blank `baseUrl`
+- Symbols get data through PI Vision's pipeline. Ten reach PI Web API via
+  `PVX.api` for their main job and nine more for an option that is off by
+  default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
   (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
   refresh waits on `PVX.api.discovering()` before deciding it is unconfigured.
@@ -155,6 +160,37 @@ silently destroys a site's PI Web API settings on upgrade.
   by the pane's own ng-click, so saved displays are unaffected. Proven
   against a mock AF database, not yet on a server; the AFSearch syntax is
   the least certain part.
+- Four symbols (Ranked Bar, Treemap, Fingerprint, Combo Chart) can take
+  their rows from an **AF search** instead of their data sources:
+  `<!-- pvx:afsearch -->` in `config.html` → `src/shared/config-afsearch.html`,
+  `PVX.afsource.defaults(...)` around `getDefaultConfig` (build.js requires
+  it), and `PVX.afsource` in the bootstrap swaps the update for rows shaped
+  as PI Vision's (`Rows` or `Data`), each with `asset`, `assetPath`,
+  `attribute` and `parent`. A symbol pairs attributes by `assetPath` via
+  `PVX.afsource.split`, never by position. Mock-proven only.
+- **Shared filters** (`PVX.filter`): a set of asset paths on a named
+  channel, kept on the page, not in PI Vision's asset context. The Asset
+  Table, Ranked Bar and Event List publish (`ClickAction: 'filter'`) and
+  obey (`FilterObey`); `<!-- pvx:filter -->` → `src/shared/config-filter.html`
+  needs `PVX.filter.defaults(...)`. A match is the asset or anything under
+  it. The overlay shows the badge that clears it. Mock-proven only.
+- **Writes from reading symbols** (`PVX.writer.panel`): the Asset Table's
+  `EditMode` (a cell) and the Event List's `EventActions` (Ack, Note, Edit on
+  an event frame) share one panel: edit, a confirmation that states the value
+  and target in full, then PI Web API's answer. Only changed fields are sent.
+  All off by default. Mock-proven only (`test-overview --only writes`).
+- Every symbol has four options from `config.base`, all off: `ExportMenu`
+  (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`,
+  `QuickTrend` (`src/shared/config-common.html`, applied by `PVX.overlay`
+  after each render). The quick trend is `PVX.trend`: one floating panel per
+  page on `document.body`, plot values from PI Web API per source, a second
+  symbol's button adds to it. Time-series symbols also have `OwnTimeRange`
+  (`OwnStart`, `OwnEnd`, ...): `PVX.ownrange`, in the bootstrap, swaps the
+  pipeline's values for PI Web API recorded values over that range before
+  the symbol sees them, keeps the pipeline's labels, and sets each item's
+  StartTime/EndTime to the range. Unset PI Web API falls back to the
+  display's data, with the badge saying so. Mock-proven only (`test-overview`). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
+  The PNG goes through an SVG foreignObject; proven in Chromium only.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on
@@ -314,6 +350,19 @@ from a review against Will's overview display build guide, then `pvxWindRose`
 (and a bubble mode on `pvxXYScatter`) from a check of fourteen chart types;
 spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. Do not "finish
 tier 3" — that is a resolved question, not an open task.
+
+**One later list: a feature comparison, now complete.** Will asked for all 37
+items of a feature-level comparison with a commercial widget library, built easiest
+first, including the four tier-3 candidates declined above (they come back
+under PVX names: `pvxTimeRange`, `pvxEmbeddedPage`, `pvxAlarmTone`,
+`pvxGeoView`). All 37 are done (`docs/ROADMAP.md`, *After the plan*). Two
+rules from him: never name a symbol after one of the other library's, never
+name that library in the repo, and never drop a PVX behaviour that is already
+ahead of it to match it; upgrades only add
+options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`
+resolves PI time expressions for anything that steps or replays a range;
+`PVX.af.traits` / `PVX.af.text` / `PVX.af.watcher` read settings kept in AF
+(limit traits, a menu in a string attribute), at most once a minute per value.
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs
 the full verification on the tagged commit, the MSI is built with the official

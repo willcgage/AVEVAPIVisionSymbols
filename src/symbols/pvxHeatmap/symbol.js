@@ -71,6 +71,7 @@
 
                 // --- shape -----------------------------------------------
                 Mode: 'calendar',            // calendar | matrix | density
+                RowColors: false,            // matrix: each tag its own colour, scaled to its own range
                 Aggregate: 'avg',            // avg | max | min | last | range | count
                 BucketCount: 24,             // matrix + density: number of time columns
                 ValueBins: 20,               // density: number of value rows
@@ -101,7 +102,10 @@
                 ShowRowLabels: true,
                 ShowColumnLabels: true,
                 RowLabelWidthPct: 22,
-                ShowLabel: true
+                ShowLabel: true,
+
+                // --- click ----------------------------------------------
+                ClickAction: 'none'          // none | time: a cell sets the display's time range
             });
         }
     };
@@ -120,6 +124,8 @@
         };
 
         var seriesList = [];
+        var lastGrid = null;       // the grid the cells on screen were drawn from
+        var boundHost = null;      // host carrying the delegated click listener
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-heat-body',
@@ -128,8 +134,76 @@
                 seriesList = PVX.data.series(d) || [];
             },
 
-            render: render
+            render: render,
+            onDestroy: unbindHost
         });
+
+        /* ================================================================ *
+         * Click a cell: show its period
+         * ================================================================ *
+         * The cell is a question ("what happened Tuesday at 03:00?") and the
+         * rest of the display is where the answer is, so the click moves the
+         * display's own time range rather than navigating away. One delegated
+         * listener on the host; the host is re-resolved every frame, so it is
+         * re-bound when ng-if swaps it.
+         */
+        function isoOf(ms) { return new Date(ms).toISOString(); }
+
+        function isEditMode() {
+            try {
+                if (scope && scope.runtimeData && scope.runtimeData.isEditMode) { return true; }
+            } catch (e) { /* scope shape differs by release */ }
+            try {
+                if (scope && scope.$root && scope.$root.isEditMode) { return true; }
+            } catch (e2) { /* ignore */ }
+            return false;
+        }
+
+        function bindHost(host) {
+            if (boundHost === host) { return; }
+            unbindHost();
+            if (!host || !host.addEventListener) { return; }
+            host.addEventListener('click', onClick, false);
+            boundHost = host;
+        }
+
+        function unbindHost() {
+            if (boundHost && boundHost.removeEventListener) {
+                try { boundHost.removeEventListener('click', onClick, false); } catch (e) { /* ignore */ }
+            }
+            boundHost = null;
+        }
+
+        function onClick(ev) {
+            if ((ctx.config || {}).ClickAction !== 'time' || isEditMode() || !lastGrid) { return; }
+            var node = ev.target, guard = 0;
+            while (node && node !== boundHost && guard < 6) {
+                if (node.getAttribute && node.getAttribute('data-pvx-i') !== null) {
+                    var span = cellSpan(lastGrid, lastGrid.buckets[parseInt(node.getAttribute('data-pvx-i'), 10)]);
+                    if (span) { PVX.nav.setTimeRange(isoOf(span[0]), isoOf(span[1])); }
+                    return;
+                }
+                node = node.parentNode;
+                guard += 1;
+            }
+        }
+
+        /**
+         * A cell's period as [fromMs, toMs]: one hour of one day on the
+         * calendar, the column's slice otherwise (a density cell's row is a
+         * value band, not a time, so the column alone decides).
+         */
+        function cellSpan(grid, b) {
+            if (!b) { return null; }
+            var col = grid.cols[b.c];
+            if (!col) { return null; }
+            if (grid.calendar) {
+                var d = new Date(col.key);
+                var from = new Date(d.getFullYear(), d.getMonth(), d.getDate(), b.r).getTime();
+                return [from, new Date(d.getFullYear(), d.getMonth(), d.getDate(), b.r + 1).getTime()];
+            }
+            return PVX.util.isNum(col.to) ? [col.key, col.to] : null;
+        }
 
         /* ================================================================ *
          * Pure helpers — no DOM, no config side effects
@@ -194,7 +268,7 @@
          * data (including days with no data, so a gap reads as a gap).
          */
         function buildCalendar(series, cfg) {
-            var grid = { rows: [], cols: [], buckets: [], note: '', units: '' };
+            var grid = { rows: [], cols: [], buckets: [], note: '', units: '', calendar: true };
             var pts = series ? series.points : [];
             var i, d;
 
@@ -315,6 +389,7 @@
                 var start = t0 + i * width;
                 grid.cols.push({
                     key: start,
+                    to: start + width,
                     label: PVX.fmt.time(start, 'short'),
                     tip: PVX.fmt.time(start, 'datetime')
                 });
@@ -406,6 +481,7 @@
                 var start = t0 + i * colW;
                 grid.cols.push({
                     key: start,
+                    to: start + colW,
                     label: PVX.fmt.time(start, 'short'),
                     tip: PVX.fmt.time(start, 'datetime')
                 });
@@ -474,6 +550,15 @@
                     PVX.fmt.tick(vMin) + ' – ' + PVX.fmt.tick(vMax) + ' and is not shown.';
             }
             return grid;
+        }
+
+        /** A row's own scale: from a faint tint at its low to its colour at its high. */
+        function rowColorFn(col, faint, lo, hi) {
+            var start = PVX.color.mix(faint, col, 0.12);
+            return function (v) {
+                var f = (hi > lo) ? PVX.util.clamp((v - lo) / (hi - lo), 0, 1) : 1;
+                return PVX.color.mix(start, col, 0.15 + 0.85 * f);
+            };
         }
 
         /** Reduce every bucket, and report the value domain that came out. */
@@ -631,6 +716,7 @@
 
             if (host) {
                 drawGrid(c, cfg, t, host, mode, aggName);
+                bindHost(host);
             }
 
             // bootstrap renders inside requestAnimationFrame, outside Angular's
@@ -668,6 +754,8 @@
                     ? buildDensity(seriesList.length ? seriesList[0] : null, cfg)
                     : buildCalendar(seriesList.length ? seriesList[0] : null, cfg));
             reduceGrid(grid, cfg);
+            lastGrid = grid;
+            var clickable = cfg.ClickAction === 'time';
             if (mode === 'density' && seriesList.length > 1) {
                 grid.note = (grid.note ? grid.note + ' ' : '') + 'Density mode shows the first data source only; ' +
                     (seriesList.length - 1) + ' more ' + (seriesList.length === 2 ? 'is' : 'are') + ' ignored.';
@@ -700,6 +788,30 @@
 
             scope.pvx.range = PVX.fmt.tick(domain[0]) + unitSuffix + ' → ' + PVX.fmt.tick(domain[1]) + unitSuffix;
 
+            // One colour per tag: tags in different units share no scale, so
+            // each row runs from a pale tint to its own palette colour over
+            // its own range. A single legend would then be a lie; the range
+            // goes in each row's tooltips and the footer says why it is gone.
+            var rowFns = null;
+            if (mode === 'matrix' && cfg.RowColors) {
+                rowFns = [];
+                // Fade toward the background, so "low" recedes in both themes.
+                var faint = cfg.BackgroundColor || (t.surface && t.surface !== 'transparent' ? t.surface : t.track);
+                for (var rr = 0; rr < grid.rows.length; rr++) {
+                    var rlo = null, rhi = null;
+                    for (var bi = 0; bi < grid.buckets.length; bi++) {
+                        var bb = grid.buckets[bi];
+                        if (bb.r !== rr || bb.value === null) { continue; }
+                        if (rlo === null || bb.value < rlo) { rlo = bb.value; }
+                        if (rhi === null || bb.value > rhi) { rhi = bb.value; }
+                    }
+                    rowFns.push(rowColorFn(t.categorical[rr % t.categorical.length], faint, rlo, rhi));
+                    grid.rows[rr].range = rlo === null ? '' : PVX.fmt.tick(rlo) + ' – ' + PVX.fmt.tick(rhi);
+                }
+                scope.pvx.range = '';
+                scope.pvx.note = (scope.pvx.note ? scope.pvx.note + ' ' : '') + 'Each row coloured over its own range.';
+            }
+
             // ---- layout --------------------------------------------------
             var pad = 4;
             var areaX = pad, areaY = pad;
@@ -709,7 +821,7 @@
             // has to be re-fitted afterwards.
             var LEG_H = 26, LEG_W = 66;
             var legend = null;
-            if (cfg.ShowLegend) {
+            if (cfg.ShowLegend && !rowFns) {
                 if (cfg.LegendPosition === 'right' && areaW > LEG_W + 60) {
                     legend = { vertical: true, x: areaX + areaW - LEG_W, y: areaY, w: LEG_W, h: areaH };
                     areaW -= LEG_W + 6;
@@ -751,7 +863,7 @@
             for (var i = 0; i < grid.buckets.length; i++) {
                 var b = grid.buckets[i];
                 var has = b.value !== null;
-                var fill = has ? colorFn(b.value) : emptyColor;
+                var fill = has ? (rowFns ? rowFns[b.r](b.value) : colorFn(b.value)) : emptyColor;
                 var x = gridX + b.c * cellW + gap / 2;
                 var y = gridY + b.r * cellH + gap / 2;
 
@@ -761,7 +873,8 @@
                     rx: radius > 0 ? radius.toFixed(2) : null,
                     ry: radius > 0 ? radius.toFixed(2) : null,
                     fill: fill,
-                    'class': 'pvx-heat-cell' + (has ? '' : ' pvx-heat-cell-empty')
+                    'data-pvx-i': clickable ? String(i) : null,
+                    'class': 'pvx-heat-cell' + (has ? '' : ' pvx-heat-cell-empty') + (clickable ? ' pvx-heat-cell-link' : '')
                 }, cellsGroup);
 
                 var row = grid.rows[b.r], col = grid.cols[b.c];
@@ -774,7 +887,9 @@
                             ? aggName + ': ' + PVX.fmt.number(b.value, numOpts) +
                               ((row.units && !isCount) ? ' ' + row.units : '') +
                               ' (' + b.count + (b.count === 1 ? ' point)' : ' points)')
-                            : 'No data'));
+                            : 'No data')) +
+                    (rowFns && row.range ? '\nRow range ' + row.range : '') +
+                    (clickable ? '\nClick to show this period' : '');
 
                 if (showValues && has) {
                     // A sliver of time rounds to "0.0%", which reads as "never"

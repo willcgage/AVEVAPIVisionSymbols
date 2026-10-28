@@ -52,6 +52,10 @@
 
                 // What a click does.
                 Mode: 'time',              // display | asset | time | custom | hierarchy
+                // Where the buttons come from: Items below, or the text of an
+                // AF attribute, so one menu kept in AF serves every display.
+                ItemsFrom: 'config',       // config | af
+                ItemsAttribute: '',
                 Items: '8 hours | *-8h | *\n' +
                        '24 hours | *-24h | *\n' +
                        '7 days | *-7d | *\n' +
@@ -135,6 +139,13 @@
         // click never leaves a button stuck in a scary state.
         var CONFIRM_MS = 4000;
 
+        // The data source's current value, for targets written as {value}.
+        var sourceValue = '';
+
+        // ItemsFrom 'af': the menu text read from an AF attribute.
+        var menu = { path: '', text: null, error: '', at: 0, gen: 0, timer: null };
+        var MENU_MS = 60000;
+
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-nav-body',
             render: render,
@@ -142,6 +153,13 @@
             // element is where the panel starts when the URL names no asset.
             onData: function (d) {
                 var one = PVX.data.single(d);
+                var raw = one && one.raw !== null && one.raw !== undefined ? trim(one.raw) : '';
+                if (raw !== sourceValue) {
+                    sourceValue = raw;
+                    // Tooltips name the resolved address; rebuild them.
+                    builtSignature = null;
+                    ctx.render();
+                }
                 var a = one ? PVX.nav.assetOf(one.path) : '';
                 if (a !== hier.sourceAsset) {
                     hier.sourceAsset = a;
@@ -161,7 +179,20 @@
          * Blank lines and lines beginning with '#' are comments. Everything is
          * trimmed. Only the first two pipes are structural, so `extra` may
          * itself contain pipes (harmless, but keeps the parser predictable).
+         *
+         * The label may carry two extras, both optional and both kept out of
+         * the pipe fields so every mode's targets read as they always have:
+         *
+         *     [home] Overview -- Plant overview, all units | 101
+         *
+         * `[name]` at the start draws one of the built-in icons (a label of
+         * only an icon makes an icon button), and the text after ` -- ` is the
+         * tooltip. A target of {value} is replaced at click time by the data
+         * source's current value, so an AF attribute can hold the address.
          */
+
+        // Built-in icons, shared with the Display Menu (PVX.icons).
+        var ICONS = PVX.icons.paths;
 
         function trim(s) {
             return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, '');
@@ -185,8 +216,21 @@
                     extra = trim(rest.slice(second + 1));
                 }
             }
-            if (!label) { return null; }   // a button with no text is not a button
-            return { label: label, target: target, extra: extra, raw: s };
+            var tip = '', icon = '';
+            var dash = label.indexOf(' -- ');
+            if (dash !== -1) {
+                tip = trim(label.slice(dash + 4));
+                label = trim(label.slice(0, dash));
+            }
+            var im = /^\[([a-z]+)\]\s*/.exec(label);
+            // An unknown name stays in the label as typed: it is visibly
+            // wrong there, where a dropped word would just be missing.
+            if (im && ICONS[im[1]]) {
+                icon = im[1];
+                label = trim(label.slice(im[0].length));
+            }
+            if (!label && !icon) { return null; }   // a button with nothing on it is not a button
+            return { label: label, icon: icon, tip: tip, target: target, extra: extra, raw: s };
         }
 
         /**
@@ -232,8 +276,21 @@
          * target resolution
          * ================================================================ */
 
+        /** {value} in a target or extra, replaced by the data source's value. */
+        function withValue(str) {
+            return String(str || '').replace(/\{value\}/gi, sourceValue);
+        }
+
+        function needsValue(item) {
+            return /\{value\}/i.test(item.target + ' ' + item.extra);
+        }
+
         /** Build the URL a click on this item should navigate to. */
         function targetUrl(item, cfg) {
+            if (needsValue(item)) {
+                if (!sourceValue) { return ''; }
+                item = { label: item.label, target: withValue(item.target), extra: withValue(item.extra) };
+            }
             var mode = cfg.Mode || 'display';
             var opts = {
                 keepAsset: cfg.KeepAsset !== false,
@@ -270,6 +327,10 @@
         function describe(item, cfg) {
             var mode = cfg.Mode || 'display';
             if (item.tip) { return item.tip; }
+            if (needsValue(item)) {
+                if (!sourceValue) { return 'Waiting for the data source to supply the address'; }
+                item = { target: withValue(item.target), extra: withValue(item.extra) };
+            }
             if (mode === 'hierarchy') {
                 return item.target + (item.extra ? '  (display ' + item.extra + ')' : '');
             }
@@ -503,6 +564,8 @@
             if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
             // A leaked poller on a control-room kiosk runs for weeks.
             if (hier.timer !== null) { clearInterval(hier.timer); hier.timer = null; }
+            if (menu.timer !== null) { clearInterval(menu.timer); menu.timer = null; }
+            menu.gen += 1;
             if (hier.listener) {
                 try { window.removeEventListener('hashchange', hier.listener, false); }
                 catch (e) { /* ignore */ }
@@ -780,13 +843,69 @@
 
         /** The only thing that forces a DOM rebuild. */
         function signature(cfg) {
-            return (cfg.Mode || 'display') + '\u0000' + (cfg.Items || '');
+            return (cfg.Mode || 'display') + '\u0000' + itemsText(cfg) + '\u0000' + menuNote(cfg);
+        }
+
+        function fromAf(cfg) { return cfg.ItemsFrom === 'af' && cfg.Mode !== 'hierarchy'; }
+
+        /** The Items text in force: the AF attribute's once read, else the typed one. */
+        function itemsText(cfg) {
+            if (fromAf(cfg) && menu.path === String(cfg.ItemsAttribute || '').trim() && menu.text !== null) { return menu.text; }
+            return cfg.Items || '';
+        }
+
+        /** Why the typed buttons are showing in place of the AF menu, or ''. */
+        function menuNote(cfg) {
+            if (!fromAf(cfg)) { return ''; }
+            if (!String(cfg.ItemsAttribute || '').trim()) { return 'Menu from AF: no attribute set in Format; showing the typed buttons.'; }
+            if (menu.error) { return 'Menu from AF: ' + menu.error + '; showing the typed buttons.'; }
+            return '';
+        }
+
+        /** Read the menu attribute when its path changes, and once a minute. */
+        function askMenu(cfg) {
+            if (!fromAf(cfg)) {
+                if (menu.timer !== null) { clearInterval(menu.timer); menu.timer = null; }
+                return;
+            }
+            if (menu.timer === null) { menu.timer = setInterval(function () { askMenu(ctx.config || {}); }, MENU_MS); }
+            var path = String(cfg.ItemsAttribute || '').trim();
+            var now = (new Date()).getTime();
+            if (!path) { menu.path = ''; menu.text = null; menu.error = ''; return; }
+            if (path === menu.path && now - menu.at < MENU_MS - 1000) { return; }
+            if (path !== menu.path) { menu.text = null; menu.error = ''; }
+            menu.path = path;
+            menu.at = now;
+            if (PVX.api.discovering()) {
+                menu.at = 0;
+                PVX.api.discover().then(function () { if (!ctx.destroyed) { askMenu(ctx.config || {}); } });
+                return;
+            }
+            if (!PVX.api.isConfigured()) {
+                menu.error = PVX.api.unsetHint();
+                ctx.render();
+                return;
+            }
+            var gen = ++menu.gen;
+            PVX.af.text(path).then(function (text) {
+                if (gen !== menu.gen || ctx.destroyed) { return; }
+                menu.error = String(text).replace(/^\s+|\s+$/g, '') ? '' : 'the attribute is empty';
+                menu.text = menu.error ? null : text;
+                ctx.render();
+            }, function (err) {
+                if (gen !== menu.gen || ctx.destroyed) { return; }
+                menu.error = (err && err.pvxError && err.pvxError.message) || 'the attribute could not be read';
+                menu.text = null;
+                ctx.render();
+            });
         }
 
         // Hierarchy mode puts text between the buttons: the breadcrumb's
         // chevrons, a divider between groups, and notes. They are spans, so
         // they never take a click or a place in `buttons`.
         var TEXT_KINDS = { sep: 'pvx-nav-sep', div: 'pvx-nav-div', note: 'pvx-nav-note' };
+
+        function iconEl(name) { return PVX.icons.el(name, 'pvx-nav-icon'); }
 
         function build(host, items, cfg) {
             clearConfirm();
@@ -827,6 +946,10 @@
 
                 // textContent, not innerHTML: labels are operator-authored text
                 // and must never be interpreted as markup.
+                if (item.icon) {
+                    b.appendChild(iconEl(item.icon));
+                    if (!item.label) { b.setAttribute('aria-label', item.tip || item.icon); }
+                }
                 var labelEl = document.createElement('span');
                 labelEl.className = 'pvx-nav-label';
                 labelEl.textContent = item.label;
@@ -932,7 +1055,10 @@
 
                 var hierarchy = cfg.Mode === 'hierarchy';
                 if (hierarchy) { ensureRelatives(cfg); }
-                var items = hierarchy ? hierarchyItems(cfg) : parseItems(cfg.Items, cfg.Mode || 'display');
+                if (!hierarchy) { askMenu(cfg); }
+                var items = hierarchy ? hierarchyItems(cfg) : parseItems(itemsText(cfg), cfg.Mode || 'display');
+                var mnote = hierarchy ? '' : menuNote(cfg);
+                if (mnote) { items = items.concat([{ kind: 'note', label: '\u26a0 AF menu', tip: mnote }]); }
                 var sig = hierarchy ? 'hierarchy\u0000' + itemsKey(items) : signature(cfg);
                 if (sig !== builtSignature) {
                     build(host, items, cfg);

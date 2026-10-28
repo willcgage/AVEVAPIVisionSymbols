@@ -351,3 +351,29 @@
 
     .pvx-alarm .pvx-alarm-clickable:hover { filter: none; }
 }
+
+/* --- footer and history ------------------------------------------------------ */
+
+.pvx-alarm .pvx-alarm-footer {
+    display: block;
+    color: var(--pvx-muted);
+}
+
+.pvx-alarm .pvx-alarm-when {
+    flex: 0 0 auto;
+    color: var(--pvx-muted);
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.pvx-alarm .pvx-alarm-active {
+    color: var(--pvx-text);
+    font-weight: 600;
+}
+
+.pvx-alarm .pvx-alarm-status {
+    padding: 10px 12px;
+    color: var(--pvx-muted);
+    font-size: 12px;
+    line-height: 1.4;
+}

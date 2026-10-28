@@ -1,0 +1,31 @@
+<div class="pvx pvx-mg"
+     ng-style="{'background': config.Transparent ? 'transparent' : (config.BackgroundColor || ''),
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- The scale, bands and pointers are drawn as SVG by symbol.js;
+                 keep this div empty. -->
+            <div class="pvx-mg-body"></div>
+        </div>
+
+        <div class="pvx-mg-readout" ng-if="pvx.readout.length">
+            <div class="pvx-mg-row" ng-repeat="r in pvx.readout track by $index" title="{{r.label}}: {{r.value}}{{r.flag ? ' (' + r.flag + ')' : ''}}">
+                <span class="pvx-mg-swatch" ng-style="{'background': r.color}"></span>
+                <span class="pvx-mg-label pvx-truncate">{{r.label}}</span>
+                <span class="pvx-mg-value pvx-num" ng-class="{'pvx-mg-flagged': r.flag}">{{r.value}}</span>
+            </div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.note">
+            <span class="pvx-truncate pvx-mg-note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

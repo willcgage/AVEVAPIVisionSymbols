@@ -119,6 +119,18 @@
 
 .pvx-mentry .pvx-mentry-inputwrap { display: block; min-width: 0; }
 
+/* Why a chosen control was not built, or what a value button writes. */
+.pvx-mentry .pvx-mentry-note {
+    font-size: 10.5px;
+    color: var(--pvx-warn);
+}
+.pvx-mentry .pvx-mentry-press {
+    font-size: 12px;
+    color: var(--pvx-muted);
+    padding: 2px 0;
+}
+.pvx-mentry .pvx-ctl .pvx-mentry-input { width: auto; }
+
 .pvx-mentry .pvx-mentry-input {
     width: 100%;
     font-family: inherit;

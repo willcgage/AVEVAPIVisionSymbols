@@ -51,10 +51,24 @@
  *     cached for the life of the symbol. Failed sub-requests are counted and
  *     reported, never silently dropped.
  *
+ * AS AN ANALYTICS ENGINE
+ *   Events become FACTS (factsFor): clipped to the window, cut at period
+ *   boundaries when a day, week or month is in use, each carrying its key at
+ *   every grouping level and in the split. Everything after that is a filter
+ *   and an aggregate over the same list:
+ *   - the metric can be a sum, mean, median, min, max or std dev of any
+ *     numeric event attribute, not only a duration or a count;
+ *   - a second dimension (SplitBy) stacks the bars and fills a pivot;
+ *   - a click drills into a group (DrillBy, DrillBy2) without a new query;
+ *   - targets per group judge each bar, row and card.
+ *   Totals are always recomputed from the events they cover — a true overall
+ *   mean, a union of time — never added up from rows. Every option is off by
+ *   default, which is the chart as it was.
+ *
  * RENDERING
  *   One imperative SVG into `.pvx-ea-body`, sharing the visual language of
- *   pvxPareto (ranked bars, cumulative line, 80% marker). Only the header and
- *   footer are Angular-bound.
+ *   pvxPareto (ranked bars, cumulative line, 80% marker). Only the header,
+ *   the drill-down trail and the footer are Angular-bound.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -102,6 +116,174 @@
         days: { ms: 86400000, label: 'd' }
     };
 
+    /* Summaries of a numeric EVENT ATTRIBUTE (lost production, scrap, cost).
+     * Only a sum adds up to a whole, so only a sum may be stacked, put in a
+     * donut or given a cumulative line. */
+    var ATTR_METRICS = {
+        attrSum: { label: 'Sum of', additive: true },
+        attrMean: { label: 'Mean of', additive: false },
+        attrMin: { label: 'Lowest', additive: false },
+        attrMax: { label: 'Highest', additive: false },
+        attrMedian: { label: 'Median of', additive: false },
+        attrStdDev: { label: 'Std dev of', additive: false }
+    };
+
+    var WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    /* A period cap: a week of days is 7 groups, a year of days is 366, and
+     * past that a bar per period is a barcode, not a chart. */
+    var MAX_PERIODS = 400;
+
+    function isPeriod(by) { return by === 'day' || by === 'week' || by === 'month' || by === 'weekday'; }
+
+    /**
+     * Start of the period holding `ms`, in the browser's local time — the time
+     * zone PI Vision draws its own time bar in. Built with the Date setters,
+     * never by adding 86400000: a day that crosses a DST change is 23 or 25
+     * hours long, and arithmetic would put every later bucket an hour off
+     * midnight.
+     */
+    function periodStart(ms, by, weekStart) {
+        var d = new Date(ms);
+        d.setHours(0, 0, 0, 0);
+        if (by === 'week') {
+            var ws = weekStart === 'sunday' ? 0 : 1;
+            d.setDate(d.getDate() - ((d.getDay() - ws + 7) % 7));
+        } else if (by === 'month') {
+            d.setDate(1);
+        }
+        return d.getTime();
+    }
+
+    /** Start of the period after the one starting at `start`. */
+    function periodNext(start, by) {
+        var d = new Date(start);
+        if (by === 'month') { d.setMonth(d.getMonth() + 1); }
+        else if (by === 'week') { d.setDate(d.getDate() + 7); }
+        else { d.setDate(d.getDate() + 1); }
+        return d.getTime();
+    }
+
+    /** The group key of an instant: a period start, or the day of the week. */
+    function periodKey(ms, by, weekStart) {
+        if (by === 'weekday') { return String(new Date(ms).getDay()); }
+        return String(periodStart(ms, by, weekStart));
+    }
+
+    function periodLabel(key, by) {
+        if (by === 'weekday') { return WEEKDAYS[parseInt(key, 10)] || key; }
+        var d = new Date(parseInt(key, 10));
+        var mon = MONTHS[d.getMonth()];
+        if (by === 'month') { return mon + ' ' + d.getFullYear(); }
+        if (by === 'week') { return 'Week of ' + d.getDate() + ' ' + mon; }
+        return WEEKDAYS[d.getDay()].slice(0, 3) + ' ' + d.getDate() + ' ' + mon;
+    }
+
+    /**
+     * Every period key in [from, to), in time order — including the empty
+     * ones. A day with no downtime is the best news on the chart, and leaving
+     * it out would close the gap and hide it. Days of the week come Monday
+     * (or Sunday) first, all seven. `capped` is set past MAX_PERIODS.
+     */
+    function periodRange(from, to, by, weekStart) {
+        var keys = [];
+        if (by === 'weekday') {
+            var first = weekStart === 'sunday' ? 0 : 1;
+            for (var w = 0; w < 7; w++) { keys.push(String((first + w) % 7)); }
+            return { keys: keys, capped: false };
+        }
+        var t = periodStart(from, by, weekStart);
+        while (t < to) {
+            if (keys.length >= MAX_PERIODS) { return { keys: keys, capped: true }; }
+            keys.push(String(t));
+            t = periodNext(t, by);
+        }
+        return { keys: keys, capped: false };
+    }
+
+    /**
+     * Cut [from, to) at every boundary of the periods in use, so an outage
+     * from 22:00 to 03:00 books two hours to one day and three to the next.
+     * Summing it whole into the day it started is the error a hand-built
+     * spreadsheet makes. Weeks do not nest in months, so with both in use
+     * the interval is cut at the boundaries of each.
+     */
+    function sliceAt(from, to, kinds, weekStart) {
+        if (!kinds.length) { return [{ from: from, to: to }]; }
+        var out = [];
+        var t = from;
+        for (var guard = 0; t < to && guard < 5000; guard++) {
+            var next = to;
+            for (var k = 0; k < kinds.length; k++) {
+                var by = kinds[k] === 'weekday' ? 'day' : kinds[k];
+                var b = periodNext(periodStart(t, by, weekStart), by);
+                if (b < next) { next = b; }
+            }
+            out.push({ from: t, to: next });
+            t = next;
+        }
+        if (t < to) { out.push({ from: t, to: to }); }
+        return out;
+    }
+
+    /** n, sum, min, max, mean, median and SAMPLE standard deviation. */
+    function summarize(values) {
+        var n = values.length;
+        var s = { n: n, sum: 0, min: null, max: null, mean: null, median: null, std: null };
+        if (!n) { return s; }
+        var sorted = values.slice().sort(function (a, b) { return a - b; });
+        for (var i = 0; i < n; i++) { s.sum += sorted[i]; }
+        s.min = sorted[0];
+        s.max = sorted[n - 1];
+        s.mean = s.sum / n;
+        s.median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
+        var ss = 0;
+        for (i = 0; i < n; i++) { ss += (sorted[i] - s.mean) * (sorted[i] - s.mean); }
+        // n - 1: these events are a sample of the process, not all of it.
+        s.std = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+        return s;
+    }
+
+    /**
+     * Targets, one per line: `Mechanical | 4h`. A `*` line is the target for
+     * every group without its own. Labels match without regard to case.
+     * @returns {{map:Object, def:(String|null), bad:Array, count:Number}}
+     */
+    function parseTargets(text) {
+        var out = { map: {}, def: null, bad: [], count: 0 };
+        var lines = String(text === null || text === undefined ? '' : text).split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/^\s+|\s+$/g, '');
+            if (!line) { continue; }
+            var bar = line.lastIndexOf('|');
+            var label = bar === -1 ? '' : line.slice(0, bar).replace(/\s+$/, '');
+            var value = bar === -1 ? '' : line.slice(bar + 1).replace(/^\s+/, '');
+            if (!label || !value) { out.bad.push(line); continue; }
+            if (label === '*') { out.def = value; } else { out.map[label.toLowerCase()] = value; }
+            out.count += 1;
+        }
+        return out;
+    }
+
+    var TARGET_UNITS = { ms: 1, s: 1000, m: 60000, min: 60000, h: 3600000, d: 86400000, w: 604800000 };
+
+    /**
+     * A target as a number in the metric's own terms: milliseconds for a
+     * duration (`4h`, `90m`, or a bare number in `bareUnitMs`), the plain
+     * number otherwise. null when it cannot be read.
+     */
+    function targetValue(raw, isDuration, bareUnitMs) {
+        var s = String(raw === null || raw === undefined ? '' : raw).replace(/\s+/g, '').toLowerCase();
+        if (!s) { return null; }
+        if (!isDuration) {
+            return /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/.test(s) ? parseFloat(s) : null;
+        }
+        var m = /^(\d+\.?\d*|\.\d+)(ms|min|s|m|h|d|w)?$/.exec(s);
+        if (!m) { return null; }
+        return parseFloat(m[1]) * (m[2] ? TARGET_UNITS[m[2]] : bareUnitMs);
+    }
+
     var definition = {
         typeName: 'pvxEventAnalytics',
         displayName: 'PVX Event Analytics',
@@ -144,13 +326,28 @@
                 EndTime: '*',
 
                 /* -- grouping ------------------------------------------------ */
-                GroupBy: 'template',         // template | element | attribute | name | none
+                GroupBy: 'template',         // template | element | attribute | name | none | day | week | month | weekday
                 GroupAttribute: '',          // e.g. Reason Code
                 NamePattern: '',             // regex; capture group 1 is the group
+                WeekStart: 'monday',         // monday | sunday — for week and weekday groups
+
+                /* -- a second dimension, and the levels a click drills into --
+                 * Each is 'none' by default, which is the chart as it was. */
+                SplitBy: 'none',             // none | the GroupBy choices
+                SplitAttribute: '',
+                SplitMode: 'stacked',        // stacked | percent
+                SplitTopN: 6,
+                DrillBy: 'none',             // the level a click on a group opens
+                DrillAttribute: '',
+                DrillBy2: 'none',            // and the one below that
+                DrillAttribute2: '',
 
                 /* -- what is ranked ------------------------------------------ */
-                Metric: 'totalDuration',     // totalDuration | count | meanDuration | maxDuration
-                Chart: 'pareto',             // pareto | bars | donut | table
+                Metric: 'totalDuration',     // totalDuration | count | meanDuration | maxDuration | attrSum | attrMean | attrMin | attrMax | attrMedian | attrStdDev
+                MetricAttribute: '',         // the event attribute an attr* metric summarises
+                MetricUnits: '',             // blank: the attribute's own units
+                MetricDecimals: '',          // blank: chosen from the size of the number
+                Chart: 'pareto',             // pareto | bars | donut | table | pivot | cards
                 ShowCumulative: true,
                 EightyLine: true,
                 TopN: 10,
@@ -159,13 +356,20 @@
                 /* -- presentation -------------------------------------------- */
                 ShowValues: true,
                 DurationUnit: 'auto',        // auto | minutes | hours | days
-                ColorMode: 'single',         // single | palette | threshold
+                ColorMode: 'single',         // single | palette | threshold | target
                 BarColor: '#3b82c4',
                 ShowSummary: true,
                 ShowOpenEventNote: true,
+                TableTotals: false,          // a totals row under the table
+                PivotShading: true,          // pivot cells shaded by size
+                CardTotal: true,             // cards: a first card for everything
+
+                /* -- targets ------------------------------------------------- */
+                Targets: '',                 // lines of `Group | target`; `* | target` for the rest
+                TargetDirection: 'lower',    // lower | higher — which side of the target is good
 
                 /* -- interaction ---------------------------------------------- */
-                ClickAction: 'none',         // none | navigate
+                ClickAction: 'none',         // none | navigate | drill
                 NavigateTarget: ''
             });
         }
@@ -181,7 +385,15 @@
             summary: '',
             note: '',
             background: '',
-            clickable: false
+            clickable: false,
+            // Drill-down trail: "All > Mechanical > K-301". A click on one
+            // goes back to that level.
+            crumbs: [],
+            crumb: function (i) {
+                if (!(i >= 0) || i >= drill.length) { return; }
+                drill.length = i;
+                ctx.render();
+            }
         };
 
         /* ---------------------------------------------------------------- *
@@ -219,6 +431,10 @@
         var hits = [];            // clickable marks, indexed by data-pvx-i
         var model = null;
         var chromeOff = false;    // true below the minimal size: bars only
+        // The groups clicked into, outermost first: [{key, label}]. Cleared
+        // whenever the levels themselves change in the pane.
+        var drill = [];
+        var drillSig = '';
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-ea-body',
@@ -287,19 +503,66 @@
             return str.slice(0, max - 1) + '\u2026';
         }
 
-        function metricDef(cfg) {
-            var k = cfg && cfg.Metric;
-            return Object.prototype.hasOwnProperty.call(METRICS, k) ? METRICS[k] : METRICS.totalDuration;
-        }
-
         function metricKey(cfg) {
             var k = cfg && cfg.Metric;
-            return Object.prototype.hasOwnProperty.call(METRICS, k) ? k : 'totalDuration';
+            return (Object.prototype.hasOwnProperty.call(METRICS, k) ||
+                    Object.prototype.hasOwnProperty.call(ATTR_METRICS, k)) ? k : 'totalDuration';
+        }
+
+        /** The metric as the model uses it: label, kind, and the attribute it reads. */
+        function metricDef(cfg) {
+            var k = metricKey(cfg);
+            if (METRICS[k]) {
+                return { key: k, label: METRICS[k].label, duration: METRICS[k].duration,
+                         additive: METRICS[k].additive, attr: '' };
+            }
+            var a = trim(cfg.MetricAttribute);
+            return { key: k, label: ATTR_METRICS[k].label + ' ' + (a || 'an attribute'),
+                     duration: false, additive: ATTR_METRICS[k].additive, attr: a };
         }
 
         function chartMode(cfg) {
             var c = cfg && cfg.Chart;
-            return (c === 'bars' || c === 'donut' || c === 'table') ? c : 'pareto';
+            return (c === 'bars' || c === 'donut' || c === 'table' || c === 'pivot' || c === 'cards') ? c : 'pareto';
+        }
+
+        /* ---- dimensions --------------------------------------------------- *
+         * One shape for everything an event can be sorted by: the grouping,
+         * the split, and each level a click drills into. */
+        var DIMS = { template: 1, element: 1, attribute: 1, name: 1, none: 1, day: 1, week: 1, month: 1, weekday: 1 };
+
+        function dim(by, attr) {
+            return { by: DIMS[by] === 1 ? by : 'template', attr: trim(attr) };
+        }
+
+        /** The grouping levels (the first, then any drill levels) and the split. */
+        function dimsOf(cfg) {
+            var levels = [dim(cfg.GroupBy, cfg.GroupAttribute)];
+            if (levels[0].by !== 'none') {
+                var more = [[cfg.DrillBy, cfg.DrillAttribute], [cfg.DrillBy2, cfg.DrillAttribute2]];
+                for (var i = 0; i < more.length; i++) {
+                    if (!more[i][0] || more[i][0] === 'none' || DIMS[more[i][0]] !== 1) { break; }
+                    levels.push(dim(more[i][0], more[i][1]));
+                }
+            }
+            var split = (cfg.SplitBy && cfg.SplitBy !== 'none' && DIMS[cfg.SplitBy] === 1)
+                ? dim(cfg.SplitBy, cfg.SplitAttribute) : null;
+            return { levels: levels, split: split };
+        }
+
+        function allDims(d) { return d.split ? d.levels.concat([d.split]) : d.levels; }
+
+        /** Every event attribute something on this chart reads, once each. */
+        function attrList(cfg) {
+            var out = [], seen = {};
+            var add = function (a) {
+                a = trim(a);
+                if (a && !seen[a.toLowerCase()]) { seen[a.toLowerCase()] = true; out.push(a); }
+            };
+            var ds = allDims(dimsOf(cfg));
+            for (var i = 0; i < ds.length; i++) { if (ds[i].by === 'attribute') { add(ds[i].attr); } }
+            add(metricDef(cfg).attr);
+            return out;
         }
 
         /* ================================================================ *
@@ -440,11 +703,10 @@
             return p;
         }
 
-        function needsElement(cfg) { return cfg.GroupBy === 'element'; }
-
-        /** The attribute to read per event, or '' when the config does not need one. */
-        function groupAttribute(cfg) {
-            return cfg.GroupBy === 'attribute' ? trim(cfg.GroupAttribute) : '';
+        function needsElement(cfg) {
+            var ds = allDims(dimsOf(cfg));
+            for (var i = 0; i < ds.length; i++) { if (ds[i].by === 'element') { return true; } }
+            return false;
         }
 
         /**
@@ -477,7 +739,7 @@
                 // per element, then cached.
                 fields.push('Items.Links.PrimaryReferencedElement');
             }
-            if (groupAttribute(cfg)) {
+            if (attrList(cfg).length) {
                 // Only when an attribute value is needed per event — Self is the
                 // WebId the streamset lookup is addressed to.
                 fields.push('Items.Links.Self');
@@ -529,10 +791,11 @@
                 start: startD.getTime(),
                 end: open ? null : endD.getTime(),
                 open: open,
-                webId: groupAttribute(cfg) ? webIdFromLink(links.Self) : '',
+                webId: attrList(cfg).length ? webIdFromLink(links.Self) : '',
                 elWebId: needsElement(cfg) ? webIdFromLink(links.PrimaryReferencedElement) : '',
                 elName: '',
-                attrValue: null
+                // Lower-cased attribute name -> {v, u}; filled by enrich().
+                attrs: {}
             };
         }
 
@@ -548,7 +811,7 @@
          * individually. PVX.api.batch chunks them itself.
          */
         function enrich(events, cfg) {
-            var attr = groupAttribute(cfg);
+            var attrs = attrList(cfg);
             var wantEl = needsElement(cfg);
             var reqs = {};
             var ids = [];             // parallel arrays keep batch ids opaque
@@ -571,7 +834,11 @@
                 }
             }
 
-            if (attr) {
+            // One sub-request per event per attribute. Asking for every
+            // attribute of the event in one go (no nameFilter) would be fewer
+            // requests, but an Event Frame template commonly carries dozens of
+            // attributes, and their values are what dominates the payload.
+            for (var ai = 0; ai < attrs.length; ai++) {
                 var seenEv = {};
                 for (i = 0; i < events.length; i++) {
                     var wid = events[i].webId;
@@ -587,10 +854,10 @@
                         // request returns the named attribute's value without
                         // first resolving the attribute's own WebId.
                         Resource: apiUrl('streamsets/' + encodeURIComponent(wid) +
-                            '/value?nameFilter=' + encodeURIComponent(attr) +
+                            '/value?nameFilter=' + encodeURIComponent(attrs[ai]) +
                             '&selectedFields=Items.Name;Items.Value')
                     };
-                    ids.push(key); kinds.push('attribute'); targets.push(wid);
+                    ids.push(key); kinds.push('attribute'); targets.push({ wid: wid, attr: attrs[ai].toLowerCase() });
                 }
             }
 
@@ -608,12 +875,14 @@
                     if (kinds[k] === 'element') {
                         elemNames[targets[k]] = (body && body.Name) || '';
                     } else {
-                        byWebId[targets[k]] = firstStreamValue(body);
+                        byWebId[targets[k].wid + '\n' + targets[k].attr] = firstStreamValue(body);
                     }
                 }
                 for (var e = 0; e < events.length; e++) {
-                    if (events[e].webId && byWebId[events[e].webId] !== undefined) {
-                        events[e].attrValue = byWebId[events[e].webId];
+                    if (!events[e].webId) { continue; }
+                    for (var a2 = 0; a2 < attrs.length; a2++) {
+                        var got = byWebId[events[e].webId + '\n' + attrs[a2].toLowerCase()];
+                        if (got !== undefined) { events[e].attrs[attrs[a2].toLowerCase()] = got; }
                     }
                 }
                 applyElementNames(events);
@@ -640,17 +909,20 @@
             }
         }
 
-        /** First value out of a streamset response, whatever shape it arrived in. */
+        /** First value out of a streamset response, whatever shape it arrived
+         *  in, with its units: {v, u}. */
         function firstStreamValue(body) {
             var items = body && body.Items;
-            if (!items || !items.length) { return null; }
+            if (!items || !items.length) { return { v: null, u: '' }; }
             var v = items[0].Value;
+            var u = '';
             if (v !== null && typeof v === 'object') {
                 // A TimedValue wrapper; PI digital states nest one deeper.
+                u = trim(v.UnitsAbbreviation);
                 v = v.Value;
                 if (v !== null && typeof v === 'object') { v = v.Name !== undefined ? v.Name : null; }
             }
-            return v === undefined ? null : v;
+            return { v: v === undefined ? null : v, u: u };
         }
 
         /* ================================================================ *
@@ -865,14 +1137,19 @@
             catch (e) { return { re: null, bad: true }; }
         }
 
-        /** Which group does this event belong to? '' means "(unassigned)". */
-        function groupKeyFor(ev, cfg, rx) {
-            var mode = cfg.GroupBy;
+        /**
+         * Which group does this event belong to — or, when periods are in use,
+         * this slice of it, which starts at `at`? '' means "(unassigned)".
+         */
+        function keyFor(ev, d, rx, at, weekStart) {
+            var mode = d.by;
             if (mode === 'none') { return 'All events'; }
+            if (isPeriod(mode)) { return periodKey(at, mode, weekStart); }
             if (mode === 'template') { return trim(ev.template); }
             if (mode === 'element') { return trim(ev.elName); }
             if (mode === 'attribute') {
-                var v = ev.attrValue;
+                var got = ev.attrs[d.attr.toLowerCase()];
+                var v = got ? got.v : null;
                 return (v === null || v === undefined) ? '' : trim(String(v));
             }
             // 'name' — the reason is very often buried in the event name and a
@@ -886,49 +1163,46 @@
             return trim(ev.name);
         }
 
-        function metricOf(g, key) {
-            if (key === 'count') { return g.count; }
-            if (key === 'meanDuration') { return g.count ? g.rawSum / g.count : 0; }
-            if (key === 'maxDuration') { return g.max; }
-            return g.merged;
+        function labelFor(key, d) {
+            if (!key) { return UNASSIGNED; }
+            return isPeriod(d.by) ? periodLabel(key, d.by) : key;
         }
 
-        function buildModel(cfg) {
-            var win = state.win;
-            var mk = metricKey(cfg);
-            var md = METRICS[mk];
-            var m = {
-                items: [], cum: null, groupCount: 0,
-                count: 0, openCount: 0, outOfWindow: 0,
-                rawSum: 0, mergedSum: 0, covered: 0,
-                windowSpan: 0, from: 0, to: 0,
-                unassigned: 0, allUnassigned: false,
-                total: 0, notes: [], metric: mk, metricLabel: md.label,
-                additive: md.additive, isDuration: md.duration,
-                unit: DURATION_UNITS.hours, badPattern: false,
-                otherCount: 0
-            };
-            if (!win) { return m; }
+        /** An attribute value as a number, or null. A digital state, a
+         *  "Bad Input", or text is not a quantity and is never read as 0. */
+        function numericOf(got) {
+            var v = got ? got.v : null;
+            if (typeof v === 'number') { return isFinite(v) ? v : null; }
+            if (typeof v === 'string' && /^\s*[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?\s*$/i.test(v)) { return parseFloat(v); }
+            return null;
+        }
 
-            m.from = win.from;
-            m.to = win.to;
-            m.windowSpan = Math.max(1, win.to - win.from);
-
+        /**
+         * Events -> FACTS: one per event, clipped to the window, or one per
+         * slice of it when a period is in use (see sliceAt). A fact carries
+         * its key at every level and in the split, so a drill-down or a pivot
+         * is a filter over the same list, never a second query.
+         *
+         * Counts, means and attribute values belong to the event and go with
+         * its FIRST slice — the period it started in. Time is split. Both are
+         * the conventional reading, and the footer says so when it mattered.
+         */
+        function factsFor(cfg, d, win, rx) {
             // An open event runs to the window end or to NOW, whichever is
             // earlier — a window that extends into the future must not book
             // downtime that has not happened yet.
             var openEnd = Math.min(win.to, win.now);
-
-            var rx = nameRegex(cfg);
-            m.badPattern = rx.bad;
-
-            var byKey = {};
-            var all = [];             // every clipped interval, for window coverage
-            var i, ev;
+            var ds = allDims(d);
+            var kinds = [];
+            for (var i = 0; i < ds.length; i++) {
+                if (isPeriod(ds[i].by) && kinds.indexOf(ds[i].by) === -1) { kinds.push(ds[i].by); }
+            }
+            var ws = cfg.WeekStart;
+            var mAttr = metricDef(cfg).attr.toLowerCase();
+            var out = { facts: [], outOfWindow: 0, sliced: 0, units: '' };
 
             for (i = 0; i < state.events.length; i++) {
-                ev = state.events[i];
-
+                var ev = state.events[i];
                 /* CLIPPING — requirement 1.
                  * Only the part of the event INSIDE the window counts. An event
                  * that started three days before the window and is still running
@@ -940,87 +1214,240 @@
                     // Zero or negative overlap. 'Overlapped' should not return
                     // these, but a clock skew or a zero-length event can, and a
                     // negative duration would corrupt every total downstream.
-                    m.outOfWindow += 1;
+                    out.outOfWindow += 1;
                     continue;
                 }
-
-                var dur = to - from;
-                var key = groupKeyFor(ev, cfg, rx);
-                var label = key || UNASSIGNED;   // requirement 4: never dropped
-                if (!key) { m.unassigned += 1; }
-
-                if (!byKey[label]) {
-                    byKey[label] = {
-                        label: label, count: 0, rawSum: 0, max: 0, merged: 0,
-                        intervals: [], first: from, last: to, isOther: false,
-                        open: 0, unassigned: !key
-                    };
-                    m.items.push(byKey[label]);
+                var mv = null;
+                if (mAttr) {
+                    mv = numericOf(ev.attrs[mAttr]);
+                    if (mv !== null && !out.units && ev.attrs[mAttr].u) { out.units = ev.attrs[mAttr].u; }
                 }
-                var g = byKey[label];
+                var parts = sliceAt(from, to, kinds, ws);
+                if (parts.length > 1) { out.sliced += 1; }
+                for (var j = 0; j < parts.length; j++) {
+                    var f = {
+                        ev: ev, from: parts[j].from, to: parts[j].to, first: j === 0,
+                        evDur: to - from, mv: mv, keys: [], skey: ''
+                    };
+                    for (var L = 0; L < d.levels.length; L++) {
+                        f.keys.push(keyFor(ev, d.levels[L], rx, parts[j].from, ws));
+                    }
+                    if (d.split) { f.skey = keyFor(ev, d.split, rx, parts[j].from, ws); }
+                    out.facts.push(f);
+                }
+            }
+            return out;
+        }
+
+        /** Everything any metric needs, over a set of facts. */
+        function aggregate(facts) {
+            var g = {
+                count: 0, evSum: 0, rawSum: 0, max: 0, merged: 0, open: 0,
+                first: Infinity, last: -Infinity, missing: 0, stats: null, facts: facts
+            };
+            var intervals = [], vals = [];
+            for (var i = 0; i < facts.length; i++) {
+                var f = facts[i];
+                intervals.push({ from: f.from, to: f.to });
+                g.rawSum += f.to - f.from;
+                if (f.from < g.first) { g.first = f.from; }
+                if (f.to > g.last) { g.last = f.to; }
+                if (!f.first) { continue; }
                 g.count += 1;
-                g.rawSum += dur;
-                if (dur > g.max) { g.max = dur; }
-                g.intervals.push({ from: from, to: to });
-                if (from < g.first) { g.first = from; }
-                if (to > g.last) { g.last = to; }
-                if (ev.open) { g.open += 1; m.openCount += 1; }
+                g.evSum += f.evDur;
+                if (f.evDur > g.max) { g.max = f.evDur; }
+                if (f.ev.open) { g.open += 1; }
+                if (f.mv === null) { g.missing += 1; } else { vals.push(f.mv); }
+            }
+            /* MERGE — requirement 3. Two operators logging the same outage is
+             * one outage. */
+            g.merged = mergedTotal(intervals);
+            g.stats = summarize(vals);
+            return g;
+        }
 
-                all.push({ from: from, to: to });
-                m.count += 1;
-                m.rawSum += dur;
+        /** The chosen metric over an aggregate; null when there is nothing to
+         *  summarise (no event in it carries a number). */
+        function metricOf(g, key) {
+            if (key === 'count') { return g.count; }
+            if (key === 'meanDuration') { return g.count ? g.evSum / g.count : 0; }
+            if (key === 'maxDuration') { return g.max; }
+            if (key === 'totalDuration') { return g.merged; }
+            var st = g.stats;
+            if (!st || !st.n) { return null; }
+            if (key === 'attrSum') { return st.sum; }
+            if (key === 'attrMean') { return st.mean; }
+            if (key === 'attrMin') { return st.min; }
+            if (key === 'attrMax') { return st.max; }
+            if (key === 'attrMedian') { return st.median; }
+            return st.std;
+        }
+
+        /** A group's value as a number to draw: a group with nothing to
+         *  summarise draws as nothing, and its label says so. */
+        function vOf(it) { return it.value === null || it.value === undefined ? 0 : it.value; }
+
+        /**
+         * Pool several groups into one ("Other"). Every metric is recomputed
+         * from the pooled events — the mean of the rest is the mean of their
+         * events, not the mean of their means — except the total duration,
+         * which is the SUM of the per-group unions: the cumulative line has to
+         * add up to the same total the individual bars do, and cross-group
+         * overlap is a property of the window (m.covered), not of any group.
+         */
+        function pooled(groups, mk, label) {
+            var facts = [];
+            var merged = 0;
+            for (var i = 0; i < groups.length; i++) {
+                facts = facts.concat(groups[i].facts);
+                merged += groups[i].merged;
+            }
+            var g = aggregate(facts);
+            g.merged = merged;
+            g.label = label;
+            g.key = null;
+            g.isOther = true;
+            g.unassigned = false;
+            g.value = metricOf(g, mk);
+            return g;
+        }
+
+        function buildModel(cfg) {
+            var win = state.win;
+            var md = metricDef(cfg);
+            var mk = md.key;
+            var d = dimsOf(cfg);
+            // A drill-down deeper than the levels now configured (one was
+            // removed in the pane) comes back up to the deepest that exists.
+            if (drill.length > d.levels.length - 1) { drill.length = d.levels.length - 1; }
+            var level = drill.length;
+            var cur = d.levels[level];
+            var m = {
+                items: [], cum: null, groupCount: 0,
+                count: 0, openCount: 0, outOfWindow: 0,
+                rawSum: 0, mergedSum: 0, covered: 0,
+                windowSpan: 0, from: 0, to: 0,
+                unassigned: 0, allUnassigned: false,
+                total: 0, notes: [], metric: mk, metricLabel: md.label,
+                additive: md.additive, isDuration: md.duration,
+                isAttr: !!ATTR_METRICS[mk], attr: md.attr, units: '',
+                unit: DURATION_UNITS.hours, badPattern: false,
+                otherCount: 0, missingValue: 0,
+                level: level, levels: d.levels.length, dim: cur, split: d.split,
+                period: isPeriod(cur.by), series: null, stack: null, pivot: null,
+                overall: null, overallAgg: null, targets: null, partsOver: false
+            };
+            if (!win) { return m; }
+
+            m.from = win.from;
+            m.to = win.to;
+            m.windowSpan = Math.max(1, win.to - win.from);
+
+            var rx = nameRegex(cfg);
+            var usesName = false;
+            var ds = allDims(d);
+            for (var i = 0; i < ds.length; i++) { if (ds[i].by === 'name') { usesName = true; } }
+            m.badPattern = rx.bad && usesName;
+
+            var F = factsFor(cfg, d, win, rx);
+            m.outOfWindow = F.outOfWindow;
+            m.units = trim(cfg.MetricUnits) || F.units;
+
+            // The drill-down is a filter: the facts under every group clicked so far.
+            var facts = [];
+            for (i = 0; i < F.facts.length; i++) {
+                var keep = true;
+                for (var j = 0; j < level; j++) {
+                    if (F.facts[i].keys[j] !== drill[j].key) { keep = false; break; }
+                }
+                if (keep) { facts.push(F.facts[i]); }
             }
 
-            // MERGE — requirement 3. Per group, because the ranking is per
-            // group; and once globally, because "how much of the window is
-            // accounted for" is a question about the window, not about any one
-            // reason code.
+            var all = aggregate(facts);
+            m.overallAgg = all;
+            m.count = all.count;
+            m.openCount = all.open;
+            m.rawSum = all.rawSum;
+            m.covered = all.merged;
+            m.missingValue = m.isAttr ? all.missing : 0;
+            var sliced = 0;
+            for (i = 0; i < facts.length; i++) { if (facts[i].first && facts[i].evDur > facts[i].to - facts[i].from) { sliced += 1; } }
+
+            var byKey = {}, order = [];
+            for (i = 0; i < facts.length; i++) {
+                var k = facts[i].keys[level];
+                if (!Object.prototype.hasOwnProperty.call(byKey, k)) { byKey[k] = []; order.push(k); }
+                byKey[k].push(facts[i]);
+            }
+
+            var makeItem = function (key, list) {
+                var g = aggregate(list);
+                g.key = key;
+                g.label = labelFor(key, cur);
+                g.isOther = false;
+                // requirement 4: never dropped, and it reads as a gap
+                g.unassigned = !key;
+                g.value = metricOf(g, mk);
+                return g;
+            };
+
+            if (m.period) {
+                // Time order, and every period in the window — empty ones too.
+                var range = periodRange(win.from, win.to, cur.by, cfg.WeekStart);
+                var seen = {};
+                for (i = 0; i < range.keys.length; i++) {
+                    seen[range.keys[i]] = true;
+                    m.items.push(makeItem(range.keys[i], byKey[range.keys[i]] || []));
+                }
+                // A slice past the cap still has to land somewhere it is seen.
+                var late = [];
+                for (i = 0; i < order.length; i++) {
+                    if (!seen[order[i]]) { late.push(makeItem(order[i], byKey[order[i]])); }
+                }
+                if (late.length) {
+                    m.items.push(pooled(late, mk, 'Later (' + late.length + ')'));
+                    m.notes.push('more than ' + MAX_PERIODS + ' periods — the rest combined as "Later"');
+                }
+            } else {
+                for (i = 0; i < order.length; i++) { m.items.push(makeItem(order[i], byKey[order[i]])); }
+            }
+
             for (i = 0; i < m.items.length; i++) {
-                m.items[i].merged = mergedTotal(m.items[i].intervals);
                 m.mergedSum += m.items[i].merged;
+                if (m.items[i].unassigned) { m.unassigned += m.items[i].count; }
             }
-            m.covered = mergedTotal(all);
             m.groupCount = m.items.length;
             m.allUnassigned = m.count > 0 && m.unassigned === m.count;
 
+            // A sum that goes negative (a gain logged as negative loss) does
+            // not divide into parts of a whole any more.
+            if (mk === 'attrSum') {
+                for (i = 0; i < m.items.length; i++) {
+                    if (m.items[i].value !== null && m.items[i].value < 0) { m.additive = false; m.negative = true; break; }
+                }
+            }
+
             // Rank. Ties break on label so the order does not shuffle between
             // refreshes — a ranking that reshuffles is unreadable on a kiosk.
-            for (i = 0; i < m.items.length; i++) {
-                m.items[i].value = metricOf(m.items[i], mk);
+            // Periods keep time order: ranking days scrambles the calendar.
+            if (!m.period) {
+                m.items.sort(function (a, b) {
+                    var av = a.value === null ? -Infinity : a.value;
+                    var bv = b.value === null ? -Infinity : b.value;
+                    if (av !== bv) { return bv > av ? 1 : -1; }
+                    return a.label < b.label ? -1 : (a.label > b.label ? 1 : 0);
+                });
             }
-            m.items.sort(function (a, b) {
-                return (b.value - a.value) || (a.label < b.label ? -1 : (a.label > b.label ? 1 : 0));
-            });
 
             // --- Top N ---------------------------------------------------
+            // Not for periods: dropping the quietest days would hide the good news.
             var topN = intIn(cfg.TopN, 0, 200, 10);
             var hidden = 0;
-            if (topN > 0 && m.items.length > topN) {
+            if (!m.period && topN > 0 && m.items.length > topN) {
                 var rest = m.items.slice(topN);
                 m.items = m.items.slice(0, topN);
                 if (cfg.GroupRemainderAsOther !== false) {
-                    var other = {
-                        label: 'Other (' + rest.length + ')',
-                        count: 0, rawSum: 0, max: 0, merged: 0, intervals: [],
-                        first: rest[0].first, last: rest[0].last,
-                        isOther: true, open: 0, unassigned: false
-                    };
-                    for (i = 0; i < rest.length; i++) {
-                        other.count += rest[i].count;
-                        other.rawSum += rest[i].rawSum;
-                        other.open += rest[i].open;
-                        if (rest[i].max > other.max) { other.max = rest[i].max; }
-                        // Sum of the per-group unions, NOT a union across
-                        // groups: the cumulative line has to add up to the same
-                        // total the individual bars do, and cross-group overlap
-                        // is a property of the window (m.covered), not of any
-                        // reason code.
-                        other.merged += rest[i].merged;
-                        if (rest[i].first < other.first) { other.first = rest[i].first; }
-                        if (rest[i].last > other.last) { other.last = rest[i].last; }
-                    }
-                    other.value = metricOf(other, mk);
-                    m.items.push(other);
+                    m.items.push(pooled(rest, mk, 'Other (' + rest.length + ')'));
                     m.otherCount = rest.length;
                 } else {
                     hidden = rest.length;
@@ -1029,36 +1456,46 @@
 
             // --- totals + cumulative --------------------------------------
             var shown = 0;
-            for (i = 0; i < m.items.length; i++) { shown += m.items[i].value; }
+            for (i = 0; i < m.items.length; i++) { shown += vOf(m.items[i]); }
             m.total = shown;
+            // The whole, as one number: the duration total the footer already
+            // gives, the sum of the counts, and every other metric taken over
+            // all the events — a true overall mean, never a mean of means.
+            m.overall = mk === 'totalDuration' ? m.mergedSum : metricOf(all, mk);
 
             // A running percentage only means something when the parts sum to
-            // the whole. A mean or a maximum does not, so no Pareto line.
-            if (cfg.ShowCumulative !== false && m.additive && shown > 0 && m.items.length) {
+            // the whole. A mean or a maximum does not, so no Pareto line; nor
+            // do periods, which are in time order rather than ranked.
+            if (cfg.ShowCumulative !== false && m.additive && !m.period && shown > 0 && m.items.length) {
                 m.cum = [];
                 var run = 0;
                 for (i = 0; i < m.items.length; i++) {
-                    run += m.items[i].value;
+                    run += vOf(m.items[i]);
                     m.cum.push((run / shown) * 100);
                 }
             }
 
             // Display unit for durations, resolved from the biggest bar so the
             // axis reads in whole-ish numbers rather than 0.003 days.
-            m.unit = resolveUnit(cfg, m.items.length ? m.items[0].value : 0);
+            var biggest = 0;
+            for (i = 0; i < m.items.length; i++) { if (vOf(m.items[i]) > biggest) { biggest = vOf(m.items[i]); } }
+            m.unit = resolveUnit(cfg, biggest);
+
+            if (d.split) { splitModel(m, facts, d.split, cfg, mk); }
+            applyTargets(m, cfg);
 
             /* ---- notes: everything the picture cannot say for itself ---- */
             if (state.capped) {
                 // Truncation is not merely "some events missing". PI Web API
                 // returns the first N by start time, not the N that matter, so
                 // the RANKING may be wrong. Say that, not "showing 1000".
-                m.notes.push('capped at ' + state.maxEvents + ' events \u2014 the ranking may be incomplete');
+                m.notes.push('capped at ' + state.maxEvents + ' events — the ranking may be incomplete');
             }
             if (m.rawSum > m.mergedSum + 500) {
                 // Disclosed, with the size of the correction: an engineer
                 // comparing this against a hand-built spreadsheet needs to know
                 // why the two disagree.
-                m.notes.push('overlaps merged: \u2212' +
+                m.notes.push('overlaps merged: −' +
                     PVX.fmt.duration(m.rawSum - m.mergedSum) + ' vs raw sum');
             }
             if (m.openCount && cfg.ShowOpenEventNote !== false) {
@@ -1066,43 +1503,207 @@
                     ' counted to now (totals grow)');
             }
             if (m.unassigned && !m.allUnassigned) {
-                m.notes.push(m.unassigned + '/' + m.count + ' events have no ' + groupNoun(cfg));
+                m.notes.push(m.unassigned + '/' + m.count + ' events have no ' + groupNoun(cur));
+            }
+            if (m.isAttr && m.missingValue && m.missingValue < m.count) {
+                // Nothing dropped silently: an event with no number is not a zero.
+                m.notes.push(m.missingValue + '/' + m.count + ' events have no number for ' +
+                    (m.attr || 'the attribute') + ' — not in the ' + m.metricLabel.split(' ')[0].toLowerCase());
+            }
+            if (sliced) {
+                m.notes.push(sliced + (sliced === 1 ? ' event crosses' : ' events cross') +
+                    ' a period boundary: time split, counted where it starts');
             }
             if (hidden) { m.notes.push('+' + hidden + ' groups not shown'); }
             if (m.outOfWindow) {
                 m.notes.push(m.outOfWindow + ' events fall outside the window');
             }
             if (m.badPattern) {
-                m.notes.push('name pattern is not a valid regular expression \u2014 grouping by full name');
+                m.notes.push('name pattern is not a valid regular expression — grouping by full name');
             }
             if (state.failedBatch > 0) {
                 m.notes.push(state.failedBatch + ' follow-up ' +
                     (state.failedBatch === 1 ? 'request' : 'requests') +
-                    ' failed \u2014 those events are unassigned');
+                    ' failed — those events are unassigned');
             } else if (state.failedBatch === -1) {
-                m.notes.push('follow-up request failed \u2014 grouping is incomplete');
+                m.notes.push('follow-up request failed — grouping is incomplete');
             }
-            if (!m.additive && cfg.ShowCumulative !== false) {
+            if (m.negative) {
+                m.notes.push('the sum goes below zero — no cumulative %, donut or stacking');
+            } else if (!m.additive && cfg.ShowCumulative !== false && chartMode(cfg) === 'pareto') {
                 m.notes.push('cumulative % hidden: ' + m.metricLabel.toLowerCase() + ' does not sum to a whole');
+            } else if (m.period && cfg.ShowCumulative !== false && chartMode(cfg) === 'pareto') {
+                m.notes.push('no cumulative %: periods are in time order, not ranked');
             }
             if (win.useRaw) { m.notes.push('time range resolved by PI Web API'); }
             return m;
         }
 
+        /**
+         * The second dimension. Series are the split's values, ranked by the
+         * same metric (periods in time order), the first SplitTopN kept and
+         * the rest pooled. Every group gets one part per series — a pivot
+         * cell — computed from that group's events with that value, so a
+         * cell's mean is a real mean, not a share of one.
+         *
+         * Stacking only adds up for an additive metric. Total duration has a
+         * wrinkle: one outage logged under two reason codes is merged within
+         * each, so the parts of a bar can add up to more than its own merged
+         * total. The bar is drawn at the sum of its parts and the footer says
+         * so, rather than squeezing the parts to fit.
+         */
+        function splitModel(m, facts, sd, cfg, mk) {
+            var byS = {}, order = [];
+            for (var i = 0; i < facts.length; i++) {
+                var k = facts[i].skey;
+                if (!Object.prototype.hasOwnProperty.call(byS, k)) { byS[k] = []; order.push(k); }
+                byS[k].push(facts[i]);
+            }
+            var series = [];
+            for (i = 0; i < order.length; i++) {
+                var agg = aggregate(byS[order[i]]);
+                series.push({ key: order[i], label: labelFor(order[i], sd), value: metricOf(agg, mk),
+                              agg: agg, isOther: false, unassigned: !order[i] && !isPeriod(sd.by) });
+            }
+            if (isPeriod(sd.by)) {
+                series.sort(function (a, b) {
+                    if (sd.by === 'weekday') {
+                        var ws = cfg.WeekStart === 'sunday' ? 0 : 1;
+                        return ((+a.key - ws + 7) % 7) - ((+b.key - ws + 7) % 7);
+                    }
+                    return (+a.key) - (+b.key);
+                });
+            } else {
+                series.sort(function (a, b) {
+                    var av = a.value === null ? -Infinity : a.value;
+                    var bv = b.value === null ? -Infinity : b.value;
+                    if (av !== bv) { return bv > av ? 1 : -1; }
+                    return a.label < b.label ? -1 : (a.label > b.label ? 1 : 0);
+                });
+            }
+            var topS = intIn(cfg.SplitTopN, 0, 24, 6);
+            if (topS > 0 && series.length > topS) {
+                var restS = series.slice(topS);
+                series = series.slice(0, topS);
+                var pf = [];
+                for (i = 0; i < restS.length; i++) { pf = pf.concat(restS[i].agg.facts); }
+                var oagg = aggregate(pf);
+                series.push({ key: null, keys: restS.map(function (s) { return s.key; }),
+                              label: 'Other (' + restS.length + ')', value: metricOf(oagg, mk),
+                              agg: oagg, isOther: true, unassigned: false });
+            }
+            // "(unassigned)" wears the warning colour everywhere on this
+            // chart, so a palette colour close to it is skipped: two oranges
+            // side by side in one bar read as one.
+            var pal = PVX.color.categorical;
+            var warn = PVX.color.status.warning;
+            var rgb = function (h) {
+                var x = /^#?([0-9a-f]{6})$/i.exec(String(h));
+                if (!x) { return null; }
+                var n = parseInt(x[1], 16);
+                return [n >> 16, (n >> 8) & 255, n & 255];
+            };
+            var w0 = rgb(warn);
+            var usable = [];
+            for (i = 0; i < pal.length; i++) {
+                var c = rgb(pal[i]);
+                var near = w0 && c && Math.sqrt(Math.pow(c[0] - w0[0], 2) + Math.pow(c[1] - w0[1], 2) + Math.pow(c[2] - w0[2], 2)) < 120;
+                if (!near) { usable.push(pal[i]); }
+            }
+            if (!usable.length) { usable = pal; }
+            var nextColor = 0;
+            for (i = 0; i < series.length; i++) {
+                series[i].color = series[i].isOther ? '#9aa4b0'
+                    : (series[i].unassigned ? warn : usable[nextColor++ % usable.length]);
+            }
+            m.series = series;
+
+            // Each group's part in each series.
+            var inSeries = function (f, s) {
+                return s.isOther ? s.keys.indexOf(f.skey) !== -1 : f.skey === s.key;
+            };
+            for (i = 0; i < m.items.length; i++) {
+                var it = m.items[i];
+                it.parts = [];
+                var sum = 0;
+                for (var s = 0; s < series.length; s++) {
+                    var sub = [];
+                    for (var q = 0; q < it.facts.length; q++) {
+                        if (inSeries(it.facts[q], series[s])) { sub.push(it.facts[q]); }
+                    }
+                    var v = sub.length ? metricOf(aggregate(sub), mk) : null;
+                    it.parts.push(v);
+                    sum += v || 0;
+                }
+                it.partSum = sum;
+                if (mk === 'totalDuration' && sum > it.merged + 500) { m.partsOver = true; }
+            }
+
+            if (m.additive) {
+                m.stack = cfg.SplitMode === 'percent' ? 'percent' : 'stacked';
+            } else {
+                var mode = chartMode(cfg);
+                if (mode === 'pareto' || mode === 'bars') {
+                    m.notes.push('split needs a metric that adds up (total, count or sum) — bars not split; the pivot shows it');
+                }
+            }
+            if (m.partsOver && m.stack) {
+                m.notes.push('one outage under two ' + groupNoun(sd) + ' values counts in each');
+            }
+        }
+
+        /**
+         * Targets per group, in the metric's own terms. A duration target is
+         * `4h` or `90m`, or a bare number in the chosen duration unit (hours
+         * on Automatic, since that is what nobody misreads).
+         */
+        function applyTargets(m, cfg) {
+            var T = parseTargets(cfg.Targets);
+            if (!T.count && !T.bad.length) { return; }
+            var bare = DURATION_UNITS[cfg.DurationUnit] ? DURATION_UNITS[cfg.DurationUnit].ms : 3600000;
+            var lower = cfg.TargetDirection !== 'higher';
+            var unread = T.bad.length;
+            var judge = function (it, raw) {
+                if (raw === undefined || raw === null) { return; }
+                var tv = targetValue(raw, m.isDuration, bare);
+                if (tv === null) { unread += 1; return; }
+                it.target = tv;
+                if (it.value === null || it.value === undefined) { return; }
+                it.delta = it.value - tv;
+                it.pctOf = tv !== 0 ? (it.value / tv) * 100 : null;
+                it.good = lower ? it.value <= tv : it.value >= tv;
+            };
+            for (var i = 0; i < m.items.length; i++) {
+                var it = m.items[i];
+                if (it.isOther) { continue; }   // a bucket has no target of its own
+                var own = T.map[String(it.label).toLowerCase()];
+                judge(it, own !== undefined ? own : T.def);
+            }
+            m.totalItem = { label: 'Total', value: m.overall, count: m.count, isTotal: true };
+            judge(m.totalItem, T.map.total !== undefined ? T.map.total : T.map.all);
+            m.targets = { lower: lower, count: T.count };
+            if (unread) {
+                m.notes.push(unread + ' target ' + (unread === 1 ? 'line' : 'lines') + ' not understood');
+            }
+        }
+
         /** What the operator called the thing they grouped by, for prose. */
-        function groupNoun(cfg) {
-            if (cfg.GroupBy === 'attribute') { return trim(cfg.GroupAttribute) || 'attribute value'; }
-            if (cfg.GroupBy === 'element') { return 'referenced element'; }
-            if (cfg.GroupBy === 'template') { return 'template'; }
-            if (cfg.GroupBy === 'name') { return 'name match'; }
+        function groupNoun(d) {
+            if (d.by === 'attribute') { return d.attr || 'attribute value'; }
+            if (d.by === 'element') { return 'referenced element'; }
+            if (d.by === 'template') { return 'template'; }
+            if (d.by === 'name') { return 'name match'; }
+            if (isPeriod(d.by)) { return d.by === 'weekday' ? 'day of the week' : d.by; }
             return 'group';
         }
 
-        function groupByLabel(cfg) {
-            if (cfg.GroupBy === 'attribute') { return trim(cfg.GroupAttribute) || 'attribute'; }
-            if (cfg.GroupBy === 'element') { return 'asset'; }
-            if (cfg.GroupBy === 'name') { return 'event name'; }
-            if (cfg.GroupBy === 'none') { return 'all events'; }
+        function groupByLabel(d) {
+            if (d.by === 'attribute') { return d.attr || 'attribute'; }
+            if (d.by === 'element') { return 'asset'; }
+            if (d.by === 'name') { return 'event name'; }
+            if (d.by === 'none') { return 'all events'; }
+            if (d.by === 'weekday') { return 'day of the week'; }
+            if (isPeriod(d.by)) { return d.by; }
             return 'template';
         }
 
@@ -1129,12 +1730,27 @@
             var u = DURATION_UNITS[cfg && cfg.DurationUnit];
             if (!u) { return PVX.fmt.duration(ms); }
             var n = ms / u.ms;
-            return PVX.fmt.number(n, { decimals: n >= 100 ? 0 : (n >= 10 ? 1 : 2) }) + ' ' + u.label;
+            // Nothing is "0", not "0.00": an empty day is a whole number.
+            return PVX.fmt.number(n, { decimals: n === 0 || n >= 100 ? 0 : (n >= 10 ? 1 : 2) }) + ' ' + u.label;
         }
 
-        /** The chosen metric's value as it is drawn on a bar or in a cell. */
+        /** The chosen metric's value as it is drawn on a bar or in a cell.
+         *  A group with nothing to summarise reads as a dash, never as 0. */
         function valueText(v, m, cfg) {
-            return m.isDuration ? durText(v, cfg) : PVX.fmt.number(v, { decimals: 0 });
+            if (v === null || v === undefined) { return '\u2014'; }
+            if (m.isDuration) { return durText(v, cfg); }
+            if (!m.isAttr) { return PVX.fmt.number(v, { decimals: 0 }); }
+            return attrText(v, m, cfg);
+        }
+
+        /** An attribute summary: the decimals asked for, else from its size. */
+        function attrText(v, m, cfg) {
+            var dec = parseInt(cfg.MetricDecimals, 10);
+            if (!(dec >= 0 && dec <= 6)) {
+                var a = Math.abs(v);
+                dec = a >= 100 ? 0 : (a >= 10 ? 1 : 2);
+            }
+            return PVX.fmt.number(v, { decimals: dec }) + (m.units ? ' ' + m.units : '');
         }
 
         /** Axis ticks are always a plain number in the resolved unit. */
@@ -1184,8 +1800,15 @@
             scope.pvx.subtitle = '';
             scope.pvx.summary = '';
             scope.pvx.note = '';
-            scope.pvx.clickable = cfg.ClickAction === 'navigate';
+            scope.pvx.clickable = cfg.ClickAction === 'navigate' || cfg.ClickAction === 'drill';
+            scope.pvx.crumbs = [];
             bindHost(host);
+
+            // A change to what the levels ARE starts the drill-down again: a
+            // trail of keys from the old grouping filters the new one to nothing.
+            var sig = [cfg.GroupBy, cfg.GroupAttribute, cfg.DrillBy, cfg.DrillAttribute,
+                       cfg.DrillBy2, cfg.DrillAttribute2, cfg.NamePattern, cfg.WeekStart].join('\n');
+            if (sig !== drillSig) { drillSig = sig; drill = []; }
 
             if (state.phase !== 'ok') {
                 drawStatus(svgRoot, W, H, t, minimal);
@@ -1194,6 +1817,13 @@
             }
 
             model = buildModel(cfg);
+            var cur = model.dim;
+            if (drill.length && !minimal) {
+                scope.pvx.crumbs.push({ label: 'All', i: 0 });
+                for (var di = 0; di < drill.length; di++) {
+                    scope.pvx.crumbs.push({ label: drill[di].label, i: di + 1, last: di === drill.length - 1 });
+                }
+            }
 
             if (!minimal) {
                 // The window is dropped from the subtitle on a narrow symbol. It
@@ -1210,22 +1840,36 @@
                 digest();
                 return;
             }
-            if (model.allUnassigned && (cfg.GroupBy === 'attribute' || cfg.GroupBy === 'name')) {
-                drawMessage(svgRoot, W, H, t, missingGroupHeadline(cfg),
-                    minimal ? '' : missingGroupDetail(cfg, model), PVX.color.status.warning);
+            if (model.isAttr && (!model.attr || model.missingValue === model.count)) {
+                drawMessage(svgRoot, W, H, t,
+                    model.attr ? 'No event has a number for "' + model.attr + '"' : 'No attribute to summarise',
+                    minimal ? '' : (model.attr
+                        ? 'All ' + model.count + ' events came back without a numeric value for that attribute. ' +
+                          'Check the spelling against the Event Frame template \u2014 attribute names are exact \u2014 ' +
+                          'and that it holds a number rather than text or a digital state.'
+                        : 'Name the event attribute to add up or average \u2014 for example "Lost Production". ' +
+                          'It must exist on the Event Frame template.'),
+                    PVX.color.status.warning);
+                if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
+                digest();
+                return;
+            }
+            if (model.allUnassigned && (cur.by === 'attribute' || cur.by === 'name')) {
+                drawMessage(svgRoot, W, H, t, missingGroupHeadline(cur, cfg),
+                    minimal ? '' : missingGroupDetail(cur, cfg, model), PVX.color.status.warning);
                 if (!minimal) { scope.pvx.note = model.notes.join(' \u00b7 '); }
                 if (!minimal && state.db.from) { addNote('database ' + state.db.path + ' from ' + state.db.from); }
                 digest();
                 return;
             }
-            if (model.groupCount === 1 && cfg.GroupBy !== 'none') {
+            if (model.groupCount === 1 && cur.by !== 'none' && !model.period && !model.series) {
                 // A ranking of one is not a ranking. Say what the one group is —
                 // that IS the answer — and say what to change to get a breakdown.
                 var only = model.items[0];
                 drawMessage(svgRoot, W, H, t,
                     'All ' + model.count + ' events are "' + only.label + '"',
                     minimal ? '' :
-                    'Nothing to rank by ' + groupByLabel(cfg) + '. ' +
+                    'Nothing to rank by ' + groupByLabel(cur) + '. ' +
                     valueText(only.value, model, cfg) + ' ' + model.metricLabel.toLowerCase() +
                     '. Group by something that varies, or use the name pattern to pull a reason ' +
                     'code out of the event name.', t.textMuted);
@@ -1247,6 +1891,13 @@
                 addNote('donut needs an additive metric \u2014 showing bars');
                 mode = 'bars';
             }
+            if (mode === 'pivot' && !model.series) {
+                addNote('a pivot needs a Split by \u2014 showing the table');
+                mode = 'table';
+            }
+            if (model.series && (mode === 'donut' || mode === 'cards')) {
+                addNote('the split is drawn by bars and the pivot');
+            }
             // Below the minimal size there is room for bars and nothing else. A
             // donut that small is a ring with no legend and no readable slice
             // labels, and a table is one clipped row — both are worse than the
@@ -1255,6 +1906,8 @@
 
             if (mode === 'donut') { drawDonut(svgRoot, W, H, cfg, t, model, compact, minimal); }
             else if (mode === 'table') { drawTable(svgRoot, W, H, cfg, t, model, compact); }
+            else if (mode === 'pivot') { drawPivot(svgRoot, W, H, cfg, t, model, compact); }
+            else if (mode === 'cards') { drawCards(svgRoot, W, H, cfg, t, model, compact); }
             else { drawRanked(svgRoot, W, H, cfg, t, model, compact, minimal, mode === 'pareto'); }
 
             digest();
@@ -1263,7 +1916,8 @@
         function subtitleText(m, cfg, withRange) {
             var unit = (m.isDuration && cfg.DurationUnit !== 'auto' && cfg.DurationUnit)
                 ? ' (' + m.unit.label + ')' : '';
-            var s = m.metricLabel + unit + ' by ' + groupByLabel(cfg);
+            var s = m.metricLabel + unit + ' by ' + groupByLabel(m.dim) +
+                (m.split ? ' and ' + groupByLabel(m.split) : '');
             if (withRange) {
                 s += ' \u00b7 ' + PVX.fmt.time(m.from, 'short') + ' \u2013 ' + PVX.fmt.time(m.to, 'short');
             }
@@ -1289,6 +1943,10 @@
             bits.push(PVX.fmt.duration(m.covered) + ' of ' + PVX.fmt.duration(m.windowSpan) +
                 ' (' + PVX.fmt.percent(pct, pct < 10 ? 1 : 0) + ' of window)');
             if (m.openCount) { bits.push(m.openCount + ' open'); }
+            // The attribute's own whole, beside the time: "16.5 t lost".
+            if (m.isAttr && m.overall !== null) {
+                bits.push(m.metricLabel + ' ' + valueText(m.overall, m, cfg));
+            }
             return bits.join(' \u00b7 ');
         }
 
@@ -1303,18 +1961,18 @@
                   (state.db.from ? ' (from ' + state.db.from + ')' : '') + '.';
         }
 
-        function missingGroupHeadline(cfg) {
-            if (cfg.GroupBy === 'attribute') {
-                return trim(cfg.GroupAttribute)
-                    ? 'No event has "' + trim(cfg.GroupAttribute) + '"'
+        function missingGroupHeadline(d, cfg) {
+            if (d.by === 'attribute') {
+                return d.attr
+                    ? 'No event has "' + d.attr + '"'
                     : 'No grouping attribute set';
             }
             return 'No event name matched the pattern';
         }
 
-        function missingGroupDetail(cfg, m) {
-            if (cfg.GroupBy === 'attribute') {
-                if (!trim(cfg.GroupAttribute)) {
+        function missingGroupDetail(d, cfg, m) {
+            if (d.by === 'attribute') {
+                if (!d.attr) {
                     return 'Grouping by event attribute needs the attribute name — for example "Reason Code". ' +
                            'It must exist on the Event Frame template.';
                 }
@@ -1375,10 +2033,17 @@
             if (cfg.ColorMode === 'palette') {
                 return PVX.color.categorical[i % PVX.color.categorical.length];
             }
+            if (cfg.ColorMode === 'target') {
+                // A group with no target keeps the plain colour: only a
+                // judgement gets a judgement's colour.
+                if (item.good === true) { return PVX.color.status.normal; }
+                if (item.good === false) { return PVX.color.status.alarm; }
+                return base;
+            }
             if (cfg.ColorMode === 'threshold') {
                 // A duration threshold is expressed in the DISPLAY unit, which
                 // is the only unit the operator saw when they typed the numbers.
-                var v = m.isDuration ? item.value / m.unit.ms : item.value;
+                var v = m.isDuration ? vOf(item) / m.unit.ms : vOf(item);
                 return cfg.UseThresholds
                     ? PVX.thresholds.colorFor(cfg.Thresholds, v, base)
                     : base;
@@ -1386,54 +2051,91 @@
             return base;
         }
 
+        /** "8.0 h over target 6 h", or "" when the group has no target. */
+        function targetText(it, m, cfg) {
+            if (it.target === undefined || it.delta === undefined) { return ''; }
+            var gap = Math.abs(it.delta);
+            if (gap < 1e-9) { return 'on target ' + valueText(it.target, m, cfg); }
+            return valueText(gap, m, cfg) + (it.delta > 0 ? ' over' : ' under') +
+                ' target ' + valueText(it.target, m, cfg);
+        }
+
         /* ================================================================ *
-         * ranked bars (pareto / bars)
+         * ranked bars (pareto / bars), split into stacked parts when asked
          * ================================================================ */
 
         function drawRanked(svgRoot, W, H, cfg, t, m, compact, minimal, withCum) {
-            var i;
+            var i, s;
             var items = m.items;
             var n = items.length;
             var pad = 5;
             var font = PVX.util.clamp(Math.round(Math.min(W, H) / 22), 7.5, 12);
+            var stack = m.series && m.stack ? m.stack : null;
+            var series = stack ? m.series : null;
+            var pct = stack === 'percent';
 
             var showValues = !compact && cfg.ShowValues !== false;
             var showAxis = !compact;
-            var showCum = withCum && !!m.cum && !compact;
+            var showCum = withCum && !!m.cum && !compact && !stack;
             var cumColor = PVX.color.status.alarm;
+            // A legend is what makes a stacked bar readable at all; it takes
+            // one line above the plot, and goes when the box cannot spare it.
+            var showLegend = !!series && !minimal && H > 90;
+
+            // What each bar is drawn at: its value, or the sum of its parts.
+            var barV = function (it) { return pct ? 100 : (stack ? it.partSum : vOf(it)); };
 
             // Label budgets, from the glyph estimate.
             var labels = [];
             var maxValuePx = 0;
             for (i = 0; i < n; i++) {
-                labels.push(showValues ? valueText(items[i].value, m, cfg) : '');
+                var lab = '';
+                if (showValues) {
+                    lab = stack && !pct ? valueText(items[i].partSum, m, cfg) : valueText(items[i].value, m, cfg);
+                }
+                labels.push(lab);
                 maxValuePx = Math.max(maxValuePx, textW(labels[i], font));
             }
 
             var nameW = minimal ? 0 : PVX.util.clamp(W * 0.32, 30, W * 0.5);
+            var legendH = showLegend ? font * 1.7 : 0;
             var plot = {
                 x0: pad + nameW + (nameW > 0 ? 6 : 0),
-                y0: pad + (showCum ? font * 1.9 : 0),
+                y0: pad + legendH + (showCum ? font * 1.9 : 0),
                 x1: W - pad - (showValues ? maxValuePx + 8 : 0),
                 y1: H - pad - (showAxis ? font * 1.9 : 0)
             };
             // Degenerate boxes (tiny symbol, long labels): give the chart the
             // whole frame rather than drawing nothing at all.
             if (plot.x1 - plot.x0 < 24) { plot.x0 = pad; plot.x1 = W - pad; nameW = 0; showValues = false; }
-            if (plot.y1 - plot.y0 < 16) { plot.y0 = 1; plot.y1 = H - 1; showAxis = false; }
+            if (plot.y1 - plot.y0 < 16) { plot.y0 = 1; plot.y1 = H - 1; showAxis = false; showLegend = false; }
 
             var plotW = plot.x1 - plot.x0;
             var plotH = plot.y1 - plot.y0;
 
             // Durations and counts are non-negative, so the domain starts at
             // zero — a bar chart whose baseline is not zero lies about ratios,
-            // and ratios are the entire point of a Pareto.
-            var maxV = 0;
-            for (i = 0; i < n; i++) { if (items[i].value > maxV) { maxV = items[i].value; } }
-            if (!(maxV > 0)) { maxV = 1; }
+            // and ratios are the entire point of a Pareto. An attribute can go
+            // below zero, and then the axis does too, with zero still marked.
+            var maxV = 0, minV = 0;
+            for (i = 0; i < n; i++) {
+                var bv = barV(items[i]);
+                if (bv > maxV) { maxV = bv; }
+                if (bv < minV) { minV = bv; }
+                if (items[i].target !== undefined && !pct) {
+                    if (items[i].target > maxV) { maxV = items[i].target; }
+                    if (items[i].target < minV) { minV = items[i].target; }
+                }
+            }
+            if (!(maxV > minV)) { maxV = minV + 1; }
             var tickCount = PVX.util.clamp(Math.floor(plotW / 70), 2, 6);
-            var dom = PVX.scale.niceDomain(0, maxV, tickCount);
-            var vs = PVX.scale.linear(0, dom[1], plot.x0, plot.x1);
+            // Nice numbers in the unit the axis is READ in: rounded in
+            // milliseconds, an hour-long axis ticks at 16.67 minutes.
+            var tu = m.isDuration ? m.unit.ms : 1;
+            var dom = pct ? [0, 100] : PVX.scale.niceDomain(minV / tu, maxV / tu, tickCount);
+            if (!pct) { dom = [dom[0] * tu, dom[1] * tu]; }
+            var vs = PVX.scale.linear(dom[0], dom[1], plot.x0, plot.x1);
+            var zeroX = vs(0);
             var cs = showCum ? PVX.scale.linear(0, 100, plot.x0, plot.x1) : null;
 
             var slot = plotH / n;
@@ -1441,8 +2143,39 @@
             var center = function (idx) { return plot.y0 + slot * (idx + 0.5); };
             var radius = PVX.util.clamp(PVX.util.num(cfg.CornerRadius) || 0, 0, Math.min(3, thick / 3));
 
+            // ---- legend ----------------------------------------------------
+            if (showLegend) {
+                var legG = PVX.svg.el('g', { 'class': 'pvx-ea-legend' }, svgRoot);
+                var lx = plot.x0, ly = pad + font * 0.7;
+                for (s = 0; s < series.length; s++) {
+                    var lt = fitText(series[s].label, 120, font * 0.9);
+                    var need = font * 1.1 + textW(lt, font * 0.9) + 10;
+                    if (lx + need > W - pad) {
+                        if (s < series.length) {
+                            PVX.svg.text(legG, lx.toFixed(1), (ly + font * 0.32).toFixed(1),
+                                '+' + (series.length - s), {
+                                    'class': 'pvx-svg-label pvx-ea-legend-more', 'font-size': (font * 0.9).toFixed(1), fill: t.textMuted
+                                });
+                        }
+                        break;
+                    }
+                    PVX.svg.el('rect', { x: lx.toFixed(1), y: (ly - font * 0.4).toFixed(1),
+                        width: (font * 0.8).toFixed(1), height: (font * 0.8).toFixed(1), rx: 1.5,
+                        fill: series[s].color, 'class': 'pvx-ea-legend-sw' }, legG);
+                    PVX.svg.text(legG, (lx + font * 1.1).toFixed(1), (ly + font * 0.32).toFixed(1), lt, {
+                        'class': 'pvx-svg-label pvx-ea-legend-label', 'font-size': (font * 0.9).toFixed(1),
+                        fill: series[s].unassigned ? PVX.color.status.warning : t.text
+                    });
+                    lx += need;
+                }
+            }
+
             // ---- grid + ticks (behind the bars) ---------------------------
-            var ticks = showAxis ? PVX.scale.ticks(0, dom[1], tickCount) : [];
+            var ticks = [];
+            if (showAxis) {
+                ticks = PVX.scale.ticks(dom[0] / (pct ? 1 : tu), dom[1] / (pct ? 1 : tu), tickCount);
+                if (!pct) { for (i = 0; i < ticks.length; i++) { ticks[i] *= tu; } }
+            }
             if (showAxis) {
                 var gridG = PVX.svg.el('g', { 'class': 'pvx-ea-grid' }, svgRoot);
                 for (i = 0; i < ticks.length; i++) {
@@ -1456,8 +2189,9 @@
                     // own caption at the origin, where it collided with the "0".
                     // Without it anywhere, "36" on a duration axis is unreadable.
                     var last = i === ticks.length - 1;
+                    var unitTxt = pct ? '%' : (m.isDuration ? ' ' + m.unit.label : '');
                     PVX.svg.text(gridG, gx.toFixed(2), (plot.y1 + font * 1.1).toFixed(2),
-                        tickText(ticks[i], m) + (last && m.isDuration ? ' ' + m.unit.label : ''), {
+                        (pct ? String(ticks[i]) : tickText(ticks[i], m)) + (last ? unitTxt : ''), {
                             'class': 'pvx-svg-label pvx-ea-tick',
                             'text-anchor': last ? 'end' : 'middle',
                             'font-size': font, fill: t.textMuted
@@ -1467,8 +2201,8 @@
 
             // Baseline at zero.
             PVX.svg.el('line', {
-                x1: plot.x0.toFixed(2), y1: plot.y0.toFixed(2),
-                x2: plot.x0.toFixed(2), y2: plot.y1.toFixed(2),
+                x1: zeroX.toFixed(2), y1: plot.y0.toFixed(2),
+                x2: zeroX.toFixed(2), y2: plot.y1.toFixed(2),
                 stroke: t.axis, 'stroke-width': 1, 'class': 'pvx-grid-line'
             }, svgRoot);
 
@@ -1487,24 +2221,60 @@
             var barsG = PVX.svg.el('g', { 'class': 'pvx-ea-bars' }, svgRoot);
             for (i = 0; i < n; i++) {
                 var it = items[i];
-                var w = Math.max(1, vs(it.value) - plot.x0);
                 var y = center(i) - thick / 2;
-                var col = colorFor(it, i, m, cfg, t);
-
                 var grp = PVX.svg.el('g', { 'class': 'pvx-ea-bar' }, barsG);
                 if (scope.pvx.clickable) {
                     grp.setAttribute('class', 'pvx-ea-bar pvx-hit-group');
                     grp.setAttribute('data-pvx-i', String(hits.length));
                     hits.push(it);
                 }
-                PVX.svg.el('path', {
-                    d: PVX.svg.roundRect(plot.x0, y, w, thick, radius),
-                    fill: col, 'class': 'pvx-ea-shape'
-                }, grp);
+                var endX;
+                if (stack) {
+                    // Parts laid end to end from zero, in series order.
+                    var at = 0;
+                    var whole = it.partSum > 0 ? it.partSum : 1;
+                    for (s = 0; s < series.length; s++) {
+                        var pv = it.parts[s] || 0;
+                        if (!(pv > 0)) { continue; }
+                        var a0 = pct ? (at / whole) * 100 : at;
+                        var a1 = pct ? ((at + pv) / whole) * 100 : at + pv;
+                        var seg = PVX.svg.el('rect', {
+                            x: vs(a0).toFixed(2), y: y.toFixed(2),
+                            width: Math.max(0.5, vs(a1) - vs(a0)).toFixed(2), height: thick.toFixed(2),
+                            fill: series[s].color, 'class': 'pvx-ea-shape pvx-ea-seg'
+                        }, grp);
+                        PVX.svg.el('title', null, seg).textContent = it.label + ' · ' + series[s].label + ': ' +
+                            valueText(pv, m, cfg) + (pct ? ' (' + PVX.fmt.percent((pv / whole) * 100, 1) + ')' : '');
+                        at += pv;
+                    }
+                    endX = vs(pct ? (it.partSum > 0 ? 100 : 0) : it.partSum);
+                } else {
+                    var v = vOf(it);
+                    var x0b = Math.min(vs(v), zeroX);
+                    var w = Math.max(1, Math.abs(vs(v) - zeroX));
+                    if (it.value === null) { w = 0; }
+                    if (w > 0) {
+                        PVX.svg.el('path', {
+                            d: PVX.svg.roundRect(x0b, y, w, thick, radius),
+                            fill: colorFor(it, i, m, cfg, t), 'class': 'pvx-ea-shape'
+                        }, grp);
+                    }
+                    endX = Math.max(vs(v), zeroX);
+                }
                 PVX.svg.el('title', null, grp).textContent = tipFor(it, m, cfg, i);
 
+                // Target: a tick across the bar, so "over" reads without a number.
+                if (it.target !== undefined && !pct) {
+                    var tx = vs(it.target);
+                    PVX.svg.el('line', {
+                        x1: tx.toFixed(2), y1: (y - 2).toFixed(2),
+                        x2: tx.toFixed(2), y2: (y + thick + 2).toFixed(2),
+                        stroke: t.text, 'stroke-width': 2, 'class': 'pvx-ea-target'
+                    }, grp);
+                }
+
                 if (showValues && labels[i]) {
-                    PVX.svg.text(grp, (plot.x0 + w + 4).toFixed(2), center(i).toFixed(2), labels[i], {
+                    PVX.svg.text(grp, (endX + 4).toFixed(2), center(i).toFixed(2), labels[i], {
                         'class': 'pvx-svg-value pvx-num pvx-ea-value',
                         'text-anchor': 'start', 'font-size': font, fill: t.text
                     });
@@ -1514,9 +2284,10 @@
             // ---- group names ------------------------------------------------
             if (nameW > 2 && slot >= font * 1.05) {
                 var namesG = PVX.svg.el('g', { 'class': 'pvx-ea-names' }, svgRoot);
+                var nameX = Math.min(plot.x0, zeroX);
                 for (i = 0; i < n; i++) {
-                    var avail = Math.min(nameW - 4, plot.x0 - 7);
-                    var nt = PVX.svg.text(namesG, (plot.x0 - 6).toFixed(2), center(i).toFixed(2),
+                    var avail = Math.min(nameW - 4, nameX - 7);
+                    var nt = PVX.svg.text(namesG, (nameX - 6).toFixed(2), center(i).toFixed(2),
                         fitText(items[i].label, avail, font), {
                             'class': 'pvx-svg-label pvx-ea-name',
                             'text-anchor': 'end', 'font-size': font,
@@ -1616,7 +2387,7 @@
             var g = PVX.svg.el('g', { 'class': 'pvx-ea-donut' }, svgRoot);
             var angle = 0;
             for (i = 0; i < n; i++) {
-                var frac = items[i].value / total;
+                var frac = vOf(items[i]) / total;
                 var sweep = frac * 360;
                 if (!(sweep > 0.05)) { continue; }
                 var col = colorFor(items[i], i, m, cfg, t);
@@ -1703,19 +2474,82 @@
          * table — the same ranking, as numbers
          * ================================================================ */
 
+        /** Signed gap to target as text: "+1.5 h", "−3". */
+        function deltaText(it, m, cfg) {
+            if (it.delta === undefined) { return ''; }
+            var sign = it.delta > 0 ? '+' : (it.delta < 0 ? '−' : '');
+            return sign + valueText(Math.abs(it.delta), m, cfg);
+        }
+
+        function deltaColor(it, t) {
+            if (it.good === true) { return PVX.color.status.normal; }
+            if (it.good === false) { return PVX.color.status.alarm; }
+            return t.textMuted;
+        }
+
+        /**
+         * The table's columns, most important first. Columns are dropped from
+         * the end of this list as the box narrows: the group and its total are
+         * the answer, the rest is supporting detail. Display order is fixed
+         * (`at`), so a dropped column never reshuffles the ones that stay.
+         */
+        function tableColumns(cfg, m, W, compact) {
+            var extra = m.metric !== 'totalDuration' && m.metric !== 'meanDuration' && m.metric !== 'count';
+            var cols = [];
+            // Total and mean are always TIME, whatever the ranking metric is:
+            // the table exists to show the accounting behind the rank, and "3"
+            // in a total column would be a count pretending to be an amount of
+            // downtime.
+            cols.push({ key: 'total', at: 2, head: 'total', w: Math.max(52, W * 0.18), cls: 'pvx-svg-value',
+                text: function (it) { return durText(it.merged, cfg); }, strong: true });
+            if (extra) {
+                cols.push({ key: 'metric', at: 4, head: m.isAttr ? m.metricLabel : 'longest', w: Math.max(60, W * 0.18),
+                    cls: 'pvx-svg-value', strong: true,
+                    text: function (it) { return valueText(it.value, m, cfg); } });
+            }
+            if (m.targets) {
+                cols.push({ key: 'delta', at: 6, head: 'Δ target', w: Math.max(56, W * 0.14), cls: 'pvx-svg-value',
+                    text: function (it) { return deltaText(it, m, cfg); },
+                    color: function (it) { return deltaColor(it, { textMuted: '' }); } });
+            }
+            if (W > 200) {
+                cols.push({ key: 'n', at: 1, head: 'n', w: Math.max(30, W * 0.10), cls: 'pvx-svg-label',
+                    text: function (it) { return String(it.count); } });
+            }
+            if (m.targets) {
+                cols.push({ key: 'target', at: 5, head: 'target', w: Math.max(52, W * 0.13), cls: 'pvx-svg-label',
+                    text: function (it) { return it.target === undefined ? '' : valueText(it.target, m, cfg); } });
+            }
+            if (!compact && W > 300) {
+                cols.push({ key: 'mean', at: 3, head: 'mean', w: Math.max(52, W * 0.16), cls: 'pvx-svg-label',
+                    text: function (it) { return durText(it.count ? it.evSum / it.count : 0, cfg); } });
+            }
+            // Keep columns while the group name still gets a readable share.
+            var room = W - 12 - Math.max(70, W * 0.28);
+            var kept = [], used = 0;
+            for (var i = 0; i < cols.length; i++) {
+                if (i > 0 && used + cols[i].w > room) { continue; }
+                kept.push(cols[i]);
+                used += cols[i].w;
+            }
+            kept.sort(function (a, b) { return a.at - b.at; });
+            return { cols: kept, dropped: cols.length - kept.length };
+        }
+
         function drawTable(svgRoot, W, H, cfg, t, m, compact) {
-            var i;
+            var i, c;
             var items = m.items;
             var font = PVX.util.clamp(Math.round(Math.min(W, H) / 20), 7.5, 12);
             var pad = 6;
             // The tightest row that is still readable. It decides how many rows
             // FIT; it is not necessarily the row height that gets drawn.
             var minRowH = PVX.util.clamp(font * 1.75, font + 3, 26);
+            var totals = cfg.TableTotals === true;
 
-            // How many rows physically fit, header included. Truncation here is
-            // the box being too short, which is a different limit from TopN and
-            // needs its own note.
-            var capacity = Math.max(1, Math.floor((H - pad * 2) / minRowH) - 1);
+            // How many rows physically fit, header (and totals) included.
+            // Truncation here is the box being too short, which is a different
+            // limit from TopN and needs its own note.
+            var capacity = Math.max(1, Math.floor((H - pad * 2) / minRowH) - 1 - (totals ? 1 : 0));
             var rows = items;
             if (rows.length > capacity) {
                 addNote('+' + (rows.length - capacity) + ' rows below the fold');
@@ -1724,32 +2558,27 @@
             // Then spread whatever is left over the rows that survived, so a
             // short table does not sit as a dense block above half a screen of
             // nothing. Capped, or three rows on a tall symbol become bands.
-            var rowH = PVX.util.clamp((H - pad * 2) / (rows.length + 1), minRowH, 30);
+            var rowH = PVX.util.clamp((H - pad * 2) / (rows.length + 1 + (totals ? 1 : 0)), minRowH, 30);
 
-            // Columns are dropped right-to-left as the box narrows: the group
-            // and its total are the answer, the rest is supporting detail.
-            var wMean = (!compact && W > 300) ? Math.max(52, W * 0.16) : 0;
-            var wTotal = Math.max(52, W * 0.18);
-            var wCount = (W > 200) ? Math.max(30, W * 0.10) : 0;
-            var xRight = W - pad;
-            var xMean = xRight;
-            var xTotal = xRight - wMean;
-            var xCount = xTotal - wTotal;
-            var nameRight = xCount - (wCount ? wCount : 0) - 6;
+            var layout = tableColumns(cfg, m, W, compact);
+            var cols = layout.cols;
+            if (layout.dropped) { addNote(layout.dropped + (layout.dropped === 1 ? ' column' : ' columns') + ' hidden — widen the symbol'); }
+            var x = W - pad;
+            for (i = cols.length - 1; i >= 0; i--) { cols[i].x = x; x -= cols[i].w; }
+            var nameRight = x - 6;
 
             var g = PVX.svg.el('g', { 'class': 'pvx-ea-table' }, svgRoot);
             var y = pad + rowH * 0.5;
 
-            var head = function (x, text, anchor) {
-                PVX.svg.text(g, x.toFixed(1), y.toFixed(1), text, {
+            var head = function (hx, text, anchor, maxW) {
+                var h = PVX.svg.text(g, hx.toFixed(1), y.toFixed(1), fitText(text, maxW, font * 0.9), {
                     'class': 'pvx-svg-label pvx-ea-th', 'text-anchor': anchor,
                     'font-size': (font * 0.9).toFixed(1), fill: t.textMuted
                 });
+                fitTextTo(h, maxW);
             };
-            head(pad, groupByLabel(cfg), 'start');
-            if (wCount) { head(xCount, 'n', 'end'); }
-            head(xTotal, 'total', 'end');
-            if (wMean) { head(xMean, 'mean', 'end'); }
+            head(pad, groupByLabel(m.dim), 'start', Math.max(10, nameRight - pad));
+            for (c = 0; c < cols.length; c++) { head(cols[c].x, cols[c].head, 'end', cols[c].w - 4); }
 
             PVX.svg.el('line', {
                 x1: pad, y1: (y + rowH * 0.42).toFixed(1),
@@ -1757,19 +2586,25 @@
                 stroke: t.border, 'stroke-width': 1, 'class': 'pvx-grid-line'
             }, g);
 
-            for (i = 0; i < rows.length; i++) {
-                var it = rows[i];
+            var drawRow = function (it, i2, isTotal) {
                 y += rowH;
-                if (i % 2 === 1) {
+                if (!isTotal && i2 % 2 === 1) {
                     PVX.svg.el('rect', {
                         x: pad - 2, y: (y - rowH * 0.5).toFixed(1),
                         width: (W - pad * 2 + 4).toFixed(1), height: rowH.toFixed(1),
                         fill: t.grid, 'class': 'pvx-ea-rowband'
                     }, g);
                 }
+                if (isTotal) {
+                    PVX.svg.el('line', {
+                        x1: pad, y1: (y - rowH * 0.5).toFixed(1),
+                        x2: (W - pad).toFixed(1), y2: (y - rowH * 0.5).toFixed(1),
+                        stroke: t.border, 'stroke-width': 1, 'class': 'pvx-grid-line'
+                    }, g);
+                }
 
-                var rowG = PVX.svg.el('g', { 'class': 'pvx-ea-row' }, g);
-                if (scope.pvx.clickable) {
+                var rowG = PVX.svg.el('g', { 'class': isTotal ? 'pvx-ea-row pvx-ea-total' : 'pvx-ea-row' }, g);
+                if (scope.pvx.clickable && !isTotal) {
                     rowG.setAttribute('class', 'pvx-ea-row pvx-hit-group');
                     rowG.setAttribute('data-pvx-i', String(hits.length));
                     hits.push(it);
@@ -1781,37 +2616,279 @@
                     width: (W - pad * 2 + 4).toFixed(1), height: rowH.toFixed(1),
                     fill: 'transparent'
                 }, rowG);
-                PVX.svg.el('title', null, rowG).textContent = tipFor(it, m, cfg, i);
+                if (!isTotal) { PVX.svg.el('title', null, rowG).textContent = tipFor(it, m, cfg, i2); }
 
                 var nt = PVX.svg.text(rowG, pad.toFixed(1), y.toFixed(1),
                     fitText(it.label, Math.max(10, nameRight - pad), font), {
                         'class': 'pvx-svg-label pvx-ea-td', 'text-anchor': 'start',
-                        'font-size': font, fill: it.unassigned ? PVX.color.status.warning : t.text
+                        'font-size': font, 'font-weight': isTotal ? '600' : null,
+                        fill: it.unassigned ? PVX.color.status.warning : t.text
                     });
                 fitTextTo(nt, Math.max(10, nameRight - pad));
 
-                if (wCount) {
-                    PVX.svg.text(rowG, xCount.toFixed(1), y.toFixed(1), String(it.count), {
-                        'class': 'pvx-svg-label pvx-num pvx-ea-td', 'text-anchor': 'end',
-                        'font-size': font, fill: t.textMuted
+                for (var c2 = 0; c2 < cols.length; c2++) {
+                    var col = cols[c2];
+                    var fill = col.color ? (col.color(it) || t.textMuted) : (col.strong ? t.text : t.textMuted);
+                    var ct = PVX.svg.text(rowG, col.x.toFixed(1), y.toFixed(1), col.text(it), {
+                        'class': col.cls + ' pvx-num pvx-ea-td pvx-ea-col-' + col.key, 'text-anchor': 'end',
+                        'font-size': font, 'font-weight': isTotal ? '600' : null, fill: fill
                     });
+                    fitTextTo(ct, col.w - 4);
                 }
-                // Total and mean are always TIME, whatever the ranking metric
-                // is: the table exists to show the accounting behind the rank,
-                // and "3" in a total column would be a count pretending to be
-                // an amount of downtime.
-                PVX.svg.text(rowG, xTotal.toFixed(1), y.toFixed(1),
-                    durText(it.merged, cfg), {
-                        'class': 'pvx-svg-value pvx-num pvx-ea-td', 'text-anchor': 'end',
-                        'font-size': font, fill: t.text
+            };
+
+            for (i = 0; i < rows.length; i++) { drawRow(rows[i], i, false); }
+
+            if (totals) {
+                // The true overall figures, from every event — not a sum of
+                // the rows' means or a column of rounded numbers added up.
+                var all = m.overallAgg;
+                var tot = {
+                    label: 'Total', count: m.count, merged: m.mergedSum, evSum: all.evSum,
+                    value: m.overall, isTotal: true
+                };
+                if (m.totalItem) {
+                    tot.target = m.totalItem.target; tot.delta = m.totalItem.delta; tot.good = m.totalItem.good;
+                }
+                drawRow(tot, rows.length, true);
+            }
+        }
+
+        /* ================================================================ *
+         * pivot — groups down, the split across, totals both ways
+         * ================================================================ */
+
+        /**
+         * Every cell is the metric over that group's events with that split
+         * value; every total is the metric over all the events it covers, so
+         * a mean's row total is the mean of the row's events and a duration's
+         * is its union (an outage under two codes counted once). Totals are
+         * therefore NOT always the sum of the cells, and that is the point.
+         */
+        function drawPivot(svgRoot, W, H, cfg, t, m, compact) {
+            var i, s;
+            var items = m.items;
+            var series = m.series;
+            var font = PVX.util.clamp(Math.round(Math.min(W, H) / 22), 7, 11.5);
+            var pad = 5;
+            var rowH = PVX.util.clamp(font * 1.8, font + 3, 26);
+            var shade = cfg.PivotShading !== false;
+
+            // Column widths from the widest value the column will hold.
+            var cellW = 0;
+            var sample = function (v) { cellW = Math.max(cellW, textW(valueText(v, m, cfg), font) + 10); };
+            for (i = 0; i < items.length; i++) {
+                sample(items[i].value);
+                for (s = 0; s < series.length; s++) { sample(items[i].parts[s]); }
+            }
+            sample(m.overall);
+            // A column is as wide as its heading wants, within reason: a
+            // reason code cut to "Mech…" is a guessing game.
+            // Measured, not estimated: a few headings, set in capitals by the
+            // stylesheet, which the glyph estimate knows nothing about.
+            var probe = PVX.svg.text(svgRoot, 0, -100, '', { 'class': 'pvx-svg-label pvx-ea-th', 'font-size': (font * 0.9).toFixed(1) });
+            for (s = 0; s < series.length; s++) {
+                probe.textContent = series[s].label;
+                var hw = 0;
+                try { hw = probe.getComputedTextLength(); } catch (e) { hw = 0; }
+                cellW = Math.max(cellW, Math.min(110, (hw || textW(series[s].label, font * 0.9)) + 12));
+            }
+            svgRoot.removeChild(probe);
+            cellW = PVX.util.clamp(cellW, 40, 110);
+            var nameW = PVX.util.clamp(W * 0.26, 50, 200);
+            var fitCols = Math.max(1, Math.floor((W - pad * 2 - nameW - cellW) / cellW));
+            var cols = series;
+            if (cols.length > fitCols) {
+                addNote('+' + (cols.length - fitCols) + ' ' + groupNoun(m.split) + ' columns hidden — widen the symbol or lower Split top N');
+                cols = cols.slice(0, fitCols);
+            }
+            var capacity = Math.max(1, Math.floor((H - pad * 2) / rowH) - 2);
+            var rows = items;
+            if (rows.length > capacity) {
+                addNote('+' + (rows.length - capacity) + ' rows below the fold');
+                rows = rows.slice(0, capacity);
+            }
+
+            // The biggest cell sets the shading; cells only, so one large
+            // total does not wash every cell out.
+            var maxCell = 0;
+            for (i = 0; i < rows.length; i++) {
+                for (s = 0; s < cols.length; s++) {
+                    var cv = rows[i].parts[s];
+                    if (cv !== null && Math.abs(cv) > maxCell) { maxCell = Math.abs(cv); }
+                }
+            }
+            var accent = trim(cfg.BarColor) || '#3b82c4';
+
+            var g = PVX.svg.el('g', { 'class': 'pvx-ea-pivot' }, svgRoot);
+            var colX = function (c) { return pad + nameW + cellW * (c + 1); };   // right edge
+            var y = pad + rowH * 0.55;
+
+            // Header: the split's values, then the row total.
+            var corner = groupByLabel(m.dim) + ' ↓  ' + groupByLabel(m.split) + ' →';
+            var ch = PVX.svg.text(g, pad.toFixed(1), y.toFixed(1), fitText(corner, nameW - 4, font * 0.85), {
+                'class': 'pvx-svg-label pvx-ea-th', 'font-size': (font * 0.85).toFixed(1), fill: t.textMuted
+            });
+            fitTextTo(ch, nameW - 4);
+            for (s = 0; s <= cols.length; s++) {
+                var isTot = s === cols.length;
+                var hl = isTot ? 'Total' : cols[s].label;
+                var ht = PVX.svg.text(g, (colX(s) - 4).toFixed(1), y.toFixed(1), fitText(hl, cellW - 6, font * 0.9), {
+                    'class': 'pvx-svg-label pvx-ea-th pvx-ea-pivot-col', 'text-anchor': 'end',
+                    'font-size': (font * 0.9).toFixed(1), 'font-weight': isTot ? '600' : null,
+                    fill: !isTot && cols[s].unassigned ? PVX.color.status.warning : t.textMuted
+                });
+                fitTextTo(ht, cellW - 6);
+                PVX.svg.el('title', null, ht).textContent = hl;
+            }
+            PVX.svg.el('line', {
+                x1: pad, y1: (y + rowH * 0.42).toFixed(1), x2: (W - pad).toFixed(1), y2: (y + rowH * 0.42).toFixed(1),
+                stroke: t.border, 'stroke-width': 1, 'class': 'pvx-grid-line'
+            }, g);
+
+            var cell = function (parent, c, yy, v, strong, tip) {
+                var x1 = colX(c);
+                if (shade && !strong && v !== null && maxCell > 0) {
+                    PVX.svg.el('rect', {
+                        x: (x1 - cellW + 1).toFixed(1), y: (yy - rowH * 0.5 + 1).toFixed(1),
+                        width: (cellW - 2).toFixed(1), height: (rowH - 2).toFixed(1), rx: 2,
+                        fill: accent, opacity: (0.08 + 0.42 * Math.abs(v) / maxCell).toFixed(3),
+                        'class': 'pvx-ea-pivot-shade'
+                    }, parent);
+                }
+                var tx = PVX.svg.text(parent, (x1 - 4).toFixed(1), yy.toFixed(1), valueText(v, m, cfg), {
+                    'class': 'pvx-svg-value pvx-num pvx-ea-pivot-cell', 'text-anchor': 'end',
+                    'font-size': font, 'font-weight': strong ? '600' : null,
+                    fill: v === null ? t.textMuted : t.text
+                });
+                fitTextTo(tx, cellW - 6);
+                if (tip) { PVX.svg.el('title', null, tx).textContent = tip; }
+            };
+
+            for (i = 0; i < rows.length; i++) {
+                var it = rows[i];
+                y += rowH;
+                var rowG = PVX.svg.el('g', { 'class': 'pvx-ea-row' }, g);
+                if (scope.pvx.clickable) {
+                    rowG.setAttribute('class', 'pvx-ea-row pvx-hit-group');
+                    rowG.setAttribute('data-pvx-i', String(hits.length));
+                    hits.push(it);
+                }
+                PVX.svg.el('rect', {
+                    x: pad - 2, y: (y - rowH * 0.5).toFixed(1), width: (W - pad * 2 + 4).toFixed(1),
+                    height: rowH.toFixed(1), fill: 'transparent'
+                }, rowG);
+                var nt = PVX.svg.text(rowG, pad.toFixed(1), y.toFixed(1), fitText(it.label, nameW - 6, font), {
+                    'class': 'pvx-svg-label pvx-ea-td', 'font-size': font,
+                    fill: it.unassigned ? PVX.color.status.warning : t.text
+                });
+                fitTextTo(nt, nameW - 6);
+                PVX.svg.el('title', null, nt).textContent = tipFor(it, m, cfg, i);
+                for (s = 0; s < cols.length; s++) {
+                    cell(rowG, s, y, it.parts[s], false, it.label + ' · ' + cols[s].label + ': ' + valueText(it.parts[s], m, cfg));
+                }
+                cell(rowG, cols.length, y, it.value, true, it.label + ' total: ' + valueText(it.value, m, cfg));
+            }
+
+            // Column totals and the grand total, from the events themselves.
+            y += rowH;
+            PVX.svg.el('line', {
+                x1: pad, y1: (y - rowH * 0.5).toFixed(1), x2: (W - pad).toFixed(1), y2: (y - rowH * 0.5).toFixed(1),
+                stroke: t.border, 'stroke-width': 1, 'class': 'pvx-grid-line'
+            }, g);
+            var totG = PVX.svg.el('g', { 'class': 'pvx-ea-row pvx-ea-total' }, g);
+            PVX.svg.text(totG, pad.toFixed(1), y.toFixed(1), 'Total', {
+                'class': 'pvx-svg-label pvx-ea-td', 'font-size': font, 'font-weight': '600', fill: t.text
+            });
+            for (s = 0; s < cols.length; s++) {
+                cell(totG, s, y, cols[s].value, true, cols[s].label + ' total: ' + valueText(cols[s].value, m, cfg));
+            }
+            var grand = m.metric === 'totalDuration' ? m.covered : m.overall;
+            cell(totG, cols.length, y, grand, true, 'Everything: ' + valueText(grand, m, cfg) +
+                (m.metric === 'totalDuration' ? ' (time covered, overlap counted once)' : ''));
+        }
+
+        /* ================================================================ *
+         * cards — one figure per group, judged against its target
+         * ================================================================ */
+
+        function drawCards(svgRoot, W, H, cfg, t, m, compact) {
+            var list = [];
+            if (cfg.CardTotal !== false) {
+                var tot = m.totalItem || { label: 'Total', value: m.overall, count: m.count, isTotal: true };
+                tot.label = drill.length ? drill[drill.length - 1].label : 'Total';
+                tot.value = m.overall;
+                tot.count = m.count;
+                list.push(tot);
+            }
+            for (var i = 0; i < m.items.length; i++) { list.push(m.items[i]); }
+
+            var gap = 6, pad = 4;
+            var minW = compact ? 90 : 128, minH = compact ? 46 : 64;
+            var cols = PVX.util.clamp(Math.floor((W - pad * 2 + gap) / (minW + gap)), 1, list.length);
+            var rowsFit = Math.max(1, Math.floor((H - pad * 2 + gap) / (minH + gap)));
+            var shown = Math.min(list.length, cols * rowsFit);
+            if (shown < list.length) {
+                addNote('+' + (list.length - shown) + ' cards below the fold');
+            }
+            var rows = Math.max(1, Math.ceil(shown / cols));
+            var cw = (W - pad * 2 - gap * (cols - 1)) / cols;
+            var chh = Math.min(120, (H - pad * 2 - gap * (rows - 1)) / rows);
+            var big = PVX.util.clamp(Math.min(cw / 6, chh / 2.6), 11, 30);
+            var small = PVX.util.clamp(big * 0.45, 8, 11.5);
+
+            var g = PVX.svg.el('g', { 'class': 'pvx-ea-cards' }, svgRoot);
+            for (i = 0; i < shown; i++) {
+                var it = list[i];
+                var cx = pad + (i % cols) * (cw + gap);
+                var cy = pad + Math.floor(i / cols) * (chh + gap);
+                var card = PVX.svg.el('g', { 'class': it.isTotal ? 'pvx-ea-card pvx-ea-card-total' : 'pvx-ea-card' }, g);
+                if (scope.pvx.clickable && !it.isTotal) {
+                    card.setAttribute('class', 'pvx-ea-card pvx-hit-group');
+                    card.setAttribute('data-pvx-i', String(hits.length));
+                    hits.push(it);
+                }
+                PVX.svg.el('rect', {
+                    x: cx.toFixed(1), y: cy.toFixed(1), width: cw.toFixed(1), height: chh.toFixed(1), rx: 4,
+                    fill: t.grid, stroke: t.border, 'stroke-width': 1, 'class': 'pvx-ea-card-bg'
+                }, card);
+                // The accent edge carries the judgement: green, red, or the
+                // group's plain colour when there is no target to judge by.
+                var edge = it.good === true ? PVX.color.status.normal
+                    : (it.good === false ? PVX.color.status.alarm
+                        : (it.isTotal ? t.textMuted : colorFor(it, i, m, cfg, t)));
+                PVX.svg.el('rect', {
+                    x: cx.toFixed(1), y: cy.toFixed(1), width: 4, height: chh.toFixed(1), rx: 2,
+                    fill: edge, 'class': 'pvx-ea-card-edge'
+                }, card);
+                var tx = cx + 11, tw = cw - 16;
+                var lt = PVX.svg.text(card, tx.toFixed(1), (cy + small * 1.5).toFixed(1), fitText(it.label, tw, small), {
+                    'class': 'pvx-svg-label pvx-ea-card-label', 'font-size': small.toFixed(1),
+                    'font-weight': it.isTotal ? '600' : null,
+                    fill: it.unassigned ? PVX.color.status.warning : t.textMuted
+                });
+                fitTextTo(lt, tw);
+                var vt = PVX.svg.text(card, tx.toFixed(1), (cy + small * 1.9 + big * 0.95).toFixed(1),
+                    valueText(it.value, m, cfg), {
+                        'class': 'pvx-svg-value pvx-num pvx-ea-card-value', 'font-size': big.toFixed(1),
+                        'font-weight': '600', fill: t.text
                     });
-                if (wMean) {
-                    PVX.svg.text(rowG, xMean.toFixed(1), y.toFixed(1),
-                        durText(it.count ? it.rawSum / it.count : 0, cfg), {
-                            'class': 'pvx-svg-label pvx-num pvx-ea-td', 'text-anchor': 'end',
-                            'font-size': font, fill: t.textMuted
-                        });
+                fitTextTo(vt, tw);
+                // Short enough for a card: the signed gap and the target. The
+                // edge colour already says which side of it is good.
+                var sub = it.delta === undefined ? (it.count + (it.count === 1 ? ' event' : ' events'))
+                    : (Math.abs(it.delta) < 1e-9 ? 'on target ' + valueText(it.target, m, cfg)
+                        : deltaText(it, m, cfg) + ' vs ' + valueText(it.target, m, cfg));
+                if (chh > small * 2.4 + big * 1.4) {
+                    var st = PVX.svg.text(card, tx.toFixed(1), (cy + chh - small * 0.8).toFixed(1), fitText(sub, tw, small), {
+                        'class': 'pvx-svg-label pvx-ea-card-sub', 'font-size': small.toFixed(1),
+                        fill: it.good === undefined ? t.textMuted : deltaColor(it, t)
+                    });
+                    fitTextTo(st, tw);
                 }
+                PVX.svg.el('title', null, card).textContent = it.isTotal
+                    ? it.label + ': ' + valueText(it.value, m, cfg) + (targetText(it, m, cfg) ? '\n' + targetText(it, m, cfg) : '')
+                    : tipFor(it, m, cfg, i);
             }
         }
 
@@ -1823,14 +2900,29 @@
             if (it.rawSum > it.merged + 500) {
                 lines.push('Raw sum of durations: ' + PVX.fmt.duration(it.rawSum));
             }
-            lines.push('Mean: ' + PVX.fmt.duration(it.count ? it.rawSum / it.count : 0));
+            lines.push('Mean: ' + PVX.fmt.duration(it.count ? it.evSum / it.count : 0));
             lines.push('Longest: ' + PVX.fmt.duration(it.max));
+            if (m.isAttr) {
+                lines.push(m.metricLabel + ': ' + valueText(it.value, m, cfg) +
+                    (it.missing ? ' (' + it.missing + ' with no number)' : ''));
+            }
+            if (it.target !== undefined) {
+                lines.push('Target: ' + valueText(it.target, m, cfg) +
+                    (it.delta !== undefined ? ' \u2014 ' + targetText(it, m, cfg) +
+                        (it.pctOf !== null && it.pctOf !== undefined ? ' (' + PVX.fmt.percent(it.pctOf, 0) + ' of target)' : '') : ''));
+            }
+            if (it.parts && m.series) {
+                for (var p = 0; p < m.series.length; p++) {
+                    if (it.parts[p] !== null) { lines.push('  ' + m.series[p].label + ': ' + valueText(it.parts[p], m, cfg)); }
+                }
+            }
+            if (canDrill(it)) { lines.push('Click for ' + groupByLabel(dimsOf(liveCfg).levels[drill.length + 1])); }
             if (it.open) {
                 lines.push(it.open + (it.open === 1 ? ' event is' : ' events are') + ' still open');
             }
             if (m.total > 0 && m.additive) {
                 lines.push('Share of ' + m.metricLabel.toLowerCase() + ': ' +
-                    PVX.fmt.percent((it.value / m.total) * 100, 1));
+                    PVX.fmt.percent((vOf(it) / m.total) * 100, 1));
             }
             if (m.cum && m.cum[i] !== undefined) {
                 lines.push('Cumulative: ' + m.cum[i].toFixed(1) + '%');
@@ -1959,7 +3051,7 @@
         }
 
         function onClick(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'drill') { return; }
             var node = ev.target;
             var guard = 0;
             while (node && node !== boundHost && guard < 12) {
@@ -1977,11 +3069,26 @@
          * first event start to last event end. The reason to click a reason code
          * is to go and look at what the plant was doing while it was happening.
          */
+        /** A group a click opens the next level of: a real group (not
+         *  "Other", which is many) with a level below it. */
+        function canDrill(it) {
+            if (liveCfg.ClickAction !== 'drill' || !it || it.isOther || it.isTotal || it.key === null || it.key === undefined) { return false; }
+            if (!it.facts || !it.facts.length) { return false; }
+            return drill.length + 1 < dimsOf(liveCfg).levels.length;
+        }
+
         function activate(index) {
             if (!(index >= 0) || index >= hits.length) { return; }
             var it = hits[index];
+            if (canDrill(it)) {
+                drill.push({ key: it.key, label: it.label });
+                ctx.render();
+                return;
+            }
+            // At the last level a drill-down opens the target display, when one is set.
             var target = trim(liveCfg.NavigateTarget);
-            if (!target) { return; }
+            // A period with no events has no span of its own to open.
+            if (!target || !isFinite(it.first) || !isFinite(it.last)) { return; }
             var pad = Math.max(60000, (it.last - it.first) * 0.05);
             PVX.nav.go(PVX.nav.url({
                 display: target,
@@ -2023,6 +3130,17 @@
 
         return ctx;
     };
+
+    // For tools/test-overview.js: the period and target rules, without a page.
+    symbolVis.periodStart = periodStart;
+    symbolVis.periodNext = periodNext;
+    symbolVis.periodKey = periodKey;
+    symbolVis.periodLabel = periodLabel;
+    symbolVis.periodRange = periodRange;
+    symbolVis.sliceAt = sliceAt;
+    symbolVis.summarize = summarize;
+    symbolVis.parseTargets = parseTargets;
+    symbolVis.targetValue = targetValue;
 
     window.PVX.register(PV, definition);
 

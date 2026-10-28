@@ -7,13 +7,19 @@
             ranges.</strong> A PI Vision custom symbol only ever receives the window the
             display is set to, so it cannot ask for "the same shift last week" — that needs
             the PI Web API. Instead it cuts the one window it is given into equal periods and
-            lays them on a shared relative-time axis.
+            lays them on a shared relative-time axis. The one exception is <em>Runs from event
+            frames</em> below, which reads the event frames through PI Web API.
         </div>
         <div class="pvx-cfg-hint">
             So: to compare seven days, set the <em>display</em> time range to 7 days and choose
             a 1 day period. To compare three shifts, set the range to 24 hours and choose the
             shift period. If the display range is shorter than one period there is nothing to
             compare, and the footer says so instead of drawing something misleading.
+        </div>
+        <div class="pvx-cfg-hint">
+            The first data source is folded in full. Each further one draws its current period
+            on the same axis in its own colour; for tags in different units, show
+            <em>% change</em> below, where each is measured from its own baseline.
         </div>
     </div>
 
@@ -28,7 +34,9 @@
                 <option value="shift">Shift</option>
                 <option value="day">1 day</option>
                 <option value="week">1 week</option>
+                <option value="month">Calendar month</option>
                 <option value="custom">Custom hours</option>
+                <option value="events">Runs from event frames</option>
             </select>
         </div>
         <div class="pvx-cfg-hint" ng-if="!config.PeriodMode || config.PeriodMode === 'auto'">
@@ -50,29 +58,119 @@
             same clock the control room reads.
         </div>
 
+        <div class="pvx-cfg-hint" ng-if="config.PeriodMode === 'month'">
+            Each period starts on the 1st and the axis is the day of the month; shorter months end
+            early. Months always follow the calendar, whatever the alignment below.
+        </div>
+
         <div class="pvx-cfg-row" ng-if="config.PeriodMode === 'custom'">
             <label for="pvxpo-customhours">Period length (h)</label>
             <input id="pvxpo-customhours" type="number" ng-model="config.CustomPeriodHours" min="0.25" max="8760" step="0.25" />
         </div>
 
-        <div class="pvx-cfg-row">
+        <div ng-if="config.PeriodMode === 'events'">
+            <div class="pvx-cfg-hint">
+                Each event frame in the display's time range is one run: a batch, a campaign, a
+                start-up. The event frames are read from <strong>PI Web API</strong>; the values are
+                still the ones PI Vision sends, cut at each run's start and end, so a run that began
+                before the time range is drawn from where the range starts, and the footer counts it.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxpo-evdb">AF database path</label>
+                <input id="pvxpo-evdb" type="text" ng-model="config.EventDatabasePath" placeholder="Blank: the first data source's database" />
+                <!-- pvx:afpicker key=EventDatabasePath kind=database -->
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxpo-evscope">Events of</label>
+                <select id="pvxpo-evscope" ng-model="config.EventScope">
+                    <option value="none">The whole database</option>
+                    <option value="asset">The display's asset</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxpo-evtemplate">Event Frame template</label>
+                <input id="pvxpo-evtemplate" type="text" ng-model="config.EventTemplate" placeholder="Batch" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxpo-evname">Event name filter</label>
+                <input id="pvxpo-evname" type="text" ng-model="config.EventNameFilter" placeholder="Leave blank for every name" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxpo-evelem">Referenced element filter</label>
+                <input id="pvxpo-evelem" type="text" ng-model="config.EventElementFilter" placeholder="Reactor*" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxpo-evmax">Max event frames read</label>
+                <input id="pvxpo-evmax" type="number" ng-model="config.MaxEvents" min="1" max="2000" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxpo-evalign">Line runs up at</label>
+                <select id="pvxpo-evalign" ng-model="config.EventAlign">
+                    <option value="start">Their start</option>
+                    <option value="end">Their end</option>
+                    <option value="normalized">0 to 100% of each run</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-hint">
+                At the start, the axis is the time since each run began; at the end, the time before
+                it ended. <strong>0 to 100%</strong> stretches each run to the same width, so a short
+                batch and a long one line up step by step.
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxpo-golden">Golden runs</label>
+                <input id="pvxpo-golden" type="text" ng-model="config.GoldenEvents" placeholder="Batch 1042, Batch 1057" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxpo-goldtol">Tolerance</label>
+                <input id="pvxpo-goldtol" type="text" ng-model="config.GoldenTolerance" placeholder="5%" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Event names, comma separated, <code>*</code> and <code>?</code> allowed. The golden runs
+                are always shown, however old, and their average with a band either side replaces the
+                envelope: <code>5%</code> of the average, <code>2</code> in the tag's units, or
+                <code>2s</code> for two standard deviations of the golden runs (which needs two of them).
+                The current run is measured against it. Leave blank to compare with the older runs.
+            </div>
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.PeriodMode !== 'events'">
             <label for="pvxpo-alignto">Align periods to</label>
             <select id="pvxpo-alignto" ng-model="config.AlignTo">
                 <option value="clock">The clock</option>
                 <option value="windowEnd">The end of the window</option>
             </select>
         </div>
-        <div class="pvx-cfg-hint" ng-if="!config.AlignTo || config.AlignTo === 'clock'">
+        <div class="pvx-cfg-hint" ng-if="config.PeriodMode !== 'events' && (!config.AlignTo || config.AlignTo === 'clock')">
             Periods start on real boundaries — midnight, the shift start, Monday. 08:00 on one
             trace is 08:00 on every other, and the axis is labelled in clock time. This is the
             right answer for <em>"Tuesday against Wednesday"</em>. The newest period is still in
             progress, so its trace stops part way across.
         </div>
-        <div class="pvx-cfg-hint" ng-if="config.AlignTo === 'windowEnd'">
+        <div class="pvx-cfg-hint" ng-if="config.PeriodMode !== 'events' && config.AlignTo === 'windowEnd'">
             Periods count back from the end of the window, so the newest trace always ends at
             "now" and the axis is labelled in elapsed time. This is the right answer for
             <em>"the last 8 hours against the 8 before that"</em>. These two settings answer
             different questions — pick the one that matches yours.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxpo-showas">Show</label>
+            <select id="pvxpo-showas" ng-model="config.ShowAs">
+                <option value="values">Values</option>
+                <option value="delta">Change from the baseline</option>
+                <option value="pctdelta">% change from the baseline</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowAs === 'delta' || config.ShowAs === 'pctdelta'">
+            <label for="pvxpo-baseline">Baseline</label>
+            <select id="pvxpo-baseline" ng-model="config.Baseline">
+                <option value="median">Median of the older periods</option>
+                <option value="previous">The period before</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ShowAs === 'delta' || config.ShowAs === 'pctdelta'">
+            Every period is drawn as its difference from the baseline at the same point in the
+            period, around a zero line; the envelope is then the older periods' spread around it.
         </div>
 
         <div class="pvx-cfg-row">

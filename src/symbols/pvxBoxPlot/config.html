@@ -42,6 +42,63 @@
     </div>
 
     <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Boxes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-groupby">One box per</label>
+            <select id="pvxbox-groupby" ng-model="config.GroupBy">
+                <option value="source">Data source</option>
+                <option value="hour">Hour</option>
+                <option value="shift">Shift</option>
+                <option value="day">Day</option>
+                <option value="week">Week (from Monday)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">By hour, shift, day or week, one data source is cut into consecutive periods in local time, oldest on the left. Use it to see whether a tag is getting noisier, or whether one shift runs it differently.</div>
+        <div ng-if="config.GroupBy && config.GroupBy !== 'source'">
+            <div class="pvx-cfg-row">
+                <label for="pvxbox-groupsrc">Data source number</label>
+                <input id="pvxbox-groupsrc" type="number" ng-model="config.GroupSource" min="1" step="1" />
+            </div>
+            <div class="pvx-cfg-row" ng-if="config.GroupBy === 'shift'">
+                <label for="pvxbox-shiftlen">Shift length</label>
+                <select id="pvxbox-shiftlen" ng-model="config.ShiftHours">
+                    <option ng-value="4">4 hours</option>
+                    <option ng-value="6">6 hours</option>
+                    <option ng-value="8">8 hours</option>
+                    <option ng-value="12">12 hours</option>
+                </select>
+            </div>
+            <div class="pvx-cfg-row" ng-if="config.GroupBy === 'shift'">
+                <label for="pvxbox-shiftstart">First shift starts at hour</label>
+                <input id="pvxbox-shiftstart" type="number" ng-model="config.ShiftStart" min="0" max="23" />
+            </div>
+            <div class="pvx-cfg-hint">Each box needs samples: raise the resolution under Statistics for many short periods. When there are more periods than the maximum number of boxes, the latest are shown.</div>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Overlay line</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-ovsrc">From data source</label>
+            <select id="pvxbox-ovsrc" ng-model="config.OverlaySource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index" value="{{$index + 1}}">{{$index + 1}}. {{s.label}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-ovval">Or a fixed value</label>
+            <input id="pvxbox-ovval" type="text" ng-model="config.OverlayValue" placeholder="e.g. 72.5" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxbox-ovlabel">Label</label>
+            <input id="pvxbox-ovlabel" type="text" ng-model="config.OverlayLabel" placeholder="Setpoint" />
+        </div>
+        <div class="pvx-cfg-hint">A dashed line for a setpoint or limit. A data source wins over a fixed value and is not drawn as a box. With boxes by time the line steps with the source's mean in each period, so a setpoint change shows where it happened.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Statistics</div>
 
         <div class="pvx-cfg-row">

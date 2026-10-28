@@ -43,6 +43,20 @@
     <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">What the tree shows</div>
 
+        <div class="pvx-cfg-row">
+            <label for="pvxtree-layout">Layout</label>
+            <select id="pvxtree-layout" ng-model="config.Layout">
+                <option value="tree">A tree, opened level by level</option>
+                <option value="list">One flat list of every element</option>
+                <option value="dropdown">A drop-down list</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            The list and the drop-down fetch every element under the root in one request, up to
+            the most per level below, and say so when there are more. The drop-down fits a display
+            header: it shows the display's current asset, and choosing another switches to it.
+        </div>
+
         <div class="pvx-cfg-stack">
             <label for="pvxat-tpl">Only this element template</label>
             <input id="pvxat-tpl" type="text" ng-model="config.TemplateFilter"
@@ -70,6 +84,40 @@
         <div class="pvx-cfg-hint">
             If a level holds more, the footer says which one was cut and how many are shown. It never
             silently truncates.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">A value on each row</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxtree-valattr">Attribute</label>
+            <input id="pvxtree-valattr" type="text" ng-model="config.ValueAttribute" placeholder="None, or e.g. Status" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The name of an attribute on each element, such as <code>Status</code> or
+            <code>Discharge Pressure</code>. Its current value is shown at the end of every row on
+            screen with a coloured dot, read through PI Web API and refreshed on the interval below.
+            A row whose element has no such attribute shows a dash.
+        </div>
+        <div ng-if="config.ValueAttribute">
+            <div class="pvx-cfg-stack">
+                <div class="pvx-cfg-label">Colours for numbers</div>
+                <!-- pvx:bands key=ValueBands -->
+            </div>
+            <div class="pvx-cfg-stack">
+                <div class="pvx-cfg-label">Colours for digital states</div>
+                <!-- pvx:states key=StateMap kind=map -->
+            </div>
+            <div class="pvx-cfg-hint">A value no band or state covers gets no dot. Bad quality is shown in the stale colour.</div>
+            <div class="pvx-cfg-row">
+                <label for="pvxtree-valdot">Show the dot</label>
+                <input id="pvxtree-valdot" type="checkbox" ng-model="config.ShowValueDot" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvxtree-valrefresh">Refresh every (s)</label>
+                <input id="pvxtree-valrefresh" type="number" ng-model="config.ValueRefreshSeconds" min="5" />
+            </div>
         </div>
     </div>
 

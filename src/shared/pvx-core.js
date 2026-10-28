@@ -21,7 +21,7 @@
     var PVX = root.PVX || {};
     root.PVX = PVX;
 
-    PVX.version = '1.14.1';
+    PVX.version = '1.15.0';
     PVX.SVG_NS = 'http://www.w3.org/2000/svg';
 
     /* ------------------------------------------------------------------ *
@@ -436,6 +436,121 @@
         return false;
     };
 
+    /* ---- the site's theme ------------------------------------------------ *
+     * A plant with a corporate look sets it once, in pvx-config.js, rather
+     * than in the format pane of every symbol on every display:
+     *
+     *   theme: {
+     *       palette: ['#00539b', '#f7a800', ...],    series colours, in order
+     *       status:  { normal: '#..', warning: '#..', alarm: '#..' },
+     *       light:   { surface: '#..', text: '#..', border: '#..' },
+     *       dark:    { surface: '#..', text: '#..' },
+     *       font:    '"Arial", sans-serif',
+     *       container: { radius: 4, border: '1px solid #c8ccd0', shadow: '0 1px 2px rgba(0,0,0,.2)' }
+     *   }
+     *
+     * Every key is optional. A symbol's own Background, Text colour and
+     * Theme still win, so nothing set on a display is overridden. A value
+     * that is not a colour is ignored and named in the console rather than
+     * drawing black, and one bad entry does not discard the rest.
+     */
+    var siteTokens = { light: {}, dark: {} };
+    var SITE_TOKEN_KEYS = ['surface', 'surfaceAlt', 'border', 'text', 'textMuted', 'grid', 'axis', 'track'];
+    // Built-ins kept so a second configure() replaces rather than compounds.
+    var builtinPalette = color.categorical.slice();
+    var builtinStatus = {};
+    for (var bsk in color.status) {
+        if (Object.prototype.hasOwnProperty.call(color.status, bsk)) { builtinStatus[bsk] = color.status[bsk]; }
+    }
+
+    function siteWarn(what) {
+        try { root.console.warn('[PVX] pvx-config.js theme: ' + what + ' ignored.'); } catch (e) { /* no console */ }
+    }
+
+    /** A CSS value safe to drop into one declaration: no braces, no ';', no markup. */
+    function cssValue(v) {
+        var str = String(v === null || v === undefined ? '' : v);
+        return /[{};<>]/.test(str) ? '' : str;
+    }
+
+    theme.applySite = function (cfg) {
+        var i, k;
+        cfg = cfg && typeof cfg === 'object' ? cfg : {};
+
+        // In place: symbols and the core hold references to these.
+        var pal = [];
+        if (cfg.palette && cfg.palette.length) {
+            for (i = 0; i < cfg.palette.length; i++) {
+                if (color.toRgb(cfg.palette[i])) { pal.push(cfg.palette[i]); }
+                else { siteWarn('palette entry ' + JSON.stringify(cfg.palette[i])); }
+            }
+            if (pal.length < 2) { siteWarn('a palette of fewer than two colours'); pal = []; }
+        }
+        var usePal = pal.length ? pal : builtinPalette;
+        color.categorical.length = 0;
+        for (i = 0; i < usePal.length; i++) { color.categorical.push(usePal[i]); }
+
+        for (k in builtinStatus) {
+            if (Object.prototype.hasOwnProperty.call(builtinStatus, k)) { color.status[k] = builtinStatus[k]; }
+        }
+        var st = cfg.status && typeof cfg.status === 'object' ? cfg.status : {};
+        for (k in st) {
+            if (!Object.prototype.hasOwnProperty.call(st, k)) { continue; }
+            if (!Object.prototype.hasOwnProperty.call(builtinStatus, k)) { siteWarn('status "' + k + '"'); continue; }
+            if (color.toRgb(st[k])) { color.status[k] = st[k]; } else { siteWarn('status ' + k + ' ' + JSON.stringify(st[k])); }
+        }
+
+        var modes = ['light', 'dark'];
+        for (i = 0; i < modes.length; i++) {
+            var src = cfg[modes[i]] && typeof cfg[modes[i]] === 'object' ? cfg[modes[i]] : {};
+            var out = {};
+            for (k in src) {
+                if (!Object.prototype.hasOwnProperty.call(src, k)) { continue; }
+                if (SITE_TOKEN_KEYS.indexOf(k) === -1) { siteWarn(modes[i] + '.' + k); continue; }
+                if (color.toRgb(src[k])) { out[k] = src[k]; } else { siteWarn(modes[i] + '.' + k + ' ' + JSON.stringify(src[k])); }
+            }
+            siteTokens[modes[i]] = out;
+        }
+
+        // Font and the container are CSS, written once for the page, under
+        // .pvx so PI Vision's own chrome is untouched.
+        var rules = [];
+        // A value cssValue refuses would otherwise vanish without a word, so
+        // say which one it was.
+        function css(v, what) {
+            if (v === undefined || v === null || v === '') { return ''; }
+            var ok = cssValue(v);
+            if (!ok) { siteWarn(what + ' ' + JSON.stringify(v)); }
+            return ok;
+        }
+        var font = css(cfg.font, 'font');
+        if (font) { rules.push('.pvx { font-family: ' + font + '; }'); }
+        var box = cfg.container && typeof cfg.container === 'object' ? cfg.container : {};
+        var decl = [];
+        var radius = util.num(box.radius);
+        if (radius !== null) { decl.push('border-radius: ' + util.clamp(radius, 0, 40) + 'px'); }
+        else if (box.radius !== undefined && box.radius !== null && box.radius !== '') { siteWarn('container.radius ' + JSON.stringify(box.radius)); }
+        var border = css(box.border, 'container.border');
+        if (border) { decl.push('border: ' + border); }
+        var shadow = css(box.shadow, 'container.shadow');
+        if (shadow) { decl.push('box-shadow: ' + shadow); }
+        if (decl.length) { rules.push('.pvx .pvx-surface { ' + decl.join('; ') + '; }'); }
+        theme.siteCss = rules.join('\n');
+        try {
+            var doc = root.document;
+            if (doc && doc.head) {
+                var el = doc.getElementById('pvx-site-theme');
+                if (!el && rules.length) {
+                    el = doc.createElement('style');
+                    el.id = 'pvx-site-theme';
+                    doc.head.appendChild(el);
+                }
+                if (el) { el.textContent = theme.siteCss; }
+            }
+        } catch (e) { /* no document: Node, a test harness */ }
+        return { palette: color.categorical.slice(), status: color.status, light: siteTokens.light, dark: siteTokens.dark, css: theme.siteCss };
+    };
+
     /**
      * Resolve the drawing palette for a symbol instance.
      * @param {Object} config symbol config (may carry explicit overrides)
@@ -469,6 +584,13 @@
             track: 'rgba(0,0,0,0.10)',
             shadow: 'rgba(0,0,0,0.18)'
         };
+
+        // The site's theme, from pvx-config.js, sits between the built-in
+        // tokens and the symbol's own settings.
+        var site = siteTokens[dark ? 'dark' : 'light'];
+        for (var sk in site) {
+            if (Object.prototype.hasOwnProperty.call(site, sk)) { t[sk] = site[sk]; }
+        }
 
         // Explicit config overrides always win.
         if (config.BackgroundColor) { t.surface = config.BackgroundColor; }
@@ -563,6 +685,100 @@
             if (to > from) {
                 out.push({ from: from, to: to, color: list[i].color, label: list[i].label });
             }
+        }
+        return out;
+    };
+
+    /**
+     * Alarm deadband: '2' (engineering units) or '2%' (of each limit's own
+     * size). Returns {amount, percent}, null for blank, or {bad:true} for
+     * something it cannot read, so a symbol can say so instead of quietly
+     * alarming without one.
+     */
+    thresholds.parseDeadband = function (spec) {
+        var s = String(spec === null || spec === undefined ? '' : spec).trim();
+        if (!s) { return null; }
+        var pct = /%$/.test(s);
+        var n = util.num(pct ? s.slice(0, -1).trim() : s);
+        if (n === null || n < 0) { return { bad: true }; }
+        if (n === 0) { return null; }
+        return { amount: n, percent: pct };
+    };
+
+    /** The deadband below one limit, in engineering units. */
+    thresholds.deadbandAt = function (db, limit) {
+        if (!db || db.bad) { return 0; }
+        return db.percent ? Math.abs(limit) * db.amount / 100 : db.amount;
+    };
+
+    /**
+     * Band index with a deadband applied: rising into a band is immediate,
+     * leaving it downward waits until the value is a deadband below that
+     * band's limit. Without it a value hovering at the limit raises and
+     * clears an alarm on every poll, which is the chatter a deadband is for.
+     * Only numbers are held; a digital state maps straight to its band.
+     *
+     * @param value   the number, or null
+     * @param bands   parse() output, ascending
+     * @param rawSev  the band the value is in, ignoring the deadband
+     * @param prevSev the band reported last time (-1 for none)
+     */
+    thresholds.hold = function (value, bands, rawSev, prevSev, db) {
+        if (!db || db.bad || value === null || value === undefined || !(prevSev > rawSev)) { return rawSev; }
+        for (var j = Math.min(prevSev, bands.length - 1); j > rawSev; j--) {
+            if (value >= bands[j].value - thresholds.deadbandAt(db, bands[j].value)) { return j; }
+        }
+        return rawSev;
+    };
+
+    /**
+     * Past alarms from recorded values: one entry per excursion at or above
+     * band `minBand`, with the worst band it reached.
+     *
+     * An excursion starts at the first recorded value in alarm and ends at
+     * the first one out of it. That is how PI's own analyses timestamp an
+     * event, and the most a list of samples can honestly say: the true
+     * crossing lies between two of them. A value of bad quality says nothing
+     * about the process, so it neither starts nor ends anything.
+     *
+     * @param points [{t (ms), v (number or null), raw, good}] in time order
+     * @param opts {minBand, deadband (parseDeadband), stateBands, from, to}
+     * @returns [{sev, firstSev, start, end (null while still in), openStart,
+     *            peak, startValue, endValue}]
+     */
+    thresholds.excursions = function (points, bands, opts) {
+        opts = opts || {};
+        var minBand = Math.max(0, parseInt(opts.minBand, 10) || 0);
+        var out = [], cur = null, prev = -1, seen = false;
+        for (var i = 0; i < (points || []).length; i++) {
+            var p = points[i];
+            if (!p || p.good === false) { continue; }
+            var raw = -1;
+            var key = opts.stateBands ? states.text(p.raw).toLowerCase() : '';
+            if (key && opts.stateBands[key] !== undefined) {
+                raw = opts.stateBands[key];
+            } else if (p.v !== null && p.v !== undefined) {
+                for (var b = 0; b < bands.length; b++) { if (p.v >= bands[b].value) { raw = b; } else { break; } }
+            }
+            var sev = thresholds.hold(p.v, bands, raw, prev, opts.deadband);
+            prev = sev;
+            var inAlarm = sev >= minBand && sev >= 0;
+            if (inAlarm && !cur) {
+                cur = { sev: sev, firstSev: sev, start: p.t, end: null,
+                    // Already in alarm at the first good value: it began
+                    // before the window, at a time these values cannot show.
+                    openStart: !seen,
+                    peak: p.v, startValue: p.raw !== undefined ? p.raw : p.v, endValue: null };
+                out.push(cur);
+            } else if (inAlarm) {
+                if (sev > cur.sev) { cur.sev = sev; }
+                if (p.v !== null && (cur.peak === null || p.v > cur.peak)) { cur.peak = p.v; }
+            } else if (cur) {
+                cur.end = p.t;
+                cur.endValue = p.raw !== undefined ? p.raw : p.v;
+                cur = null;
+            }
+            seen = true;
         }
         return out;
     };
@@ -1431,6 +1647,161 @@
 
     tags.clearCache = function () { spanCache = {}; };
 
+    /* ------------------------------------------------------------------ *
+     * af — settings kept in AF rather than in each display
+     * ------------------------------------------------------------------ *
+     * A target, a limit or a menu typed into a display is copied into every
+     * display that needs it, and goes stale in all but the one someone
+     * remembers to edit. Kept in AF, it is changed once. These read it.
+     */
+    var af = PVX.af = {};
+
+    /** Trait names PI Web API knows for AF limit attributes. */
+    af.TRAITS = ['Minimum', 'LoLo', 'Lo', 'Target', 'Hi', 'HiHi', 'Maximum'];
+
+    var afAttr = {};        // attribute path -> Promise of its WebId
+    var afTrait = {};       // attribute WebId + trait -> Promise of the trait's WebId or ''
+    var afValue = {};       // stream WebId -> {at, job}
+    var AF_VALUE_TTL = 60000;
+
+    function afOnce(store, key, make) {
+        if (store[key]) { return store[key]; }
+        var job = make();
+        store[key] = job;
+        // A failure is forgotten, so an outage does not stick for the life of the page.
+        job.then(null, function () { if (store[key] === job) { delete store[key]; } });
+        return job;
+    }
+
+    function afRead(webId) {
+        var now = (new Date()).getTime();
+        var hit = afValue[webId];
+        if (hit && now - hit.at < AF_VALUE_TTL) { return hit.job; }
+        var job = api.get('streams/' + encodeURIComponent(webId) + '/value?selectedFields=Value;Good', { cache: false });
+        afValue[webId] = { at: now, job: job };
+        job.then(null, function () { if (afValue[webId] && afValue[webId].job === job) { delete afValue[webId]; } });
+        return job;
+    }
+
+    /**
+     * The AF limit traits of the attribute behind a data source, as numbers:
+     * {Hi: 120, Lo: 80, Target: null, ...} for the names asked, null where
+     * the attribute has no such trait or its value is not a number. A PI
+     * point has no traits, and gives every name null. Values are re-read at
+     * most once a minute, however many symbols ask.
+     * @param {String} ds a data source as PI Vision stores it, or an AF attribute path
+     * @param {Array} names trait names from af.TRAITS
+     */
+    af.traits = function (ds, names) {
+        var p = states.sourcePath(ds);
+        var out = {};
+        (names || []).forEach(function (n) { out[n] = null; });
+        if (!p || p.indexOf('|') === -1) { return Promise.resolve(out); }
+        return afOnce(afAttr, p.toLowerCase(), function () {
+            return api.get('attributes?path=' + encodeURIComponent(p) + '&selectedFields=WebId').then(function (a) {
+                if (!a || !a.WebId) { throw { pvxError: { message: 'No AF attribute at "' + p + '".', check: 'the data source' } }; }
+                return a.WebId;
+            });
+        }).then(function (attrId) {
+            return Promise.all((names || []).map(function (n) {
+                return afOnce(afTrait, attrId + '|' + n, function () {
+                    return api.get('attributes/' + encodeURIComponent(attrId) + '/attributes?trait=' + encodeURIComponent(n) +
+                        '&selectedFields=Items.WebId').then(function (r) {
+                            var it = ((r && r.Items) || [])[0];
+                            return it && it.WebId ? it.WebId : '';
+                        });
+                }).then(function (traitId) {
+                    if (!traitId) { return null; }
+                    return afRead(traitId).then(function (v) { return v && v.Good !== false ? util.num(v.Value) : null; });
+                });
+            })).then(function (vals) {
+                (names || []).forEach(function (n, i) { out[n] = vals[i]; });
+                return out;
+            });
+        });
+    };
+
+    /**
+     * The current value of one AF attribute, by path, as text: for a menu,
+     * a list or a setting kept as a string attribute. Re-read at most once a
+     * minute. Rejects when the attribute is not there, so the caller can say so.
+     */
+    af.text = function (path) {
+        var p = stTrim(path);
+        if (!p) { return Promise.resolve(''); }
+        return afOnce(afAttr, p.toLowerCase(), function () {
+            return api.get('attributes?path=' + encodeURIComponent(p) + '&selectedFields=WebId').then(function (a) {
+                if (!a || !a.WebId) { throw { pvxError: { message: 'No AF attribute at "' + p + '".', check: 'the attribute path' } }; }
+                return a.WebId;
+            });
+        }).then(afRead).then(function (v) {
+            var raw = v ? v.Value : '';
+            if (raw && typeof raw === 'object') { raw = raw.Name !== undefined ? raw.Name : raw.Value; }
+            return raw === null || raw === undefined ? '' : String(raw);
+        });
+    };
+
+    af.clearCache = function () { afAttr = {}; afTrait = {}; afValue = {}; };
+
+    /**
+     * Trait reading for one symbol: ask() on every data update and config
+     * change, get() in render. It asks PI Web API only when the attribute or
+     * the names change, else once a minute, and calls onChange when an answer
+     * (or a reason there is none) arrives, so the symbol re-renders.
+     *   phase: 'off' | 'loading' | 'ok' | 'error', with error worded for a footer.
+     */
+    af.watcher = function (onChange) {
+        var w = { key: '', at: 0, vals: null, error: '', phase: 'off', gen: 0 };
+        var changed = function () { if (onChange) { onChange(); } };
+        w.ask = function (ds, names) {
+            names = (names || []).filter(function (n, i, all) { return af.TRAITS.indexOf(n) !== -1 && all.indexOf(n) === i; });
+            if (!names.length) { w.phase = 'off'; w.key = ''; return; }
+            var path = states.sourcePath(ds);
+            var key = path + '\u0001' + names.join(',');
+            var now = (new Date()).getTime();
+            if (key === w.key && now - w.at < AF_VALUE_TTL) { return; }
+            w.key = key;
+            w.at = now;
+            if (path.indexOf('|') === -1) {
+                w.phase = 'error';
+                w.error = path ? 'the data source is a PI point, which has no AF limit traits' : 'no data source';
+                changed();
+                return;
+            }
+            if (api.discovering()) {
+                w.key = '';
+                api.discover().then(function () { w.ask(ds, names); });
+                return;
+            }
+            if (!api.isConfigured()) {
+                w.phase = 'error';
+                w.error = api.unsetHint() + ', then confirm it with ext/piwebapi-check.html';
+                changed();
+                return;
+            }
+            var gen = ++w.gen;
+            if (w.phase !== 'ok') { w.phase = 'loading'; }
+            af.traits(path, names).then(function (v) {
+                if (gen !== w.gen) { return; }
+                w.vals = v;
+                w.phase = 'ok';
+                w.error = '';
+                changed();
+            }, function (err) {
+                if (gen !== w.gen) { return; }
+                w.phase = 'error';
+                w.error = (err && err.pvxError && err.pvxError.message) || 'the AF limit traits could not be read';
+                w.key = '';
+                changed();
+            });
+        };
+        w.get = function (name) {
+            return w.phase === 'ok' && w.vals && w.vals[name] !== undefined ? w.vals[name] : null;
+        };
+        w.stop = function () { w.gen += 1; onChange = null; };
+        return w;
+    };
+
     /** Labels of a PI Vision data object, in data source order. */
     tags.labelsIn = function (d) {
         var items = d && (d.Data || d.data || d.Rows || d.rows);
@@ -1748,6 +2119,54 @@
         return out;
     };
 
+    /**
+     * A gauge's ticks: majors from ticks() plus both ends, the band limits
+     * when asked (an operator reads a dial by its limits, not by round
+     * numbers), and minorPer evenly spaced minors between majors. Returns
+     * {major:[{v, band}], minor:[v]}, majors ascending. A band limit within
+     * a third of a step of a round tick replaces it rather than crowding it.
+     */
+    scale.gaugeTicks = function (min, max, count, opts) {
+        var o = opts || {};
+        var span = (max - min) || 1;
+        var near = Math.max(span * 0.015, scale.tickStep(min, max, count) * 0.34);
+        var major = [];
+        var base = scale.ticks(min, max, count);
+        if (!base.length || base[0] > min + span * 1e-6) { base.unshift(min); }
+        if (base[base.length - 1] < max - span * 1e-6) { base.push(max); }
+        var i, j;
+        for (i = 0; i < base.length; i++) {
+            if (base[i] >= min - span * 1e-9 && base[i] <= max + span * 1e-9) { major.push({ v: base[i], band: false }); }
+        }
+        var edges = o.bandEdges || [];
+        for (i = 0; i < edges.length; i++) {
+            var e = edges[i];
+            if (!(e > min + near && e < max - near)) { continue; }
+            var replaced = false;
+            for (j = 0; j < major.length; j++) {
+                if (Math.abs(major[j].v - e) <= near && j > 0 && j < major.length - 1) {
+                    major[j] = { v: e, band: true };
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) { major.push({ v: e, band: true }); }
+        }
+        major.sort(function (a, b) { return a.v - b.v; });
+        var minor = [];
+        var per = Math.max(0, Math.min(9, parseInt(o.minorPer, 10) || 0));
+        if (per && base.length > 1) {
+            for (i = 0; i + 1 < base.length; i++) {
+                var a = base[i], b = base[i + 1];
+                for (j = 1; j <= per; j++) {
+                    var mv = a + (b - a) * j / (per + 1);
+                    if (mv > min && mv < max) { minor.push(mv); }
+                }
+            }
+        }
+        return { major: major, minor: minor };
+    };
+
     /* ------------------------------------------------------------------ *
      * svg — element + path construction
      * ------------------------------------------------------------------ */
@@ -1777,6 +2196,33 @@
         var t = svg.el('text', a, parent);
         t.textContent = str === null || str === undefined ? '' : String(str);
         return t;
+    };
+
+    /**
+     * Cut an already-drawn <text> until it measures no wider than maxPx,
+     * ending it with an ellipsis. Measured, not estimated: a centred empty
+     * state that overshoots pokes out of both edges at once, and Segoe UI
+     * runs wider than any per-character guess (see pvxProfile's fitTextTo,
+     * which this generalises). Each pass bites off the measured overshoot,
+     * so it converges in one or two measurements.
+     */
+    svg.fit = function (node, maxPx) {
+        if (!node || !node.getComputedTextLength) { return node; }
+        if (!(maxPx > 0)) { node.textContent = ''; return node; }
+        var measure = function () {
+            try { return node.getComputedTextLength(); } catch (e) { return 0; }
+        };
+        for (var guard = 0; guard < 8; guard++) {
+            var w = measure();
+            if (!(w > maxPx)) { return node; }
+            var cur = node.textContent || '';
+            var core = cur.charAt(cur.length - 1) === '\u2026' ? cur.slice(0, -1) : cur;
+            var keep = Math.min(core.length - 1, Math.floor(core.length * (maxPx / w)) - 1);
+            if (keep < 1) { node.textContent = ''; return node; }
+            node.textContent = core.slice(0, keep) + '\u2026';
+        }
+        if (measure() > maxPx) { node.textContent = ''; }
+        return node;
     };
 
     /** Point on a circle. Angles in degrees, 0 = 12 o'clock, increasing clockwise. */
@@ -2132,6 +2578,12 @@
                 value: util.num(rawVal),
                 good: r.IsGood !== false,
                 errorDescription: r.ErrorDescription || '',
+                // Rows from an AF search (PVX.afsource) say which asset and
+                // attribute they are; the pipeline's rows leave these blank.
+                asset: pick(r, ['Asset']) || '',
+                assetPath: pick(r, ['AssetPath']) || '',
+                attribute: pick(r, ['Attribute']) || '',
+                parent: pick(r, ['Parent']) || '',
                 summary: summary,
                 trend: r.Trend || r.trend || []
             });
@@ -2205,6 +2657,240 @@
         var rDen = Math.sqrt(denom * (n * syy - sy * sy));
         var r = Math.abs(rDen) < 1e-12 ? 0 : (n * sxy - sx * sy) / rDen;
         return { slope: slope, intercept: intercept, r: r, r2: r * r, n: n };
+    };
+
+    /**
+     * Least-squares polynomial y = c0 + c1 x + ... + cd x^d over [{x, y}],
+     * degree 1 to 4. Returns {coef, r2, n} or null.
+     *
+     * Solved on x centred and scaled to about -1..1: the normal equations of
+     * a cubic in raw process values (x near 1500) hold x^6 near 1e19, and
+     * the solve loses every digit that matters. The coefficients are mapped
+     * back to raw x afterwards, so callers evaluate them directly.
+     */
+    stats.polyfit = function (pts, degree) {
+        var d = Math.max(1, Math.min(4, parseInt(degree, 10) || 1));
+        var xs = [], ys = [], i, j, k;
+        for (i = 0; i < (pts || []).length; i++) {
+            var x = util.num(pts[i].x), y = util.num(pts[i].y);
+            if (x === null || y === null) { continue; }
+            xs.push(x); ys.push(y);
+        }
+        var n = xs.length;
+        if (n < d + 1) { return null; }
+        var lo = Math.min.apply(null, xs), hi = Math.max.apply(null, xs);
+        if (!(hi > lo)) { return null; }
+        var mid = (lo + hi) / 2, half = (hi - lo) / 2;
+        var m = d + 1;
+        var A = [], b = [];
+        for (i = 0; i < m; i++) { A.push([]); b.push(0); for (j = 0; j < m; j++) { A[i].push(0); } }
+        for (k = 0; k < n; k++) {
+            var u = (xs[k] - mid) / half, pw = [1];
+            for (i = 1; i < 2 * m; i++) { pw.push(pw[i - 1] * u); }
+            for (i = 0; i < m; i++) {
+                b[i] += pw[i] * ys[k];
+                for (j = 0; j < m; j++) { A[i][j] += pw[i + j]; }
+            }
+        }
+        // Gaussian elimination with partial pivoting.
+        for (i = 0; i < m; i++) {
+            var p = i;
+            for (k = i + 1; k < m; k++) { if (Math.abs(A[k][i]) > Math.abs(A[p][i])) { p = k; } }
+            if (Math.abs(A[p][i]) < 1e-12) { return null; }
+            var tmp = A[i]; A[i] = A[p]; A[p] = tmp;
+            var tb = b[i]; b[i] = b[p]; b[p] = tb;
+            for (k = i + 1; k < m; k++) {
+                var f = A[k][i] / A[i][i];
+                for (j = i; j < m; j++) { A[k][j] -= f * A[i][j]; }
+                b[k] -= f * b[i];
+            }
+        }
+        var cu = [];
+        for (i = m - 1; i >= 0; i--) {
+            var s = b[i];
+            for (j = i + 1; j < m; j++) { s -= A[i][j] * cu[j]; }
+            cu[i] = s / A[i][i];
+        }
+        // Back to raw x: sum cu_i ((x - mid)/half)^i, expanded binomially.
+        var coef = [];
+        for (i = 0; i < m; i++) { coef.push(0); }
+        for (i = 0; i < m; i++) {
+            var scale = cu[i] / Math.pow(half, i);
+            var binom = 1;
+            for (j = 0; j <= i; j++) {
+                // term: C(i,j) x^j (-mid)^(i-j)
+                coef[j] += scale * binom * Math.pow(-mid, i - j);
+                binom = binom * (i - j) / (j + 1);
+            }
+        }
+        // The expansion leaves rounding residue (an exact x^2 comes back with
+        // -5e-15 x). A term worth less than a billionth of the data across
+        // the whole range is that residue; shown, it reads as a real term.
+        var yMag = 0, xMag = Math.max(Math.abs(lo), Math.abs(hi));
+        for (k = 0; k < n; k++) { yMag = Math.max(yMag, Math.abs(ys[k])); }
+        for (j = 0; j < m; j++) {
+            if (Math.abs(coef[j]) * Math.pow(xMag, j) < 1e-9 * (yMag || 1)) { coef[j] = 0; }
+        }
+        var mean = 0;
+        for (k = 0; k < n; k++) { mean += ys[k]; }
+        mean /= n;
+        var ssr = 0, sst = 0;
+        for (k = 0; k < n; k++) {
+            var uu = (xs[k] - mid) / half, fit = 0;
+            for (i = m - 1; i >= 0; i--) { fit = fit * uu + cu[i]; }
+            ssr += (ys[k] - fit) * (ys[k] - fit);
+            sst += (ys[k] - mean) * (ys[k] - mean);
+        }
+        return { coef: coef, r2: sst > 0 ? 1 - ssr / sst : 0, n: n, degree: d };
+    };
+
+    /** A polynomial's value: coef[0] + coef[1] x + ... */
+    stats.polyval = function (coef, x) {
+        var y = 0;
+        for (var i = coef.length - 1; i >= 0; i--) { y = y * x + coef[i]; }
+        return y;
+    };
+
+    /** Is the point inside the polygon [[x, y], ...]? Even-odd rule. */
+    stats.inPolygon = function (x, y, poly) {
+        var inside = false;
+        for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+            if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) { inside = !inside; }
+        }
+        return inside;
+    };
+
+    /**
+     * In-place radix-2 FFT of re[] / im[]; the length must be a power of two.
+     * Iterative Cooley-Tukey: fast enough for 8192 points on every refresh.
+     */
+    stats.fft = function (re, im) {
+        var n = re.length, i, j, k, len;
+        for (i = 1, j = 0; i < n; i++) {
+            var bit = n >> 1;
+            for (; j & bit; bit >>= 1) { j ^= bit; }
+            j ^= bit;
+            if (i < j) {
+                var tr = re[i]; re[i] = re[j]; re[j] = tr;
+                var ti = im[i]; im[i] = im[j]; im[j] = ti;
+            }
+        }
+        for (len = 2; len <= n; len <<= 1) {
+            var ang = -2 * Math.PI / len;
+            var wr = Math.cos(ang), wi = Math.sin(ang);
+            for (i = 0; i < n; i += len) {
+                var cr = 1, ci = 0;
+                for (k = 0; k < len / 2; k++) {
+                    var a = i + k, b = a + len / 2;
+                    var xr = re[b] * cr - im[b] * ci;
+                    var xi = re[b] * ci + im[b] * cr;
+                    re[b] = re[a] - xr; im[b] = im[a] - xi;
+                    re[a] += xr; im[a] += xi;
+                    var nr = cr * wr - ci * wi;
+                    ci = cr * wi + ci * wr;
+                    cr = nr;
+                }
+            }
+        }
+    };
+
+    /**
+     * Single-sided amplitude spectrum of a time series.
+     *
+     * Process data is not evenly sampled (exception reporting and compression
+     * store a value only when it changes), and an FFT assumes it is. So the
+     * values are first resampled onto n evenly spaced times across their own
+     * span, by linear interpolation or by holding each value, and the result
+     * says how many recorded values that grid was made from: a grid much
+     * finer than the data shows the interpolation, not the process.
+     *
+     * Amplitude is in the tag's own units: a sine of amplitude A at a bin's
+     * frequency reads A, whatever the window, because each window is
+     * corrected by its own coherent gain.
+     *
+     * @param pts  [{t (ms), v}] in time order; non-numbers are counted out
+     * @param opts {n (power of two, default 512), window hann|hamming|blackman|rect,
+     *              detrend mean|linear|none, interp linear|step}
+     * @returns {freq: [Hz], amp: [], dt (s), n, used, excluded, span (s)} or null
+     */
+    stats.spectrum = function (pts, opts) {
+        opts = opts || {};
+        var n = 512;
+        var want = parseInt(opts.n, 10);
+        if (want > 0) { n = 16; while (n < want && n < 65536) { n *= 2; } }
+        var xs = [], excluded = 0, i;
+        for (i = 0; i < (pts || []).length; i++) {
+            var p = pts[i];
+            var v = p ? util.num(p.v) : null;
+            if (!p || v === null || !isFinite(p.t)) { excluded += 1; continue; }
+            if (xs.length && p.t <= xs[xs.length - 1].t) {
+                // Two values at one time: keep the later, as PI does.
+                if (p.t === xs[xs.length - 1].t) { xs[xs.length - 1].v = v; }
+                continue;
+            }
+            xs.push({ t: p.t, v: v });
+        }
+        if (xs.length < 4) { return null; }
+        var t0 = xs[0].t, span = xs[xs.length - 1].t - t0;
+        if (!(span > 0)) { return null; }
+        var dt = span / n;
+        var re = [], im = [], j = 0;
+        for (i = 0; i < n; i++) {
+            var t = t0 + i * dt;
+            while (j < xs.length - 2 && xs[j + 1].t <= t) { j++; }
+            var a = xs[j], b = xs[j + 1];
+            var y = opts.interp === 'step' || t <= a.t ? a.v
+                : (t >= b.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t));
+            re.push(y);
+            im.push(0);
+        }
+        // Remove the level (and slope): left in, it fills the lowest bins
+        // and the window spreads it into everything near them.
+        var det = opts.detrend || 'mean';
+        if (det !== 'none') {
+            var sx = 0, sy = 0, sxx = 0, sxy = 0;
+            for (i = 0; i < n; i++) { sx += i; sy += re[i]; sxx += i * i; sxy += i * re[i]; }
+            var slope = det === 'linear' ? (n * sxy - sx * sy) / (n * sxx - sx * sx) : 0;
+            var icpt = (sy - slope * sx) / n;
+            for (i = 0; i < n; i++) { re[i] -= icpt + slope * i; }
+        }
+        var win = opts.window || 'hann', wsum = 0;
+        for (i = 0; i < n; i++) {
+            var x = 2 * Math.PI * i / (n - 1), w = 1;
+            if (win === 'hann') { w = 0.5 - 0.5 * Math.cos(x); }
+            else if (win === 'hamming') { w = 0.54 - 0.46 * Math.cos(x); }
+            else if (win === 'blackman') { w = 0.42 - 0.5 * Math.cos(x) + 0.08 * Math.cos(2 * x); }
+            re[i] *= w;
+            wsum += w;
+        }
+        stats.fft(re, im);
+        var freq = [], amp = [], dtS = dt / 1000;
+        for (i = 0; i <= n / 2; i++) {
+            var mag = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / wsum;
+            freq.push(i / (n * dtS));
+            amp.push(i === 0 || i === n / 2 ? mag : 2 * mag);
+        }
+        return { freq: freq, amp: amp, dt: dtS, n: n, used: xs.length, excluded: excluded, span: span / 1000 };
+    };
+
+    /**
+     * The k largest local maxima of a spectrum, above bin `from`, largest
+     * first, each refined between bins by a parabola through its neighbours.
+     */
+    stats.spectrumPeaks = function (freq, amp, k, from) {
+        var out = [];
+        for (var i = Math.max(1, from || 1); i < amp.length - 1; i++) {
+            if (amp[i] > amp[i - 1] && amp[i] >= amp[i + 1] && amp[i] > 0) {
+                var a = amp[i - 1], b = amp[i], c = amp[i + 1];
+                var den = a - 2 * b + c;
+                var off = den !== 0 ? 0.5 * (a - c) / den : 0;
+                off = Math.max(-0.5, Math.min(0.5, off));
+                out.push({ index: i, freq: freq[i] + off * (freq[1] - freq[0]), amp: b - 0.25 * (a - c) * off });
+            }
+        }
+        out.sort(function (p, q) { return q.amp - p.amp; });
+        return out.slice(0, Math.max(0, k));
     };
 
     /** Simple moving average over normalized points. */
@@ -2447,6 +3133,323 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * stats.spc: control charts
+     * ------------------------------------------------------------------ *
+     * The constants are the standard bias-correction factors for estimating
+     * sigma from subgroup ranges (d2, d3) and standard deviations (c4), for
+     * subgroup sizes 2 to 10. Limits are written as "k sigma" rather than with
+     * the familiar A2/D3/D4 tables, because those tables only exist for k = 3
+     * and the symbol lets an engineer choose 2 to 4.
+     */
+    stats.SPC_D2 = { 2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534, 7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078 };
+    stats.SPC_D3 = { 2: 0.853, 3: 0.888, 4: 0.880, 5: 0.864, 6: 0.848, 7: 0.833, 8: 0.820, 9: 0.808, 10: 0.797 };
+    stats.SPC_C4 = { 2: 0.7979, 3: 0.8862, 4: 0.9213, 5: 0.9400, 6: 0.9515, 7: 0.9594, 8: 0.9650, 9: 0.9693, 10: 0.9727 };
+
+    /**
+     * Interval averages of a time-ordered stream, time-weighted with straight
+     * lines between samples (PI's own interpolation for a non-step tag).
+     *
+     * A control chart cannot use PI Vision's plot values: those are the
+     * minimum and maximum of each pixel column, so consecutive points
+     * alternate by construction and Nelson rule 4 fires on a perfectly
+     * steady process. Recorded values are honest but uneven in time on a
+     * compressed tag; averaging them onto a fixed grid gives the evenly
+     * spaced individuals the rules assume. An interval with no sample inside
+     * it and none either side yields null rather than an invented number.
+     */
+    stats.intervalAverages = function (points, fromMs, toMs, count) {
+        var n = Math.max(1, parseInt(count, 10) || 1);
+        var pts = (points || []).filter(function (p) { return p && util.isNum(p.v) && util.isNum(p.t); });
+        if (!pts.length || !(toMs > fromMs)) { return []; }
+        var step = (toMs - fromMs) / n;
+        var valueAt = function (t) {
+            if (t <= pts[0].t) { return pts[0].v; }
+            if (t >= pts[pts.length - 1].t) { return pts[pts.length - 1].v; }
+            var lo = 0, hi = pts.length - 1;
+            while (hi - lo > 1) {
+                var mid = (lo + hi) >> 1;
+                if (pts[mid].t <= t) { lo = mid; } else { hi = mid; }
+            }
+            var a = pts[lo], b = pts[hi];
+            return b.t === a.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+        };
+        var out = [];
+        for (var i = 0; i < n; i++) {
+            var s = fromMs + i * step, e = s + step;
+            // Outside the span the samples cover there is nothing to average.
+            if (e <= pts[0].t || s >= pts[pts.length - 1].t) { out.push({ t: s + step / 2, v: null }); continue; }
+            var cs = Math.max(s, pts[0].t), ce = Math.min(e, pts[pts.length - 1].t);
+            var knots = [cs];
+            for (var j = 0; j < pts.length; j++) {
+                if (pts[j].t > cs && pts[j].t < ce) { knots.push(pts[j].t); }
+            }
+            knots.push(ce);
+            var area = 0;
+            for (var k = 1; k < knots.length; k++) {
+                area += (valueAt(knots[k - 1]) + valueAt(knots[k])) / 2 * (knots[k] - knots[k - 1]);
+            }
+            out.push({ t: s + step / 2, v: ce > cs ? area / (ce - cs) : valueAt(cs) });
+        }
+        return out;
+    };
+
+    /**
+     * Group a stream into consecutive subgroups of `size`. A trailing partial
+     * subgroup is returned in `dropped` so the caller can say so; averaging
+     * it with fewer samples would give it the wrong limits.
+     */
+    stats.subgroups = function (points, size) {
+        var n = util.clamp(parseInt(size, 10) || 1, 1, 10);
+        var groups = [], cur = [];
+        for (var i = 0; i < points.length; i++) {
+            cur.push(points[i]);
+            if (cur.length === n) { groups.push(cur); cur = []; }
+        }
+        return { groups: groups, dropped: cur.length, size: n };
+    };
+
+    /**
+     * Control limits for an I-MR, X-bar R or X-bar S chart.
+     *
+     * @param {Array} points time-ordered [{t, v}], already evenly spaced
+     * @param {Object} opts {
+     *     chart: 'imr' | 'xbarr' | 'xbars',
+     *     size: subgroup size for the X-bar charts (2 to 10),
+     *     k: limit width in sigmas (default 3),
+     *     baseline: number of plotted points the limits are computed from
+     *               (0 = all of them; "phase I" when set),
+     *     fixed: {center, ucl, lcl} typed limits for the primary chart, or null
+     * }
+     * @returns {Object|null} {
+     *     chart, size, k, sigma (within), s (sigma of the plotted statistic),
+     *     primary: [{t, v, members}], secondary: [{t, v}],
+     *     center, ucl, lcl, secCenter, secUcl, secLcl, secName, dropped
+     * }
+     */
+    stats.controlLimits = function (points, opts) {
+        opts = opts || {};
+        var chart = opts.chart === 'xbarr' || opts.chart === 'xbars' ? opts.chart : 'imr';
+        var k = util.num(opts.k);
+        k = k === null ? 3 : util.clamp(k, 1, 6);
+        var pts = (points || []).filter(function (p) { return p && util.isNum(p.v); });
+        var primary = [], secondary = [], dropped = 0, size = 1, secName;
+        var i;
+
+        if (chart === 'imr') {
+            secName = 'MR';
+            for (i = 0; i < pts.length; i++) {
+                primary.push({ t: pts[i].t, v: pts[i].v, members: [pts[i]] });
+                // The first point has no moving range; it is not dropped, it
+                // simply has no partner yet.
+                if (i > 0) { secondary.push({ t: pts[i].t, v: Math.abs(pts[i].v - pts[i - 1].v) }); }
+            }
+            size = 2;
+        } else {
+            secName = chart === 'xbarr' ? 'R' : 'S';
+            var sg = stats.subgroups(pts, util.clamp(parseInt(opts.size, 10) || 5, 2, 10));
+            size = sg.size;
+            dropped = sg.dropped;
+            for (i = 0; i < sg.groups.length; i++) {
+                var g = sg.groups[i];
+                var vals = [];
+                for (var j = 0; j < g.length; j++) { vals.push(g[j].v); }
+                var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+                primary.push({ t: g[g.length - 1].t, v: stats.mean(vals), members: g });
+                secondary.push({ t: g[g.length - 1].t, v: chart === 'xbarr' ? hi - lo : stats.stddev(vals) });
+            }
+        }
+        if (primary.length < 2) { return null; }
+
+        var base = parseInt(opts.baseline, 10) || 0;
+        var nBase = base > 1 ? Math.min(base, primary.length) : primary.length;
+        var center, secBar, sigma, s;
+        var pv = [], sv = [];
+        for (i = 0; i < nBase; i++) { pv.push(primary[i].v); }
+        center = stats.mean(pv);
+        // The moving range list is one shorter than the individuals.
+        var nSec = chart === 'imr' ? Math.max(1, nBase - 1) : nBase;
+        for (i = 0; i < Math.min(nSec, secondary.length); i++) { sv.push(secondary[i].v); }
+        secBar = stats.mean(sv);
+        if (secBar === null) { secBar = 0; }
+
+        var d2 = stats.SPC_D2[size], d3 = stats.SPC_D3[size], c4 = stats.SPC_C4[size];
+        if (chart === 'xbars') { sigma = secBar / c4; } else { sigma = secBar / d2; }
+        s = chart === 'imr' ? sigma : sigma / Math.sqrt(size);
+
+        var out = {
+            chart: chart, size: chart === 'imr' ? 1 : size, k: k, sigma: sigma, s: s,
+            primary: primary, secondary: secondary, secName: secName,
+            center: center, ucl: center + k * s, lcl: center - k * s,
+            secCenter: secBar, dropped: dropped, baseline: nBase, fixed: false
+        };
+        var spread = chart === 'xbars' ? sigma * Math.sqrt(1 - c4 * c4) : d3 * sigma;
+        out.secUcl = secBar + k * spread;
+        out.secLcl = Math.max(0, secBar - k * spread);
+
+        var fx = opts.fixed;
+        if (fx && util.isNum(util.num(fx.center)) && util.isNum(util.num(fx.ucl))) {
+            out.center = util.num(fx.center);
+            out.ucl = util.num(fx.ucl);
+            var fl = util.num(fx.lcl);
+            out.lcl = fl === null ? 2 * out.center - out.ucl : fl;
+            // The rules are written in sigmas of the plotted statistic; typed
+            // limits imply one, the half-width over k.
+            out.s = Math.abs(out.ucl - out.lcl) / (2 * k);
+            out.sigma = chart === 'imr' ? out.s : out.s * Math.sqrt(size);
+            // The range chart follows the same sigma. Left on the window's
+            // own ranges it would flag a step the typed limits allow for, or
+            // pass one they do not: the two charts would disagree on sigma.
+            out.secCenter = chart === 'xbars' ? c4 * out.sigma : d2 * out.sigma;
+            spread = chart === 'xbars' ? out.sigma * Math.sqrt(1 - c4 * c4) : d3 * out.sigma;
+            out.secUcl = out.secCenter + k * spread;
+            out.secLcl = Math.max(0, out.secCenter - k * spread);
+            out.fixed = true;
+        }
+        return out;
+    };
+
+    /**
+     * Run rules over the plotted statistic.
+     *
+     * Rules 1 to 8 are Nelson's (1984). The Western Electric set is rules 1,
+     * 5 and 6 with an 8-point run for rule 2 (its "8 in a row on one side").
+     * A pattern flags the point that COMPLETES it, the convention in Minitab
+     * and the AIAG manual: the chart says when the evidence arrived, not that
+     * the earlier points were already wrong.
+     *
+     * @param {Array} values plotted statistic, in time order
+     * @param {number} center
+     * @param {number} s sigma of the plotted statistic
+     * @param {Object} opts {rules:[1..8], run2: 9, run3: 6, run4: 14, k: 3}
+     *   run2, run3 and run4 are the points rules 2, 3 and 4 need. Nelson's
+     *   numbers are the defaults; sites copying ProcessBook SQC or an
+     *   in-house standard often shorten rule 3 to 5 or rule 2 to 7.
+     * @returns {Array} per point, the list of rule numbers it breaks
+     */
+    stats.runRules = function (values, center, s, opts) {
+        opts = opts || {};
+        var rules = opts.rules || [1, 2, 3, 4, 5, 6, 7, 8];
+        var on = {};
+        for (var r = 0; r < rules.length; r++) { on[rules[r]] = true; }
+        var run2 = parseInt(opts.run2, 10) || 9;
+        var run3 = util.clamp(parseInt(opts.run3, 10) || 6, 3, 20);
+        var run4 = util.clamp(parseInt(opts.run4, 10) || 14, 4, 30);
+        var k = util.num(opts.k);
+        k = k === null ? 3 : k;
+        var n = values.length;
+        var out = [], i, j;
+        for (i = 0; i < n; i++) { out.push([]); }
+        if (!(s > 0)) { return out; }
+        var z = [];
+        for (i = 0; i < n; i++) { z.push(util.isNum(values[i]) ? (values[i] - center) / s : null); }
+        var flag = function (idx, rule) { if (out[idx].indexOf(rule) === -1) { out[idx].push(rule); } };
+        var side = function (v) { return v === null ? 0 : (v > 0 ? 1 : (v < 0 ? -1 : 0)); };
+
+        for (i = 0; i < n; i++) {
+            if (z[i] === null) { continue; }
+            if (on[1] && Math.abs(z[i]) > k) { flag(i, 1); }
+            if (on[2] && i >= run2 - 1) {
+                var sd2 = side(z[i]), same = sd2 !== 0;
+                for (j = i - run2 + 1; same && j <= i; j++) { if (side(z[j]) !== sd2) { same = false; } }
+                if (same) { flag(i, 2); }
+            }
+            if (on[3] && i >= run3 - 1) {
+                var up = true, down = true;
+                for (j = i - run3 + 2; j <= i; j++) {
+                    if (z[j] === null || z[j - 1] === null) { up = false; down = false; break; }
+                    if (!(z[j] > z[j - 1])) { up = false; }
+                    if (!(z[j] < z[j - 1])) { down = false; }
+                }
+                if (up || down) { flag(i, 3); }
+            }
+            if (on[4] && i >= run4 - 1) {
+                // run4 points make run4 - 2 consecutive pairs of steps, and
+                // every pair must change direction.
+                var alt = true;
+                for (j = i - run4 + 3; j <= i && alt; j++) {
+                    if (z[j] === null || z[j - 1] === null || z[j - 2] === null) { alt = false; break; }
+                    var a = z[j - 1] - z[j - 2], b = z[j] - z[j - 1];
+                    if (!(a * b < 0)) { alt = false; }
+                }
+                if (alt) { flag(i, 4); }
+            }
+            if ((on[5] || on[6]) && i >= 2) {
+                var countBeyond = function (from, lim, sgn) {
+                    var c = 0;
+                    for (var q = from; q <= i; q++) { if (z[q] !== null && z[q] * sgn > lim) { c++; } }
+                    return c;
+                };
+                var sg5 = side(z[i]);
+                // The completing point must itself be in the zone, on the
+                // same side, or the flag lands on an innocent point.
+                if (on[5] && sg5 !== 0 && z[i] * sg5 > 2 && countBeyond(i - 2, 2, sg5) >= 2) { flag(i, 5); }
+                if (on[6] && i >= 4 && sg5 !== 0 && z[i] * sg5 > 1 && countBeyond(i - 4, 1, sg5) >= 4) { flag(i, 6); }
+            }
+            if (on[7] && i >= 14) {
+                var inside = true;
+                for (j = i - 14; j <= i; j++) { if (z[j] === null || Math.abs(z[j]) >= 1) { inside = false; break; } }
+                if (inside) { flag(i, 7); }
+            }
+            if (on[8] && i >= 7) {
+                var outside = true;
+                for (j = i - 7; j <= i; j++) { if (z[j] === null || Math.abs(z[j]) <= 1) { outside = false; break; } }
+                if (outside) { flag(i, 8); }
+            }
+        }
+        return out;
+    };
+
+    /** One line per rule, for tooltips and the configuration pane. */
+    stats.RULE_TEXT = {
+        1: 'a point beyond the control limits',
+        2: 'a run on one side of the centre line',
+        3: 'six points steadily rising or falling',
+        4: 'fourteen points alternating up and down',
+        5: 'two of three points beyond 2 sigma on one side',
+        6: 'four of five points beyond 1 sigma on one side',
+        7: 'fifteen points within 1 sigma (limits too wide, or stratified data)',
+        8: 'eight points beyond 1 sigma on either side'
+    };
+
+    /**
+     * RULE_TEXT with the run lengths actually in force, so a tooltip never
+     * says "six points" on a chart configured for five.
+     * @param {number} rule 1..8
+     * @param {Object} opts the runRules opts (run2, run3, run4)
+     */
+    stats.ruleText = function (rule, opts) {
+        opts = opts || {};
+        var n2 = parseInt(opts.run2, 10) || 9, n3 = parseInt(opts.run3, 10) || 6, n4 = parseInt(opts.run4, 10) || 14;
+        if (rule === 2) { return n2 + ' points in a row on one side of the centre line'; }
+        if (rule === 3) { return n3 + ' points steadily rising or falling'; }
+        if (rule === 4) { return n4 + ' points alternating up and down'; }
+        return stats.RULE_TEXT[rule] || '';
+    };
+
+    /**
+     * Cpk from the within-subgroup sigma and Ppk from the overall one. The
+     * histogram reports Cp = Pp because it has no subgroups; a control chart
+     * does, so here the two differ the way quality staff expect: a Ppk well
+     * below Cpk says the process drifts between subgroups.
+     */
+    stats.spcCapability = function (values, sigmaWithin, lsl, usl) {
+        var overall = stats.capability(values, lsl, usl);
+        if (!overall || overall.degenerate) { return overall; }
+        var lo = util.num(lsl), hi = util.num(usl), mu = overall.mean;
+        var out = {
+            mean: mu, n: overall.n, sdOverall: overall.sd, sdWithin: sigmaWithin,
+            pp: overall.cp, ppk: overall.cpk, percentOut: overall.percentOut, lsl: lo, usl: hi
+        };
+        if (sigmaWithin > 0) {
+            var cpu = hi !== null ? (hi - mu) / (3 * sigmaWithin) : null;
+            var cpl = lo !== null ? (mu - lo) / (3 * sigmaWithin) : null;
+            out.cp = (lo !== null && hi !== null) ? (hi - lo) / (6 * sigmaWithin) : undefined;
+            out.cpk = cpu === null ? cpl : (cpl === null ? cpu : Math.min(cpu, cpl));
+        }
+        return out;
+    };
+
+    /* ------------------------------------------------------------------ *
      * nav — display navigation via PI Vision URL contract
      * ------------------------------------------------------------------ *
      * PI Vision's display URLs are a stable public contract across releases:
@@ -2454,7 +3457,66 @@
      * Driving navigation through the URL avoids depending on private internal
      * Angular services that change between versions.
      */
+    /* ------------------------------------------------------------------ *
+     * icons — the built-in set the navigation symbols draw
+     * ------------------------------------------------------------------ *
+     * Single stroked paths on a 24-unit grid, so nothing third-party ships
+     * and each takes the text colour of whatever it sits in.
+     */
+    var icons = PVX.icons = {
+        paths: {
+            home: 'M3 11 L12 3 L21 11 M5 9.5 V21 H10 V15 H14 V21 H19 V9.5',
+            back: 'M15 5 L8 12 L15 19',
+            forward: 'M9 5 L16 12 L9 19',
+            up: 'M5 15 L12 8 L19 15',
+            down: 'M5 9 L12 16 L19 9',
+            trend: 'M3 17 L9 11 L13 15 L21 7 M15 7 H21 V13',
+            alarm: 'M12 3 L22 20 H2 Z M12 10 V14 M12 17 V17.5',
+            table: 'M3 5 H21 V19 H3 Z M3 10 H21 M3 15 H21 M9 5 V19',
+            gauge: 'M4 17 A8 8 0 1 1 20 17 M12 13 L16 8',
+            clock: 'M12 3 A9 9 0 1 1 11.99 3 M12 7 V12 L15.5 14',
+            map: 'M3 6 L9 4 L15 6 L21 4 V18 L15 20 L9 18 L3 20 Z M9 4 V18 M15 6 V20',
+            list: 'M8 6 H21 M8 12 H21 M8 18 H21 M3.5 6 H4.5 M3.5 12 H4.5 M3.5 18 H4.5',
+            settings: 'M12 9 A3 3 0 1 1 11.99 9 M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9',
+            info: 'M12 3 A9 9 0 1 1 11.99 3 M12 11 V17 M12 7.5 V8',
+            report: 'M6 3 H15 L19 7 V21 H6 Z M15 3 V7 H19 M9 12 H16 M9 16 H16',
+            power: 'M12 3 V12 M7 6 A8 8 0 1 0 17 6',
+            star: 'M12 3 L14.6 9 L21 9.5 L16 13.8 L17.6 20 L12 16.6 L6.4 20 L8 13.8 L3 9.5 L9.4 9 Z',
+            menu: 'M4 6 H20 M4 12 H20 M4 18 H20',
+            external: 'M14 4 H20 V10 M20 4 L11 13 M18 14 V20 H4 V6 H10',
+            kiosk: 'M4 9 V4 H9 M15 4 H20 V9 M20 15 V20 H15 M9 20 H4 V15',
+            toolbar: 'M3 4 H21 V20 H3 Z M3 9 H21',
+            timebar: 'M3 4 H21 V20 H3 Z M3 15 H21 M8 15 V20 M13 15 V20',
+            sidebar: 'M3 4 H21 V20 H3 Z M9 4 V20',
+            plant: 'M3 21 V11 L9 14 V11 L15 14 V5 H19 V21 Z M3 21 H21',
+            search: 'M10 4 A6 6 0 1 1 9.99 4 M14.5 14.5 L20 20'
+        }
+    };
+
+    /** An <svg> of one icon, or null for a name not in the set. */
+    icons.el = function (name, cls) {
+        var d = icons.paths[name];
+        if (!d) { return null; }
+        var NS = 'http://www.w3.org/2000/svg';
+        var svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        if (cls) { svg.setAttribute('class', cls); }
+        svg.setAttribute('aria-hidden', 'true');
+        var path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+        return svg;
+    };
+
     var nav = PVX.nav = {};
+
+    /**
+     * Flags in a display's address that hide parts of PI Vision. They take
+     * no value: present means hidden. hidetoolbar and hidetimebar are the
+     * spellings operators report working; hidesidebar is the same pattern,
+     * not yet seen on a server.
+     */
+    nav.VIEW_FLAGS = ['hidetoolbar', 'hidetimebar', 'hidesidebar'];
 
     nav.currentUrl = function () {
         try { return root.location.href; } catch (e) { return ''; }
@@ -2485,6 +3547,8 @@
             if (Object.prototype.hasOwnProperty.call(parsed.params, k)) {
                 var v = parsed.params[k];
                 if (v === null || v === undefined || v === '') { continue; }
+                // A flag PI Vision reads by its presence, such as hidetoolbar.
+                if (v === true) { qs.push(encodeURIComponent(k)); continue; }
                 qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
             }
         }
@@ -2508,6 +3572,12 @@
             if (cur.params.endtime) { params.endtime = cur.params.endtime; }
         }
         if (cur.params.mode) { params.mode = cur.params.mode; }
+        // Hidden PI Vision chrome stays hidden on the next display, as kiosk
+        // mode always did: an operator who hid the toolbar to free the
+        // screen should not have to hide it again after every click.
+        for (var f = 0; f < nav.VIEW_FLAGS.length; f++) {
+            if (Object.prototype.hasOwnProperty.call(cur.params, nav.VIEW_FLAGS[f])) { params[nav.VIEW_FLAGS[f]] = true; }
+        }
 
         var target = opts.display;
         if (target) {
@@ -2551,6 +3621,91 @@
         cur.params.starttime = start;
         cur.params.endtime = end;
         nav.go(nav.buildHash(cur), false);
+    };
+
+    var TIME_UNIT = { s: 1000, sec: 1000, m: 60000, min: 60000, h: 3600000, hr: 3600000, d: 86400000, w: 604800000 };
+
+    function localMidnight(ms) {
+        var d = new Date(ms);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+    }
+
+    /** One offset ("-8h", "+1mo") applied to ms, or null if it is not one. */
+    function timeOffset(ms, sign, n, unit) {
+        var u = unit.toLowerCase();
+        if (u === 'mo' || u === 'y') {
+            // Calendar months and years are not a fixed number of milliseconds.
+            var d = new Date(ms);
+            if (u === 'mo') { d.setMonth(d.getMonth() + sign * n); }
+            else { d.setFullYear(d.getFullYear() + sign * n); }
+            return d.getTime();
+        }
+        if (!TIME_UNIT[u]) { return null; }
+        return ms + sign * n * TIME_UNIT[u];
+    }
+
+    /**
+     * Resolve a PI time expression to epoch ms, or null when it is outside
+     * what this knows: *, t, y, today, yesterday, a date, or a bare offset,
+     * each followed by offsets in s m h d w mo y. Months and years are
+     * calendar steps, not fixed lengths. Nothing here talks to PI: a symbol
+     * that steps or replays a range needs it in milliseconds, and the address
+     * holds whatever an operator typed.
+     */
+    nav.parseTime = function (expr, nowMs) {
+        var s = String(expr === null || expr === undefined ? '' : expr).trim();
+        if (!s) { return null; }
+        if (typeof nowMs !== 'number') { nowMs = Date.now(); }
+        // Date() reads a bare "5" as a day in 2001; PI does not.
+        if (/^\d+(\.\d+)?$/.test(s)) { return null; }
+        var base = null;
+        var rest = '';
+        var m = /^(\*|today|yesterday|t|y)(.*)$/i.exec(s);
+        if (m) {
+            var k = m[1].toLowerCase();
+            base = k === '*' ? nowMs :
+                   (k === 't' || k === 'today') ? localMidnight(nowMs) :
+                   localMidnight(nowMs) - 86400000;
+            rest = m[2];
+            // "t", "today" are words; "today5" is not today plus anything.
+            if (rest && !/^\s*[+-]/.test(rest)) { return null; }
+        } else if (/^[+-]/.test(s)) {
+            base = nowMs;                   // a bare offset is relative to now
+            rest = s;
+        } else {
+            var d = new Date(s);
+            return isNaN(d.getTime()) ? null : d.getTime();
+        }
+        var re = /\s*([+-])\s*(\d+(?:\.\d+)?)\s*(mo|min|sec|hr|[smhdwy])\s*/gi;
+        var pos = 0;
+        var hit;
+        var ms = base;
+        while ((hit = re.exec(rest)) !== null) {
+            if (hit.index !== pos) { return null; }
+            ms = timeOffset(ms, hit[1] === '-' ? -1 : 1, parseFloat(hit[2]), hit[3]);
+            if (ms === null) { return null; }
+            pos = re.lastIndex;
+        }
+        return pos === rest.length ? ms : null;
+    };
+
+    /**
+     * A length of time, "10m", "1h 30m", "2d", to ms, or null. Fixed units
+     * only: a span is added to clock times many times over, and a month has
+     * no fixed length to add.
+     */
+    nav.parseSpan = function (spec) {
+        var s = String(spec === null || spec === undefined ? '' : spec).trim();
+        if (!s) { return null; }
+        var re = /\s*(\d+(?:\.\d+)?)\s*(sec|min|hr|[smhdw])\s*/gi;
+        var pos = 0, ms = 0, hit;
+        while ((hit = re.exec(s)) !== null) {
+            if (hit.index !== pos) { return null; }
+            ms += parseFloat(hit[1]) * TIME_UNIT[hit[2].toLowerCase()];
+            pos = re.lastIndex;
+        }
+        return pos === s.length && ms > 0 ? ms : null;
     };
 
     /** Current asset (AF element path) driving the display, if any. */
@@ -2650,6 +3805,119 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * geo — Web Mercator for pvxGeoView
+     * ------------------------------------------------------------------ *
+     * The projection every web map tile server uses (EPSG:3857), in "world
+     * pixels": at zoom z the world is 256 * 2^z pixels square, x east from
+     * longitude -180, y south from latitude +85.0511. Map tiles come only
+     * from a server the site names in pvx-config.js (map.tileUrl): nothing
+     * in the library knows of one, so nothing reaches the internet unasked.
+     */
+    var geo = PVX.geo = {};
+
+    geo.TILE = 256;
+    geo.MAX_LAT = 85.0511287798;
+
+    /** The site's tile server, or null: {tileUrl, attribution, maxZoom, subdomains}. */
+    geo.site = function () {
+        var m = api.settings && api.settings.map;
+        if (!m || typeof m !== 'object' || !m.tileUrl || !/\{z\}/.test(m.tileUrl) || !/\{x\}/.test(m.tileUrl) || !/\{y\}/.test(m.tileUrl)) {
+            return null;
+        }
+        var mz = util.num(m.maxZoom);
+        return {
+            tileUrl: String(m.tileUrl),
+            attribution: m.attribution ? String(m.attribution) : '',
+            maxZoom: mz === null ? 18 : util.clamp(Math.round(mz), 1, 22),
+            subdomains: m.subdomains ? String(m.subdomains) : ''
+        };
+    };
+
+    /** Latitude and longitude that can be placed: numbers, in range. */
+    geo.valid = function (lat, lon) {
+        return util.isNum(lat) && util.isNum(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    };
+
+    geo.project = function (lat, lon, z) {
+        var size = geo.TILE * Math.pow(2, z);
+        var la = util.clamp(lat, -geo.MAX_LAT, geo.MAX_LAT) * Math.PI / 180;
+        return {
+            x: size * (lon + 180) / 360,
+            y: size * (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2
+        };
+    };
+
+    geo.unproject = function (x, y, z) {
+        var size = geo.TILE * Math.pow(2, z);
+        var n = Math.PI - 2 * Math.PI * y / size;
+        return { lat: 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))), lon: x / size * 360 - 180 };
+    };
+
+    /** One tile's address; x wraps round the world, y does not. */
+    geo.tileUrl = function (tpl, z, x, y, subdomains) {
+        var n = Math.pow(2, z);
+        var wx = ((x % n) + n) % n;
+        var sub = subdomains ? subdomains.charAt(Math.abs(wx + y) % subdomains.length) : '';
+        return String(tpl).replace(/\{z\}/g, z).replace(/\{x\}/g, wx).replace(/\{y\}/g, y).replace(/\{s\}/g, sub);
+    };
+
+    /**
+     * The view that shows every point: the deepest whole zoom at which their
+     * extent fits inside w x h less a margin, centred on it. One point alone
+     * gets `single` (a street-level view by default).
+     * @returns {z, cx, cy} cx/cy in world pixels at zoom z
+     */
+    geo.fit = function (points, w, h, pad, maxZoom, single) {
+        var top = maxZoom === undefined ? 18 : maxZoom;
+        if (!points.length) { return { z: 1, cx: geo.TILE, cy: geo.TILE }; }
+        var z = top;
+        if (points.length > 1) {
+            for (z = top; z > 0; z--) {
+                var b = geo.extent(points, z);
+                if (b.x1 - b.x0 <= w - 2 * pad && b.y1 - b.y0 <= h - 2 * pad) { break; }
+            }
+        } else {
+            z = Math.min(top, single === undefined ? 14 : single);
+        }
+        var e = geo.extent(points, z);
+        return { z: z, cx: (e.x0 + e.x1) / 2, cy: (e.y0 + e.y1) / 2 };
+    };
+
+    geo.extent = function (points, z) {
+        var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (var i = 0; i < points.length; i++) {
+            var p = geo.project(points[i].lat, points[i].lon, z);
+            if (p.x < x0) { x0 = p.x; }
+            if (p.x > x1) { x1 = p.x; }
+            if (p.y < y0) { y0 = p.y; }
+            if (p.y > y1) { y1 = p.y; }
+        }
+        return { x0: x0, y0: y0, x1: x1, y1: y1 };
+    };
+
+    /**
+     * "Name | lat | lon" per line, or "Name | lat, lon". Returns
+     * {list: [{key, lat, lon}], bad: [line]}: a line that does not read is
+     * kept to be named, never quietly skipped.
+     */
+    geo.parseLocations = function (text) {
+        var out = { list: [], bad: [] };
+        var lines = String(text || '').split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].replace(/^\s+|\s+$/g, '');
+            if (!line || line.charAt(0) === '#') { continue; }
+            var parts = line.split('|');
+            var key = (parts[0] || '').replace(/^\s+|\s+$/g, '');
+            var rest = parts.length === 2 ? parts[1].split(',') : parts.slice(1);
+            var lat = util.num(rest[0] !== undefined ? String(rest[0]).replace(/^\s+|\s+$/g, '') : null);
+            var lon = util.num(rest[1] !== undefined ? String(rest[1]).replace(/^\s+|\s+$/g, '') : null);
+            if (!key || !geo.valid(lat, lon)) { out.bad.push(line); continue; }
+            out.list.push({ key: key, lat: lat, lon: lon });
+        }
+        return out;
+    };
+
+    /* ------------------------------------------------------------------ *
      * layout — resize plumbing shared by every symbol
      * ------------------------------------------------------------------ */
     var layout = PVX.layout = {};
@@ -2733,6 +4001,80 @@
     };
 
     /* ------------------------------------------------------------------ *
+     * download — hand the viewer a file built in the browser
+     * ------------------------------------------------------------------ *
+     * Nothing leaves the page: the file is made from what the symbol already
+     * shows and saved by the browser. PI Vision's own export goes through its
+     * server and only covers its own symbols.
+     */
+    var download = PVX.download = {};
+
+    /**
+     * One CSV cell. Quoted when it holds a comma, quote or line break. A text
+     * cell that starts with = + - or @ gets a leading apostrophe, because a
+     * spreadsheet runs it as a formula otherwise; a number never does, so a
+     * negative reading stays a number.
+     */
+    download.csvCell = function (v) {
+        if (v === null || v === undefined) { return ''; }
+        if (typeof v === 'number') { return isFinite(v) ? String(v) : ''; }
+        var s = String(v);
+        // A strict number test: util.num is lenient and reads "=1+2" as 1.
+        if (/^[=+\-@\t\r]/.test(s) && !/^[+\-]?(\d+\.?\d*|\.\d+)([eE][+\-]?\d+)?$/.test(s)) { s = '\'' + s; }
+        return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+
+    /** Rows (arrays of cells) to CSV text, CRLF between rows as RFC 4180 has it. */
+    download.csvText = function (rows) {
+        return (rows || []).map(function (r) {
+            return (r || []).map(download.csvCell).join(',');
+        }).join('\r\n') + '\r\n';
+    };
+
+    /** A file name with nothing Windows refuses in it. */
+    download.fileName = function (base, ext) {
+        var s = String(base === null || base === undefined ? '' : base)
+            .replace(/[\\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return (s || 'pvx').slice(0, 80) + (ext ? '.' + ext : '');
+    };
+
+    /**
+     * Save text as a file. Returns false when the browser offers no way to,
+     * so the caller can say so instead of the button doing nothing. The BOM
+     * makes Excel read a CSV as UTF-8: without it a degree sign arrives as
+     * two characters.
+     */
+    download.text = function (name, content, mime) {
+        var type = (mime || 'text/plain') + ';charset=utf-8';
+        var body = (/csv/.test(type) ? '﻿' : '') + String(content === null || content === undefined ? '' : content);
+        var blob;
+        try { blob = new window.Blob([body], { type: type }); } catch (e) { return false; }
+        // Legacy Edge and IE: the only route they have.
+        if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+            window.navigator.msSaveOrOpenBlob(blob, name);
+            return true;
+        }
+        if (!window.URL || !window.URL.createObjectURL) { return false; }
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Revoked later, not at once: some browsers start the save after
+        // click() returns and would find the address already gone.
+        window.setTimeout(function () { window.URL.revokeObjectURL(url); }, 4000);
+        return true;
+    };
+
+    /** Rows to a CSV file. */
+    download.csv = function (name, rows) {
+        return download.text(download.fileName(name, 'csv'), download.csvText(rows), 'text/csv');
+    };
+
+    /* ------------------------------------------------------------------ *
      * config — helpers for the configuration pane
      * ------------------------------------------------------------------ */
     var config = PVX.config = {};
@@ -2757,7 +4099,21 @@
             Thresholds: thresholds.DEFAULT,
             UseThresholds: true,
             AccentColor: '#3b82c4',
-            CornerRadius: 6
+            CornerRadius: 6,
+            // Every symbol, applied by PVX.overlay; off, so saved displays
+            // look as they did. Names of their own: pvxDataHealth already
+            // has a StaleMinutes that means something else.
+            ExportMenu: false,
+            StaleBadgeMinutes: 0,
+            HideWhenNoData: false,
+            QuickTrend: false,
+            // Time-series symbols only, through PVX.ownrange; off, so a saved
+            // display follows the display's time range as it always did.
+            OwnTimeRange: false,
+            OwnStart: '*-1d',
+            OwnEnd: '*',
+            OwnRefreshSeconds: 60,
+            OwnMaxValues: 10000
         };
         if (extra) {
             for (var k in extra) {
@@ -2918,6 +4274,9 @@
                 api.settings[k] = settings[k];
             }
         }
+        // The site file carries the theme too; it is not a PI Web API
+        // setting, but it arrives by the same road.
+        if (Object.prototype.hasOwnProperty.call(settings, 'theme')) { theme.applySite(settings.theme); }
         return api.settings;
     };
 
@@ -3177,10 +4536,14 @@
             };
         }
         if (status === 403) {
+            // A refused write says which object refused it ("No Write Access -
+            // Secure Object"), which is the line an administrator needs.
+            var why = piErrorText(err);
             return {
                 code: 'forbidden',
                 message: 'Authenticated, but this identity is not permitted. PI and AF security are the ' +
-                         'access control — check the mapping for this user on the AF database.',
+                         'access control — check the mapping for this user on the AF database.' +
+                         (why ? ' PI Web API said: ' + why : ''),
                 check: 'AF / Data Archive mappings'
             };
         }
@@ -3539,6 +4902,21 @@
     };
 
     /**
+     * Who PI Web API says the viewer is ("DOMAIN\\user"), once per page, for
+     * a field prefilled with the user's name. Resolves '' when it cannot
+     * tell (anonymous, or an older PI Web API), never rejects.
+     */
+    var userPromise = null;
+    api.userName = function () {
+        if (!userPromise) {
+            userPromise = api.get('system/userinfo', { cache: false }).then(function (u) {
+                return (u && u.Name) ? String(u.Name) : '';
+            }, function () { userPromise = null; return ''; });
+        }
+        return userPromise;
+    };
+
+    /**
      * Write a single value to a stream.
      *
      * Deliberately never cached and never batched: a write is not idempotent
@@ -3553,8 +4931,15 @@
     api.writeValue = function (webId, value, timestamp, opts) {
         opts = opts || {};
         opts.cache = false;
-        return api.post('streams/' + encodeURIComponent(webId) + '/value',
-            { Timestamp: timestamp || '*', Value: value }, opts);
+        var body = { Timestamp: timestamp || '*', Value: value };
+        // Flagged for review by whoever reads it: PI keeps the flag with the
+        // value, and PI Vision draws such a value as questionable.
+        if (opts.questionable) { body.Questionable = true; }
+        // PI Web API's own rule for a value already at that time: Replace
+        // (its default, and what every write here did before), Insert (keep
+        // both) or NoReplace (keep the old one).
+        var q = opts.updateOption ? '?updateOption=' + encodeURIComponent(opts.updateOption) : '';
+        return api.post('streams/' + encodeURIComponent(webId) + '/value' + q, body, opts);
     };
 
     /**
@@ -3570,7 +4955,11 @@
         var ok = [], failed = [];
         return list.reduce(function (chain, w) {
             return chain.then(function () {
-                return api.writeValue(w.webId, w.value, w.timestamp, opts)
+                var o = {};
+                for (var k in (opts || {})) { if (Object.prototype.hasOwnProperty.call(opts, k)) { o[k] = opts[k]; } }
+                if (w.questionable) { o.questionable = true; }
+                if (w.updateOption) { o.updateOption = w.updateOption; }
+                return api.writeValue(w.webId, w.value, w.timestamp, o)
                     .then(function (res) { ok.push({ key: w.key, response: res }); })
                     .catch(function (e) {
                         failed.push({ key: w.key, error: (e && e.pvxError) || { code: 'unknown', message: String(e) } });
@@ -4789,6 +6178,1238 @@
     // files in ext load".
     PVX.registered = PVX.registered || [];
 
+    /* ------------------------------------------------------------------ *
+     * entry: the controls the two write-back symbols put a value in with
+     * ------------------------------------------------------------------ *
+     * Manual Entry and the Shift Log both used to offer one control, a box to
+     * type in. Some values are not typed: a pump is on or off, a grade is one
+     * of four, a setpoint moves in steps of 0.5. These controls are shared so
+     * the two symbols behave the same way.
+     *
+     * Every control keeps the value it will write in one element, `input`,
+     * whose .value is text exactly as a typed box would hold it. The symbols
+     * read, validate and clear that element as before, so they do not need a
+     * separate write path for each control. Controls that cannot start out
+     * empty (a slider always has a position) keep a hidden input instead and
+     * set it only when the operator moves them. If they wrote their starting
+     * position into it, every untouched slider on a rounds sheet would count
+     * as a reading and be written.
+     *
+     * Until the operator picks something, a switch or a button row shows the
+     * value PI holds now. A pending change is outlined, so a switch that has
+     * been flipped but not written does not look like the plant's state.
+     */
+    var entry = PVX.entry = {};
+
+    function decimalsOf(n) {
+        var s = String(n);
+        var e = s.indexOf('e-');
+        if (e !== -1) { return parseInt(s.slice(e + 2), 10) || 0; }
+        var i = s.indexOf('.');
+        return i === -1 ? 0 : s.length - i - 1;
+    }
+
+    /**
+     * One click of a stepper. Rounded to the step's decimals, so ten clicks
+     * of 0.1 give 1, not 0.9999999999999999, which would be written as typed.
+     */
+    entry.step = function (baseText, stepSize, dir, min, max, fallback) {
+        var st = Math.abs(util.num(stepSize) || 0) || 1;
+        var b = /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\s*$/.test(String(baseText === undefined ? '' : baseText))
+            ? parseFloat(baseText) : null;
+        if (b === null) { b = (fallback !== null && fallback !== undefined && isFinite(fallback)) ? fallback : (min !== null && min !== undefined ? min : 0); }
+        var v = b + dir * st;
+        if (min !== null && min !== undefined && v < min) { v = min; }
+        if (max !== null && max !== undefined && v > max) { v = max; }
+        var d = Math.min(10, Math.max(decimalsOf(st), decimalsOf(parseFloat(b.toFixed(6)))));
+        return parseFloat(v.toFixed(d));
+    };
+
+    /** "1=Running" -> {value:'1', label:'Running'}; "Running" -> both the same. */
+    entry.choice = function (text) {
+        var s = String(text === undefined || text === null ? '' : text).replace(/^\s+|\s+$/g, '');
+        var eq = s.indexOf('=');
+        if (eq > 0) {
+            var v = s.slice(0, eq).replace(/\s+$/, ''), l = s.slice(eq + 1).replace(/^\s+/, '');
+            return { value: v, label: l || v };
+        }
+        return { value: s, label: s };
+    };
+
+    /** A list of choices, split on "/" or ",". Blank entries are left out. */
+    entry.choices = function (text) {
+        var out = [];
+        String(text || '').split(/[\/,]/).forEach(function (part) {
+            var c = entry.choice(part);
+            if (c.value) { out.push(c); }
+        });
+        return out;
+    };
+
+    /** True when every choice is a number, so the write sends numbers. */
+    entry.numericChoices = function (list) {
+        if (!list || !list.length) { return false; }
+        for (var i = 0; i < list.length; i++) {
+            if (!/^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(list[i].value)) { return false; }
+        }
+        return true;
+    };
+
+    var CONTROL_KINDS = { number: 1, text: 1, stepper: 1, slider: 1, 'switch': 1, buttons: 1, select: 1 };
+
+    /**
+     * A Shift Log row's control field:
+     *   number | text | stepper[:step] | slider[:step] | switch[:off/on] |
+     *   buttons:a/b/c | select:a/b/c     with "wide" anywhere for a full row.
+     * Any choice can be value=caption. Returns {kind, step, choices, wide, error}.
+     */
+    entry.parse = function (spec) {
+        var out = { kind: 'number', step: '', choices: [], wide: false, plain: false, error: '' };
+        var s = String(spec || '').replace(/^\s+|\s+$/g, '');
+        if (!s) { return out; }
+        var words = s.split(/\s+/);
+        var main = '';
+        for (var i = 0; i < words.length; i++) {
+            if (words[i].toLowerCase() === 'wide') { out.wide = true; } else { main += (main ? ' ' : '') + words[i]; }
+        }
+        if (!main) { return out; }
+        var colon = main.indexOf(':');
+        var kind = (colon === -1 ? main : main.slice(0, colon)).toLowerCase();
+        var arg = colon === -1 ? '' : main.slice(colon + 1);
+        if (!CONTROL_KINDS[kind]) {
+            out.error = 'control "' + kind + '" is not one of number, text, stepper, slider, switch, buttons, select';
+            return out;
+        }
+        out.kind = kind;
+        if (kind === 'stepper' || kind === 'slider') {
+            if (arg && !(util.num(arg) > 0)) { out.error = kind + ' step "' + arg + '" is not a positive number'; }
+            out.step = arg;
+        } else if (kind === 'switch') {
+            // No positions given: a Boolean attribute, written as False/True.
+            out.plain = !arg;
+            out.choices = arg ? entry.choices(arg) : [{ value: 'False', label: 'Off' }, { value: 'True', label: 'On' }];
+            if (out.choices.length !== 2) { out.error = 'a switch needs exactly two positions, off/on'; }
+        } else if (kind === 'buttons' || kind === 'select') {
+            out.choices = entry.choices(arg);
+            if (!out.choices.length) { out.error = kind + ' needs its choices, for example ' + kind + ':Low/Normal/High'; }
+        }
+        return out;
+    };
+
+    function sameValue(a, b) {
+        if (a === null || a === undefined || b === null || b === undefined) { return false; }
+        var x = String(a).toLowerCase(), y = String(b).toLowerCase();
+        if (x === y) { return true; }
+        var nx = parseFloat(x), ny = parseFloat(y);
+        return isFinite(nx) && isFinite(ny) && /^[\s+\-.\d eE]+$/.test(x) && /^[\s+\-.\d eE]+$/.test(y) && nx === ny;
+    }
+    entry.same = sameValue;
+
+    /**
+     * Build a control.
+     *   o.kind      number | text | stepper | slider | switch | buttons | select
+     *   o.parent    where it goes; o.inputClass for the typed box
+     *   o.min, o.max, o.step, o.choices ([{value,label}], two for a switch)
+     *   o.listen    (node, type, fn): the symbol's own registrar, so its
+     *               teardown removes these listeners with its others
+     *   o.onPick    (value, commit): the operator changed it. commit is true
+     *               for a choice made in one action (a switch flip, a button,
+     *               letting go of a slider), false while dragging or typing.
+     *   o.format    value -> text for a slider's readout
+     * Returns {input, focus, wrap, sync(state)}; sync takes {current, disabled}.
+     */
+    entry.build = function (o) {
+        var listen = o.listen || function (n, t, f) { n.addEventListener(t, f, false); };
+        function mk(tag, cls, parent) {
+            var n = document.createElement(tag);
+            if (cls) { n.className = cls; }
+            if (parent) { parent.appendChild(n); }
+            return n;
+        }
+        function button(cls, parent, text) {
+            var b = mk('button', cls, parent);
+            b.type = 'button';
+            b.textContent = text;
+            return b;
+        }
+        var kind = o.kind || 'number';
+        var wrap = mk('span', 'pvx-ctl pvx-ctl-' + kind, o.parent);
+        var ctl = { kind: kind, wrap: wrap, input: null, focus: null, parts: [] };
+        var choices = o.choices || [];
+        var min = o.min === undefined ? null : o.min, max = o.max === undefined ? null : o.max;
+        var fmtv = o.format || function (v) { return String(v); };
+        var lastCurrent = null;
+        function pick(v, commit) {
+            ctl.input.value = v;
+            ctl.sync({ current: lastCurrent });
+            if (o.onPick) { o.onPick(v, commit); }
+        }
+        function hidden() {
+            var h = mk('input', null, wrap);
+            h.type = 'hidden';
+            return h;
+        }
+
+        if (kind === 'select') {
+            var sel = mk('select', o.inputClass || '', wrap);
+            var blank = mk('option', null, sel);
+            blank.value = '';
+            blank.textContent = choices.length ? 'Choose…' : 'No choices configured';
+            choices.forEach(function (c) {
+                var opt = mk('option', null, sel);
+                opt.value = c.value;
+                opt.textContent = c.label;
+            });
+            listen(sel, 'change', function () { if (o.onPick) { o.onPick(sel.value, true); } });
+            ctl.input = ctl.focus = sel;
+
+        } else if (kind === 'slider') {
+            ctl.input = hidden();
+            var range = mk('input', 'pvx-ctl-range', wrap);
+            range.type = 'range';
+            if (min !== null) { range.min = min; }
+            if (max !== null) { range.max = max; }
+            range.step = util.num(o.step) > 0 ? String(util.num(o.step)) : 'any';
+            var readout = mk('span', 'pvx-ctl-readout pvx-num', wrap);
+            listen(range, 'input', function () { pick(range.value, false); });
+            listen(range, 'change', function () { pick(range.value, true); });
+            ctl.focus = range;
+            ctl.parts = [range];
+            ctl.range = range;
+            ctl.readout = readout;
+
+        } else if (kind === 'switch') {
+            ctl.input = hidden();
+            var off = choices[0] || { value: 'False', label: 'Off' };
+            var on = choices[1] || { value: 'True', label: 'On' };
+            var sw = button('pvx-ctl-sw', wrap, '');
+            sw.setAttribute('role', 'switch');
+            var cap = mk('span', 'pvx-ctl-cap', wrap);
+            listen(sw, 'click', function () {
+                var eff = ctl.input.value !== '' ? ctl.input.value : lastCurrent;
+                pick(sameValue(eff, on.value) ? off.value : on.value, true);
+            });
+            ctl.focus = sw;
+            ctl.parts = [sw];
+            ctl.sw = sw;
+            ctl.cap = cap;
+            ctl.off = off;
+            ctl.on = on;
+
+        } else if (kind === 'buttons') {
+            ctl.input = hidden();
+            var seg = mk('span', 'pvx-ctl-seg', wrap);
+            seg.setAttribute('role', 'group');
+            ctl.opts = [];
+            choices.forEach(function (c) {
+                var b = button('pvx-ctl-opt', seg, c.label);
+                listen(b, 'click', function () { pick(c.value, true); });
+                ctl.opts.push({ node: b, value: c.value });
+                ctl.parts.push(b);
+            });
+            ctl.focus = ctl.parts[0] || null;
+
+        } else {
+            var box = mk('input', o.inputClass || '', null);
+            box.type = (kind === 'text') ? 'text' : 'number';
+            if (box.type === 'number') {
+                // 'any', or a browser silently refuses decimals on the default
+                // integer step before the symbol's own check sees the text.
+                box.setAttribute('step', 'any');
+            }
+            if (kind === 'stepper') {
+                var down = button('pvx-ctl-step', wrap, '−');
+                down.setAttribute('aria-label', 'Decrease');
+                wrap.appendChild(box);
+                var up = button('pvx-ctl-step', wrap, '+');
+                up.setAttribute('aria-label', 'Increase');
+                var bump = function (dir) {
+                    var cur = util.num(lastCurrent);
+                    box.value = String(entry.step(box.value, o.step, dir, min, max, cur));
+                    // Never a commit: a stepper that wrote on every click would
+                    // put each intermediate value into the archive.
+                    if (o.onPick) { o.onPick(box.value, false); }
+                };
+                listen(down, 'click', function () { bump(-1); });
+                listen(up, 'click', function () { bump(1); });
+                ctl.parts = [down, up];
+            } else {
+                wrap.appendChild(box);
+            }
+            ctl.input = ctl.focus = box;
+        }
+
+        /** Show the pending choice, or what PI holds when nothing is picked. */
+        ctl.sync = function (s) {
+            s = s || {};
+            if (s.current !== undefined) { lastCurrent = s.current; }
+            var v = ctl.input.value;
+            var pending = v !== '';
+            var eff = pending ? v : lastCurrent;
+            wrap.setAttribute('data-pending', pending && kind !== 'number' && kind !== 'text' && kind !== 'select' ? 'yes' : 'no');
+            if (s.disabled !== undefined) {
+                ctl.input.disabled = !!s.disabled;
+                for (var i = 0; i < ctl.parts.length; i++) { ctl.parts[i].disabled = !!s.disabled; }
+            }
+            if (kind === 'slider') {
+                var n = util.num(eff);
+                if (n === null) { n = min !== null ? min : 0; }
+                if (String(ctl.range.value) !== String(n) && document.activeElement !== ctl.range) { ctl.range.value = n; }
+                var txt = pending ? fmtv(v) : (lastCurrent !== null && lastCurrent !== undefined && lastCurrent !== '' ? fmtv(lastCurrent) : '—');
+                if (ctl.readout.textContent !== txt) { ctl.readout.textContent = txt; }
+            } else if (kind === 'switch') {
+                var isOn = sameValue(eff, ctl.on.value), isOff = sameValue(eff, ctl.off.value);
+                ctl.sw.setAttribute('aria-checked', isOn ? 'true' : (isOff ? 'false' : 'mixed'));
+                var c = isOn ? ctl.on.label : (isOff ? ctl.off.label : '—');
+                if (ctl.cap.textContent !== c) { ctl.cap.textContent = c; }
+                ctl.sw.setAttribute('aria-label', ctl.off.label + ' / ' + ctl.on.label + ': ' + c);
+            } else if (kind === 'buttons') {
+                for (var j = 0; j < ctl.opts.length; j++) {
+                    ctl.opts[j].node.setAttribute('aria-pressed', pending && sameValue(v, ctl.opts[j].value) ? 'true' : 'false');
+                    ctl.opts[j].node.setAttribute('data-current', sameValue(lastCurrent, ctl.opts[j].value) ? 'yes' : 'no');
+                }
+            }
+        };
+        ctl.sync({ current: null });
+        return ctl;
+    };
+
+
+    /* ------------------------------------------------------------------ *
+     * overlay: what every symbol offers on top of its own drawing
+     * ------------------------------------------------------------------ *
+     * Four options any PVX symbol has, all off by default so a saved display
+     * looks as it did:
+     *
+     *   ExportMenu         a button, shown on hover, that saves the symbol as
+     *                      a PNG image, its drawing as SVG, or its data as CSV.
+     *   StaleBadgeMinutes  a badge when the newest timestamp PI Vision sent is
+     *                      older than this. 0 is off.
+     *   HideWhenNoData     the symbol hides itself while none of its data
+     *                      sources has a value.
+     *   QuickTrend         a button that trends the symbol's data sources in
+     *                      a floating panel (PVX.trend, through PI Web API).
+     *
+     * They live here, wired in by bootstrap, so no symbol has to opt in.
+     * Nothing in this block sends anything anywhere: files are made in the
+     * browser by PVX.download. The quick trend reads from PI Web API, and
+     * only once its button is pressed.
+     */
+    var overlay = PVX.overlay = {};
+
+    /** Every value PI Vision sent, whatever the data shape, as {t, v, good, label, units}. */
+    overlay.items = function (d) {
+        var out = [];
+        if (!d) { return out; }
+        var push = function (label, units, p) {
+            if (p === null || p === undefined) { return; }
+            var raw = typeof p === 'object' ? (p.Value !== undefined ? p.Value : p.value) : p;
+            if (raw !== null && typeof raw === 'object') { raw = raw.Name !== undefined ? raw.Name : raw.Value; }
+            var dt = fmt.toDate(typeof p === 'object' ? (p.Time || p.time) : null);
+            out.push({ label: label, units: units, t: dt ? dt.getTime() : null, raw: raw, good: !(p && p.IsGood === false) });
+        };
+        var rows = d.Rows || d.rows;
+        if (rows && rows.length !== undefined) {
+            for (var r = 0; r < rows.length; r++) {
+                var row = rows[r] || {};
+                push(row.Label || ('Row ' + (r + 1)), row.Units || '', row);
+            }
+            return out;
+        }
+        var list = d.Data || d.data;
+        if (!list) {
+            if (d.Value !== undefined || d.Time !== undefined) { push(d.Label || 'Value', d.Units || '', d); }
+            return out;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i] || {};
+            var label = it.Label || ('Source ' + (i + 1));
+            var vals = it.Values || it.Value;
+            if (vals && typeof vals === 'object' && vals.length !== undefined) {
+                for (var j = 0; j < vals.length; j++) {
+                    var v = vals[j];
+                    if (v && it.IsGood === false && v.IsGood === undefined) { v = { Time: v.Time, Value: v.Value, IsGood: false }; }
+                    push(label, it.Units || '', v);
+                }
+            } else {
+                push(label, it.Units || '', it.IsGood === false ? { Time: it.Time, Value: it.Value, IsGood: false } : it);
+            }
+        }
+        return out;
+    };
+
+    /** Has any source a value? Bad-quality values and system states count as none. */
+    overlay.hasData = function (d) {
+        var list = overlay.items(d);
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].good && list[i].raw !== null && list[i].raw !== undefined && list[i].raw !== '') { return true; }
+        }
+        return false;
+    };
+
+    /** The newest timestamp PI Vision sent, or null. */
+    overlay.newest = function (d) {
+        var list = overlay.items(d), best = null;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].t !== null && (best === null || list[i].t > best)) { best = list[i].t; }
+        }
+        return best;
+    };
+
+    /**
+     * Is the display looking at the past? Then old data is what was asked
+     * for, and calling it stale would be wrong.
+     */
+    overlay.historical = function (thresholdMs, nowMs) {
+        var p = nav.parseHash().params || {};
+        if (!p.endtime) { return false; }
+        var end = nav.parseTime(p.endtime, nowMs);
+        return end !== null && end < nowMs - thresholdMs;
+    };
+
+    /** The data as CSV rows, long form: one row per value, lossless. */
+    overlay.csvRows = function (d) {
+        var rows = [['Source', 'Units', 'Time', 'Value', 'Quality']];
+        var list = overlay.items(d);
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i];
+            var n = util.isNum(it.raw) ? it.raw : (typeof it.raw === 'string' && /^-?\d+(\.\d+)?([eE][+\-]?\d+)?$/.test(it.raw) ? parseFloat(it.raw) : it.raw);
+            rows.push([it.label, it.units, it.t === null ? '' : new Date(it.t).toISOString(), n, it.good ? 'Good' : 'Bad']);
+        }
+        return rows;
+    };
+
+    /* The properties copied onto each element of a picture. Computed style in
+     * full is several hundred per element and makes a table megabytes. */
+    var PICTURE_PROPS = ['display', 'position', 'top', 'left', 'right', 'bottom', 'width', 'height',
+        'box-sizing', 'margin', 'padding', 'border', 'border-radius', 'background-color', 'background-image',
+        'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'text-align',
+        'vertical-align', 'white-space', 'overflow', 'text-overflow', 'opacity', 'flex', 'flex-direction',
+        'align-items', 'justify-content', 'gap', 'border-collapse', 'border-spacing', 'box-shadow',
+        'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'text-anchor',
+        'dominant-baseline', 'font-variant-numeric', 'transform', 'visibility', 'z-index'];
+
+    function copyStyles(src, dst) {
+        if (!src || !dst || src.nodeType !== 1) { return; }
+        var cs = root.getComputedStyle ? root.getComputedStyle(src) : null;
+        if (cs) {
+            var parts = [];
+            for (var i = 0; i < PICTURE_PROPS.length; i++) {
+                var v = cs.getPropertyValue(PICTURE_PROPS[i]);
+                if (v) { parts.push(PICTURE_PROPS[i] + ':' + v); }
+            }
+            dst.setAttribute('style', parts.join(';'));
+        }
+        // Scrolled content is pictured where the reader left it.
+        if (src.scrollTop || src.scrollLeft) {
+            dst.style.overflow = 'hidden';
+            var inner = dst.firstElementChild;
+            if (inner) { inner.style.marginTop = (-src.scrollTop) + 'px'; inner.style.marginLeft = (-src.scrollLeft) + 'px'; }
+        }
+        var a = src.children, b = dst.children;
+        for (var k = 0; k < a.length && k < b.length; k++) { copyStyles(a[k], b[k]); }
+    }
+
+    /** The symbol's own drawing: its largest SVG, or null for an HTML symbol. */
+    overlay.mainSvg = function (node) {
+        if (!node || !node.querySelectorAll) { return null; }
+        var all = node.querySelectorAll('svg'), best = null, area = 0;
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].closest && all[i].closest('.pvx-overlay')) { continue; }
+            var r = all[i].getBoundingClientRect();
+            if (r.width * r.height > area) { area = r.width * r.height; best = all[i]; }
+        }
+        // A small icon beside HTML text is not the drawing.
+        var nr = node.getBoundingClientRect();
+        return best && area >= nr.width * nr.height * 0.3 ? best : null;
+    };
+
+    /** The SVG drawing as a standalone file, styles inlined so it opens anywhere. */
+    overlay.svgText = function (svgEl, background) {
+        var clone = svgEl.cloneNode(true);
+        copyStyles(svgEl, clone);
+        var r = svgEl.getBoundingClientRect();
+        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clone.setAttribute('width', String(Math.round(r.width)));
+        clone.setAttribute('height', String(Math.round(r.height)));
+        if (!clone.getAttribute('viewBox')) { clone.setAttribute('viewBox', '0 0 ' + Math.round(r.width) + ' ' + Math.round(r.height)); }
+        if (background && background !== 'transparent') {
+            var bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            var vb = clone.getAttribute('viewBox').split(/[\s,]+/);
+            bg.setAttribute('x', vb[0]); bg.setAttribute('y', vb[1]);
+            bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]);
+            bg.setAttribute('fill', background);
+            clone.insertBefore(bg, clone.firstChild);
+        }
+        return new root.XMLSerializer().serializeToString(clone);
+    };
+
+    /**
+     * The whole symbol, HTML and SVG alike, as a PNG. The symbol is copied
+     * into an SVG foreignObject with its styles inlined and drawn onto a
+     * canvas at twice its size. A browser that refuses (a canvas tainted by
+     * a foreignObject, as older engines do) rejects, and the caller says so.
+     */
+    overlay.png = function (node, background) {
+        return new Promise(function (resolve, reject) {
+            var r = node.getBoundingClientRect();
+            var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+            var clone = node.cloneNode(true);
+            copyStyles(node, clone);
+            var ov = clone.querySelector('.pvx-overlay');
+            if (ov) { ov.parentNode.removeChild(ov); }
+            clone.style.zoom = '';
+            clone.style.width = w + 'px';
+            clone.style.height = h + 'px';
+            if (background && background !== 'transparent') { clone.style.backgroundColor = background; }
+            clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+            var xml = new root.XMLSerializer().serializeToString(clone);
+            var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">' +
+                '<foreignObject x="0" y="0" width="100%" height="100%">' + xml + '</foreignObject></svg>';
+            var img = new root.Image();
+            img.onload = function () {
+                try {
+                    var k = 2;
+                    var c = document.createElement('canvas');
+                    c.width = w * k; c.height = h * k;
+                    var g = c.getContext('2d');
+                    g.scale(k, k);
+                    g.drawImage(img, 0, 0);
+                    resolve(c.toDataURL('image/png'));
+                } catch (e) { reject(e); }
+            };
+            img.onerror = function () { reject(new Error('the browser could not draw the symbol')); };
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        });
+    };
+
+    /** Save a data: URL as a file. */
+    overlay.saveDataUrl = function (name, url) {
+        var a = document.createElement('a');
+        if (typeof a.download !== 'string') { return false; }
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return true;
+    };
+
+    /* ------------------------------------------------------------------ *
+     * trend: the quick trend any symbol can open (QuickTrend option)
+     * ------------------------------------------------------------------ *
+     * A floating panel trending the data sources of the symbol it was opened
+     * from; a second symbol's trend button adds its sources to the panel
+     * already open, so a comparison is two clicks. One panel per page.
+     *
+     * WHY PI WEB API. PI Vision's own ad hoc trend opens only from its stock
+     * symbols, and a custom symbol cannot add data sources to PI Vision's
+     * pipeline at run time: the history a trend needs is not in what the
+     * symbol was sent. So each source is one plot request, sized to the
+     * panel's width, the same reduction PI Vision's trend asks the archive
+     * for. Nothing is written, and nothing is asked until the button is
+     * pressed.
+     */
+    var trend = PVX.trend = {};
+
+    trend.MAX_SOURCES = 8;
+    trend.RANGES = [
+        ['display', 'Display time range'], ['*-1h', 'Last hour'], ['*-8h', 'Last 8 hours'],
+        ['*-1d', 'Last day'], ['*-7d', 'Last 7 days'], ['*-30d', 'Last 30 days']
+    ];
+    trend.REFRESH_MS = 60000;
+
+    var tr = null;              // the open panel, or null
+    var trIds = {};             // source path -> Promise(WebId), shared across opens
+
+    /** "K-301 · Discharge Pressure" for an attribute, the tag for a PI point. */
+    trend.labelOf = function (ds) {
+        var p = states.sourcePath(ds);
+        var bar = p.indexOf('|');
+        if (bar === -1) { return p.split('\\').filter(function (x) { return !!x; }).pop() || p; }
+        var el = p.slice(0, bar).split('\\').filter(function (x) { return !!x; }).pop() || '';
+        var attr = p.slice(bar + 1);
+        return el ? el + ' · ' + attr : attr;
+    };
+
+    /**
+     * The window a range key means now: the display's own range, or a span
+     * back from now. {start, end} are PI time expressions for the request,
+     * {from, to} the milliseconds for the axis (null when unparseable).
+     */
+    trend.window = function (key, nowMs) {
+        var now = nowMs || Date.now();
+        var start, end;
+        if (!key || key === 'display') {
+            var p = nav.parseHash().params || {};
+            start = p.starttime || '*-8h';
+            end = p.endtime || '*';
+        } else {
+            start = key;
+            end = '*';
+        }
+        return { start: start, end: end, from: nav.parseTime(start, now), to: nav.parseTime(end, now),
+            live: String(end).replace(/\s+/g, '') === '*' };
+    };
+
+    /**
+     * Plot items -> {pts:[{t, v}], bad, text, units}. Bad values and text
+     * (a digital state, a system state) are counted, not drawn: a gap where
+     * the archive had no good number is the honest picture.
+     */
+    trend.points = function (items) {
+        var out = { pts: [], bad: 0, text: 0, units: '' };
+        for (var i = 0; i < (items || []).length; i++) {
+            var it = items[i] || {};
+            if (it.UnitsAbbreviation && !out.units) { out.units = it.UnitsAbbreviation; }
+            var d = fmt.toDate(it.Timestamp);
+            if (!d) { continue; }
+            if (it.Good === false) { out.bad += 1; continue; }
+            var v = it.Value;
+            if (v !== null && typeof v === 'object') { out.text += 1; continue; }
+            if (!util.isNum(v)) { out.text += 1; continue; }
+            out.pts.push({ t: d.getTime(), v: v });
+        }
+        out.pts.sort(function (a, b) { return a.t - b.t; });
+        return out;
+    };
+
+    trend.isOpen = function () { return !!tr; };
+
+    /** The paths on the open trend, in order. */
+    trend.sources = function () {
+        if (!tr) { return []; }
+        return tr.traces.map(function (x) { return x.path; });
+    };
+
+    /**
+     * Open the trend with these data sources, or add them to the one open.
+     * @param {Array} list data source strings, as in scope.symbol.DataSources
+     * @param {Object} [opts] {theme: tokens of the opening symbol}
+     * @returns {{added: Number, already: Number, over: Number}}
+     */
+    trend.open = function (list, opts) {
+        opts = opts || {};
+        if (!tr) { trBuild(opts.theme || theme.tokens({})); }
+        var res = { added: 0, already: 0, over: 0 };
+        for (var i = 0; i < (list || []).length; i++) {
+            var p = states.sourcePath(list[i]);
+            if (!p) { continue; }
+            var dup = false;
+            for (var j = 0; j < tr.traces.length; j++) { if (tr.traces[j].path.toLowerCase() === p.toLowerCase()) { dup = true; break; } }
+            if (dup) { res.already += 1; continue; }
+            if (tr.traces.length >= trend.MAX_SOURCES) { res.over += 1; continue; }
+            tr.traces.push({ path: p, label: trend.labelOf(p), color: trColor(), data: null, error: '' });
+            res.added += 1;
+        }
+        trLegend();
+        var bits = [];
+        if (res.over) { bits.push(res.over + ' not added: a quick trend holds ' + trend.MAX_SOURCES + ' sources'); }
+        if (res.already && !res.added) { bits.push('already on this trend'); }
+        tr.flash = bits.join(' · ');
+        trFetch();
+        try { tr.el.focus(); } catch (e) { /* focus is a nicety */ }
+        return res;
+    };
+
+    trend.remove = function (index) {
+        if (!tr || !tr.traces[index]) { return; }
+        tr.traces.splice(index, 1);
+        if (!tr.traces.length) { trend.close(); return; }
+        trLegend();
+        trDraw();
+    };
+
+    trend.setRange = function (key) {
+        if (!tr) { return; }
+        tr.range = key;
+        if (tr.select) { tr.select.value = key; }
+        trFetch();
+    };
+
+    trend.close = function () {
+        if (!tr) { return; }
+        if (tr.timer) { clearInterval(tr.timer); }
+        if (tr.ro && tr.ro.disconnect) { try { tr.ro.disconnect(); } catch (e) { /* gone */ } }
+        if (tr.onHash) { root.removeEventListener('hashchange', tr.onHash, false); }
+        if (tr.el && tr.el.parentNode) { tr.el.parentNode.removeChild(tr.el); }
+        tr = null;
+    };
+
+    function trColor() {
+        var used = {};
+        for (var i = 0; i < tr.traces.length; i++) { used[tr.traces[i].color] = true; }
+        for (var k = 0; k < color.categorical.length; k++) { if (!used[color.categorical[k]]) { return color.categorical[k]; } }
+        return color.categorical[tr.traces.length % color.categorical.length];
+    }
+
+    function trEl(tag, cls, parent, text) {
+        var e = root.document.createElement(tag);
+        if (cls) { e.className = cls; }
+        if (text !== undefined) { e.textContent = text; }
+        if (parent) { parent.appendChild(e); }
+        return e;
+    }
+
+    function trBuild(t) {
+        var doc = root.document;
+        var el = trEl('div', 'pvx-qt' + (t.dark ? ' pvx-qt-dark' : ''));
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-label', 'Quick trend');
+        el.tabIndex = -1;
+        el.style.setProperty('--pvx-qt-surface', t.surface === 'transparent' ? (t.dark ? '#22262b' : '#ffffff') : t.surface);
+        el.style.setProperty('--pvx-qt-text', t.text);
+        el.style.setProperty('--pvx-qt-muted', t.textMuted);
+        el.style.setProperty('--pvx-qt-border', t.border);
+        // Near the top right, clear of PI Vision's own toolbar, on any screen.
+        var vw = root.innerWidth || 1024;
+        var w = Math.min(560, Math.max(280, vw - 32));
+        el.style.width = w + 'px';
+        el.style.height = '300px';
+        el.style.left = Math.max(8, vw - w - 24) + 'px';
+        el.style.top = '72px';
+
+        var head = trEl('div', 'pvx-qt-head', el);
+        trEl('span', 'pvx-qt-title', head, 'Quick trend');
+        var sel = trEl('select', 'pvx-qt-range', head);
+        sel.title = 'Time range of this trend';
+        for (var i = 0; i < trend.RANGES.length; i++) {
+            var o = trEl('option', '', sel, trend.RANGES[i][1]);
+            o.value = trend.RANGES[i][0];
+        }
+        sel.onchange = function () { trend.setRange(sel.value); };
+        var x = trEl('button', 'pvx-qt-close', head, '×');
+        x.type = 'button';
+        x.title = 'Close the trend';
+        x.setAttribute('aria-label', 'Close the trend');
+        x.onclick = function () { trend.close(); };
+        var legend = trEl('div', 'pvx-qt-legend', el);
+        var plot = trEl('div', 'pvx-qt-plot', el);
+        var foot = trEl('div', 'pvx-qt-foot', el);
+        doc.body.appendChild(el);
+
+        tr = { el: el, head: head, select: sel, legend: legend, plot: plot, foot: foot, traces: [],
+            range: 'display', gen: 0, phase: 'idle', note: '', flash: '', hoverT: null, theme: t, w: 0, h: 0 };
+
+        el.onkeydown = function (ev) {
+            if (ev && (ev.key === 'Escape' || ev.keyCode === 27)) { trend.close(); }
+        };
+        trDraggable(head);
+        // A resize from the corner redraws at the new size.
+        if (root.ResizeObserver) {
+            tr.ro = new root.ResizeObserver(function () { if (tr) { trDraw(); } });
+            tr.ro.observe(plot);
+        } else {
+            el.addEventListener('mouseup', function () { if (tr) { trDraw(); } }, false);
+        }
+        plot.addEventListener('mousemove', trHover, false);
+        plot.addEventListener('mouseleave', function () { if (tr) { tr.hoverT = null; trFoot(); trCursor(); } }, false);
+        tr.onHash = function () { if (tr && tr.range === 'display') { trFetch(); } };
+        root.addEventListener('hashchange', tr.onHash, false);
+        tr.timer = setInterval(function () {
+            if (tr && trend.window(tr.range).live) { trFetch(true); }
+        }, trend.REFRESH_MS);
+    }
+
+    function trDraggable(head) {
+        head.addEventListener('mousedown', function (ev) {
+            var tag = ev.target && ev.target.tagName;
+            if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'OPTION' || ev.button !== 0) { return; }
+            var el = tr.el;
+            var x0 = ev.clientX, y0 = ev.clientY;
+            var l0 = parseFloat(el.style.left) || 0, t0 = parseFloat(el.style.top) || 0;
+            var move = function (e) {
+                var vw = root.innerWidth || 1024, vh = root.innerHeight || 768;
+                // The header stays on screen, so the panel can always be dragged back.
+                el.style.left = util.clamp(l0 + e.clientX - x0, 40 - el.offsetWidth, vw - 40) + 'px';
+                el.style.top = util.clamp(t0 + e.clientY - y0, 0, vh - 30) + 'px';
+            };
+            var up = function () {
+                root.document.removeEventListener('mousemove', move, false);
+                root.document.removeEventListener('mouseup', up, false);
+            };
+            root.document.addEventListener('mousemove', move, false);
+            root.document.addEventListener('mouseup', up, false);
+            if (ev.preventDefault) { ev.preventDefault(); }
+        }, false);
+    }
+
+    function trLegend() {
+        var lg = tr.legend;
+        while (lg.firstChild) { lg.removeChild(lg.firstChild); }
+        for (var i = 0; i < tr.traces.length; i++) {
+            var x = tr.traces[i];
+            var chip = trEl('span', 'pvx-qt-chip', lg);
+            chip.title = x.path;
+            var sw = trEl('span', 'pvx-qt-swatch', chip);
+            sw.style.background = x.color;
+            trEl('span', 'pvx-qt-name', chip, x.label);
+            var rm = trEl('button', 'pvx-qt-remove', chip, '×');
+            rm.type = 'button';
+            rm.title = 'Take ' + x.label + ' off the trend';
+            rm.setAttribute('aria-label', rm.title);
+            rm.onclick = (function (k) { return function () { trend.remove(k); }; }(i));
+        }
+    }
+
+    function trWebId(p) {
+        var k = p.toLowerCase();
+        if (trIds[k]) { return trIds[k]; }
+        var job = api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' + encodeURIComponent(p) +
+            '&selectedFields=WebId').then(function (r) {
+            if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+            return r.WebId;
+        });
+        trIds[k] = job;
+        job.then(null, function () { if (trIds[k] === job) { delete trIds[k]; } });
+        return job;
+    }
+
+    function trErr(e) {
+        return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API did not answer.';
+    }
+
+    /** Ask for every trace's plot values; quiet=true keeps the drawing while it reads. */
+    function trFetch(quiet) {
+        if (!tr) { return; }
+        var gen = ++tr.gen;
+        if (api.discovering()) {
+            tr.phase = 'loading';
+            trDraw();
+            api.discover().then(function () { if (tr && gen === tr.gen) { trFetch(); } });
+            return;
+        }
+        if (!api.isConfigured()) { tr.phase = 'unconfigured'; trDraw(); return; }
+        var win = trend.window(tr.range);
+        tr.win = win;
+        if (!quiet) { tr.phase = 'loading'; trDraw(); }
+        // About one plot interval per two pixels: the archive returns up to
+        // five values per interval, so a 500 px plot asks for ~1250 values.
+        var intervals = Math.max(50, Math.min(1000, Math.round((tr.plot.clientWidth || 500) / 2)));
+        var jobs = tr.traces.map(function (x) {
+            return trWebId(x.path).then(function (id) {
+                return api.get('streams/' + encodeURIComponent(id) + '/plot?startTime=' + encodeURIComponent(win.start) +
+                    '&endTime=' + encodeURIComponent(win.end) + '&intervals=' + intervals +
+                    '&selectedFields=Items.Timestamp;Items.Value;Items.Good;Items.UnitsAbbreviation', { cache: false });
+            }).then(function (res) {
+                x.data = trend.points((res && res.Items) || []);
+                x.error = '';
+            }, function (e) {
+                x.data = null;
+                x.error = trErr(e);
+            });
+        });
+        Promise.all(jobs).then(function () {
+            if (!tr || gen !== tr.gen) { return; }
+            tr.phase = 'ok';
+            trDraw();
+        });
+    }
+
+    function trMsg(head, detail, tone) {
+        var plot = tr.plot;
+        while (plot.firstChild) { plot.removeChild(plot.firstChild); }
+        var m = trEl('div', 'pvx-qt-msg' + (tone ? ' pvx-qt-' + tone : ''), plot);
+        trEl('div', 'pvx-qt-msg-head', m, head);
+        if (detail) { trEl('div', 'pvx-qt-msg-detail', m, detail); }
+    }
+
+    /**
+     * The plot's model: one axis when every drawn trace has the same units,
+     * else each trace on its own scale, said in the footer, because a 0-1100
+     * psig line and a 0-6 mils line on one axis is one flat line.
+     */
+    function trModel() {
+        var drawn = [], i, j;
+        for (i = 0; i < tr.traces.length; i++) {
+            var x = tr.traces[i];
+            if (x.data && x.data.pts.length) { drawn.push(x); }
+        }
+        var units = {}, nUnits = 0;
+        for (i = 0; i < drawn.length; i++) {
+            var u = drawn[i].data.units || '';
+            if (!Object.prototype.hasOwnProperty.call(units, u)) { units[u] = true; nUnits += 1; }
+        }
+        var shared = nUnits <= 1;
+        var lo = Infinity, hi = -Infinity;
+        for (i = 0; i < drawn.length; i++) {
+            var mn = Infinity, mx = -Infinity;
+            for (j = 0; j < drawn[i].data.pts.length; j++) {
+                var v = drawn[i].data.pts[j].v;
+                if (v < mn) { mn = v; }
+                if (v > mx) { mx = v; }
+            }
+            drawn[i].min = mn;
+            drawn[i].max = mx;
+            if (mn < lo) { lo = mn; }
+            if (mx > hi) { hi = mx; }
+        }
+        return { drawn: drawn, shared: shared, lo: lo, hi: hi, units: shared && drawn.length ? (drawn[0].data.units || '') : '' };
+    }
+
+    function trDraw() {
+        if (!tr) { return; }
+        tr.model = tr.phase === 'ok' ? trModel() : null;
+        trFoot();
+        // A source with nothing drawn keeps its chip, dimmed, so it can be removed.
+        var chips = tr.legend.children;
+        for (var c = 0; c < chips.length && c < tr.traces.length; c++) {
+            var none = tr.phase === 'ok' && !(tr.traces[c].data && tr.traces[c].data.pts.length);
+            chips[c].className = 'pvx-qt-chip' + (none ? ' pvx-qt-chip-none' : '');
+        }
+        if (tr.phase === 'unconfigured') {
+            trMsg('PI Web API is not configured', api.unsetHint() + ', then confirm it with ext/piwebapi-check.html. ' +
+                'A quick trend reads history from PI Web API.', 'warn');
+            return;
+        }
+        if (tr.phase === 'loading' || tr.phase === 'idle') { trMsg('Reading history…', ''); return; }
+        var m = tr.model;
+        if (!m.drawn.length) {
+            var why = [];
+            for (var e = 0; e < tr.traces.length; e++) {
+                var tx = tr.traces[e];
+                why.push(tx.label + ': ' + (tx.error || (tx.data && tx.data.text ? 'no numbers, only states or text' : 'no good values in this range')));
+            }
+            trMsg('Nothing to draw', why.join(' · '), tr.traces.some(function (q) { return !!q.error; }) ? 'alarm' : 'warn');
+            return;
+        }
+        var plot = tr.plot;
+        var W = plot.clientWidth || 500, H = plot.clientHeight || 200;
+        tr.w = W; tr.h = H;
+        while (plot.firstChild) { plot.removeChild(plot.firstChild); }
+        var s = svg.el('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, 'class': 'pvx-qt-svg' }, plot);
+        var t = tr.theme;
+        var font = 10;
+        var win = tr.win || trend.window(tr.range);
+        var from = win.from, to = win.to;
+        if (from === null || to === null || !(to > from)) {
+            from = Infinity; to = -Infinity;
+            for (var a = 0; a < m.drawn.length; a++) {
+                var ps = m.drawn[a].data.pts;
+                if (ps[0].t < from) { from = ps[0].t; }
+                if (ps[ps.length - 1].t > to) { to = ps[ps.length - 1].t; }
+            }
+            if (!(to > from)) { to = from + 60000; }
+        }
+        var dom = m.shared ? scale.niceDomain(m.lo, m.hi, 5) : [0, 100];
+        var mL = m.shared ? 8 + Math.max(fmt.tick(dom[0]).length, fmt.tick(dom[1]).length) * font * 0.62 : 34;
+        var plotBox = { x: mL, y: 6, x1: W - 8, y1: H - 18 };
+        var xs = scale.linear(from, to, plotBox.x, plotBox.x1);
+        var ys = scale.linear(dom[0], dom[1], plotBox.y1, plotBox.y);
+        tr.xs = xs;
+        tr.box = plotBox;
+        // Grid and axes.
+        var ticks = scale.ticks(dom[0], dom[1], 4);
+        for (var k = 0; k < ticks.length; k++) {
+            var yy = ys(ticks[k]);
+            svg.el('line', { x1: plotBox.x, x2: plotBox.x1, y1: yy.toFixed(1), y2: yy.toFixed(1), stroke: t.grid, 'stroke-width': 1 }, s);
+            svg.text(s, (plotBox.x - 4).toFixed(1), (yy + 3).toFixed(1), m.shared ? fmt.tick(ticks[k]) : ticks[k] + '%',
+                { 'class': 'pvx-svg-label', 'font-size': font, 'text-anchor': 'end', fill: t.textMuted });
+        }
+        var span = to - from;
+        var nT = Math.max(2, Math.floor((plotBox.x1 - plotBox.x) / 90));
+        for (var q = 0; q <= nT; q++) {
+            var tt = from + span * q / nT;
+            var xx = xs(tt);
+            // A day or more repeats the clock times: the date tells them apart.
+            var lab = span > 20 * 3600000 ? fmt.time(tt, 'short') : fmt.time(tt).slice(0, 5);
+            svg.text(s, xx.toFixed(1), (H - 5).toFixed(1), lab, { 'class': 'pvx-svg-label', 'font-size': font,
+                'text-anchor': q === 0 ? 'start' : (q === nT ? 'end' : 'middle'), fill: t.textMuted });
+        }
+        svg.el('line', { x1: plotBox.x, x2: plotBox.x1, y1: plotBox.y1, y2: plotBox.y1, stroke: t.axis, 'stroke-width': 1 }, s);
+        // Traces, as steps: PI values hold until the next one.
+        for (var d = 0; d < m.drawn.length; d++) {
+            var tr2 = m.drawn[d];
+            var lo = tr2.min, hi = tr2.max;
+            var own = function (v) { return hi > lo ? (v - lo) / (hi - lo) * 100 : 50; };
+            var pts = [];
+            for (var n = 0; n < tr2.data.pts.length; n++) {
+                var pt = tr2.data.pts[n];
+                pts.push({ x: xs(pt.t), y: ys(m.shared ? pt.v : own(pt.v)) });
+            }
+            svg.el('path', { d: svg.stepLine(pts), fill: 'none', stroke: tr2.color, 'stroke-width': 1.6,
+                'stroke-linejoin': 'round', 'class': 'pvx-qt-line' }, s);
+        }
+        tr.cursor = svg.el('line', { x1: 0, x2: 0, y1: plotBox.y, y2: plotBox.y1, stroke: t.axis, 'stroke-width': 1,
+            'stroke-dasharray': '3 3', visibility: 'hidden', 'class': 'pvx-qt-cursor' }, s);
+        trCursor();
+    }
+
+    function trCursor() {
+        if (!tr || !tr.cursor) { return; }
+        if (tr.hoverT === null || !tr.xs) { tr.cursor.setAttribute('visibility', 'hidden'); return; }
+        var x = tr.xs(tr.hoverT).toFixed(1);
+        tr.cursor.setAttribute('x1', x);
+        tr.cursor.setAttribute('x2', x);
+        tr.cursor.setAttribute('visibility', 'visible');
+    }
+
+    function trHover(ev) {
+        if (!tr || !tr.xs || !tr.box) { return; }
+        var r = tr.plot.getBoundingClientRect();
+        var x = ev.clientX - r.left;
+        if (x < tr.box.x || x > tr.box.x1) { tr.hoverT = null; } else { tr.hoverT = tr.xs.invert(x); }
+        trFoot();
+        trCursor();
+    }
+
+    /** The value a step line shows at time t: the last one at or before it. */
+    trend.valueAt = function (pts, t) {
+        var lo = 0, hi = pts.length - 1, best = -1;
+        while (lo <= hi) {
+            var mid = (lo + hi) >> 1;
+            if (pts[mid].t <= t) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+        }
+        return best === -1 ? null : pts[best].v;
+    };
+
+    function trFoot() {
+        if (!tr) { return; }
+        var f = tr.foot;
+        var parts = [];
+        var m = tr.model;
+        if (tr.hoverT !== null && m && m.drawn.length) {
+            parts.push(fmt.time(tr.hoverT, 'datetime'));
+            for (var i = 0; i < m.drawn.length; i++) {
+                var v = trend.valueAt(m.drawn[i].data.pts, tr.hoverT);
+                parts.push(m.drawn[i].label + ' ' + (v === null ? '--' : fmt.number(v) + (m.drawn[i].data.units ? ' ' + m.drawn[i].data.units : '')));
+            }
+        } else if (tr.phase === 'ok') {
+            if (m && m.shared && m.units) { parts.push(m.units); }
+            if (m && !m.shared && m.drawn.length > 1) {
+                parts.push('units differ: each trace on its own scale (' + m.drawn.map(function (x) {
+                    return x.label + ' ' + fmt.number(x.min) + '–' + fmt.number(x.max) + (x.data.units ? ' ' + x.data.units : '');
+                }).join(', ') + ')');
+            }
+            for (var j = 0; j < tr.traces.length; j++) {
+                var x = tr.traces[j];
+                if (x.error) { parts.push(x.label + ': ' + x.error); continue; }
+                if (!x.data) { continue; }
+                if (!x.data.pts.length) { parts.push(x.label + ': ' + (x.data.text ? 'states or text, not drawn' : 'no good values')); continue; }
+                if (x.data.bad) { parts.push(x.label + ': ' + x.data.bad + ' bad value' + (x.data.bad === 1 ? '' : 's') + ' left out'); }
+                if (x.data.text) { parts.push(x.label + ': ' + x.data.text + ' non-numeric left out'); }
+            }
+            if (tr.flash) { parts.push(tr.flash); }
+        }
+        f.textContent = parts.join(' · ');
+        f.title = f.textContent;
+    }
+
+    /**
+     * Wire the overlay into one symbol. Called by bootstrap; update() runs
+     * after every render, so a config change shows at once.
+     */
+    overlay.bind = function (ctx, hooks) {
+        var el = null, menu = null, badge = null, note = null, rangeEl = null, filterEl = null;
+        var timer = null, noteTimer = null;
+        var hidden = false;
+
+        function cfg() { return ctx.config || {}; }
+
+        function name() {
+            var c = cfg();
+            var base = c.Title || (ctx.scope && ctx.scope.symbol && ctx.scope.symbol.Name) || 'pvx';
+            var d = new Date();
+            var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+            return base + ' ' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+                ' ' + pad2(d.getHours()) + pad2(d.getMinutes());
+        }
+
+        function say(text) {
+            if (!el) { return; }
+            if (!note) { note = document.createElement('div'); note.className = 'pvx-overlay-note'; el.appendChild(note); }
+            note.textContent = text;
+            note.style.display = text ? '' : 'none';
+            if (noteTimer) { clearTimeout(noteTimer); }
+            if (text) { noteTimer = setTimeout(function () { say(''); }, 6000); }
+        }
+
+        function background() {
+            var t = ctx.theme || {};
+            return cfg().Transparent ? 'transparent' : (cfg().BackgroundColor || t.surface || '#ffffff');
+        }
+
+        function act(kind) {
+            closeMenu();
+            var n = ctx.node;
+            try {
+                if (kind === 'csv') {
+                    var rows = hooks.csv ? hooks.csv(ctx) : overlay.csvRows(ctx.data);
+                    if (!rows || rows.length < 2) { say('No data to save'); return; }
+                    if (!download.csv(name(), rows)) { say('This browser cannot save files from a page'); }
+                    return;
+                }
+                if (kind === 'svg') {
+                    var s = overlay.mainSvg(n);
+                    if (!s) { say('This symbol is not a drawing; save it as an image'); return; }
+                    if (!download.text(download.fileName(name(), 'svg'), overlay.svgText(s, background()), 'image/svg+xml')) {
+                        say('This browser cannot save files from a page');
+                    }
+                    return;
+                }
+                overlay.png(n, background()).then(function (url) {
+                    if (!overlay.saveDataUrl(download.fileName(name(), 'png'), url)) { say('This browser cannot save files from a page'); }
+                }, function (e) {
+                    say('No image: ' + ((e && e.message) || 'the browser refused') + '. Try SVG or CSV, or a screenshot.');
+                });
+            } catch (e) {
+                say('Could not save: ' + ((e && e.message) || e));
+            }
+        }
+
+        function closeMenu() { if (menu) { menu.style.display = 'none'; } }
+
+        function build() {
+            el = document.createElement('div');
+            el.className = 'pvx-overlay';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'pvx-overlay-btn';
+            btn.title = 'Save as image or data';
+            btn.setAttribute('aria-label', 'Save as image or data');
+            btn.textContent = '⤓';
+            menu = document.createElement('div');
+            menu.className = 'pvx-overlay-menu';
+            menu.style.display = 'none';
+            var opts = [['png', 'Image (PNG)'], ['svg', 'Drawing (SVG)'], ['csv', 'Data (CSV)']];
+            for (var i = 0; i < opts.length; i++) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'pvx-overlay-item';
+                b.setAttribute('data-kind', opts[i][0]);
+                b.textContent = opts[i][1];
+                b.onclick = (function (k) { return function (ev) { if (ev) { ev.stopPropagation(); } act(k); }; }(opts[i][0]));
+                menu.appendChild(b);
+            }
+            btn.onclick = function (ev) {
+                if (ev) { ev.stopPropagation(); }
+                var open = menu.style.display !== 'none';
+                if (!open) {
+                    // SVG only where there is a drawing to save.
+                    var svgItem = menu.querySelector('[data-kind="svg"]');
+                    if (svgItem) { svgItem.style.display = overlay.mainSvg(ctx.node) ? '' : 'none'; }
+                }
+                menu.style.display = open ? 'none' : '';
+            };
+            el.appendChild(btn);
+            el.appendChild(menu);
+            // Quick trend: opens the trend panel, or adds to the one open.
+            var tbtn = document.createElement('button');
+            tbtn.type = 'button';
+            tbtn.className = 'pvx-overlay-btn pvx-overlay-trend';
+            tbtn.textContent = '\u223f';
+            var trendTitle = function () {
+                tbtn.title = trend.isOpen() ? 'Add this symbol\'s data to the quick trend' : 'Quick trend of this symbol\'s data';
+                tbtn.setAttribute('aria-label', tbtn.title);
+            };
+            trendTitle();
+            tbtn.onmouseenter = trendTitle;
+            tbtn.onfocus = trendTitle;
+            tbtn.onclick = function (ev) {
+                if (ev) { ev.stopPropagation(); }
+                closeMenu();
+                var ds = ctx.scope && ctx.scope.symbol && ctx.scope.symbol.DataSources;
+                var list = [];
+                for (var k = 0; ds && k < ds.length; k++) { list.push(ds[k]); }
+                if (!list.length) { say('This symbol has no data source to trend'); return; }
+                trend.open(list, { theme: ctx.theme });
+            };
+            el.appendChild(tbtn);
+        }
+
+        function attach(want) {
+            var n = ctx.node;
+            if (!want) {
+                if (el && el.parentNode) { el.parentNode.removeChild(el); }
+                return null;
+            }
+            if (!el) { build(); }
+            // The node can be swapped by ng-if; follow it.
+            if (n && el.parentNode !== n) { n.appendChild(el); }
+            return el;
+        }
+
+        function staleCheck() {
+            var c = cfg();
+            var mins = util.num(c.StaleBadgeMinutes);
+            if (!(mins > 0) || !ctx.data) { return null; }
+            var now = Date.now();
+            var th = mins * 60000;
+            if (overlay.historical(th, now)) { return null; }
+            var t = overlay.newest(ctx.data);
+            if (t === null || now - t <= th) { return null; }
+            return t;
+        }
+
+        function update() {
+            var c = cfg();
+            var n = ctx.node;
+            var staleAt = staleCheck();
+            // An AF search reads its own range, so its badge says both.
+            var range = (ctx.afsource && ctx.afsource.badge()) || (ctx.ownrange ? ctx.ownrange.badge() : null);
+            var picked = ctx.filter ? ctx.filter.badge() : null;
+            var want = !!c.ExportMenu || !!c.QuickTrend || staleAt !== null || !!range || !!picked;
+            var host = attach(want);
+            if (host) {
+                var btn = host.querySelector('.pvx-overlay-btn');
+                if (btn) { btn.style.display = c.ExportMenu ? '' : 'none'; }
+                var tb = host.querySelector('.pvx-overlay-trend');
+                if (tb) { tb.style.display = c.QuickTrend ? '' : 'none'; }
+                if (range) {
+                    if (!rangeEl) { rangeEl = document.createElement('div'); rangeEl.className = 'pvx-overlay-range'; host.appendChild(rangeEl); }
+                    rangeEl.textContent = range.text;
+                    rangeEl.title = range.title;
+                    rangeEl.className = 'pvx-overlay-range' + (range.warn ? ' pvx-overlay-range-warn' : '');
+                    rangeEl.style.display = '';
+                } else if (rangeEl) { rangeEl.style.display = 'none'; }
+                if (picked) {
+                    if (!filterEl) {
+                        filterEl = document.createElement('button');
+                        filterEl.type = 'button';
+                        filterEl.className = 'pvx-overlay-filter';
+                        host.appendChild(filterEl);
+                    }
+                    filterEl.textContent = picked.text;
+                    filterEl.title = picked.title;
+                    filterEl.setAttribute('aria-label', picked.title);
+                    filterEl.onclick = function (ev) { if (ev) { ev.stopPropagation(); } picked.clear(); };
+                    filterEl.style.display = '';
+                } else if (filterEl) { filterEl.style.display = 'none'; }
+                if (!c.ExportMenu) { closeMenu(); }
+                if (staleAt !== null) {
+                    if (!badge) { badge = document.createElement('div'); badge.className = 'pvx-overlay-stale'; host.appendChild(badge); }
+                    badge.textContent = 'Stale · ' + fmt.duration(Date.now() - staleAt, { parts: 1 });
+                    badge.title = 'Newest value ' + fmt.time(staleAt, 'datetime') + ', more than ' +
+                        c.StaleBadgeMinutes + ' min ago. Check the data source and its interface.';
+                    badge.style.display = '';
+                } else if (badge) { badge.style.display = 'none'; }
+            }
+            // Rechecked on a timer as well: a source that stops updating may
+            // stop PI Vision sending anything, and then nothing renders.
+            var mins = util.num(c.StaleBadgeMinutes);
+            if (mins > 0 && !timer) { timer = setInterval(function () { if (!ctx.destroyed) { update(); } }, 30000); }
+            if (!(mins > 0) && timer) { clearInterval(timer); timer = null; }
+
+            // Hidden only once data has arrived and has no value: a symbol
+            // with no data sources, or before the first update, stays.
+            var hide = !!c.HideWhenNoData && ctx.data !== null && !overlay.hasData(ctx.data);
+            if (n && n.style && hide !== hidden) {
+                n.style.visibility = hide ? 'hidden' : '';
+                hidden = hide;
+            }
+        }
+
+        return {
+            update: update,
+            destroy: function () {
+                if (timer) { clearInterval(timer); }
+                if (noteTimer) { clearTimeout(noteTimer); }
+                if (el && el.parentNode) { el.parentNode.removeChild(el); }
+            }
+        };
+    };
+
     /**
      * Show why a symbol could not start, on the symbol itself.
      *
@@ -4908,6 +7529,1011 @@
         }
     };
 
+    /* ------------------------------------------------------------------ *
+     * ownrange: a time range of the symbol's own (OwnTimeRange option)
+     * ------------------------------------------------------------------ *
+     * A time-series symbol can show its own range, "the last 30 days"
+     * beside a display looking at the last hour, or "yesterday" on a shift
+     * report. PI Vision's pipeline serves every symbol on a display the
+     * display's range and offers a custom symbol no way to ask for another,
+     * so with the option on the bootstrap swaps what the symbol is sent:
+     * the pipeline's update still names the sources (labels, units, paths,
+     * which PI Vision sends only now and then), and the values come from PI
+     * Web API recorded values over the symbol's range. The symbol reads the
+     * same shape either way and needs nothing of its own.
+     *
+     * It fails toward the display: with PI Web API unset or still being
+     * found, the symbol is sent PI Vision's own data and the badge says the
+     * range is not in force, rather than drawing nothing.
+     */
+    var ownrange = PVX.ownrange = {};
+
+    ownrange.DEFAULT_MAX = 10000;
+
+    /** Is the option in force for this config? Only time-series symbols have one. */
+    ownrange.wanted = function (cfg) {
+        return !!(cfg && cfg.OwnTimeRange && cfg.DataShape === 'TimeSeries');
+    };
+
+    /** "Last 30 days", "Last 8 hours", else "start to end" as typed. */
+    ownrange.label = function (start, end) {
+        var s = String(start || '').replace(/\s+/g, '');
+        var e = String(end || '').replace(/\s+/g, '');
+        var m = /^\*-(\d+(?:\.\d+)?)(s|m|h|d|w|mo|y)$/i.exec(s);
+        var words = { s: 'second', m: 'minute', h: 'hour', d: 'day', w: 'week', mo: 'month', y: 'year' };
+        if (m && (e === '*' || e === '')) {
+            var n = parseFloat(m[1]);
+            var u = words[m[2].toLowerCase()];
+            return n === 1 ? 'Last ' + u : 'Last ' + m[1] + ' ' + u + 's';
+        }
+        if (/^t$/i.test(s) && (e === '*' || e === '')) { return 'Today'; }
+        if (/^y$/i.test(s) && /^t$/i.test(e)) { return 'Yesterday'; }
+        return String(start || '*-1d') + ' to ' + String(end || '*');
+    };
+
+    /** Recorded items -> the pipeline's [{Time, Value}], states by name. */
+    ownrange.values = function (items) {
+        var out = [];
+        for (var i = 0; i < (items || []).length; i++) {
+            var it = items[i] || {};
+            if (!it.Timestamp) { continue; }
+            var v = it.Value;
+            if (v !== null && typeof v === 'object') { v = v.Name !== undefined ? v.Name : v.Value; }
+            out.push(it.Good === false ? { Time: it.Timestamp, Value: v, IsGood: false } : { Time: it.Timestamp, Value: v });
+        }
+        return out;
+    };
+
+    /**
+     * Wire it into one symbol. Returns {take(d, deliver), badge(), destroy()}:
+     * take() is handed every pipeline update and calls deliver() with what
+     * the symbol should see, now or once PI Web API answers.
+     */
+    ownrange.bind = function (ctx) {
+        var ids = {};
+        var last = null;             // the latest pipeline update
+        var key = '';                // what was last read: sources, range, max
+        var readAt = 0, gen = 0, timer = null;
+        var st = { phase: 'off', note: '', capped: [], failed: [] };
+
+        function cfg() { return ctx.config || {}; }
+
+        function sourcesOf() {
+            var ds = ctx.scope && ctx.scope.symbol && ctx.scope.symbol.DataSources;
+            var out = [];
+            for (var i = 0; ds && i < ds.length; i++) { out.push(states.sourcePath(ds[i])); }
+            return out;
+        }
+
+        function streamId(p) {
+            var k = p.toLowerCase();
+            if (ids[k]) { return ids[k]; }
+            var job = api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' + encodeURIComponent(p) +
+                '&selectedFields=WebId').then(function (r) {
+                if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+                return r.WebId;
+            });
+            ids[k] = job;
+            job.then(null, function () { if (ids[k] === job) { delete ids[k]; } });
+            return job;
+        }
+
+        function errText(e) {
+            return (e && e.pvxError && e.pvxError.message) || (e && e.message) || 'PI Web API did not answer.';
+        }
+
+        function startEnd() {
+            var c = cfg();
+            return { start: String(c.OwnStart || '').replace(/^\s+|\s+$/g, '') || '*-1d',
+                end: String(c.OwnEnd || '').replace(/^\s+|\s+$/g, '') || '*' };
+        }
+
+        function live() { return /\*/.test(startEnd().end); }
+
+        /** The pipeline's update with each source's values replaced by `vals`. */
+        function swap(d, vals) {
+            var list = d && (d.Data || d.data);
+            if (!list) { return d; }
+            var out = {};
+            for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { out[k] = d[k]; } }
+            // The window each item says it covers is the symbol's own, for
+            // the symbols that lay their axis or rows out by it.
+            var se = startEnd(), now = Date.now();
+            var from = nav.parseTime(se.start, now), to = nav.parseTime(se.end, now);
+            var items = [];
+            for (var i = 0; i < list.length; i++) {
+                var it = {};
+                for (var f in list[i]) { if (Object.prototype.hasOwnProperty.call(list[i], f)) { it[f] = list[i][f]; } }
+                var v = vals[i];
+                if (v && v.error) {
+                    it.Value = [];
+                    it.IsGood = false;
+                    it.ErrorDescription = v.error;
+                } else if (v) {
+                    it.Value = v.values;
+                    it.IsGood = true;
+                    it.ErrorDescription = '';
+                }
+                if (it.Values !== undefined) { delete it.Values; }
+                if (from !== null && to !== null) {
+                    it.StartTime = new Date(from).toISOString();
+                    it.EndTime = new Date(to).toISOString();
+                }
+                items.push(it);
+            }
+            out[d.Data ? 'Data' : 'data'] = items;
+            return out;
+        }
+
+        function read(deliver, force) {
+            var c = cfg();
+            var se = startEnd();
+            var max = Math.max(100, Math.min(150000, parseInt(c.OwnMaxValues, 10) || ownrange.DEFAULT_MAX));
+            var paths = sourcesOf();
+            var k = paths.join('\n') + '|' + se.start + '|' + se.end + '|' + max;
+            var every = Math.max(10, parseInt(c.OwnRefreshSeconds, 10) || 60) * 1000;
+            if (!force && k === key && (st.phase === 'ok' || st.phase === 'loading') &&
+                (!live() || Date.now() - readAt < every)) {
+                return false;
+            }
+            key = k;
+            readAt = Date.now();
+            var g = ++gen;
+            if (st.phase !== 'ok') { st.phase = 'loading'; }
+            var jobs = paths.map(function (p) {
+                if (!p) { return Promise.resolve({ error: 'no data source' }); }
+                return streamId(p).then(function (id) {
+                    return api.get('streams/' + encodeURIComponent(id) + '/recorded?startTime=' + encodeURIComponent(se.start) +
+                        '&endTime=' + encodeURIComponent(se.end) + '&maxCount=' + max +
+                        '&selectedFields=Items.Timestamp;Items.Value;Items.Good', { cache: false });
+                }).then(function (res) {
+                    var items = (res && res.Items) || [];
+                    return { values: ownrange.values(items), capped: items.length >= max, path: p };
+                }, function (e) { return { error: errText(e), path: p }; });
+            });
+            Promise.all(jobs).then(function (vals) {
+                if (ctx.destroyed || g !== gen) { return; }
+                st.phase = 'ok';
+                st.vals = vals;
+                st.capped = [];
+                st.failed = [];
+                for (var i = 0; i < vals.length; i++) {
+                    if (vals[i].capped) { st.capped.push(vals[i].path); }
+                    if (vals[i].error) { st.failed.push(vals[i].path + ': ' + vals[i].error); }
+                }
+                if (last) { deliver(swap(last, vals)); }
+            });
+            return true;
+        }
+
+        return {
+            /**
+             * One pipeline update. Off: passed straight on. On: the values
+             * read for the symbol's range, swapped in; a read is started when
+             * the sources or range changed, or a live range is due.
+             */
+            take: function (d, deliver) {
+                if (!ownrange.wanted(cfg())) {
+                    st.phase = 'off';
+                    deliver(d);
+                    return;
+                }
+                last = d;
+                if (api.discovering()) {
+                    st.phase = 'finding';
+                    api.discover().then(function () { if (!ctx.destroyed && last) { read(deliver, true); } });
+                    deliver(d);
+                    return;
+                }
+                if (!api.isConfigured()) {
+                    st.phase = 'unconfigured';
+                    deliver(d);
+                    return;
+                }
+                read(deliver, false);
+                // Until the first read answers the symbol waits on it, rather
+                // than drawing the display's range under the symbol's label.
+                if (st.phase === 'ok' && st.vals) { deliver(swap(d, st.vals)); }
+                if (!timer) {
+                    timer = setInterval(function () {
+                        if (!ctx.destroyed && last && ownrange.wanted(cfg()) && live()) { read(deliver, false); }
+                    }, 10000);
+                }
+            },
+            /** {text, title, warn} for the overlay, or null when off. */
+            badge: function () {
+                if (!ownrange.wanted(cfg())) { return null; }
+                var se = startEnd();
+                var label = ownrange.label(se.start, se.end);
+                if (st.phase === 'unconfigured') {
+                    return { text: label + ' (not in force)', warn: true,
+                        title: 'This symbol is set to show ' + se.start + ' to ' + se.end + ', which needs PI Web API. ' +
+                            api.unsetHint() + '. It shows the display\'s time range until then.' };
+                }
+                var bits = ['This symbol shows ' + se.start + ' to ' + se.end + ', not the display\'s time range.'];
+                if (st.phase === 'loading' || st.phase === 'finding') { bits.push('Reading recorded values from PI Web API.'); }
+                if (st.capped.length) { bits.push('Only the first ' + (parseInt(cfg().OwnMaxValues, 10) || ownrange.DEFAULT_MAX) + ' values read for: ' + st.capped.join(', ') + '.'); }
+                if (st.failed.length) { bits.push('Not read: ' + st.failed.join('; ') + '.'); }
+                return { text: label + (st.capped.length || st.failed.length ? ' ⚠' : ''), title: bits.join(' '),
+                    warn: !!(st.capped.length || st.failed.length) };
+            },
+            /** Read again now: the range or the sources changed in the pane. */
+            changed: function (deliver) {
+                if (last && ownrange.wanted(cfg()) && api.isConfigured()) { read(deliver, true); }
+                else if (last) { deliver(last); }
+            },
+            destroy: function () {
+                if (timer) { clearInterval(timer); timer = null; }
+                gen += 1;
+            }
+        };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * afsource: an AF search as a symbol's data (SourceMode 'search')
+     * ------------------------------------------------------------------ *
+     * A chart of "every compressor under this area" should not need its
+     * display edited when a fourteenth compressor is commissioned, and PI
+     * Vision's data sources cannot grow by themselves. With the option on,
+     * the bootstrap swaps what the symbol is sent for rows built from an AF
+     * search: the elements under a root (the display's asset by default), of
+     * a template, matching a name, and the attributes named in the pane.
+     * The symbol reads the same shape it always reads (Table rows, or
+     * TimeSeries items) and needs nothing of its own beyond knowing which
+     * row is which asset and attribute (`asset`, `attribute` on each row).
+     *
+     * The search is one request, asked again only when what it searches for
+     * changes; the values are one PVX.api.batch per refresh, a stream set
+     * per element filtered to each attribute name. An element without an
+     * attribute, a failed read, a search cut short: each is counted in the
+     * badge on the symbol, never dropped quietly.
+     *
+     * Mock-proven only (tools/test-overview.js), like the rest of PVX.api.
+     */
+    var afsource = PVX.afsource = {};
+
+    afsource.DEFAULTS = {
+        SourceMode: 'sources',        // sources | search
+        SearchRoot: '',               // used when the display names no asset
+        SearchTemplate: '',
+        SearchNameFilter: '',
+        SearchDescendants: true,
+        SearchAttributes: '',         // names, comma separated
+        SearchMax: 50,
+        SearchRefreshSeconds: 60
+    };
+
+    /** The defaults, merged into a symbol's own. */
+    afsource.defaults = function (cfg) {
+        var out = cfg || {};
+        for (var k in afsource.DEFAULTS) {
+            if (Object.prototype.hasOwnProperty.call(afsource.DEFAULTS, k)) { out[k] = afsource.DEFAULTS[k]; }
+        }
+        return out;
+    };
+
+    afsource.wanted = function (cfg) { return !!(cfg && cfg.SourceMode === 'search'); };
+
+    /** "Power, Flow; Status" -> ['Power', 'Flow', 'Status'], once each. */
+    afsource.attributes = function (text) {
+        var parts = String(text === null || text === undefined ? '' : text).split(/[,;\n]/);
+        var out = [], seen = {};
+        for (var i = 0; i < parts.length; i++) {
+            var a = parts[i].replace(/^\s+|\s+$/g, '');
+            if (a && !seen[a.toLowerCase()]) { seen[a.toLowerCase()] = true; out.push(a); }
+        }
+        return out;
+    };
+
+    /**
+     * Rows of an AF search, by attribute: `byAttr[i]` holds the rows of the
+     * i-th attribute named in the pane. A symbol that charts one quantity
+     * takes byAttr[0] and names the rest in its footer (`unused`); one that
+     * pairs two (size and colour) takes two.
+     */
+    afsource.split = function (rows, cfg, uses) {
+        var attrs = afsource.attributes(cfg && cfg.SearchAttributes);
+        var byAttr = [];
+        for (var a = 0; a < attrs.length; a++) {
+            var list = [];
+            for (var i = 0; i < rows.length; i++) {
+                if (String(rows[i].attribute).toLowerCase() === attrs[a].toLowerCase()) { list.push(rows[i]); }
+            }
+            byAttr.push(list);
+        }
+        return { attrs: attrs, byAttr: byAttr, unused: attrs.slice(uses || 1) };
+    };
+
+    /* PI Vision's statistic names, as PI Web API's summaryType. */
+    afsource.SUMMARY = { Average: 'Average', Minimum: 'Minimum', Maximum: 'Maximum', Range: 'Range', StdDev: 'StdDev', Total: 'Total' };
+
+    /**
+     * Wire it into one symbol. Returns {take(d, deliver), changed(deliver),
+     * badge(), destroy()}, as ownrange does.
+     */
+    afsource.bind = function (ctx) {
+        var st = { phase: 'off', elements: [], truncated: false, root: '', key: '', error: null,
+            failed: 0, missing: {}, readAt: 0, out: null, range: null };
+        var gen = 0, timer = null, last = null, sink = null, reading = '';
+
+        function cfg() { return ctx.config || {}; }
+        function trim(s) { return String(s === null || s === undefined ? '' : s).replace(/^\s+|\s+$/g, ''); }
+        function lc(s) { return trim(s).toLowerCase(); }
+
+        function root() {
+            return trim(nav.currentAsset()) || trim(cfg().SearchRoot) || nav.sourceAsset(ctx.scope);
+        }
+
+        function maxOf() { return Math.max(1, Math.min(1000, parseInt(cfg().SearchMax, 10) || 50)); }
+
+        /**
+         * The time the values cover: the symbol's own range when it has one,
+         * else the display's, as the pipeline's own update states it (an
+         * absolute range PI Vision resolved), else the address, else PI
+         * Vision's default eight hours.
+         */
+        function range() {
+            var c = cfg();
+            if (ownrange.wanted(c)) {
+                return { start: trim(c.OwnStart) || '*-1d', end: trim(c.OwnEnd) || '*', own: true };
+            }
+            var list = last && (last.Data || last.data);
+            var first = list && list[0];
+            if (first && first.StartTime && first.EndTime) { return { start: first.StartTime, end: first.EndTime }; }
+            var p = {};
+            try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+            return { start: p.starttime || p.StartTime || '*-8h', end: p.endtime || p.EndTime || '*' };
+        }
+
+        function searchKey() {
+            var c = cfg();
+            return [lc(root()), lc(c.SearchTemplate), lc(c.SearchNameFilter), c.SearchDescendants !== false, maxOf()].join('|');
+        }
+
+        function search() {
+            var r = root();
+            var c = cfg();
+            var max = maxOf();
+            var isDb = nav.databaseOf(r).toLowerCase() === trim(r).replace(/\\$/, '').toLowerCase();
+            var kind = isDb ? 'assetdatabases' : 'elements';
+            return api.get(kind + '?path=' + encodeURIComponent(r) + '&selectedFields=WebId;Name;Path')
+                .then(null, function (err) {
+                    if (err && err.pvxError && err.pvxError.code === 'not-found') { return null; }
+                    throw err;
+                })
+                .then(function (el) {
+                    if (!el || !el.WebId) {
+                        throw { pvxError: { message: 'There is no AF ' + (isDb ? 'database' : 'element') + ' at "' + r + '".',
+                            check: 'the display\'s asset, or Search root in the format pane' } };
+                    }
+                    var q = ['selectedFields=Items.WebId;Items.Name;Items.Path;Items.TemplateName', 'maxCount=' + (max + 1)];
+                    if (c.SearchDescendants !== false) { q.push('searchFullHierarchy=true'); }
+                    if (trim(c.SearchTemplate)) { q.push('templateName=' + encodeURIComponent(trim(c.SearchTemplate))); }
+                    if (trim(c.SearchNameFilter)) { q.push('nameFilter=' + encodeURIComponent(trim(c.SearchNameFilter))); }
+                    return api.get(kind + '/' + encodeURIComponent(el.WebId) + '/elements?' + q.join('&'), { cache: false });
+                })
+                .then(function (res) {
+                    var items = (res && res.Items) || [];
+                    var els = [];
+                    for (var i = 0; i < items.length && els.length < max; i++) {
+                        var it = items[i];
+                        if (!it || !it.WebId || !it.Path) { continue; }
+                        var parent = nav.parentOf(it.Path);
+                        els.push({ name: it.Name || it.Path.slice(it.Path.lastIndexOf('\\') + 1), path: it.Path, webId: it.WebId,
+                            template: trim(it.TemplateName), parent: parent.slice(parent.lastIndexOf('\\') + 1) });
+                    }
+                    st.truncated = items.length > max;
+                    st.elements = els;
+                    st.root = r;
+                });
+        }
+
+        /** A stream set value's plain value: a digital state by its name. */
+        function plain(v) {
+            if (v !== null && typeof v === 'object') {
+                if (v.Name !== undefined) { return v.Name; }
+                return v.Value !== undefined ? plain(v.Value) : null;
+            }
+            return v === undefined ? null : v;
+        }
+
+        /**
+         * Every element's attributes in one batch, then the update the symbol
+         * is sent. Table: one row per element and attribute, with the value
+         * or the symbol's statistic over the range. TimeSeries: one item per
+         * element and attribute, with plot values over the range.
+         */
+        function readValues() {
+            var c = cfg();
+            var attrs = afsource.attributes(c.SearchAttributes);
+            var series = c.DataShape === 'TimeSeries';
+            var stat = config.statKey(c);
+            var sumType = !series && afsource.SUMMARY[stat];
+            var rg = range();
+            var els = st.elements;
+            var reqs = {}, meta = [];
+            var q = '&startTime=' + encodeURIComponent(rg.start) + '&endTime=' + encodeURIComponent(rg.end);
+            for (var i = 0; i < els.length; i++) {
+                for (var j = 0; j < attrs.length; j++) {
+                    var base = api.base() + '/streamsets/' + encodeURIComponent(els[i].webId);
+                    var nf = '?nameFilter=' + encodeURIComponent(attrs[j]);
+                    var res = series
+                        ? base + '/plot' + nf + q + '&intervals=300&selectedFields=Items.Name;Items.UnitsAbbreviation;Items.Items'
+                        : (sumType
+                            ? base + '/summary' + nf + q + '&summaryType=' + sumType + '&selectedFields=Items.Name;Items.Items'
+                            : base + '/value' + nf + '&selectedFields=Items.Name;Items.Value');
+                    reqs['s' + meta.length] = { Method: 'GET', Resource: res };
+                    meta.push({ el: els[i], attr: attrs[j] });
+                }
+            }
+            if (!meta.length) { return Promise.resolve({ rows: [], failed: 0, missing: {}, range: rg }); }
+            return api.batch(reqs, { cache: false }).then(function (res) {
+                var r = api.batchResults(res);
+                var out = [], missing = {}, failed = 0;
+                for (var k = 0; k < meta.length; k++) {
+                    var m = meta[k];
+                    var body = r.ok['s' + k];
+                    if (body === undefined) { failed += 1; continue; }
+                    var hit = null;
+                    var items = (body && body.Items) || [];
+                    for (var x = 0; x < items.length; x++) { if (lc(items[x].Name) === lc(m.attr)) { hit = items[x]; break; } }
+                    if (!hit) { (missing[m.attr] = missing[m.attr] || []).push(m.el.name); continue; }
+                    var row = { el: m.el, attr: m.attr };
+                    if (series) {
+                        row.units = hit.UnitsAbbreviation || '';
+                        row.values = ownrange.values(hit.Items || []);
+                    } else if (sumType) {
+                        var s = (hit.Items || [])[0];
+                        var sv = s && s.Value;
+                        row.value = plain(sv && typeof sv === 'object' && 'Value' in sv ? sv.Value : sv);
+                        row.units = (sv && sv.UnitsAbbreviation) || '';
+                        row.good = !(sv && sv.Good === false);
+                        row.time = sv && sv.Timestamp;
+                    } else {
+                        var tv = hit.Value;
+                        row.value = plain(tv && typeof tv === 'object' && 'Value' in tv ? tv.Value : tv);
+                        row.units = (tv && tv.UnitsAbbreviation) || '';
+                        row.good = !(tv && tv.Good === false);
+                        row.time = tv && tv.Timestamp;
+                    }
+                    out.push(row);
+                }
+                return { rows: out, failed: failed, missing: missing, range: rg, many: attrs.length > 1, series: series };
+            });
+        }
+
+        /** The read, in the shape PI Vision would have sent. */
+        function shape(got) {
+            var list = [];
+            for (var i = 0; i < got.rows.length; i++) {
+                var g = got.rows[i];
+                var item = {
+                    // One attribute: the asset is the name. More: PI Vision's own
+                    // "Element|Attribute", so two rows never share a label.
+                    Label: got.many ? g.el.name + '|' + g.attr : g.el.name,
+                    Units: g.units,
+                    Path: 'af:' + g.el.path + '|' + g.attr,
+                    Asset: g.el.name,
+                    AssetPath: g.el.path,
+                    Attribute: g.attr,
+                    Parent: g.el.parent,
+                    Template: g.el.template
+                };
+                if (got.series) {
+                    item.Value = g.values;
+                    var now = Date.now();
+                    var a = nav.parseTime(got.range.start, now), b = nav.parseTime(got.range.end, now);
+                    if (a !== null && b !== null) {
+                        item.StartTime = new Date(a).toISOString();
+                        item.EndTime = new Date(b).toISOString();
+                    }
+                } else {
+                    item.Value = g.value;
+                    item.Time = g.time;
+                    item.IsGood = g.good;
+                    // Summary cells are positional, matching the one column the
+                    // symbol asks for (config.statColumns).
+                    item.Summary = [{ Value: g.value }];
+                }
+                list.push(item);
+            }
+            return got.series ? { Data: list } : { Rows: list };
+        }
+
+        function errText(e) {
+            return (e && e.pvxError && (e.pvxError.message + (e.pvxError.check ? ' Check: ' + e.pvxError.check + '.' : ''))) ||
+                (e && e.message) || 'PI Web API did not answer.';
+        }
+
+        function read(force) {
+            if (!root()) { st.phase = 'noroot'; send(); return; }
+            var c = cfg();
+            var sk = searchKey();
+            // The range by what was ASKED for, not what it resolved to: PI
+            // Vision restates a live range as new absolute times in every
+            // update, and keying on those would read again every few seconds.
+            var p = {};
+            try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+            var asked = ownrange.wanted(c) ? 'own:' + c.OwnStart + '|' + c.OwnEnd
+                : (p.starttime || p.StartTime || '') + '|' + (p.endtime || p.EndTime || '');
+            var rk = sk + '|' + lc(c.SearchAttributes) + '|' + c.DataShape + '|' + config.statKey(c) + '|' + asked;
+            var every = Math.max(10, parseInt(c.SearchRefreshSeconds, 10) || 60) * 1000;
+            if (!force && rk === st.key && (st.phase === 'ok' || st.phase === 'loading') && Date.now() - st.readAt < every) { return; }
+            if (reading === rk && st.phase === 'loading') { return; }
+            var fresh = sk !== st.searchKey;
+            st.key = rk;
+            st.readAt = Date.now();
+            reading = rk;
+            var g = ++gen;
+            if (st.phase !== 'ok' || fresh) { st.phase = 'loading'; }
+            (fresh ? search().then(function () { st.searchKey = sk; }) : Promise.resolve())
+                .then(function () { return g === gen ? readValues() : null; })
+                .then(function (got) {
+                    if (ctx.destroyed || g !== gen || !got) { return; }
+                    reading = '';
+                    st.phase = 'ok';
+                    st.error = null;
+                    st.failed = got.failed;
+                    st.missing = got.missing;
+                    st.range = got.range;
+                    st.out = shape(got);
+                    send();
+                }, function (e) {
+                    if (ctx.destroyed || g !== gen) { return; }
+                    reading = '';
+                    st.searchKey = '';      // asked again next time, not trusted
+                    st.phase = 'error';
+                    st.error = errText(e);
+                    st.out = null;
+                    send();
+                });
+        }
+
+        /** What the symbol is sent: the rows, or none while there are none. */
+        function send() {
+            if (!sink) { return; }
+            var empty = cfg().DataShape === 'TimeSeries' ? { Data: [] } : { Rows: [] };
+            sink(st.phase === 'ok' && st.out ? st.out : empty);
+        }
+
+        function startTimer() {
+            if (timer) { return; }
+            timer = setInterval(function () {
+                if (!ctx.destroyed && afsource.wanted(cfg()) && api.isConfigured()) { read(false); }
+            }, 5000);
+        }
+
+        return {
+            take: function (d, deliver) {
+                if (!afsource.wanted(cfg())) {
+                    st.phase = 'off';
+                    deliver(d);
+                    return;
+                }
+                last = d;
+                sink = deliver;
+                if (api.discovering()) {
+                    st.phase = 'finding';
+                    api.discover().then(function () { if (!ctx.destroyed) { read(true); } });
+                    return;
+                }
+                if (!api.isConfigured()) { st.phase = 'unconfigured'; send(); return; }
+                startTimer();
+                if (st.phase === 'ok' && st.out) { deliver(st.out); }
+                read(false);
+            },
+            changed: function (deliver) {
+                if (!afsource.wanted(cfg())) {
+                    if (st.phase !== 'off') { st.phase = 'off'; if (last) { deliver(last); } }
+                    return;
+                }
+                sink = deliver;
+                if (api.isConfigured()) { startTimer(); read(false); } else if (!api.discovering()) { st.phase = 'unconfigured'; send(); }
+            },
+            /** {text, title, warn} for the overlay, or null when off. */
+            badge: function () {
+                if (!afsource.wanted(cfg())) { return null; }
+                var c = cfg();
+                var attrs = afsource.attributes(c.SearchAttributes);
+                if (st.phase === 'unconfigured') {
+                    return { text: 'AF search (not in force)', warn: true,
+                        title: 'This symbol takes its rows from an AF search, which needs PI Web API. ' + api.unsetHint() + '.' };
+                }
+                if (st.phase === 'noroot') {
+                    return { text: 'AF search: no root', warn: true,
+                        title: 'Nothing to search under. Open the display on an asset, drop an AF attribute on this symbol, or set Search root in the format pane.' };
+                }
+                if (!attrs.length) {
+                    return { text: 'AF search: no attribute', warn: true, title: 'Name the attributes to read from each asset in the format pane.' };
+                }
+                if (st.phase === 'error') {
+                    return { text: 'AF search failed', warn: true, title: st.error };
+                }
+                if (st.phase !== 'ok') {
+                    return { text: 'AF search…', title: 'Searching AF and reading values from PI Web API.' };
+                }
+                var bits = ['Rows from an AF search under ' + st.root + (trim(c.SearchTemplate) ? ', template "' + trim(c.SearchTemplate) + '"' : '') +
+                    (trim(c.SearchNameFilter) ? ', name "' + trim(c.SearchNameFilter) + '"' : '') + ': ' + st.elements.length +
+                    (st.elements.length === 1 ? ' asset' : ' assets') + ', ' + attrs.join(', ') + '.'];
+                var warn = false;
+                if (st.truncated) { bits.push('Only the first ' + st.elements.length + ' assets: raise Most assets or narrow the search.'); warn = true; }
+                for (var a in st.missing) {
+                    if (Object.prototype.hasOwnProperty.call(st.missing, a)) {
+                        var who = st.missing[a];
+                        bits.push(who.length + (who.length === 1 ? ' asset has' : ' assets have') + ' no ' + a + ': ' +
+                            who.slice(0, 8).join(', ') + (who.length > 8 ? '…' : '') + '.');
+                        warn = true;
+                    }
+                }
+                if (st.failed) { bits.push(st.failed + ' ' + (st.failed === 1 ? 'read' : 'reads') + ' failed.'); warn = true; }
+                if (st.range && (c.DataShape === 'TimeSeries' || afsource.SUMMARY[config.statKey(c)])) {
+                    bits.push('Over ' + st.range.start + ' to ' + st.range.end + (st.range.own ? ' (the symbol\'s own range)' : '') + '.');
+                }
+                return { text: 'AF search · ' + st.elements.length + (warn ? ' ⚠' : ''), title: bits.join(' '), warn: warn };
+            },
+            destroy: function () {
+                if (timer) { clearInterval(timer); timer = null; }
+                gen += 1;
+            }
+        };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * filter: assets picked on one symbol, obeyed by others on the page
+     * ------------------------------------------------------------------ *
+     * PI Vision's asset context is one asset for the whole display. A click
+     * on a row of the Asset Table that should narrow the Event List and the
+     * Ranked Bar beside it, without leaving the display or changing what
+     * every other symbol shows, needs a second, smaller channel: a set of
+     * asset paths with a name, kept on the page. A symbol publishes to it
+     * (ClickAction 'filter') and obeys it (FilterObey); FilterChannel names
+     * the channel, so two groups of symbols on one display can filter apart.
+     *
+     * An asset filter matches the asset and everything under it, so Station
+     * 1 picked in one table keeps K-301's events in the list beside it. A
+     * filter is never applied quietly: an obeying symbol shows a badge with
+     * what it is filtered by and how to clear it, and says how many rows it
+     * hid. Nothing is stored: a reload starts unfiltered, except that a link
+     * can preselect one with `filter=<path>` (or `filter.<channel>=`) in the
+     * display's address, separated by semicolons.
+     */
+    var filter = PVX.filter = {};
+    var channels = {}, listeners = [], fromLink = {};
+
+    filter.DEFAULTS = { FilterChannel: '', FilterObey: false };
+
+    filter.defaults = function (cfg) {
+        var out = cfg || {};
+        for (var k in filter.DEFAULTS) {
+            if (Object.prototype.hasOwnProperty.call(filter.DEFAULTS, k)) { out[k] = filter.DEFAULTS[k]; }
+        }
+        return out;
+    };
+
+    function chanOf(name) {
+        var n = String(name === null || name === undefined ? '' : name).replace(/^\s+|\s+$/g, '').toLowerCase();
+        return n || 'main';
+    }
+    filter.channel = function (cfg) { return chanOf(cfg && cfg.FilterChannel); };
+
+    function normPath(p) {
+        return String(p === null || p === undefined ? '' : p).replace(/^[a-z]+:/i, '').replace(/^\s+|\s+$/g, '')
+            .replace(/[\\]+$/, '').toLowerCase();
+    }
+
+    function lastName(p) {
+        var s = String(p || '').replace(/[\\]+$/, '');
+        var i = s.lastIndexOf('\\');
+        return i === -1 ? s : s.slice(i + 1);
+    }
+
+    /** A filter preselected by the display's address, read once per channel. */
+    function linked(ch) {
+        if (fromLink[ch] !== undefined) { return fromLink[ch]; }
+        fromLink[ch] = null;
+        var p = {};
+        try { p = nav.parseHash().params || {}; } catch (e) { p = {}; }
+        var raw = p['filter.' + ch] || (ch === 'main' ? p.filter : '') || '';
+        if (raw) {
+            var paths = String(raw).split(';');
+            var list = [];
+            for (var i = 0; i < paths.length; i++) { if (paths[i].replace(/\s/g, '')) { list.push(paths[i].replace(/^\s+|\s+$/g, '')); } }
+            if (list.length) {
+                fromLink[ch] = { assets: list, label: list.length === 1 ? lastName(list[0]) : list.length + ' assets', by: 'the link', at: Date.now() };
+            }
+        }
+        return fromLink[ch];
+    }
+
+    /** {assets: [paths], label, by, at} for a channel, or null when unfiltered. */
+    filter.get = function (name) {
+        var ch = chanOf(name);
+        if (Object.prototype.hasOwnProperty.call(channels, ch)) { return channels[ch]; }
+        return linked(ch);
+    };
+
+    function changed(ch) {
+        var copy = listeners.slice();
+        for (var i = 0; i < copy.length; i++) {
+            if (copy[i].ch === ch) {
+                try { copy[i].fn(filter.get(ch)); } catch (e) { if (root.console) { root.console.error('[PVX] filter listener failed', e); } }
+            }
+        }
+    }
+
+    /** Filter a channel by these asset paths; an empty list clears it. */
+    filter.set = function (name, assets, label, by) {
+        var ch = chanOf(name);
+        var list = [];
+        for (var i = 0; assets && i < assets.length; i++) { if (normPath(assets[i])) { list.push(String(assets[i])); } }
+        channels[ch] = list.length ? {
+            assets: list,
+            label: label || (list.length === 1 ? lastName(list[0]) : list.length + ' assets'),
+            by: by || '', at: Date.now()
+        } : null;
+        changed(ch);
+        return channels[ch];
+    };
+
+    filter.clear = function (name) { return filter.set(name, [], '', ''); };
+
+    /** A click on what is already the filter clears it; anything else replaces it. */
+    filter.toggle = function (name, asset, label, by) {
+        var f = filter.get(name);
+        if (f && f.assets.length === 1 && normPath(f.assets[0]) === normPath(asset)) { return filter.clear(name); }
+        return filter.set(name, [asset], label, by);
+    };
+
+    /** True when this exact asset is the whole filter: the row to highlight. */
+    filter.isPicked = function (name, asset) {
+        var f = filter.get(name);
+        return !!(f && asset && f.assets.length === 1 && normPath(f.assets[0]) === normPath(asset));
+    };
+
+    /**
+     * Does an asset pass? The asset itself or anything under it. A filter
+     * value with no backslash is a plain name, matched against the asset's
+     * own name. No filter passes everything; no asset passes nothing.
+     */
+    filter.matches = function (f, asset) {
+        if (!f || !f.assets || !f.assets.length) { return true; }
+        var a = normPath(asset);
+        if (!a) { return false; }
+        for (var i = 0; i < f.assets.length; i++) {
+            var v = normPath(f.assets[i]);
+            if (!v) { continue; }
+            if (v.indexOf('\\') === -1) {
+                if (lastName(a) === v) { return true; }
+                continue;
+            }
+            if (a === v || a.indexOf(v + '\\') === 0) { return true; }
+        }
+        return false;
+    };
+
+    /** Subscribe; returns the unsubscribe function. */
+    filter.on = function (name, fn) {
+        var entry = { ch: chanOf(name), fn: fn };
+        listeners.push(entry);
+        return function () {
+            for (var i = 0; i < listeners.length; i++) { if (listeners[i] === entry) { listeners.splice(i, 1); return; } }
+        };
+    };
+
+    /** Forget every channel: tests, and a display left for another. */
+    filter.reset = function () { channels = {}; fromLink = {}; };
+
+    /**
+     * Wire one symbol: re-render when its channel changes, and the overlay
+     * badge. `uses` is true for a symbol that publishes or obeys; a symbol
+     * that does neither never subscribes.
+     */
+    filter.bind = function (ctx) {
+        var off = null, sub = '';
+        function cfg() { return ctx.config || {}; }
+        function uses() { var c = cfg(); return !!c.FilterObey || c.ClickAction === 'filter'; }
+        function sync() {
+            var want = uses() ? filter.channel(cfg()) : '';
+            if (want === sub) { return; }
+            if (off) { off(); off = null; }
+            sub = want;
+            if (want) { off = filter.on(want, function () { if (!ctx.destroyed) { ctx.render(); } }); }
+        }
+        sync();
+        return {
+            sync: sync,
+            /** The channel's filter when this symbol obeys it, else null. */
+            active: function () { return cfg().FilterObey ? filter.get(filter.channel(cfg())) : null; },
+            /** {text, title, clear()} for the overlay, or null. */
+            badge: function () {
+                sync();
+                if (!uses()) { return null; }
+                var ch = filter.channel(cfg());
+                var f = filter.get(ch);
+                if (!f) { return null; }
+                return {
+                    text: 'Filter: ' + f.label + ' ✕',
+                    title: (cfg().FilterObey ? 'Showing only ' : 'Filtering other symbols to ') + f.assets.join(', ') +
+                        ' and what is under ' + (f.assets.length === 1 ? 'it' : 'them') +
+                        (f.by ? ', picked on ' + f.by : '') + (ch !== 'main' ? ' (channel "' + ch + '")' : '') + '. Click to clear.',
+                    clear: function () { filter.clear(ch); }
+                };
+            },
+            destroy: function () { if (off) { off(); off = null; } }
+        };
+    };
+
+    /* ------------------------------------------------------------------ *
+     * writer: one panel for a write that is not a form's whole job
+     * ------------------------------------------------------------------ *
+     * The Asset Table writing a cell, the Event List acknowledging an event,
+     * commenting on it or editing its attributes: each is a small write
+     * from a symbol whose job is reading. They share one panel so they
+     * share one rule, the Shift Log's: what is about to be written is
+     * stated in full and confirmed, there is no undo, and the result (or
+     * PI Web API's own reason for refusing) is said where the click was.
+     *
+     * panel(parent) -> {open(spec), close(), isOpen(), destroy()}
+     * spec: {title, fields:[{key, label, value, units, kind number|text|
+     *        textarea|bool}], action ('Write'), noun ('value'),
+     *        confirm(values) -> sentence, submit(values) -> Promise of
+     *        {ok, text, detail}, load() -> Promise of [lines] shown above}
+     * A field left as it was is not sent; `values` holds only the changed.
+     */
+    var writer = PVX.writer = {};
+
+    /** "12", "-1.5e3": a number; "12kg" is a typo to show, not to guess at. */
+    writer.isNumber = function (text) { return /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(String(text).replace(/^\s+|\s+$/g, '')); };
+
+    writer.panel = function (parent) {
+        var doc = root.document;
+        var box = doc.createElement('div');
+        box.className = 'pvx-writer';
+        box.style.display = 'none';
+        parent.appendChild(box);
+        var spec = null, phase = 'closed', values = null, inputs = [];
+
+        function el(tag, cls, into, text) {
+            var n = doc.createElement(tag);
+            if (cls) { n.className = cls; }
+            if (text !== undefined) { n.textContent = text; }
+            (into || box).appendChild(n);
+            return n;
+        }
+        function button(into, cls, text, fn) {
+            var b = el('button', 'pvx-writer-btn ' + cls, into, text);
+            b.type = 'button';
+            b.onclick = function (ev) { if (ev) { ev.stopPropagation(); } fn(); };
+            return b;
+        }
+        function trimmed(v) { return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, ''); }
+
+        function draw(msg) {
+            box.innerHTML = '';
+            box.style.display = '';
+            box.setAttribute('data-phase', phase);
+            el('div', 'pvx-writer-title', box, spec.title);
+            if (spec.lines && spec.lines.length) {
+                var ls = el('div', 'pvx-writer-lines', box);
+                for (var l = 0; l < spec.lines.length; l++) { el('div', 'pvx-writer-line', ls, spec.lines[l]); }
+            }
+            if (phase === 'edit') {
+                inputs = [];
+                var fs = spec.fields || [];
+                for (var i = 0; i < fs.length; i++) {
+                    var row = el('label', 'pvx-writer-field', box);
+                    el('span', 'pvx-writer-label', row, fs[i].label + (fs[i].units ? ' (' + fs[i].units + ')' : ''));
+                    var inp;
+                    if (fs[i].kind === 'textarea') { inp = el('textarea', 'pvx-writer-input', row); inp.rows = 3; }
+                    else if (fs[i].kind === 'bool') {
+                        inp = el('select', 'pvx-writer-input', row);
+                        el('option', '', inp, 'True').value = 'True';
+                        el('option', '', inp, 'False').value = 'False';
+                    } else { inp = el('input', 'pvx-writer-input', row); inp.type = 'text'; }
+                    var v = values && values[fs[i].key] !== undefined ? values[fs[i].key] : fs[i].value;
+                    inp.value = v === null || v === undefined ? '' : String(v);
+                    inp.onkeydown = function (ev) {
+                        if ((ev.key === 'Enter' || ev.keyCode === 13) && this.tagName !== 'TEXTAREA') { ev.preventDefault(); toConfirm(); }
+                        if (ev.key === 'Escape' || ev.keyCode === 27) { api0.close(); }
+                    };
+                    inputs.push(inp);
+                }
+                var a = el('div', 'pvx-writer-actions', box);
+                button(a, 'pvx-writer-go', spec.action || 'Write', toConfirm);
+                button(a, 'pvx-writer-cancel', 'Cancel', function () { api0.close(); });
+                if (inputs[0]) { try { inputs[0].focus(); } catch (e) { /* not focusable yet */ } }
+            } else if (phase === 'confirm') {
+                el('div', 'pvx-writer-confirm', box, spec.confirm ? spec.confirm(values) : 'Write this?');
+                var c = el('div', 'pvx-writer-actions', box);
+                button(c, 'pvx-writer-yes', 'Confirm', send);
+                button(c, 'pvx-writer-back', (spec.fields && spec.fields.length) ? 'Back' : 'Cancel', function () {
+                    if (spec.fields && spec.fields.length) { phase = 'edit'; draw(); } else { api0.close(); }
+                });
+            } else if (phase === 'sending') {
+                el('div', 'pvx-writer-msg', box, 'Writing…');
+            } else if (phase === 'done' || phase === 'failed') {
+                var d = el('div', 'pvx-writer-actions', box);
+                if (phase === 'failed' && spec.fields && spec.fields.length) { button(d, 'pvx-writer-back', 'Back', function () { phase = 'edit'; draw(); }); }
+                button(d, 'pvx-writer-cancel', 'Close', function () { api0.close(); });
+            }
+            if (msg) {
+                var m = el('div', 'pvx-writer-msg', box);
+                m.setAttribute('data-tone', msg.tone || 'info');
+                el('div', 'pvx-writer-msg-text', m, msg.text || '');
+                if (msg.detail) { el('div', 'pvx-writer-msg-detail', m, msg.detail); }
+            }
+        }
+
+        function toConfirm() {
+            var fs = spec.fields || [];
+            var out = {}, changed = 0;
+            for (var i = 0; i < fs.length; i++) {
+                var t = trimmed(inputs[i] && inputs[i].value);
+                var before = trimmed(fs[i].value);
+                if (t === before) { continue; }
+                if (fs[i].kind === 'number') {
+                    if (!writer.isNumber(t)) { draw({ tone: 'error', text: fs[i].label + ': "' + t + '" is not a number.' }); return; }
+                    out[fs[i].key] = parseFloat(t);
+                } else if (fs[i].kind === 'bool') {
+                    out[fs[i].key] = t === 'True';
+                } else {
+                    out[fs[i].key] = fs[i].kind === 'textarea' ? String(inputs[i].value) : t;
+                }
+                changed += 1;
+            }
+            if (fs.length && !changed) { draw({ tone: 'warn', text: 'Nothing changed, so there is nothing to write.' }); return; }
+            values = out;
+            phase = 'confirm';
+            draw();
+        }
+
+        function send() {
+            phase = 'sending';
+            draw();
+            var p;
+            try { p = Promise.resolve(spec.submit(values)); } catch (e) { p = Promise.reject(e); }
+            p.then(function (r) {
+                if (phase !== 'sending') { return; }
+                phase = r && r.ok ? 'done' : 'failed';
+                draw({ tone: r && r.ok ? 'ok' : 'error', text: (r && r.text) || (r && r.ok ? 'Written.' : 'Not written.'), detail: r && r.detail });
+            }, function (e) {
+                if (phase !== 'sending') { return; }
+                phase = 'failed';
+                var pe = e && e.pvxError;
+                draw({ tone: 'error', text: 'Not written', detail: pe ? pe.message + (pe.check ? ' Check: ' + pe.check + '.' : '') : String((e && e.message) || e) });
+            });
+        }
+
+        var api0 = {
+            open: function (s) {
+                spec = s;
+                values = null;
+                spec.lines = [];
+                phase = (s.fields && s.fields.length) ? 'edit' : 'confirm';
+                if (!s.fields || !s.fields.length) { values = {}; }
+                draw();
+                if (s.load) {
+                    var mine = s;
+                    s.load().then(function (lines) {
+                        if (spec !== mine || !lines || !lines.length) { return; }
+                        spec.lines = lines;
+                        if (phase === 'edit' || phase === 'confirm') {
+                            // Keep what is typed: redraw only the lines above.
+                            var typed = inputs.map(function (n) { return n.value; });
+                            draw();
+                            for (var i = 0; i < typed.length && i < inputs.length; i++) { inputs[i].value = typed[i]; }
+                        }
+                    }, function () { /* the lines are context; the write does not depend on them */ });
+                }
+            },
+            close: function () { spec = null; phase = 'closed'; box.innerHTML = ''; box.style.display = 'none'; },
+            isOpen: function () { return phase !== 'closed'; },
+            node: box,
+            destroy: function () { if (box.parentNode) { box.parentNode.removeChild(box); } }
+        };
+        return api0;
+    };
+
     /**
      * Boilerplate every symbol's init() shares: renderer wiring, size tracking,
      * theme resolution, and clean teardown.
@@ -4984,10 +8610,13 @@
             }
             ctx.theme = theme.tokens(ctx.config, elem);
             if (hooks.render) { hooks.render(ctx); }
+            // After the symbol, so the overlay sits on what it drew.
+            try { ctx.overlay.update(); } catch (e) { if (root.console) { root.console.error('[PVX] overlay failed', e); } }
         });
         ctx.render = renderer.request;
         ctx.renderNow = renderer.flush;
 
+        ctx.overlay = overlay.bind(ctx, hooks);
         ctx.sources = sources.bind(scope, vis.pvxSourceInfo, renderer.request);
         ctx.bands = thresholds.bind(scope);
         // Other keys in the band grammar, named by the symbol, e.g. LimitBands.
@@ -5007,11 +8636,24 @@
             return out;
         });
 
+        ctx.ownrange = ownrange.bind(ctx);
+        ctx.afsource = afsource.bind(ctx);
+        ctx.filter = filter.bind(ctx);
+
         vis.onDataUpdate = function (d) {
             // Before anything reads it: the sources list, the state map and
             // every symbol's own onData all want the names PI Vision only
-            // sends now and then.
-            d = keepMeta(d);
+            // sends now and then. Then rows from an AF search replace the
+            // update when the symbol takes them (reading over its own time
+            // range itself, when it has one); else the symbol's own time
+            // range, if set, swaps in values read for it.
+            var d1 = keepMeta(d);
+            if (afsource.wanted(ctx.config)) { ctx.afsource.take(d1, deliver); }
+            else { ctx.afsource.take(d1, function (d2) { ctx.ownrange.take(d2, deliver); }); }
+        };
+
+        function deliver(d) {
+            if (ctx.destroyed) { return; }
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -5026,11 +8668,17 @@
                 catch (e) { if (root.console) { root.console.error('[PVX] onData failed', e); } }
             }
             renderer.request();
-        };
+        }
 
         vis.onConfigChange = function (newConfig, oldConfig) {
             ctx.config = newConfig || ctx.config;
             scope.config = ctx.config;
+            if (afsource.wanted(ctx.config)) { ctx.afsource.changed(deliver); }
+            else {
+                ctx.afsource.changed(function (d2) { ctx.ownrange.take(d2, deliver); });
+                ctx.ownrange.changed(deliver);
+            }
+            ctx.filter.sync();
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }
@@ -5055,6 +8703,10 @@
             if (ctx.afpick) { ctx.afpick.destroy(); }
             if (ctx.states) { ctx.states.destroy(); }
             if (ctx.tags) { ctx.tags.destroy(); }
+            ctx.overlay.destroy();
+            ctx.ownrange.destroy();
+            ctx.afsource.destroy();
+            ctx.filter.destroy();
             if (hooks.onDestroy) {
                 try { hooks.onDestroy(ctx); } catch (e) { /* swallow */ }
             }

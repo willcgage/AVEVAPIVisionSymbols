@@ -1,0 +1,17 @@
+<div class="pvx pvx-trange"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-trange-surface"
+         ng-style="{'background': pvx.surface, 'border-radius': 'inherit'}">
+
+        <div class="pvx-header pvx-trange-header" ng-if="config.ShowTitle && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <!-- Built imperatively by symbol.js; Angular owns nothing inside
+             .pvx-trange-body, so a digest never resets what someone is typing. -->
+        <div class="pvx-body pvx-trange-bodywrap">
+            <div class="pvx-trange-body"></div>
+        </div>
+
+    </div>
+</div>

@@ -180,6 +180,30 @@
     white-space: nowrap;
 }
 
+/* A built-in icon before the label, in the button's own text colour. The
+   button is a block, so the pair is laid out inline and centred together. */
+.pvx-nav .pvx-nav-btn .pvx-nav-icon {
+    display: inline-block;
+    width: 1.15em;
+    height: 1.15em;
+    vertical-align: -0.2em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: 0 0 auto;
+}
+
+.pvx-nav .pvx-nav-btn .pvx-nav-icon + .pvx-nav-label {
+    display: inline-block;
+    max-width: calc(100% - 1.6em);
+    margin-left: 0.4em;
+    vertical-align: middle;
+}
+
+.pvx-nav .pvx-nav-btn .pvx-nav-icon + .pvx-nav-label:empty { display: none; }
+
 .pvx-nav .pvx-nav-btn:active {
     transform: translateY(1px);
 }

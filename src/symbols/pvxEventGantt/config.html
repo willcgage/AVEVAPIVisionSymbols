@@ -256,7 +256,12 @@
             <select id="pvxeg-click" ng-model="config.ClickAction">
                 <option value="none">Does nothing</option>
                 <option value="navigate">Opens a display</option>
+                <option value="time">Shows the event on this display</option>
             </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'time'">
+            Sets this display's time range to the event, with a little either side, so every symbol on it shows that
+            period. The browser's Back button returns to the previous range.
         </div>
         <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
             <label for="pvxeg-target">Target display</label>

@@ -1,0 +1,81 @@
+    <!-- Injected by tools/build.js after Text size in every PVX format pane.
+         PVX.overlay applies these to the symbol; all are off by default. The quick
+         trend is PVX.trend. -->
+    <div class="pvx-cfg-group pvx-cfg-common">
+        <div class="pvx-cfg-legend">Saving and data state</div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-export">Save button (image, data)</label>
+            <input id="pvx-cfg-export" type="checkbox" ng-model="config.ExportMenu" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A button in the corner, shown when the pointer is over the symbol: the symbol as a
+            PNG image, its drawing as SVG where it is one, or its data as CSV. Files are made in
+            the browser; nothing is sent anywhere.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-stale">Stale badge after (min)</label>
+            <input id="pvx-cfg-stale" type="number" ng-model="config.StaleBadgeMinutes" min="0" max="10080" />
+        </div>
+        <div class="pvx-cfg-hint">
+            0 is off. Marks the symbol when the newest timestamp it was sent is older than this,
+            so a frozen interface does not pass for a steady process. Not shown while the
+            display is looking at the past.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-hide">Hide when there is no data</label>
+            <input id="pvx-cfg-hide" type="checkbox" ng-model="config.HideWhenNoData" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Hides the symbol while none of its data sources has a good value, for a display
+            shared by assets that do not all have every attribute. It comes back with the data.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-trend">Quick trend button</label>
+            <input id="pvx-cfg-trend" type="checkbox" ng-model="config.QuickTrend" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A button, shown when the pointer is over the symbol, that trends its data sources in a
+            panel you can drag and resize. The same button on another symbol adds its sources to
+            the open trend. History is read from PI Web API, only when the button is pressed.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group pvx-cfg-common" ng-if="config.DataShape === 'TimeSeries'">
+        <div class="pvx-cfg-legend">Time range</div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-own">Own time range</label>
+            <input id="pvx-cfg-own" type="checkbox" ng-model="config.OwnTimeRange" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Off, the symbol follows the display's time range. On, it shows the range below and
+            says so in a badge, whatever the display is set to. PI Vision cannot send a symbol a
+            range of its own, so the values are recorded values read from PI Web API; without it
+            the symbol keeps the display's range and the badge says the setting is not in force.
+        </div>
+        <div ng-if="config.OwnTimeRange">
+            <div class="pvx-cfg-row">
+                <label for="pvx-cfg-ownstart">Start</label>
+                <input id="pvx-cfg-ownstart" type="text" ng-model="config.OwnStart" placeholder="*-1d" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvx-cfg-ownend">End</label>
+                <input id="pvx-cfg-ownend" type="text" ng-model="config.OwnEnd" placeholder="*" />
+            </div>
+            <div class="pvx-cfg-hint">
+                PI time: <code>*-30d</code>, <code>t</code> (today at midnight), <code>y</code>
+                (yesterday), <code>*</code> (now), or a date and time.
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvx-cfg-ownrefresh">Read again every (s)</label>
+                <input id="pvx-cfg-ownrefresh" type="number" ng-model="config.OwnRefreshSeconds" min="10" max="86400" />
+            </div>
+            <div class="pvx-cfg-row">
+                <label for="pvx-cfg-ownmax">Most values per source</label>
+                <input id="pvx-cfg-ownmax" type="number" ng-model="config.OwnMaxValues" min="100" max="150000" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Read again only while the range ends at now. The badge says when a source hit the
+                limit or could not be read.
+            </div>
+        </div>
+    </div>

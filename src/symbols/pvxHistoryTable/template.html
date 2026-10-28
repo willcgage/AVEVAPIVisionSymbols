@@ -1,0 +1,25 @@
+<!--
+    pvxHistoryTable template: thin on purpose. The table inside
+    .pvx-htable-body is written by symbol.js as one string per render, so a
+    data update never digests a binding per cell. Only the footer is bound.
+-->
+<div class="pvx pvx-htable"
+     ng-style="{'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface pvx-htable-surface">
+
+        <div class="pvx-header pvx-htable-header" ng-if="config.ShowLabel && config.Title">
+            <div class="pvx-title pvx-truncate" title="{{config.Title}}">{{config.Title}}</div>
+        </div>
+
+        <div class="pvx-body pvx-htable-bodywrap">
+            <div class="pvx-htable-body"></div>
+        </div>
+
+        <div class="pvx-footer pvx-htable-footer" ng-if="pvx.note || pvx.canDownload || pvx.saveNote">
+            <span class="pvx-htable-note pvx-truncate" title="{{pvx.note}}">{{pvx.saveNote || pvx.note}}</span>
+            <button type="button" class="pvx-htable-csv" ng-if="pvx.canDownload"
+                    ng-click="pvx.download()" title="Save the rows shown as a CSV file">CSV</button>
+        </div>
+
+    </div>
+</div>

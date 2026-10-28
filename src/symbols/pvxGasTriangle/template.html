@@ -1,0 +1,26 @@
+<div class="pvx pvx-gt"
+     ng-style="{'background': config.Transparent ? 'transparent' : (config.BackgroundColor || ''),
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <!-- The triangle, zones, trail and legend are drawn as SVG by
+                 symbol.js; keep this div empty. -->
+            <div class="pvx-gt-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.zoneText || pvx.note">
+            <span class="pvx-truncate pvx-gt-zone-text" ng-if="pvx.zoneText" title="{{pvx.zoneText}}">
+                <span class="pvx-gt-zone-chip" ng-if="pvx.zoneColor" ng-style="{'background': pvx.zoneColor}"></span>{{pvx.zoneText}}
+            </span>
+            <span class="pvx-truncate pvx-num pvx-gt-note" ng-if="pvx.note" title="{{pvx.note}}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

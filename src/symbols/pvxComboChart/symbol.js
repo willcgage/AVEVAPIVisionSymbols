@@ -31,6 +31,37 @@
  * axis, not of a data source: it does not consume a data source, it does not
  * belong in the legend, and it must survive the trace it was drawn for being
  * deleted. So it reuses the threshold grammar against the LEFT axis instead.
+ *
+ * MORE TRACE KINDS, all opt-in through TraceSpec:
+ *   states   a digital tag as shaded bands behind the traces, one lane per
+ *            such tag, coloured by StateColors. It uses no axis.
+ *   range    this source and the NEXT one as the lower and upper edge of a
+ *            filled band (a min/max envelope, a spec window). The next source
+ *            is used up by it and not drawn on its own.
+ *   maN      a moving average over N samples, or a time with a unit (ma1h,
+ *            ma30m), drawn dashed over the trace. Trailing, so it never
+ *            looks ahead of the value it averages.
+ *   fit      a least-squares straight line through the trace over the window,
+ *            with its slope per hour in the tooltip and the rulers' table.
+ *
+ * Panels: 'separate' gives every trace its own strip and scale over one time
+ * axis, for tags whose units have nothing in common. LeftScale/RightScale
+ * 'log' puts an axis on a log scale; values at or below zero cannot be
+ * placed on one, and how many were left out is said in the footer.
+ *
+ * Rulers (off by default): click the plot to put ruler A, again for B; drag
+ * either. A table under the chart gives each source's value at A and B, the
+ * change, and the minimum, maximum, time-weighted average, standard
+ * deviation and sample count between them.
+ *
+ * EVENT FRAMES (ShowEvents, off by default) are shaded behind the traces with
+ * their names along the top: a trip, a batch, a grade change, read from AF
+ * through PVX.api because PI Vision's data pipeline does not carry them. They
+ * are fetched for the window the traces cover, again when it moves by more
+ * than a fiftieth of its length, and on a timer, never once per data update.
+ * Whatever stops them from showing (no PI Web API, no asset, a failed query,
+ * more events than the cap) is said in the footer, and the traces draw
+ * regardless: the events are an annotation, not a dependency.
  * ==========================================================================*/
 (function (PV) {
     'use strict';
@@ -41,8 +72,12 @@
     /* The complete trace vocabulary. Kept as a lookup rather than an array so
      * the parser can classify a token in one step without a linear scan. */
     var TRACE_TYPES = {
-        line: 1, area: 1, bar: 1, step: 1, scatter: 1, hidden: 1
+        line: 1, area: 1, bar: 1, step: 1, scatter: 1, hidden: 1, states: 1, range: 1
     };
+
+    /* "ma20" is twenty samples; "ma1h" or "ma30m" is a time. */
+    var MA_RE = /^ma(\d+(?:\.\d+)?)([smhd]?)$/;
+    var UNIT_MS = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
 
     /* Mean advance width of the UI font in ems. Every margin in this symbol is
      * derived from it rather than from getComputedTextLength(), which forces a
@@ -79,7 +114,8 @@
         configTitle: 'Format Combo Chart',
 
         getDefaultConfig: function () {
-            return window.PVX.config.base({
+            // An AF search can supply the rows instead (PVX.afsource); off by default.
+            return window.PVX.afsource.defaults(window.PVX.config.base({
                 DataShape: 'TimeSeries',
                 DataQueryMode: 'ModePlotValues',
                 Intervals: 300,
@@ -112,6 +148,17 @@
                 ShowGrid: true,
                 TickCount: 5,
                 TimeTickCount: 5,
+                LeftScale: 'linear',        // linear | log
+                RightScale: 'linear',
+                Panels: 'shared',           // shared | separate
+
+                // Traces typed "states" in TraceSpec: colours per state,
+                // "Running:#2f9e5f, Stopped:#c8452f"; others take the palette.
+                StateColors: '',
+                StateOpacity: 0.18,
+
+                // Rulers A and B with a statistics table between them.
+                Rulers: false,
 
                 // Limit bands — threshold grammar, LEFT axis only.
                 LimitBands: '',
@@ -123,8 +170,21 @@
                 ShowValues: false,
 
                 ShowTooltips: true,
-                MaxPointsPerTrace: 600
-            });
+                MaxPointsPerTrace: 600,
+
+                // Event frames behind the traces, from PI Web API.
+                ShowEvents: false,
+                EventScope: 'asset',        // asset | database
+                EventDatabasePath: '',      // blank => the data source's database
+                EventTemplate: '',
+                EventNameFilter: '',
+                EventMax: 50,
+                EventColor: '',             // blank => one colour per template
+                EventOpacity: 0.12,
+                EventLabels: true,
+                EventClick: 'none',         // none | time
+                EventRefreshSeconds: 60
+            }));
         }
     };
 
@@ -169,7 +229,7 @@
             // parseInt on the raw token tolerates " 3", "3 " and "#3".
             var idx = parseInt(String(parts[0]).replace(/[^0-9]/g, ''), 10);
             if (!isFinite(idx) || idx < 1) { continue; }
-            var entry = { index: idx, type: null, axis: null, color: null, dash: null, width: null };
+            var entry = { index: idx, type: null, axis: null, color: null, dash: null, width: null, ma: '', fit: false };
             for (var p = 1; p < parts.length; p++) {
                 var tok = parts[p].trim();
                 if (!tok) { continue; }
@@ -180,6 +240,8 @@
                 else if (isColorToken(tok)) { entry.color = tok; }
                 else if (DASHES.hasOwnProperty(low)) { entry.dash = low; }
                 else if (/^\d+(\.\d+)?px$/.test(low)) { entry.width = parseFloat(low); }
+                else if (MA_RE.test(low)) { entry.ma = low.slice(2); }
+                else if (low === 'fit') { entry.fit = true; }
             }
             out.push(entry);
         }
@@ -199,12 +261,112 @@
             if (e.color && isColorToken(e.color)) { toks.push(e.color); }
             if (e.dash && e.dash !== 'solid') { toks.push(e.dash); }
             if (e.width > 0) { toks.push(String(Math.round(e.width * 100) / 100) + 'px'); }
+            var ma = String(e.ma || '').replace(/\s+/g, '').toLowerCase();
+            if (ma && MA_RE.test('ma' + ma)) { toks.push('ma' + ma); }
+            if (e.fit) { toks.push('fit'); }
             if (toks.length > 1) { out.push(toks.join(':')); }
         }
         return out.join(', ');
     }
 
-    var TYPE_NAMES = { line: 'Line', area: 'Area', bar: 'Bar', step: 'Step', scatter: 'Scatter' };
+    var TYPE_NAMES = { line: 'Line', area: 'Area', bar: 'Bar', step: 'Step', scatter: 'Scatter',
+        states: 'State bands', range: 'Range to next' };
+
+    /** "20" -> {count: 20}; "1h" -> {ms: 3600000}; anything else -> null. */
+    function parseMa(text) {
+        var m = MA_RE.exec('ma' + String(text || '').toLowerCase());
+        if (!m) { return null; }
+        var n = parseFloat(m[1]);
+        if (!(n > 0)) { return null; }
+        return m[2] ? { ms: n * UNIT_MS[m[2]], text: m[1] + m[2] } : { count: Math.max(2, Math.round(n)), text: m[1] + ' samples' };
+    }
+
+    /**
+     * Trailing moving average. By count, the last N samples; by time, every
+     * sample in the last span, so the window is the same length of time
+     * however often a compressed tag happened to report inside it.
+     */
+    function movingAverage(points, ma) {
+        var out = [], sum = 0, lo = 0;
+        for (var i = 0; i < points.length; i++) {
+            sum += points[i].v;
+            if (ma.count) {
+                if (i - lo + 1 > ma.count) { sum -= points[lo].v; lo += 1; }
+            } else {
+                while (points[i].t - points[lo].t > ma.ms) { sum -= points[lo].v; lo += 1; }
+            }
+            out.push({ t: points[i].t, v: sum / (i - lo + 1) });
+        }
+        return out;
+    }
+
+    /** The trailing linear trend of a trace, against time in hours. */
+    function fitLine(points) {
+        if (!points || points.length < 3) { return null; }
+        var t0 = points[0].t, xy = [];
+        for (var i = 0; i < points.length; i++) { xy.push({ x: (points[i].t - t0) / 3600000, y: points[i].v }); }
+        var r = window.PVX.stats.linreg(xy);
+        if (!r) { return null; }
+        return { t0: t0, slope: r.slope, intercept: r.intercept, r2: r.r2,
+            at: function (t) { return r.intercept + r.slope * (t - t0) / 3600000; } };
+    }
+
+    /** Value at a time: interpolated for a line, held for a step, bar or state. */
+    function valueAt(points, tm, hold) {
+        if (!points.length || tm < points[0].t) { return null; }
+        var lo = 0, hi = points.length - 1;
+        if (tm >= points[hi].t) { return points[hi]; }
+        while (hi - lo > 1) {
+            var mid = (lo + hi) >> 1;
+            if (points[mid].t <= tm) { lo = mid; } else { hi = mid; }
+        }
+        var a = points[lo], b = points[hi];
+        var num = function (v) { return typeof v === 'number' && isFinite(v); };
+        if (hold || !num(a.v) || !num(b.v) || b.t === a.t) { return a; }
+        return { t: tm, v: a.v + (b.v - a.v) * (tm - a.t) / (b.t - a.t) };
+    }
+
+    /* ---------------------------------------------------------------- *
+     * log scale
+     * ---------------------------------------------------------------- */
+
+    /** A y scale, linear or log10, mapping domain to [r0, r1]. */
+    function yScale(domain, log, r0, r1) {
+        if (!log) { return window.PVX.scale.linear(domain[0], domain[1], r0, r1); }
+        var a = Math.log(domain[0]) / Math.LN10, b = Math.log(domain[1]) / Math.LN10;
+        return function (v) {
+            var lv = v > 0 ? Math.log(v) / Math.LN10 : a;
+            return r0 + (lv - a) / ((b - a) || 1) * (r1 - r0);
+        };
+    }
+
+    /** The nearest 1, 2 or 5 times a power of ten at or beyond v. */
+    function logSnap(v, up) {
+        var e = Math.floor(Math.log(v) / Math.LN10 + 1e-9);
+        var steps = [1, 2, 5, 10];
+        var base = Math.pow(10, e);
+        var i;
+        if (up) {
+            for (i = 0; i < steps.length; i++) { if (steps[i] * base >= v * (1 - 1e-9)) { return parseFloat((steps[i] * base).toPrecision(12)); } }
+            return base * 10;
+        }
+        for (i = steps.length - 1; i >= 0; i--) { if (steps[i] * base <= v * (1 + 1e-9)) { return parseFloat((steps[i] * base).toPrecision(12)); } }
+        return base;
+    }
+
+    /** Decade ticks, with 2 and 5 between them when there are few decades. */
+    function logTicks(lo, hi) {
+        var out = [];
+        var e0 = Math.floor(Math.log(lo) / Math.LN10 + 1e-9), e1 = Math.ceil(Math.log(hi) / Math.LN10 - 1e-9);
+        var mults = (e1 - e0) <= 2 ? [1, 2, 5] : [1];
+        for (var e = e0; e <= e1; e++) {
+            for (var m = 0; m < mults.length; m++) {
+                var v = mults[m] * Math.pow(10, e);
+                if (v >= lo * (1 - 1e-9) && v <= hi * (1 + 1e-9)) { out.push(parseFloat(v.toPrecision(12))); }
+            }
+        }
+        return out.length >= 2 ? out : [lo, hi];
+    }
 
     /**
      * TraceSpec as rows in the format pane, one per data source, published
@@ -262,7 +424,9 @@
                     color: e.color || null,
                     hex: rgb ? PVX.color.toHex(rgb) : autoHex(n),
                     dash: e.dash && e.dash !== 'solid' ? e.dash : '',
-                    width: e.width || null
+                    width: e.width || null,
+                    ma: e.ma || '',
+                    fit: !!e.fit
                 });
             }
             state.rows = rows;
@@ -296,6 +460,15 @@
             return t === 'line' || t === 'step' || t === 'area';
         };
 
+        /** A moving average and a fit are for traces that have numbers. */
+        state.numeric = function (r) {
+            var c = cfg();
+            var t = r.type || normType(c && c.DefaultType) || 'line';
+            return t !== 'hidden' && t !== 'states';
+        };
+
+        state.maBad = function (r) { return !!r.ma && !parseMa(r.ma); };
+
         state.hasMissing = function () {
             for (var i = 0; i < state.rows.length; i++) { if (state.rows[i].missing) { return true; } }
             return false;
@@ -327,6 +500,15 @@
         return state;
     }
 
+    // The parts with right answers, for tools/test-charts.js.
+    symbolVis.parseTraceSpec = parseTraceSpec;
+    symbolVis.stringifyTraceSpec = stringifyTraceSpec;
+    symbolVis.parseMa = parseMa;
+    symbolVis.movingAverage = movingAverage;
+    symbolVis.logSnap = logSnap;
+    symbolVis.logTicks = logTicks;
+    symbolVis.valueAt = valueAt;
+
     symbolVis.prototype.init = function (scope, elem) {
         var PVX = window.PVX;
 
@@ -334,17 +516,268 @@
         scope.pvx = { title: '', note: '', error: '' };
 
         var series = [];
+        var stateList = [];       // the same sources with their text values kept
+        var rulers = { a: null, b: null, drag: null, shape: '' };
+        scope.pvx.clearRulers = function () { rulers.a = rulers.b = null; ctx.render(); };
 
         var traceEditor = bindTraceEditor(scope, PVX);
+
+        // Event frames: what was fetched, and for what.
+        var events = { phase: 'off', items: [], error: null, capped: false, max: 0, key: '', gen: 0,
+            db: null, timer: null, timerSecs: 0 };
+        var dbCache = {};
+        var elementCache = {};
+        var sourceAsset = '';
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-combo-body',
             // LimitBands is the threshold grammar, so it gets the same rows.
             bandKeys: ['LimitBands'],
-            onData: function (d) { series = PVX.data.series(d) || []; },
-            onDestroy: function () { traceEditor.destroy(); },
+            onData: function (d) {
+                series = PVX.data.series(d) || [];
+                stateList = PVX.data.stateSeries(d) || [];
+                sourceAsset = '';
+                for (var i = 0; i < series.length && !sourceAsset; i++) { sourceAsset = PVX.nav.assetOf(series[i].path); }
+                fetchEvents(false);
+            },
+            onConfigChange: function () { fetchEvents(false); },
+            onDestroy: function () {
+                traceEditor.destroy();
+                if (events.timer !== null) { clearInterval(events.timer); events.timer = null; }
+                events.gen += 1;
+            },
             render: render
         });
+
+        /* ------------------------------------------------------------------ *
+         * event frames
+         * ------------------------------------------------------------------ */
+
+        function trim(v) { return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, ''); }
+
+        function isEditMode() {
+            try { if (scope && scope.runtimeData && scope.runtimeData.isEditMode) { return true; } } catch (e) { /* shape differs */ }
+            try { if (scope && scope.$root && scope.$root.isEditMode) { return true; } } catch (e2) { /* ignore */ }
+            return false;
+        }
+
+        /** The window the traces cover, as the render will compute it. */
+        function dataWindow() {
+            var lo = null, hi = null;
+            for (var i = 0; i < series.length; i++) {
+                var pts = series[i].points || [];
+                if (!pts.length) { continue; }
+                if (lo === null || pts[0].t < lo) { lo = pts[0].t; }
+                if (hi === null || pts[pts.length - 1].t > hi) { hi = pts[pts.length - 1].t; }
+            }
+            return lo === null || !(hi > lo) ? null : { from: lo, to: hi };
+        }
+
+        /** A path resolved once; a failure is forgotten so an outage cannot stick. */
+        function cached(store, key, make) {
+            if (store[key]) { return store[key]; }
+            var p = make();
+            p['catch'](function () { if (store[key] === p) { delete store[key]; } });
+            store[key] = p;
+            return p;
+        }
+
+        function ensureTimer(cfg) {
+            var secs = PVX.util.num(cfg.EventRefreshSeconds);
+            secs = cfg.ShowEvents ? PVX.util.clamp(secs === null ? 60 : secs, 10, 86400) : 0;
+            if (secs === events.timerSecs) { return; }
+            if (events.timer !== null) { clearInterval(events.timer); events.timer = null; }
+            events.timerSecs = secs;
+            if (secs) { events.timer = setInterval(function () { fetchEvents(true); }, secs * 1000); }
+        }
+
+        function fetchEvents(force) {
+            if (!ctx || ctx.destroyed) { return; }
+            var cfg = scope.config || {};
+            ensureTimer(cfg);
+            if (!cfg.ShowEvents) {
+                if (events.phase !== 'off') { events.phase = 'off'; events.items = []; events.key = ''; ctx.render(); }
+                return;
+            }
+            var win = dataWindow();
+            if (!win) { return; }
+
+            if (PVX.api.discovering()) {
+                PVX.api.discover().then(function () { fetchEvents(true); });
+                return;
+            }
+            if (!PVX.api.isConfigured()) {
+                events.phase = 'unconfigured';
+                events.key = '';
+                ctx.render();
+                return;
+            }
+
+            var byAsset = cfg.EventScope !== 'database';
+            var asset = trim(PVX.nav.currentAsset()) || sourceAsset;
+            var typed = trim(cfg.EventDatabasePath);
+            var db = typed ? { path: typed, from: '' } : PVX.nav.defaultDatabase(scope, sourceAsset);
+            var max = Math.round(PVX.util.clamp(PVX.util.num(cfg.EventMax) || 50, 1, 500));
+
+            // Refetch only when the window has moved by a fiftieth of its
+            // length; a rolling display updates every few seconds.
+            var grain = Math.max(1000, (win.to - win.from) / 50);
+            var key = [byAsset ? 'a:' + asset : 'd:' + db.path, trim(cfg.EventTemplate), trim(cfg.EventNameFilter), max,
+                Math.floor(win.from / grain), Math.floor(win.to / grain)].join('\u0001');
+            if (!force && key === events.key) { return; }
+            events.key = key;
+            events.db = db;
+
+            if (byAsset && !asset) {
+                events.phase = 'error';
+                events.error = { pvxError: { message: 'Events follow the display\'s asset, but the address names none and no data source is an AF attribute.',
+                    check: 'open the display on an asset, or set Events from to the whole database' } };
+                ctx.render();
+                return;
+            }
+            if (!byAsset && !db.path) {
+                events.phase = 'error';
+                events.error = { pvxError: { message: 'No AF database to search for events.',
+                    check: 'set the event database in Format, or drop an AF attribute on the chart' } };
+                ctx.render();
+                return;
+            }
+
+            var gen = ++events.gen;
+            if (events.phase !== 'ok') { events.phase = 'loading'; }
+            var where = byAsset ?
+                cached(elementCache, asset, function () {
+                    return PVX.api.elementByPath(asset).then(function (el) {
+                        if (!el || !el.WebId) { throw { pvxError: { message: 'No AF element at "' + asset + '".', check: 'the display\'s asset' } }; }
+                        return { elementWebId: el.WebId };
+                    });
+                }) :
+                cached(dbCache, db.path, function () {
+                    return PVX.api.get('assetdatabases?path=' + encodeURIComponent(db.path)).then(function (d) {
+                        if (!d || !d.WebId) { throw { pvxError: { message: 'No AF database at "' + db.path + '".', check: 'the event database in Format' } }; }
+                        return { databaseWebId: d.WebId };
+                    });
+                });
+
+            where.then(function (w) {
+                if (gen !== events.gen) { return null; }
+                return PVX.api.eventFrames({
+                    elementWebId: w.elementWebId,
+                    databaseWebId: w.databaseWebId,
+                    startTime: new Date(win.from).toISOString(),
+                    endTime: new Date(win.to).toISOString(),
+                    templateName: trim(cfg.EventTemplate),
+                    nameFilter: trim(cfg.EventNameFilter),
+                    searchMode: 'Overlapped',
+                    maxCount: max + 1,
+                    selectedFields: 'Items.Name;Items.StartTime;Items.EndTime;Items.TemplateName;Items.WebId'
+                }, { cache: false });
+            }).then(function (res) {
+                if (res === null || gen !== events.gen || ctx.destroyed) { return; }
+                var raw = (res && res.Items) || [];
+                events.capped = raw.length > max;
+                events.max = max;
+                if (events.capped) { raw = raw.slice(0, max); }
+                var out = [];
+                for (var i = 0; i < raw.length; i++) {
+                    var st = Date.parse(raw[i].StartTime);
+                    if (isNaN(st)) { continue; }
+                    var en = Date.parse(raw[i].EndTime);
+                    // AF writes an open event's end as 9999-12-31, or leaves it out.
+                    var open = isNaN(en) || new Date(en).getUTCFullYear() >= 9999;
+                    out.push({ name: raw[i].Name || 'Event', start: st, end: open ? null : en,
+                        template: raw[i].TemplateName || '' });
+                }
+                out.sort(function (a, b) { return a.start - b.start; });
+                events.items = out;
+                events.phase = 'ok';
+                events.error = null;
+                ctx.render();
+            })['catch'](function (err) {
+                if (gen !== events.gen || ctx.destroyed) { return; }
+                events.phase = 'error';
+                events.error = err;
+                events.items = [];
+                // Ask again on the next window move or tick, not on every update.
+                ctx.render();
+            });
+        }
+
+        /** Shaded spans behind the traces, with names along the top. */
+        function drawEvents(parent, cfg, plot, sx, tMin, tMax, t, font) {
+            if (events.phase !== 'ok' || !events.items.length) { return 0; }
+            var op = PVX.util.num(cfg.EventOpacity);
+            op = op === null ? 0.12 : PVX.util.clamp(op, 0, 1);
+            var templates = [];
+            events.items.forEach(function (ev) { if (templates.indexOf(ev.template) === -1) { templates.push(ev.template); } });
+            templates.sort();
+            var pal = PVX.color.categorical;
+            var fixed = cfg.EventColor && PVX.color.toRgb(cfg.EventColor) ? cfg.EventColor : '';
+            var clickable = cfg.EventClick === 'time';
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-events' }, parent);
+            var drawn = 0;
+            var lastLabelEnd = -Infinity;
+            for (var i = 0; i < events.items.length; i++) {
+                var ev = events.items[i];
+                var end = ev.end === null ? tMax : ev.end;
+                if (end < tMin || ev.start > tMax) { continue; }
+                var x0 = sx(Math.max(ev.start, tMin));
+                var x1 = Math.max(x0 + 1, sx(Math.min(end, tMax)));
+                var col = fixed || pal[templates.indexOf(ev.template) % pal.length];
+                var tip = ev.name + (ev.template ? ' (' + ev.template + ')' : '') + '\n' +
+                    PVX.fmt.time(ev.start, 'datetime') + ' to ' + (ev.end === null ? 'still running' : PVX.fmt.time(ev.end, 'datetime')) +
+                    (ev.end === null ? '' : ' \u00b7 ' + PVX.fmt.duration(ev.end - ev.start)) +
+                    (clickable ? '\nClick to show this event' : '');
+                var r = PVX.svg.el('rect', {
+                    'class': 'pvx-combo-event' + (clickable ? ' pvx-combo-event-link' : ''),
+                    x: x0.toFixed(2), y: plot.y.toFixed(2), width: (x1 - x0).toFixed(2), height: plot.h.toFixed(2),
+                    fill: col, 'fill-opacity': op
+                }, g);
+                PVX.svg.el('title', null, r).textContent = tip;
+                if (clickable) { bindEventClick(r, ev, tMax); }
+                PVX.svg.el('line', { x1: x0.toFixed(2), y1: plot.y.toFixed(2), x2: x0.toFixed(2), y2: plot.y1.toFixed(2),
+                    stroke: col, 'stroke-opacity': Math.min(1, op * 5), 'stroke-width': 1, 'pointer-events': 'none' }, g);
+                // A name only where there is room for it and it does not run
+                // into the one before; the tooltip always has it.
+                if (cfg.EventLabels !== false && x0 >= lastLabelEnd + 4) {
+                    var room = plot.x1 - x0 - 4;
+                    var label = room > font * 2 ? fitText(ev.name, Math.min(room, Math.max(x1 - x0, font * 10)), font) : '';
+                    if (label) {
+                        PVX.svg.text(g, (x0 + 3).toFixed(2), (plot.y + font * 0.9).toFixed(2), label, {
+                            'class': 'pvx-svg-label', 'font-size': font, fill: t.textMuted, 'pointer-events': 'none'
+                        });
+                        lastLabelEnd = x0 + 3 + textW(label, font);
+                    }
+                }
+                drawn += 1;
+            }
+            return drawn;
+        }
+
+        function bindEventClick(rect, ev, tMax) {
+            rect.addEventListener('click', function () {
+                if (isEditMode()) { return; }
+                var end = ev.end === null ? Math.max(tMax, Date.now()) : ev.end;
+                var pad = Math.max(60000, (end - ev.start) * 0.1);
+                PVX.nav.setTimeRange(new Date(ev.start - pad).toISOString(), new Date(end + pad).toISOString());
+            }, false);
+        }
+
+        function eventNote(cfg, drawn) {
+            if (!cfg.ShowEvents) { return ''; }
+            switch (events.phase) {
+                case 'unconfigured': return 'events: ' + PVX.api.unsetHint() + ', then confirm it with ext/piwebapi-check.html';
+                case 'loading': return 'events: loading';
+                case 'error':
+                    var e = (events.error && events.error.pvxError) || {};
+                    return 'events: ' + (e.message || 'the request failed') + (e.check ? ' Check: ' + e.check + '.' : '');
+                case 'ok':
+                    if (!events.items.length) { return 'no events in this window'; }
+                    return drawn + (drawn === 1 ? ' event' : ' events') +
+                        (events.capped ? ', the first ' + events.max + ' only: raise the limit or narrow the template' : '');
+                default: return '';
+            }
+        }
 
         /* ------------------------------------------------------------------ *
          * model
@@ -366,10 +799,16 @@
             var pal = (t && t.categorical) || PVX.color.categorical;
             var defType = normType(cfg.DefaultType) || 'line';
             var out = [];
+            var usedBy = {};
             for (var s = 0; s < list.length; s++) {
                 var e = byIndex[s + 1] || null;
                 var type = (e && e.type) || defType;
                 if (type === 'hidden') { continue; }
+                // The upper edge of the range before it: drawn there, not here.
+                if (usedBy[s]) { continue; }
+                if (type === 'range') {
+                    if (s + 1 < list.length) { usedBy[s + 1] = true; } else { type = 'line'; out.rangeAlone = s + 1; }
+                }
                 out.push({
                     index: s + 1,
                     label: list[s].label || ('Series ' + (s + 1)),
@@ -382,12 +821,25 @@
                     color: (e && e.color) || pal[s % pal.length],
                     dash: (e && e.dash) || 'solid',
                     width: (e && e.width) || null,
-                    raw: list[s].points || [],
+                    raw: type === 'states' ? [] : (list[s].points || []),
+                    // The text values, for state bands and the rulers' table.
+                    states: stateList[s] ? stateList[s].points : [],
+                    upper: type === 'range' ? list[s + 1] : null,
                     pts: [],          // decimated, for line/area/step/scatter
+                    pts2: [],         // decimated upper edge of a range
                     slots: null,      // aggregated, for bars
+                    ma: e && e.ma ? parseMa(e.ma) : null,
+                    maBad: !!(e && e.ma && !parseMa(e.ma)),
+                    fit: !!(e && e.fit),
                     decimated: false,
                     last: null
                 });
+                var tr = out[out.length - 1];
+                if (type === 'states') { tr.axis = 'none'; }
+                if (type === 'range') {
+                    tr.label = tr.label + ' \u2013 ' + (list[s + 1].label || ('Series ' + (s + 2)));
+                    tr.raw2 = list[s + 1].points || [];
+                }
             }
             return out;
         }
@@ -457,14 +909,38 @@
             return out;
         }
 
+        /** Points above zero: the only ones a log scale can place. */
+        function positive(points) {
+            var out = [];
+            for (var i = 0; i < points.length; i++) { if (points[i].v > 0) { out.push(points[i]); } }
+            return out;
+        }
+
+        function axisTicks(d, log, count) {
+            return log ? logTicks(d[0], d[1]) : PVX.scale.ticks(d[0], d[1], count);
+        }
+
         /** Domain for one axis, honouring explicit bounds and a bar baseline. */
-        function domainFor(values, minCfg, maxCfg, needsZero, tickCount) {
+        function domainFor(values, minCfg, maxCfg, needsZero, tickCount, log) {
             var lo = null, hi = null, i;
             for (i = 0; i < values.length; i++) {
                 var v = values[i];
-                if (!PVX.util.isNum(v)) { continue; }
+                if (!PVX.util.isNum(v) || (log && !(v > 0))) { continue; }
                 if (lo === null || v < lo) { lo = v; }
                 if (hi === null || v > hi) { hi = v; }
+            }
+            if (log) {
+                // Out to the next 1, 2 or 5, so the ends are round numbers
+                // that logTicks marks; whole decades left a tag reading 60 to
+                // 120 squeezed into a third of a 10 to 1000 axis. A bar on a
+                // log axis stands on the bottom of the axis, not on zero.
+                if (lo === null) { lo = 1; hi = 10; }
+                var dlo = logSnap(lo, false), dhi = logSnap(hi, true);
+                if (!(dhi > dlo)) { dhi = logSnap(dlo * 1.01, true); }
+                var lMin = PVX.util.num(minCfg), lMax = PVX.util.num(maxCfg);
+                if (lMin !== null && lMin > 0) { dlo = lMin; }
+                if (lMax !== null && lMax > dlo) { dhi = lMax; }
+                return [dlo, dhi];
             }
             if (lo === null) { lo = 0; hi = 1; }
             // A bar drawn from a non-zero baseline misstates every ratio the eye
@@ -551,7 +1027,7 @@
             // ---- empty state ------------------------------------------------
             var anyPoints = false;
             for (i = 0; i < traces.length; i++) {
-                if (traces[i].raw.length) { anyPoints = true; break; }
+                if (traces[i].raw.length || (traces[i].type === 'states' && traces[i].states.length)) { anyPoints = true; break; }
             }
             if (!traces.length || !anyPoints) {
                 emptyState(svgRoot, W, H, t,
@@ -567,11 +1043,11 @@
             // would destroy the correlation the symbol exists to show.
             var tMin = null, tMax = null;
             for (i = 0; i < traces.length; i++) {
-                var rp = traces[i].raw;
+                var rp = traces[i].type === 'states' ? traces[i].states : traces[i].raw;
                 if (!rp.length) { continue; }
                 if (tMin === null || rp[0].t < tMin) { tMin = rp[0].t; }
                 if (tMax === null || rp[rp.length - 1].t > tMax) { tMax = rp[rp.length - 1].t; }
-                traces[i].last = rp[rp.length - 1].v;
+                traces[i].last = traces[i].type === 'states' ? rp[rp.length - 1].state : rp[rp.length - 1].v;
             }
             if (tMin === null) { tMin = 0; tMax = 1; }
             if (!(tMax > tMin)) { tMax = tMin + 1; }
@@ -580,6 +1056,7 @@
             var rightUsed = false, leftUsed = false;
             var barsLeft = false, barsRight = false;
             for (i = 0; i < traces.length; i++) {
+                if (traces[i].axis === 'none') { continue; }
                 if (traces[i].axis === 'right') { rightUsed = true; } else { leftUsed = true; }
                 if (traces[i].type === 'bar') {
                     if (traces[i].axis === 'right') { barsRight = true; } else { barsLeft = true; }
@@ -589,6 +1066,20 @@
             // margin would shrink the plot for no information at all.
             var drawRight = rightUsed && cfg.ShowRightAxis !== false;
             var drawLeft = leftUsed && cfg.ShowLeftAxis !== false;
+            var logL = trim(cfg.LeftScale).toLowerCase() === 'log';
+            var logR = trim(cfg.RightScale).toLowerCase() === 'log';
+            var logOf = function (tr) { return tr.axis === 'right' ? logR : logL; };
+            var notes = [];
+
+            // Separate panels: one strip per trace that has an axis. They
+            // share the time axis and nothing else, so the right axis goes.
+            var drawn = [];
+            for (i = 0; i < traces.length; i++) { if (traces[i].axis !== 'none') { drawn.push(traces[i]); } }
+            var panelMode = trim(cfg.Panels).toLowerCase() === 'separate' && drawn.length > 0;
+            if (panelMode) {
+                drawLeft = cfg.ShowLeftAxis !== false;
+                drawRight = false;
+            }
 
             var tickCount = PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 10);
             var maxPts = PVX.util.clamp(parseInt(cfg.MaxPointsPerTrace, 10) || 600, 20, 5000);
@@ -613,10 +1104,18 @@
              * doing the real work inside it. A few pixels of difference in the
              * provisional width only ever shifts the slot count by one.
              * ---------------------------------------------------------------- */
+            var logDropped = 0;
+            for (i = 0; i < traces.length; i++) {
+                if (traces[i].axis === 'none' || !logOf(traces[i])) { continue; }
+                var kept = positive(traces[i].raw), kept2 = traces[i].raw2 ? positive(traces[i].raw2) : null;
+                logDropped += traces[i].raw.length - kept.length + (kept2 ? traces[i].raw2.length - kept2.length : 0);
+                traces[i].raw = kept;
+                if (kept2) { traces[i].raw2 = kept2; }
+            }
             var provL = collectRaw(traces, 'left');
             var provR = collectRaw(traces, 'right');
-            var provLd = domainFor(provL, cfg.LeftMin, cfg.LeftMax, barsLeft, tickCount);
-            var provRd = domainFor(provR, cfg.RightMin, cfg.RightMax, barsRight, tickCount);
+            var provLd = domainFor(provL, cfg.LeftMin, cfg.LeftMax, barsLeft, tickCount, logL);
+            var provRd = domainFor(provR, cfg.RightMin, cfg.RightMax, barsRight, tickCount, logR);
             var prov = margins(provLd, provRd);
             var plotW0 = Math.max(20, W - prov.l - prov.r);
 
@@ -630,11 +1129,13 @@
             // the slot; with stacking each AXIS collapses to one slice, so bars
             // on the left and the right axis still sit side by side rather than
             // stacking two unrelated units on top of each other.
-            var stack = !!cfg.StackBars;
+            // In separate panels each bar trace is alone in its strip.
+            var stack = !!cfg.StackBars && !panelMode;
+            if (cfg.StackBars && panelMode && barTraces.length > 1) { notes.push('bars are not stacked in separate panels'); }
             var groupOf = {};
             var groupCount = 0;
             for (i = 0; i < barTraces.length; i++) {
-                var key = stack ? ('axis:' + barTraces[i].axis) : ('trace:' + barTraces[i].index);
+                var key = panelMode ? 'panel' : (stack ? ('axis:' + barTraces[i].axis) : ('trace:' + barTraces[i].index));
                 if (groupOf[key] === undefined) { groupOf[key] = groupCount; groupCount += 1; }
                 barTraces[i].group = groupOf[key];
             }
@@ -677,9 +1178,15 @@
             var buckets = Math.max(2, Math.min(Math.floor(plotW0 / 2), Math.floor(maxPts / 2)));
             for (i = 0; i < traces.length; i++) {
                 tr = traces[i];
+                if (tr.type === 'states') { continue; }
+                // A moving average and a fit come from every sample, before
+                // anything is thinned for drawing.
+                if (tr.ma && tr.raw.length) { tr.maPts = decimate(movingAverage(tr.raw, tr.ma), buckets); }
+                if (tr.fit) { tr.fitLine = fitLine(tr.raw); }
                 if (tr.type === 'bar') { continue; }
                 tr.pts = decimate(tr.raw, buckets);
                 if (tr.pts.length < tr.raw.length) { tr.decimated = true; }
+                if (tr.raw2) { tr.pts2 = decimate(tr.raw2, buckets); }
             }
 
             // ---- stacked bar totals, per axis --------------------------------
@@ -710,11 +1217,26 @@
             var bandList = PVX.thresholds.parse(bandSpec);
             for (i = 0; i < bandList.length; i++) { leftVals.push(bandList[i].value); }
 
-            var ld = domainFor(leftVals, cfg.LeftMin, cfg.LeftMax, barsLeft, tickCount);
-            var rd = domainFor(rightVals, cfg.RightMin, cfg.RightMax, barsRight, tickCount);
+            var ld = domainFor(leftVals, cfg.LeftMin, cfg.LeftMax, barsLeft, tickCount, logL);
+            var rd = domainFor(rightVals, cfg.RightMin, cfg.RightMax, barsRight, tickCount, logR);
 
-            var lTicks = PVX.scale.ticks(ld[0], ld[1], tickCount);
-            var rTicks = PVX.scale.ticks(rd[0], rd[1], tickCount);
+            var lTicks = axisTicks(ld, logL, tickCount);
+            var rTicks = axisTicks(rd, logR, tickCount);
+
+            // Each panel's own domain, from what it will draw. Explicit axis
+            // bounds still apply to the traces on that axis.
+            var panelTicks = Math.min(tickCount, 4);
+            if (panelMode) {
+                for (i = 0; i < drawn.length; i++) {
+                    tr = drawn[i];
+                    var pv = collectDrawn([tr], tr.axis, false, null);
+                    if (tr.axis === 'left') { for (j = 0; j < bandList.length; j++) { pv.push(bandList[j].value); } }
+                    tr.pd = tr.axis === 'right'
+                        ? domainFor(pv, cfg.RightMin, cfg.RightMax, tr.type === 'bar', panelTicks, logR)
+                        : domainFor(pv, cfg.LeftMin, cfg.LeftMax, tr.type === 'bar', panelTicks, logL);
+                    tr.pt = axisTicks(tr.pd, logOf(tr), panelTicks);
+                }
+            }
 
             // ---- legend layout (needs the final width, not the plot rect) ----
             var legend = null;
@@ -723,10 +1245,21 @@
             }
             var legendH = legend ? legend.height : 0;
 
-            var m = margins(ld, rd);
             var mT = 5 + (legend && legendPos !== 'bottom' ? legendH : 0);
             var mB = 5 + (showTimeTicks ? tickFont + 6 : 2) +
                      (legend && legendPos === 'bottom' ? legendH : 0);
+            var PANEL_GAP = 6;
+            if (panelMode) {
+                var plotH0 = Math.max(10, H - Math.min(mT, H * 0.45) - Math.min(mB, H * 0.45));
+                if ((plotH0 - PANEL_GAP * (drawn.length - 1)) / drawn.length < 24) {
+                    // Too short to read a scale per trace: say so, and share.
+                    notes.push('too short for ' + drawn.length + ' separate panels, so they share axes');
+                    panelMode = false;
+                    drawRight = rightUsed && cfg.ShowRightAxis !== false;
+                    drawLeft = leftUsed && cfg.ShowLeftAxis !== false;
+                }
+            }
+            var m = margins(ld, rd);
 
             // On small boxes the chrome can swallow the plot; cap every side.
             var mL = Math.min(m.l, W * 0.42);
@@ -743,31 +1276,59 @@
             plot.y1 = plot.y + plot.h;
 
             var sx = PVX.scale.linear(tMin, tMax, plot.x, plot.x1);
-            var syL = PVX.scale.linear(ld[0], ld[1], plot.y1, plot.y);   // SVG y grows down
-            var syR = PVX.scale.linear(rd[0], rd[1], plot.y1, plot.y);
+            var syL = yScale(ld, logL, plot.y1, plot.y);   // SVG y grows down
+            var syR = yScale(rd, logR, plot.y1, plot.y);
+
+            // Strips for separate panels, top to bottom in data source order.
+            if (panelMode) {
+                var ph = (plot.h - PANEL_GAP * (drawn.length - 1)) / drawn.length;
+                for (i = 0; i < drawn.length; i++) {
+                    var py = plot.y + i * (ph + PANEL_GAP);
+                    drawn[i].panel = { x: plot.x, y: py, w: plot.w, h: ph, x1: plot.x1, y1: py + ph };
+                    drawn[i].psy = yScale(drawn[i].pd, logOf(drawn[i]), py + ph, py);
+                }
+            }
 
             // ---- limit bands (LEFT axis, underneath everything) --------------
             var bandOpacity = PVX.util.num(cfg.LimitBandOpacity);
             bandOpacity = bandOpacity === null ? 0.14 : PVX.util.clamp(bandOpacity, 0, 1);
             if (bandList.length && bandOpacity > 0) {
-                drawBands(svgRoot, bandSpec, ld, syL, plot, t, bandOpacity, tickFont, showTicks);
-            }
-
-            // ---- grid ---------------------------------------------------------
-            if (cfg.ShowGrid !== false) {
-                // Horizontal lines follow the LEFT axis when it exists: gridlines
-                // for two different scales would draw a lattice that means
-                // nothing on either.
-                var gridTicks = drawLeft || !drawRight ? lTicks : rTicks;
-                var gridScale = drawLeft || !drawRight ? syL : syR;
-                for (i = 0; i < gridTicks.length; i++) {
-                    gridLine(svgRoot, plot.x, gridScale(gridTicks[i]), plot.x1, gridScale(gridTicks[i]), t.grid);
+                if (panelMode) {
+                    for (i = 0; i < drawn.length; i++) {
+                        if (drawn[i].axis !== 'left') { continue; }
+                        drawBands(svgRoot, bandSpec, drawn[i].pd, drawn[i].psy, drawn[i].panel, t, bandOpacity, tickFont, showTicks);
+                    }
+                } else {
+                    drawBands(svgRoot, bandSpec, ld, syL, plot, t, bandOpacity, tickFont, showTicks);
                 }
             }
 
-            // ---- time axis ------------------------------------------------------
+            // ---- digital states, as lanes of shaded bands ----------------------
+            var stateSummary = drawStateLanes(svgRoot, traces, cfg, plot, sx, tMin, tMax, t, tickFont);
+
+            // ---- event frames (under the grid and the traces) ----------------
+            var eventsDrawn = drawEvents(svgRoot, cfg, plot, sx, tMin, tMax, t, tickFont);
+
+            // ---- grid ---------------------------------------------------------
             var timeTicks = buildTimeTicks(cfg, tMin, tMax, plot.w, tickFont);
             if (cfg.ShowGrid !== false) {
+                if (panelMode) {
+                    for (i = 0; i < drawn.length; i++) {
+                        for (j = 0; j < drawn[i].pt.length; j++) {
+                            var gy = drawn[i].psy(drawn[i].pt[j]);
+                            gridLine(svgRoot, plot.x, gy, plot.x1, gy, t.grid);
+                        }
+                    }
+                } else {
+                    // Horizontal lines follow the LEFT axis when it exists:
+                    // gridlines for two different scales would draw a lattice
+                    // that means nothing on either.
+                    var gridTicks = drawLeft || !drawRight ? lTicks : rTicks;
+                    var gridScale = drawLeft || !drawRight ? syL : syR;
+                    for (i = 0; i < gridTicks.length; i++) {
+                        gridLine(svgRoot, plot.x, gridScale(gridTicks[i]), plot.x1, gridScale(gridTicks[i]), t.grid);
+                    }
+                }
                 for (i = 0; i < timeTicks.length; i++) {
                     var gx = sx(timeTicks[i]);
                     gridLine(svgRoot, gx, plot.y, gx, plot.y1, t.grid);
@@ -778,11 +1339,14 @@
             var clipId = host.getAttribute('data-pvx-clip') || PVX.util.uid('comboclip');
             host.setAttribute('data-pvx-clip', clipId);
             var defs = PVX.svg.el('defs', null, svgRoot);
+            var clipRects = panelMode ? drawn.map(function (d) { return d.panel; }) : [plot];
             var clip = PVX.svg.el('clipPath', { id: clipId }, defs);
-            PVX.svg.el('rect', {
-                x: plot.x.toFixed(2), y: plot.y.toFixed(2),
-                width: plot.w.toFixed(2), height: plot.h.toFixed(2)
-            }, clip);
+            for (i = 0; i < clipRects.length; i++) {
+                PVX.svg.el('rect', {
+                    x: clipRects[i].x.toFixed(2), y: clipRects[i].y.toFixed(2),
+                    width: clipRects[i].w.toFixed(2), height: clipRects[i].h.toFixed(2)
+                }, clip);
+            }
             var plotG = PVX.svg.el('g', { 'clip-path': 'url(#' + clipId + ')' }, svgRoot);
 
             var numOpts = PVX.config.numberOpts(cfg);
@@ -796,6 +1360,10 @@
              * yields the bottom of the stack rather than the top.
              * ------------------------------------------------------------- */
             var traceOpts = function (tr) {
+                if (panelMode) {
+                    return { plot: tr.panel, sx: sx, sy: tr.psy, domain: tr.pd,
+                        cfg: cfg, theme: t, numOpts: numOpts, tips: tips };
+                }
                 return {
                     plot: plot, sx: sx,
                     sy: tr.axis === 'right' ? syR : syL,
@@ -805,43 +1373,86 @@
             };
 
             if (slots) {
-                drawBars(plotG, barTraces, {
-                    plot: plot, slots: slots, groups: Math.max(1, groupCount),
-                    stack: stack, syL: syL, syR: syR, ld: ld, rd: rd,
-                    tMin: tMin, tMax: tMax, cfg: cfg, theme: t,
-                    numOpts: numOpts, tips: tips
-                });
+                if (panelMode) {
+                    for (i = 0; i < barTraces.length; i++) {
+                        tr = barTraces[i];
+                        drawBars(plotG, [tr], {
+                            plot: tr.panel, slots: slots, groups: 1, stack: false,
+                            syL: tr.psy, syR: tr.psy, ld: tr.pd, rd: tr.pd,
+                            tMin: tMin, tMax: tMax, cfg: cfg, theme: t, numOpts: numOpts, tips: tips
+                        });
+                    }
+                } else {
+                    drawBars(plotG, barTraces, {
+                        plot: plot, slots: slots, groups: Math.max(1, groupCount),
+                        stack: stack, syL: syL, syR: syR, ld: ld, rd: rd,
+                        tMin: tMin, tMax: tMax, cfg: cfg, theme: t,
+                        numOpts: numOpts, tips: tips
+                    });
+                }
             }
 
-            var order = ['area', 'step', 'line', 'scatter'];
+            var order = ['range', 'area', 'step', 'line', 'scatter'];
             for (var o = 0; o < order.length; o++) {
                 for (i = 0; i < traces.length; i++) {
                     if (traces[i].type !== order[o]) { continue; }
                     drawTrace(plotG, traces[i], traceOpts(traces[i]));
                 }
             }
-
-            // ---- axis lines, ticks, labels -----------------------------------------
-            gridLine(svgRoot, plot.x, plot.y1, plot.x1, plot.y1, t.axis);
-            if (drawLeft) { gridLine(svgRoot, plot.x, plot.y, plot.x, plot.y1, t.axis); }
-            if (drawRight) { gridLine(svgRoot, plot.x1, plot.y, plot.x1, plot.y1, t.axis); }
-
-            if (showTicks && drawLeft) {
-                for (i = 0; i < lTicks.length; i++) {
-                    PVX.svg.text(svgRoot, (plot.x - 4).toFixed(2), syL(lTicks[i]).toFixed(2),
-                        PVX.fmt.tick(lTicks[i]), {
-                            'class': 'pvx-svg-label pvx-num', 'text-anchor': 'end',
-                            'font-size': tickFont, fill: t.textMuted
-                        });
+            // Moving averages and fits over every trace, bars included.
+            for (i = 0; i < traces.length; i++) {
+                if (traces[i].axis !== 'none' && (traces[i].maPts || traces[i].fitLine)) {
+                    drawDerived(plotG, traces[i], traceOpts(traces[i]), tMin, tMax);
                 }
             }
-            if (showTicks && drawRight) {
-                for (i = 0; i < rTicks.length; i++) {
-                    PVX.svg.text(svgRoot, (plot.x1 + 4).toFixed(2), syR(rTicks[i]).toFixed(2),
-                        PVX.fmt.tick(rTicks[i]), {
-                            'class': 'pvx-svg-label pvx-num', 'text-anchor': 'start',
-                            'font-size': tickFont, fill: t.textMuted
-                        });
+
+            // ---- axis lines, ticks, labels -----------------------------------------
+            if (panelMode) {
+                for (i = 0; i < drawn.length; i++) {
+                    var P = drawn[i].panel;
+                    gridLine(svgRoot, P.x, P.y1, P.x1, P.y1, t.axis);
+                    if (drawLeft) { gridLine(svgRoot, P.x, P.y, P.x, P.y1, t.axis); }
+                    if (showTicks && drawLeft) {
+                        for (j = 0; j < drawn[i].pt.length; j++) {
+                            PVX.svg.text(svgRoot, (P.x - 4).toFixed(2), drawn[i].psy(drawn[i].pt[j]).toFixed(2),
+                                PVX.fmt.tick(drawn[i].pt[j]), {
+                                    'class': 'pvx-svg-label pvx-num', 'text-anchor': 'end',
+                                    'font-size': tickFont, fill: t.textMuted
+                                });
+                        }
+                    }
+                    // Which trace a strip is, in its corner: the scales differ,
+                    // so the colour key alone is not enough.
+                    if (P.h >= tickFont + 6 && P.w > 80) {
+                        PVX.svg.text(svgRoot, (P.x + 4).toFixed(2), (P.y + tickFont * 0.75).toFixed(2),
+                            fitText(drawn[i].label + (drawn[i].units ? ' (' + drawn[i].units + ')' : ''), P.w * 0.6, tickFont), {
+                                'class': 'pvx-svg-label pvx-combo-panel-label', 'font-size': tickFont,
+                                fill: drawn[i].color, 'pointer-events': 'none'
+                            });
+                    }
+                }
+            } else {
+                gridLine(svgRoot, plot.x, plot.y1, plot.x1, plot.y1, t.axis);
+                if (drawLeft) { gridLine(svgRoot, plot.x, plot.y, plot.x, plot.y1, t.axis); }
+                if (drawRight) { gridLine(svgRoot, plot.x1, plot.y, plot.x1, plot.y1, t.axis); }
+
+                if (showTicks && drawLeft) {
+                    for (i = 0; i < lTicks.length; i++) {
+                        PVX.svg.text(svgRoot, (plot.x - 4).toFixed(2), syL(lTicks[i]).toFixed(2),
+                            PVX.fmt.tick(lTicks[i]), {
+                                'class': 'pvx-svg-label pvx-num', 'text-anchor': 'end',
+                                'font-size': tickFont, fill: t.textMuted
+                            });
+                    }
+                }
+                if (showTicks && drawRight) {
+                    for (i = 0; i < rTicks.length; i++) {
+                        PVX.svg.text(svgRoot, (plot.x1 + 4).toFixed(2), syR(rTicks[i]).toFixed(2),
+                            PVX.fmt.tick(rTicks[i]), {
+                                'class': 'pvx-svg-label pvx-num', 'text-anchor': 'start',
+                                'font-size': tickFont, fill: t.textMuted
+                            });
+                    }
                 }
             }
 
@@ -852,7 +1463,7 @@
                 }
             }
 
-            if (showAxisTitles && drawLeft && cfg.LeftLabel) {
+            if (showAxisTitles && drawLeft && cfg.LeftLabel && !panelMode) {
                 axisTitle(svgRoot, titleFont * 0.8 + 1, plot.y + plot.h / 2,
                     fitText(cfg.LeftLabel, plot.h, titleFont), -90, titleFont, t);
             }
@@ -860,6 +1471,9 @@
                 axisTitle(svgRoot, W - titleFont * 0.8 - 1, plot.y + plot.h / 2,
                     fitText(cfg.RightLabel, plot.h, titleFont), 90, titleFont, t);
             }
+
+            // ---- rulers --------------------------------------------------------------
+            drawRulers(svgRoot, cfg, plot, sx, tMin, tMax, t, tickFont, traces);
 
             // ---- legend --------------------------------------------------------------
             if (legend) {
@@ -871,13 +1485,23 @@
             // ---- footer note ------------------------------------------------------------
             var decCount = 0;
             for (i = 0; i < traces.length; i++) { if (traces[i].decimated) { decCount += 1; } }
-            var notes = [];
+            if (logDropped) {
+                notes.push(logDropped + (logDropped === 1 ? ' value' : ' values') + ' at or below 0 not drawn on the log scale');
+            }
+            if (traces.rangeAlone) { notes.push('trace ' + traces.rangeAlone + ' is a range but has no next source, so it is a line'); }
+            for (i = 0; i < traces.length; i++) {
+                if (traces[i].maBad) { notes.push(traces[i].label + ': moving average is not a count or a time such as 1h, so none is drawn'); }
+                if (traces[i].fit && !traces[i].fitLine && traces[i].raw.length) { notes.push(traces[i].label + ': too few values for a fit'); }
+            }
+            if (stateSummary) { notes.push(stateSummary); }
             if (decCount) {
                 notes.push(decCount + (decCount === 1 ? ' trace' : ' traces') + ' decimated to fit');
             }
             if (barTraces.length && slots) {
                 notes.push(slots + (slots === 1 ? ' bar slot' : ' bar slots'));
             }
+            var evNote = eventNote(cfg, eventsDrawn);
+            if (evNote) { notes.push(evNote); }
             scope.pvx.note = showNote ? notes.join(' · ') : '';
 
             digest();
@@ -890,14 +1514,22 @@
              *  never clipped and a "0..5" axis does not waste half the width. */
             function margins(leftDomain, rightDomain) {
                 var lw = 0, rw = 0, q;
-                if (showTicks && drawLeft) {
-                    var lt = PVX.scale.ticks(leftDomain[0], leftDomain[1], tickCount);
+                // The provisional pass runs before the panels have domains;
+                // the shared one is near enough to set the width bars use.
+                if (showTicks && drawLeft && panelMode && drawn[0].pt) {
+                    for (var pi = 0; pi < drawn.length; pi++) {
+                        for (q = 0; q < drawn[pi].pt.length; q++) {
+                            lw = Math.max(lw, textW(PVX.fmt.tick(drawn[pi].pt[q]), tickFont));
+                        }
+                    }
+                } else if (showTicks && drawLeft) {
+                    var lt = axisTicks(leftDomain, logL, tickCount);
                     for (q = 0; q < lt.length; q++) {
                         lw = Math.max(lw, textW(PVX.fmt.tick(lt[q]), tickFont));
                     }
                 }
                 if (showTicks && drawRight) {
-                    var rt = PVX.scale.ticks(rightDomain[0], rightDomain[1], tickCount);
+                    var rt = axisTicks(rightDomain, logR, tickCount);
                     for (q = 0; q < rt.length; q++) {
                         rw = Math.max(rw, textW(PVX.fmt.tick(rt[q]), tickFont));
                     }
@@ -921,6 +1553,8 @@
                 if (traces[i].axis !== axis) { continue; }
                 var p = traces[i].raw;
                 for (var j = 0; j < p.length; j++) { out.push(p[j].v); }
+                p = traces[i].raw2 || [];
+                for (j = 0; j < p.length; j++) { out.push(p[j].v); }
             }
             return out;
         }
@@ -939,6 +1573,7 @@
                     }
                 } else {
                     for (j = 0; j < tr.pts.length; j++) { out.push(tr.pts[j].v); }
+                    for (j = 0; j < tr.pts2.length; j++) { out.push(tr.pts2[j].v); }
                 }
             }
             if (stack && totals) {
@@ -1145,6 +1780,23 @@
                         fill: tr.color, 'fill-opacity': 0.75, 'class': 'pvx-combo-dot'
                     }, g);
                 }
+            } else if (tr.type === 'range') {
+                var xy2 = [];
+                for (var u = 0; u < tr.pts2.length; u++) {
+                    xy2.push({ x: L.sx(tr.pts2[u].t), y: L.sy(PVX.util.clamp(tr.pts2[u].v, lo, hi)) });
+                }
+                var ro = PVX.util.num(L.cfg.AreaOpacity);
+                ro = ro === null ? 0.25 : PVX.util.clamp(ro, 0, 1);
+                if (xy2.length) {
+                    // Upper edge left to right, then the lower edge back: a
+                    // closed band whatever times either source reported at.
+                    var d = PVX.svg.line(xy2, false) + ' L' + PVX.svg.line(xy.slice().reverse(), false).slice(1) + ' Z';
+                    PVX.svg.el('path', { d: d, fill: tr.color, 'fill-opacity': ro, stroke: 'none', 'class': 'pvx-combo-range' }, g);
+                    PVX.svg.el('path', { d: PVX.svg.line(xy2, false), fill: 'none', stroke: tr.color, 'stroke-width': Math.max(0.8, lw * 0.6),
+                        'stroke-opacity': 0.8, 'vector-effect': 'non-scaling-stroke', 'class': 'pvx-combo-line' }, g);
+                }
+                PVX.svg.el('path', { d: PVX.svg.line(xy, false), fill: 'none', stroke: tr.color, 'stroke-width': Math.max(0.8, lw * 0.6),
+                    'stroke-opacity': 0.8, 'vector-effect': 'non-scaling-stroke', 'class': 'pvx-combo-line' }, g);
             } else {
                 if (tr.type === 'area') {
                     var opacity = PVX.util.num(L.cfg.AreaOpacity);
@@ -1184,6 +1836,278 @@
             }
         }
 
+        /** A trace's moving average (dashed) and straight-line fit (dotted). */
+        function drawDerived(parent, tr, L, tMin, tMax) {
+            var lo = Math.min(L.domain[0], L.domain[1]);
+            var hi = Math.max(L.domain[0], L.domain[1]);
+            var lw = tr.width !== null ? tr.width : PVX.util.num(L.cfg.LineWidth);
+            lw = lw === null ? 1.8 : PVX.util.clamp(lw, 0.3, 8);
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-derived' }, parent);
+            if (tr.maPts && tr.maPts.length) {
+                var xy = [];
+                for (var i = 0; i < tr.maPts.length; i++) {
+                    xy.push({ x: L.sx(tr.maPts[i].t), y: L.sy(PVX.util.clamp(tr.maPts[i].v, lo, hi)) });
+                }
+                var p = PVX.svg.el('path', {
+                    d: PVX.svg.line(xy, false), fill: 'none', stroke: tr.color, 'stroke-width': lw + 0.6,
+                    'stroke-dasharray': (6 * lw).toFixed(1) + ' ' + (3 * lw).toFixed(1), 'stroke-opacity': 0.9,
+                    'vector-effect': 'non-scaling-stroke', 'class': 'pvx-combo-ma'
+                }, g);
+                if (L.tips) { PVX.svg.el('title', null, p).textContent = tr.label + ': moving average over ' + tr.ma.text; }
+            }
+            if (tr.fitLine) {
+                var f = tr.fitLine;
+                var t0 = tr.raw[0].t, t1 = tr.raw[tr.raw.length - 1].t;
+                var fl = PVX.svg.el('line', {
+                    x1: L.sx(t0).toFixed(2), y1: L.sy(PVX.util.clamp(f.at(t0), lo, hi)).toFixed(2),
+                    x2: L.sx(t1).toFixed(2), y2: L.sy(PVX.util.clamp(f.at(t1), lo, hi)).toFixed(2),
+                    stroke: tr.color, 'stroke-width': Math.max(1, lw), 'stroke-dasharray': '1.5 3',
+                    'stroke-linecap': 'round', 'class': 'pvx-combo-fit'
+                }, g);
+                if (L.tips) {
+                    PVX.svg.el('title', null, fl).textContent = tr.label + ': trend ' + slopeText(f, tr.units, L.numOpts) +
+                        ', R\u00b2 ' + f.r2.toFixed(2);
+                }
+            }
+        }
+
+        function slopeText(f, units, numOpts) {
+            var sgn = f.slope > 0 ? '+' : '';
+            return sgn + PVX.fmt.number(f.slope, numOpts) + (units ? ' ' + units : '') + ' per hour';
+        }
+
+        /* ------------------------------------------------------------------ *
+         * digital states
+         * ------------------------------------------------------------------ */
+
+        /**
+         * One lane per "states" trace across the plot, each state a shaded
+         * span from its timestamp to the next. Colours come from StateColors,
+         * then the palette in order of first appearance, so the same state
+         * keeps its colour across lanes. Returns a footer note, or ''.
+         */
+        function drawStateLanes(parent, traces, cfg, plot, sx, tMin, tMax, t, font) {
+            var lanes = [];
+            for (var i = 0; i < traces.length; i++) { if (traces[i].type === 'states') { lanes.push(traces[i]); } }
+            if (!lanes.length) { return ''; }
+            var fixed = {};
+            var list = PVX.states.parse(cfg.StateColors || '', 'colors');
+            for (i = 0; i < list.length; i++) { if (list[i].color) { fixed[list[i].state.toLowerCase()] = list[i].color; } }
+            // A state with no colour of its own takes the next palette
+            // colour that is not close to one already given: "Auto" shaded
+            // the same red as a listed "Stopped" reads as the same state.
+            var taken = [];
+            for (var fk in fixed) { if (fixed.hasOwnProperty(fk)) { taken.push(PVX.color.toRgb(fixed[fk])); } }
+            var near = function (c) {
+                var rgb = PVX.color.toRgb(c);
+                for (var q = 0; q < taken.length; q++) {
+                    if (rgb && taken[q] && Math.abs(rgb.r - taken[q].r) + Math.abs(rgb.g - taken[q].g) + Math.abs(rgb.b - taken[q].b) < 120) { return true; }
+                }
+                return false;
+            };
+            var pal = [];
+            var basePal = t.categorical || PVX.color.categorical;
+            for (var pi = 0; pi < basePal.length; pi++) { if (!near(basePal[(pi + 3) % basePal.length])) { pal.push(basePal[(pi + 3) % basePal.length]); } }
+            if (!pal.length) { pal = basePal; }
+            var seen = [];
+            var colourOf = function (st) {
+                var k = st.toLowerCase();
+                if (fixed[k]) { return fixed[k]; }
+                var n = seen.indexOf(k);
+                if (n === -1) { seen.push(k); n = seen.length - 1; }
+                return pal[n % pal.length];
+            };
+            var op = PVX.util.num(cfg.StateOpacity);
+            op = op === null ? 0.18 : PVX.util.clamp(op, 0.02, 1);
+            var laneH = plot.h / lanes.length;
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-states' }, parent);
+            var empty = 0;
+            for (var l = 0; l < lanes.length; l++) {
+                var pts = lanes[l].states;
+                var y0 = plot.y + l * laneH;
+                if (!pts.length) { empty += 1; continue; }
+                lanes[l].stateColor = colourOf;
+                for (var j = 0; j < pts.length; j++) {
+                    var a = Math.max(pts[j].t, tMin), b = j + 1 < pts.length ? pts[j + 1].t : tMax;
+                    if (!(b > a)) { continue; }
+                    var st = pts[j].state;
+                    var col = colourOf(st);
+                    var x0 = sx(a), x1 = Math.max(x0 + 0.5, sx(b));
+                    var r = PVX.svg.el('rect', {
+                        x: x0.toFixed(2), y: y0.toFixed(2), width: (x1 - x0).toFixed(2), height: laneH.toFixed(2),
+                        fill: col, 'fill-opacity': op, 'class': 'pvx-combo-state'
+                    }, g);
+                    PVX.svg.el('title', null, r).textContent = lanes[l].label + ': ' + st + '\n' +
+                        PVX.fmt.time(pts[j].t, 'datetime') + ' \u00b7 ' + PVX.fmt.duration(b - pts[j].t);
+                    // The state's name where its span is wide enough to hold it.
+                    if (x1 - x0 > font * 3 && laneH >= font + 4) {
+                        var label = fitText(st, x1 - x0 - 6, font * 0.9);
+                        if (label) {
+                            PVX.svg.text(g, (x0 + 3).toFixed(2), (y0 + laneH - font * 0.55).toFixed(2), label, {
+                                'class': 'pvx-svg-label pvx-combo-state-label', 'font-size': (font * 0.9).toFixed(1),
+                                fill: col, 'pointer-events': 'none'
+                            });
+                        }
+                    }
+                }
+            }
+            return empty ? empty + (empty === 1 ? ' state lane' : ' state lanes') + ' with no values' : '';
+        }
+
+        /* ------------------------------------------------------------------ *
+         * rulers
+         * ------------------------------------------------------------------ */
+
+        /**
+         * The rulers and, through scope.pvx.rulers, the table under the chart.
+         * The overlay that takes clicks is drawn only when Rulers is on and
+         * the display is not being edited.
+         */
+        function drawRulers(parent, cfg, plot, sx, tMin, tMax, t, font, traces) {
+            var on = cfg.Rulers === true;
+            if (!on) { rulers.a = rulers.b = null; }
+            // A ruler outside the window has nothing to measure: take it off.
+            if (rulers.a !== null && (rulers.a < tMin || rulers.a > tMax)) { rulers.a = null; }
+            if (rulers.b !== null && (rulers.b < tMin || rulers.b > tMax)) { rulers.b = null; }
+            if (rulers.a === null && rulers.b !== null) { rulers.a = rulers.b; rulers.b = null; }
+            scope.pvx.rulers = on ? rulerTable(cfg, traces) : null;
+            // The table is an Angular binding under the SVG, and a render
+            // started by a click runs outside any digest, so ask for one.
+            // When the table changes height the body it shares the symbol
+            // with changes too, and the plot was sized for the old one: draw
+            // again once Angular has laid the table out. The shape is what
+            // decides its height, so a drag that only moves a ruler does not
+            // loop through a second render each frame.
+            var shape = on ? (scope.pvx.rulers.rows.length + ':' + (scope.pvx.rulers.hint ? 1 : 0) + ':' + (rulers.a !== null ? 1 : 0)) : '';
+            try { if (scope.$evalAsync) { scope.$evalAsync(function () {}); } } catch (e) { /* no Angular: tests */ }
+            if (shape !== rulers.shape) {
+                rulers.shape = shape;
+                setTimeout(function () { ctx.render(); }, 30);
+            }
+            if (!on) { return; }
+
+            var span = (tMax - tMin) || 1;
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-rulers' }, parent);
+            var hit = PVX.svg.el('rect', {
+                x: plot.x.toFixed(2), y: plot.y.toFixed(2), width: plot.w.toFixed(2), height: plot.h.toFixed(2),
+                fill: 'transparent', 'class': 'pvx-combo-ruler-hit'
+            }, g);
+            var marks = [['A', rulers.a], ['B', rulers.b]];
+            for (var i = 0; i < marks.length; i++) {
+                if (marks[i][1] === null) { continue; }
+                var x = sx(marks[i][1]);
+                PVX.svg.el('line', { x1: x.toFixed(2), y1: plot.y.toFixed(2), x2: x.toFixed(2), y2: plot.y1.toFixed(2),
+                    stroke: t.text, 'stroke-width': 1.2, 'stroke-dasharray': '3 2', 'class': 'pvx-combo-ruler',
+                    'pointer-events': 'none' }, g);
+                PVX.svg.el('rect', { x: (x - font * 0.55).toFixed(2), y: plot.y.toFixed(2), width: (font * 1.1).toFixed(2),
+                    height: (font + 3).toFixed(2), rx: 2, fill: t.text, 'class': 'pvx-combo-ruler-tag', 'pointer-events': 'none' }, g);
+                PVX.svg.text(g, x.toFixed(2), (plot.y + font * 0.6 + 1.5).toFixed(2), marks[i][0], {
+                    'class': 'pvx-svg-label pvx-combo-ruler-name', 'text-anchor': 'middle', 'font-size': font,
+                    fill: t.surface, 'pointer-events': 'none'
+                });
+            }
+            var toT = function (ev) {
+                var box = hit.getBoundingClientRect();
+                var f = box.width > 0 ? (ev.clientX - box.left) / box.width : 0;
+                return tMin + PVX.util.clamp(f, 0, 1) * span;
+            };
+            hit.addEventListener('pointerdown', function (ev) {
+                if (isEditMode()) { return; }
+                var tm = toT(ev);
+                var tol = 6 / Math.max(1, plot.w) * span;
+                var near = null;
+                if (rulers.a !== null && Math.abs(rulers.a - tm) <= tol) { near = 'a'; }
+                else if (rulers.b !== null && Math.abs(rulers.b - tm) <= tol) { near = 'b'; }
+                else if (rulers.a === null) { near = 'a'; }
+                else if (rulers.b === null) { near = 'b'; }
+                else { near = Math.abs(rulers.a - tm) <= Math.abs(rulers.b - tm) ? 'a' : 'b'; }
+                rulers[near] = tm;
+                rulers.drag = near;
+                ev.preventDefault();
+                var move = function (e2) { if (rulers.drag) { rulers[rulers.drag] = toT(e2); ctx.render(); } };
+                var up = function () {
+                    rulers.drag = null;
+                    document.removeEventListener('pointermove', move, false);
+                    document.removeEventListener('pointerup', up, false);
+                };
+                document.addEventListener('pointermove', move, false);
+                document.addEventListener('pointerup', up, false);
+                ctx.render();
+            }, false);
+        }
+
+        /** Rows for the table: every data source drawn, by its own name. */
+        function rulerTable(cfg, traces) {
+            var a = rulers.a, b = rulers.b;
+            var numOpts = PVX.config.numberOpts(cfg);
+            var fmtv = function (p, units) {
+                if (!p) { return '\u2014'; }
+                if (!PVX.util.isNum(p.v)) { return p.state !== undefined ? p.state : '\u2014'; }
+                return PVX.fmt.number(p.v, numOpts) + (units ? ' ' + units : '');
+            };
+            var lo = a === null ? null : (b === null ? a : Math.min(a, b));
+            var hi = a === null ? null : (b === null ? a : Math.max(a, b));
+            var out = {
+                hint: a === null ? 'Click the chart to place ruler A, then again for B.' :
+                    (b === null ? 'Click again to place ruler B.' : ''),
+                a: a === null ? '' : PVX.fmt.time(a, 'datetime'),
+                b: b === null ? '' : PVX.fmt.time(b, 'datetime'),
+                span: a !== null && b !== null ? PVX.fmt.duration(Math.abs(b - a)) : '',
+                both: a !== null && b !== null,
+                rows: []
+            };
+            if (a === null) { return out; }
+            // The times lead the table, with the span where Change goes.
+            out.rows.push({ label: 'Time', color: 'transparent', a: out.a, b: out.b, delta: out.span,
+                min: '', max: '', avg: '', std: '', n: '', trend: '', time: true });
+            var add = function (label, units, points, color, isState, hold) {
+                var row = { label: label, color: color, a: fmtv(valueAt(points, a, hold), units),
+                    b: b === null ? '' : fmtv(valueAt(points, b, hold), units),
+                    delta: '', min: '', max: '', avg: '', std: '', n: '', trend: '' };
+                if (b !== null && !isState) {
+                    var pa = valueAt(points, a, hold), pb = valueAt(points, b, hold);
+                    if (pa && pb && PVX.util.isNum(pa.v) && PVX.util.isNum(pb.v)) {
+                        var dv = pb.v - pa.v;
+                        row.delta = (dv > 0 ? '+' : '') + PVX.fmt.number(dv, numOpts);
+                    }
+                    var inside = [], vals = [];
+                    for (var i = 0; i < points.length; i++) {
+                        if (points[i].t >= lo && points[i].t <= hi && PVX.util.isNum(points[i].v)) {
+                            inside.push(points[i]); vals.push(points[i].v);
+                        }
+                    }
+                    row.n = String(vals.length);
+                    if (vals.length) {
+                        row.min = PVX.fmt.number(Math.min.apply(null, vals), numOpts);
+                        row.max = PVX.fmt.number(Math.max.apply(null, vals), numOpts);
+                        var avg = PVX.stats.intervalAverages(points, lo, hi, 1);
+                        row.avg = avg.length && avg[0].v !== null ? PVX.fmt.number(avg[0].v, numOpts) : '';
+                        row.std = vals.length > 1 ? PVX.fmt.number(PVX.stats.stddev(vals, true), numOpts) : '';
+                    }
+                    // The trend between the rulers is worth having on any
+                    // numeric trace, not only one that draws its fit line.
+                    if (inside.length >= 3) {
+                        var f = fitLine(inside);
+                        if (f) { row.trend = slopeText(f, units, numOpts); }
+                    }
+                }
+                out.rows.push(row);
+            };
+            for (var i = 0; i < traces.length; i++) {
+                var tr = traces[i];
+                if (tr.type === 'states') { add(tr.label, '', tr.states, tr.color, true, true); continue; }
+                var hold = tr.type === 'step' || tr.type === 'bar';
+                if (tr.type === 'range') {
+                    var names = tr.label.split(' \u2013 ');
+                    add(names[0], tr.units, tr.raw, tr.color, false, false);
+                    add(names[1] || '', tr.upper ? tr.upper.units : tr.units, tr.raw2, tr.color, false, false);
+                    continue;
+                }
+                add(tr.label, tr.units, tr.raw, tr.color, false, hold);
+            }
+            return out;
+        }
+
         /* ------------------------------------------------------------------ *
          * legend
          * ------------------------------------------------------------------ */
@@ -1209,10 +2133,10 @@
             for (var i = 0; i < traces.length; i++) {
                 var tr = traces[i];
                 var text = fitText(tr.label, maxLabelW, font);
-                if (showAxis) { text += tr.axis === 'right' ? ' (R)' : ' (L)'; }
+                if (showAxis && tr.axis !== 'none') { text += tr.axis === 'right' ? ' (R)' : ' (L)'; }
                 if (cfg.ShowValues && tr.last !== null) {
-                    text += '  ' + PVX.fmt.number(tr.last, PVX.config.numberOpts(cfg)) +
-                            (tr.units ? ' ' + tr.units : '');
+                    text += '  ' + (tr.type === 'states' ? String(tr.last)
+                        : PVX.fmt.number(tr.last, PVX.config.numberOpts(cfg)) + (tr.units ? ' ' + tr.units : ''));
                 }
                 var w = SWATCH + GAP + textW(text, font) + PAD;
                 if (w > availW) {
@@ -1276,7 +2200,23 @@
          *  grammar as well as its colours. */
         function drawSwatch(parent, tr, x, cy, size) {
             var col = tr.color;
-            if (tr.type === 'bar') {
+            if (tr.type === 'states') {
+                // Three stripes: a lane of states, not one colour.
+                var pal = PVX.color.categorical;
+                for (var q = 0; q < 3; q++) {
+                    PVX.svg.el('rect', {
+                        x: (x + 1 + q * (size - 2) / 3).toFixed(2), y: (cy - size * 0.36).toFixed(2),
+                        width: ((size - 2) / 3).toFixed(2), height: (size * 0.72).toFixed(2),
+                        fill: pal[(q + 3) % pal.length], 'fill-opacity': 0.6, 'class': 'pvx-combo-key'
+                    }, parent);
+                }
+            } else if (tr.type === 'range') {
+                PVX.svg.el('rect', {
+                    x: (x + 1).toFixed(2), y: (cy - size * 0.32).toFixed(2),
+                    width: (size - 2).toFixed(2), height: (size * 0.64).toFixed(2),
+                    fill: col, 'fill-opacity': 0.35, stroke: col, 'stroke-width': 1, 'class': 'pvx-combo-key'
+                }, parent);
+            } else if (tr.type === 'bar') {
                 PVX.svg.el('rect', {
                     x: (x + 1).toFixed(2), y: (cy - size * 0.42).toFixed(2),
                     width: (size - 2).toFixed(2), height: (size * 0.84).toFixed(2),

@@ -166,7 +166,7 @@
                 ShowSummary: true,
 
                 /* -- interaction ---------------------------------------------- */
-                ClickAction: 'none',       // none | navigate
+                ClickAction: 'none',       // none | navigate | time
                 NavigateTarget: ''
             });
         }
@@ -1438,7 +1438,7 @@
             scope.pvx.range = '';
             scope.pvx.summary = '';
             scope.pvx.note = '';
-            scope.pvx.clickable = cfg.ClickAction === 'navigate';
+            scope.pvx.clickable = cfg.ClickAction === 'navigate' || cfg.ClickAction === 'time';
             bindHost(host);
 
             if (state.phase !== 'ok') {
@@ -2050,7 +2050,7 @@
         }
 
         function onClick(ev) {
-            if (liveCfg.ClickAction !== 'navigate') { return; }
+            if (liveCfg.ClickAction !== 'navigate' && liveCfg.ClickAction !== 'time') { return; }
             var node = ev.target;
             var guard = 0;
             while (node && node !== boundHost && guard < 12) {
@@ -2074,13 +2074,20 @@
             if (!(index >= 0) || index >= hits.length) { return; }
             var item = hits[index];
             var target = trim(liveCfg.NavigateTarget);
-            if (!target) { return; }
+            var here = liveCfg.ClickAction === 'time';
+            if (!here && !target) { return; }
 
             var from = item.ev.start;
             var to = item.ev.open ? (new Date()).getTime() : item.ev.end;
             // A little context either side; a zero-length event would otherwise
             // navigate to a zero-length window.
             var pad = Math.max(60000, (to - from) * 0.1);
+            if (here) {
+                // This display, zoomed to the event: the other symbols on it
+                // follow the time range, so they show what they did meanwhile.
+                PVX.nav.setTimeRange(isoOf(from - pad), isoOf(to + pad));
+                return;
+            }
             PVX.nav.go(PVX.nav.url({
                 display: target,
                 start: isoOf(from - pad),

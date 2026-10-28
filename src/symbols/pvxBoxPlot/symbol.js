@@ -1,7 +1,8 @@
 /* ============================================================================
  * pvxBoxPlot — "PVX Variability": box-and-whisker comparison for PI Vision
  * ----------------------------------------------------------------------------
- * DataShape: TimeSeries (Multiple data sources), one box per source.
+ * DataShape: TimeSeries (Multiple data sources), one box per source, or one
+ * box per hour, shift, day or week of a single source.
  *
  * The question this symbol answers is "twenty identical assets, which one is
  * misbehaving". A trend of twenty tags is unreadable; twenty boxes side by side
@@ -26,6 +27,21 @@
  *   engineering units — so it is off by default, the axis switches to percent,
  *   and every tooltip states the real min/max it was scaled against.
  *
+ * BOXES BY TIME
+ *   GroupBy turns the same chart on its side in meaning: one source, cut into
+ *   consecutive hours, shifts, days or weeks in the browser's local time, one
+ *   box per bucket in time order. The question becomes "is this getting
+ *   noisier" or "is the night shift running it differently". Normalising has
+ *   no meaning with one source and is ignored, and sorting is ignored because
+ *   time order is the point; the footer says so rather than quietly obeying
+ *   neither. When there are more buckets than MaxBoxes the latest are kept.
+ *
+ * OVERLAY LINE
+ *   A setpoint or limit to read the boxes against: typed, or from a data
+ *   source (which is then not drawn as a box). By time it is a step, the mean
+ *   of that source within each bucket, because a setpoint that moved halfway
+ *   through the window is exactly what explains a box that moved with it.
+ *
  * RENDERING
  *   Everything except the header/footer chrome is SVG drawn into
  *   `.pvx-box-body`. Geometry is written once against an abstract
@@ -42,6 +58,8 @@
         typeName: 'pvxBoxPlot',
         displayName: 'PVX Variability',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
+        // Positional config, renumbered when a data source is removed.
+        sourceRemap: { GroupSource: 'index', OverlaySource: 'indexAuto' },
         visObjectType: symbolVis,
         // A collection would repeat the whole comparison once per asset, which
         // destroys the only thing this symbol is for.
@@ -93,6 +111,17 @@
                 TickCount: 5,
                 ScaleMin: '',
                 ScaleMax: '',
+
+                // --- boxes by time ----------------------------------------------
+                GroupBy: 'source',           // source | hour | shift | day | week
+                GroupSource: 1,              // by time: the data source cut into buckets
+                ShiftHours: 8,               // shift: length, a divisor of 24
+                ShiftStart: 6,               // shift: hour the first shift of the day starts
+
+                // --- overlay line ------------------------------------------------
+                OverlayValue: '',            // a typed setpoint or limit
+                OverlaySource: '0',          // a data source instead; '0' = none
+                OverlayLabel: '',
 
                 // --- layout ---------------------------------------------------
                 NameWidthPct: 26,            // horizontal orientation only
@@ -207,34 +236,174 @@
             }
         }
 
+        var SHIFT_LENGTHS = [1, 2, 3, 4, 6, 8, 12, 24];
+        var HOUR = 3600000;
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function md(d) { return pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()); }
+
+        /**
+         * The local-time bucket a timestamp falls in: {key, start, end}.
+         * Buckets are built from calendar fields rather than by dividing epoch
+         * milliseconds, so a day starts at local midnight and a shift at its
+         * local hour, which is what the people on those shifts mean by them.
+         */
+        function bucketOf(t, mode, shiftLen, shiftStart) {
+            var d = new Date(t), start, end;
+            if (mode === 'hour') {
+                start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
+                end = new Date(start.getTime() + HOUR);
+            } else if (mode === 'shift') {
+                var s0 = new Date(t - shiftStart * HOUR);
+                var k = Math.floor(s0.getHours() / shiftLen);
+                start = new Date(s0.getFullYear(), s0.getMonth(), s0.getDate(), k * shiftLen + shiftStart);
+                end = new Date(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours() + shiftLen);
+            } else if (mode === 'week') {
+                // Weeks start on Monday, the ISO convention most plants use.
+                var back = (d.getDay() + 6) % 7;
+                start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+                end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+            } else {
+                start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+            }
+            return { key: start.getTime(), start: start, end: end };
+        }
+
+        /** Short slot label and the full tooltip heading for a bucket. */
+        function bucketNames(b, mode, multiDay) {
+            var hm = pad2(b.start.getHours()) + ':' + pad2(b.start.getMinutes());
+            var endHm = pad2(b.end.getHours()) + ':' + pad2(b.end.getMinutes());
+            if (mode === 'hour' || mode === 'shift') {
+                return {
+                    label: multiDay ? md(b.start) + ' ' + hm : hm,
+                    title: PVX.fmt.time(b.start, 'date') + ', ' + hm + ' to ' + endHm
+                };
+            }
+            if (mode === 'week') {
+                return { label: 'wk ' + md(b.start), title: 'Week of ' + PVX.fmt.time(b.start, 'date') };
+            }
+            return { label: md(b.start), title: PVX.fmt.time(b.start, 'date') };
+        }
+
+        /** The overlay source's last numeric value, for a straight line. */
+        function lastValue(s) {
+            for (var i = s.points.length - 1; i >= 0; i--) {
+                if (PVX.util.isNum(s.points[i].v)) { return s.points[i].v; }
+            }
+            return null;
+        }
+
+        /**
+         * The overlay per bucket: the mean of its samples inside the bucket,
+         * else the last value before it, so a setpoint that holds still for a
+         * day (and so records nothing) still draws.
+         */
+        function overlayIn(s, start, end) {
+            var sum = 0, n = 0, before = null;
+            for (var i = 0; i < s.points.length; i++) {
+                var p = s.points[i], tt = PVX.fmt.toDate(p.t);
+                if (!tt || !PVX.util.isNum(p.v)) { continue; }
+                var ms = tt.getTime();
+                if (ms < start) { before = p.v; } else if (ms < end) { sum += p.v; n += 1; }
+            }
+            return n ? sum / n : before;
+        }
+
+        /**
+         * The things to draw a box for: one per source, or one per time bucket
+         * of the chosen source. Each carries its raw values and its naming.
+         */
+        function buildGroups(cfg, mode, overlayIdx, notes) {
+            var out = [], i, j;
+            if (mode === 'source') {
+                for (i = 0; i < series.length; i++) {
+                    if (i === overlayIdx) { continue; }
+                    var s = series[i], vals = [];
+                    for (j = 0; j < s.points.length; j++) { vals.push(s.points[j].v); }
+                    out.push({
+                        label: s.label || ('Series ' + (i + 1)), title: '', units: s.units || '',
+                        path: s.path || '', good: s.good !== false, error: s.errorDescription || '',
+                        index: i, vals: vals
+                    });
+                }
+                return out;
+            }
+
+            var gi = PVX.util.clamp(intOr(cfg.GroupSource, 1), 1, Math.max(1, series.length)) - 1;
+            var src = series[gi];
+            if (!src) { return out; }
+            var others = series.length - 1 - (overlayIdx >= 0 && overlayIdx !== gi ? 1 : 0);
+            if (others > 0) {
+                notes.push(others + ' other source' + (others === 1 ? '' : 's') + ' not drawn: boxes by time use source ' + (gi + 1));
+            }
+            var len = intOr(cfg.ShiftHours, 8);
+            if (SHIFT_LENGTHS.indexOf(len) === -1) { len = 8; }
+            var sStart = PVX.util.clamp(intOr(cfg.ShiftStart, 6), 0, 23) % len;
+            var byKey = {}, keys = [];
+            for (j = 0; j < src.points.length; j++) {
+                var p = src.points[j], tt = PVX.fmt.toDate(p.t);
+                if (!tt) { continue; }
+                var b = bucketOf(tt.getTime(), mode, len, sStart);
+                if (!byKey[b.key]) { byKey[b.key] = { b: b, vals: [] }; keys.push(b.key); }
+                byKey[b.key].vals.push(p.v);
+            }
+            keys.sort(function (a, c) { return a - c; });
+            var multiDay = keys.length > 1 &&
+                new Date(keys[0]).toDateString() !== new Date(keys[keys.length - 1]).toDateString();
+            for (j = 0; j < keys.length; j++) {
+                var g = byKey[keys[j]], nm = bucketNames(g.b, mode, multiDay);
+                out.push({
+                    label: nm.label, title: (src.label || 'Series ' + (gi + 1)) + ' · ' + nm.title,
+                    units: src.units || '', path: src.path || '', good: src.good !== false,
+                    error: src.errorDescription || '', index: j, vals: g.vals,
+                    start: g.b.start.getTime(), end: g.b.end.getTime()
+                });
+            }
+            return out;
+        }
+
         /**
          * series + config -> everything the renderer needs.
          * @returns {Object} {items, notes[], hidden, sparse, badCount, sources, empty}
          */
         function buildModel(cfg) {
             var i, j;
-            var norm = !!cfg.NormalizeScales;
+            var mode = ['hour', 'shift', 'day', 'week'].indexOf(cfg.GroupBy) !== -1 ? cfg.GroupBy : 'source';
+            var byTime = mode !== 'source';
+            var notes = [];
+            var norm = !!cfg.NormalizeScales && !byTime;
+            if (byTime && cfg.NormalizeScales) { notes.push('normalising does not apply to boxes by time'); }
+            if (byTime && cfg.SortBy && cfg.SortBy !== 'none') { notes.push('boxes by time stay in time order'); }
+
+            var ovIdx = intOr(cfg.OverlaySource, 0) - 1;
+            if (ovIdx >= series.length) { ovIdx = -1; }
+            var ovSrc = ovIdx >= 0 ? series[ovIdx] : null;
+            var ovTyped = PVX.util.num(cfg.OverlayValue);
+
             var qo = quartOpts(cfg);
             var maxOut = PVX.util.clamp(intOr(cfg.MaxOutliers, 200), 0, 5000);
             var items = [];
             var emptySeries = 0, sparseCount = 0, badCount = 0, trimmedOutliers = 0;
+            var groups = buildGroups(cfg, mode, ovIdx, notes);
 
-            for (i = 0; i < series.length; i++) {
-                var s = series[i];
-                var vals = [];
-                for (j = 0; j < s.points.length; j++) { vals.push(s.points[j].v); }
+            for (i = 0; i < groups.length; i++) {
+                var s = groups[i];
 
-                var q = PVX.stats.quartiles(vals, qo);
+                var q = PVX.stats.quartiles(s.vals, qo);
                 if (!q) { emptySeries += 1; continue; }
-                if (s.good === false) { badCount += 1; }
+                if (s.good === false && !byTime) { badCount += 1; }
 
                 var it = {
-                    label: s.label || ('Series ' + (i + 1)),
-                    units: s.units || '',
-                    path: s.path || '',
-                    good: s.good !== false,
-                    error: s.errorDescription || '',
-                    index: i,
+                    label: s.label,
+                    title: s.title,
+                    units: s.units,
+                    path: s.path,
+                    good: s.good,
+                    error: s.error,
+                    index: s.index,
+                    start: s.start,
+                    end: s.end,
                     q: q,
                     n: q.n,
                     // Fewer than four samples cannot support quartiles: Q1 and Q3
@@ -282,7 +451,8 @@
                 items.push(it);
             }
 
-            items.sort(compareBy(cfg.SortBy));
+            if (!byTime) { items.sort(compareBy(cfg.SortBy)); }
+            else if (groups.length && groups[0].good === false) { badCount = 1; }
 
             // Beyond this the boxes are sub-pixel and the SVG node count starts
             // to hurt PI Vision's re-layout on every resize.
@@ -290,10 +460,25 @@
             var maxBoxes = PVX.util.clamp(intOr(cfg.MaxBoxes, 30), 1, 60);
             if (items.length > maxBoxes) {
                 hidden = items.length - maxBoxes;
-                items = items.slice(0, maxBoxes);
+                // By time the newest buckets are the ones worth keeping.
+                items = byTime ? items.slice(hidden) : items.slice(0, maxBoxes);
             }
 
-            var notes = [];
+            // Overlay: one value for the whole chart, or one per bucket by time.
+            var overlay = null;
+            if (ovSrc || ovTyped !== null) {
+                if (norm) {
+                    notes.push('overlay line hidden: each box has its own scale');
+                } else {
+                    overlay = { label: cfg.OverlayLabel || (ovSrc ? (ovSrc.label || 'Source ' + (ovIdx + 1)) : 'Target'), values: [] };
+                    var flat = ovSrc ? lastValue(ovSrc) : ovTyped;
+                    for (i = 0; i < items.length; i++) {
+                        overlay.values.push(ovSrc && byTime ? overlayIn(ovSrc, items[i].start, items[i].end) : flat);
+                    }
+                    if (ovSrc && !byTime) { notes.push('source ' + (ovIdx + 1) + ' drawn as the overlay line'); }
+                }
+            }
+
             if (norm) { notes.push('each box scaled 0-100% of its own range'); }
             if (sparseCount) {
                 notes.push(sparseCount + (sparseCount === 1 ? ' series has' : ' series have') +
@@ -303,7 +488,7 @@
                 notes.push(emptySeries + (emptySeries === 1 ? ' series has' : ' series have') + ' no numeric data');
             }
             if (trimmedOutliers) { notes.push('outliers capped at ' + maxOut + ' per box'); }
-            if (hidden) { notes.push('+' + hidden + ' more not shown'); }
+            if (hidden) { notes.push('+' + hidden + (byTime ? ' earlier not shown' : ' more not shown')); }
 
             return {
                 items: items,
@@ -311,7 +496,9 @@
                 hidden: hidden,
                 sparse: sparseCount,
                 badCount: badCount,
-                sources: series.length,
+                sources: groups.length,
+                byTime: byTime,
+                overlay: overlay,
                 normalised: norm,
                 empty: items.length === 0
             };
@@ -458,12 +645,17 @@
             scope.pvx.subtitle = model.normalised
                 ? 'normalised 0-100%'
                 : commonUnitsSuffix(cfg, model);
+            if (model.byTime && model.items.length) {
+                // One source by time: name it, since the slots carry times.
+                var src0 = model.items[0].title.split(' · ')[0];
+                scope.pvx.subtitle = src0 + (scope.pvx.subtitle ? ' · ' + scope.pvx.subtitle : '');
+            }
             scope.pvx.note = model.notes.join(' · ');
             scope.pvx.count = model.items.length
                 ? ((model.items.length < model.sources
                         ? model.items.length + ' of ' + model.sources
                         : String(model.items.length)) +
-                   (model.sources === 1 ? ' series' : ' series'))
+                   (model.byTime ? (model.sources === 1 ? ' box' : ' boxes') : ' series'))
                 : '';
             scope.pvx.error = model.badCount
                 ? (model.badCount + (model.badCount === 1 ? ' series reports' : ' series report') + ' bad quality')
@@ -542,6 +734,9 @@
                     consider(d.lower); consider(d.upper);
                     consider(d.median); consider(d.mean);
                     for (j = 0; j < items[i].outliers.length; j++) { consider(items[i].outliers[j]); }
+                }
+                if (model.overlay) {
+                    for (i = 0; i < n; i++) { consider(model.overlay.values[i]); }
                 }
                 if (lo === null) { lo = 0; hi = 1; }
                 dom = PVX.scale.niceDomain(lo, hi, tickCount);
@@ -673,6 +868,48 @@
                     sl.setAttribute('stroke-dasharray', '5 4');
                     PVX.svg.el('title', null, sl).textContent =
                         'Median of medians: ' + (norm ? Math.round(gm) + '%' : PVX.fmt.number(gm, numOpts));
+                }
+            }
+
+            /* ---- overlay line ----------------------------------------------------- */
+            // Drawn under the boxes so it never hides a median. A step across
+            // each slot by time; one straight line otherwise.
+            if (model.overlay) {
+                var ov = model.overlay, ovPts = [];
+                for (i = 0; i < n; i++) {
+                    var ovv = ov.values[i];
+                    if (!PVX.util.isNum(ovv)) { continue; }
+                    var cs0 = model.byTime ? catStart + slot * i : catStart;
+                    var cs1 = model.byTime ? catStart + slot * (i + 1) : catStart + catSpan;
+                    ovPts.push((ovPts.length ? ' L' : 'M') + pt(cs0, vs(ovv)) + ' L' + pt(cs1, vs(ovv)));
+                    if (!model.byTime) { break; }
+                }
+                if (ovPts.length) {
+                    var ovPath = PVX.svg.el('path', {
+                        d: ovPts.join(''), fill: 'none', stroke: t.status.warning || t.text,
+                        'stroke-width': 1.6, 'stroke-dasharray': '6 3', 'class': 'pvx-box-overlay'
+                    }, svgRoot);
+                    var ovText = [];
+                    for (i = 0; i < n; i++) {
+                        if (!PVX.util.isNum(ov.values[i])) { continue; }
+                        ovText.push((model.byTime ? items[i].label + ': ' : '') + PVX.fmt.number(ov.values[i], numOpts));
+                        if (!model.byTime) { break; }
+                    }
+                    PVX.svg.el('title', null, ovPath).textContent = ov.label + '\n' + ovText.join('\n');
+                    // Named at its right-hand end, where the newest value is,
+                    // so the line explains itself without a hover.
+                    var lastOv = null;
+                    for (i = n - 1; i >= 0 && lastOv === null; i--) {
+                        if (PVX.util.isNum(ov.values[i])) { lastOv = ov.values[i]; }
+                    }
+                    if (vert && lastOv !== null && plot.x1 - plot.x0 > 120) {
+                        var ovl = PVX.svg.text(svgRoot, (plot.x1 - 2).toFixed(2), (vs(lastOv) - 4).toFixed(2),
+                            ov.label + ' ' + PVX.fmt.number(lastOv, numOpts), {
+                                'class': 'pvx-svg-label pvx-box-overlay-label', 'text-anchor': 'end',
+                                'font-size': font * 0.9, fill: t.status.warning || t.text
+                            });
+                        fitTextTo(ovl, (plot.x1 - plot.x0) * 0.5);
+                    }
                 }
             }
 
@@ -921,7 +1158,7 @@
             var opts = PVX.config.numberOpts(cfg);
             var f = function (v) { return PVX.fmt.number(v, opts); };
             var u = item.units ? ' ' + item.units : '';
-            var lines = [item.label];
+            var lines = [item.title || item.label];
 
             lines.push('n = ' + item.n + (item.sparse ? '  (too few for quartiles)' : ''));
             lines.push('min ' + f(q.min) + u + '   Q1 ' + f(q.q1) + u);

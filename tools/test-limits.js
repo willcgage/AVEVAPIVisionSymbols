@@ -33,7 +33,7 @@ const { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const EXT = path.join(ROOT, 'dist', 'ext');
 const CORE = path.join(EXT, 'libraries', 'pvx', 'pvx-core.js');
-const ALARM_SYMBOLS = ['pvxAlarmBanner', 'pvxAnnunciator', 'pvxStatusGrid'];
+const ALARM_SYMBOLS = ['pvxAlarmBanner', 'pvxAnnunciator', 'pvxStatusGrid', 'pvxAlarmTone'];
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', red: '\x1b[31m', green: '\x1b[32m', bold: '\x1b[1m' };
 let failures = 0;
@@ -122,6 +122,9 @@ function render() {
     console.log('');
     console.log(C.bold + 'Limits render (mock plant, values above 90)' + C.reset);
     const BANDS = 'Thresholds=0:#2f9e5f:Normal, 80:#c8452f:Trip';
+
+    const tone = probe('pvxAlarmTone');
+    check('alarm tone, no bands: says nothing can sound', /No limits set, so nothing can sound/.test(tone.text), tone.text);
 
     const ab = probe('pvxAlarmBanner');
     check('banner, no bands: says no limits are set', /No limits set/.test(ab.text), ab.text);

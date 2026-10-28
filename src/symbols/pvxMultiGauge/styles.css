@@ -1,0 +1,64 @@
+/* pvxMultiGauge */
+
+.pvx-mg .pvx-mg-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.pvx-mg .pvx-mg-track,
+.pvx-mg .pvx-mg-band,
+.pvx-mg .pvx-grid-line {
+    pointer-events: none;
+}
+
+/* One row per pointer: its colour, its name and its value. The rows wrap
+   into columns on a wide symbol so a short one still shows them all. */
+.pvx-mg .pvx-mg-readout {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    padding: 2px 8px 4px 8px;
+    font-size: 11.5px;
+    max-height: 40%;
+    overflow: hidden;
+}
+
+.pvx-mg .pvx-mg-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    flex: 1 1 140px;
+}
+
+.pvx-mg .pvx-mg-swatch {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+}
+
+.pvx-mg .pvx-mg-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    opacity: 0.8;
+}
+
+.pvx-mg .pvx-mg-value {
+    flex: 0 0 auto;
+    font-weight: 600;
+}
+
+.pvx-mg .pvx-mg-flagged {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.pvx-mg .pvx-mg-note {
+    flex: 1 1 auto;
+    opacity: 0.7;
+}

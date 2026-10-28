@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="Event list">
+    <title>PVX Event List</title>
+    <!-- A header bar and five event rows, each with a flag for its start and
+         a bar for its duration; the last is still active. Flat and transparent
+         like the other icons, so it reads at palette size. -->
+    <g>
+        <rect x="40" y="56" width="432" height="56" rx="12" fill="#5c6570"/>
+        <path d="M64 150 V198 M64 150 H96 L88 162 L96 174 H64" fill="#3b82c4" stroke="#3b82c4" stroke-width="10" stroke-linejoin="round"/>
+        <rect x="130" y="152" width="200" height="40" rx="10" fill="#8a8f96"/>
+        <rect x="352" y="152" width="120" height="40" rx="10" fill="#3b82c4"/>
+        <rect x="130" y="222" width="160" height="40" rx="10" fill="#8a8f96"/>
+        <rect x="352" y="222" width="76" height="40" rx="10" fill="#3b82c4"/>
+        <rect x="130" y="292" width="220" height="40" rx="10" fill="#8a8f96"/>
+        <rect x="372" y="292" width="100" height="40" rx="10" fill="#3b82c4"/>
+        <rect x="130" y="362" width="180" height="40" rx="10" fill="#8a8f96"/>
+        <rect x="352" y="362" width="120" height="40" rx="10" fill="#d99024"/>
+        <rect x="64" y="226" width="32" height="32" rx="6" fill="#3b82c4"/>
+        <rect x="64" y="296" width="32" height="32" rx="6" fill="#3b82c4"/>
+        <rect x="64" y="366" width="32" height="32" rx="6" fill="#d99024"/>
+    </g>
+</svg>

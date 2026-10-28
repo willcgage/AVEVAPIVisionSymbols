@@ -12,6 +12,9 @@
  *   - Optional target/setpoint marker
  *   - Value text inside the fill (auto-contrast) or past the end of the bar
  *   - Auto light/dark theming, typography scaled to the available cross-axis
+ *   - Options: a thermometer (a bulb at the minimum end), dim the bands the
+ *     value is not in, major ticks on the band limits, minor ticks, and a
+ *     scale that runs the other way (maximum at the left or bottom)
  *
  * Orientation note: the render path is written once in an orientation-neutral
  * (u, v) space — u runs along the bar from min to max, v runs across it — and
@@ -57,7 +60,7 @@
                 UseSymbolScale: true,        // false => trust PI Vision's Indicator
 
                 // Bar
-                BarStyle: 'solid',           // solid | gradient | segmented
+                BarStyle: 'solid',           // solid | gradient | segmented | thermometer
                 SegmentCount: 20,
                 BarThicknessPct: 30,         // % of the cross axis the bar occupies
                 RoundedBar: true,
@@ -74,6 +77,11 @@
                 ShowMinMaxLabels: true,
 
                 // Target marker
+                MinorTicks: 0,               // per major interval
+                TicksAtBands: false,         // major ticks and labels on the band limits
+                HighlightActiveBand: false,  // dim every band but the value's
+                InvertScale: false,          // maximum at the left / bottom
+
                 ShowTarget: false,
                 TargetValue: 75,
                 TargetColor: '#1d2126',
@@ -220,7 +228,18 @@
             var showScale = !!cfg.ShowScale;
             var showEnds = !!cfg.ShowMinMaxLabels;
             var tickVals = [];
-            if (showScale) {
+            var minorVals = [];
+            var bandList = cfg.UseThresholds ? PVX.thresholds.bands(cfg.Thresholds, min, max) : [];
+            if (showScale && (cfg.TicksAtBands || U.num(cfg.MinorTicks) > 0)) {
+                var edges = [];
+                if (cfg.TicksAtBands) {
+                    for (var be = 0; be < bandList.length; be++) { edges.push(bandList[be].from); }
+                }
+                var gt = PVX.scale.gaugeTicks(min, max, U.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 12),
+                    { bandEdges: edges, minorPer: cfg.MinorTicks });
+                tickVals = gt.major.map(function (m) { return m.v; });
+                minorVals = gt.minor;
+            } else if (showScale) {
                 tickVals = PVX.scale.ticks(min, max, U.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 12));
                 tickVals = tickVals.filter(function (v) { return v > min + span * 1e-6 && v < max - span * 1e-6; });
                 tickVals.unshift(min);
@@ -325,6 +344,19 @@
             // string should overflow (the root clips it) rather than erase the bar.
             padS = Math.min(padS, alongTotal * 0.3);
             padE = Math.min(padE, alongTotal * 0.4);
+            // A thermometer's bulb sits past the minimum end: as wide as the
+            // cross axis allows, a little wider than the tube.
+            var invert = !!cfg.InvertScale;
+            var thermo = cfg.BarStyle === 'thermometer';
+            var crossAll = isVert ? W : H;
+            // It stops at the tick marks, so the label at the minimum end
+            // stays clear of it.
+            var bulbR = thermo ? Math.max(2, Math.min(barThick * 0.85, barThick / 2 + Math.max(tickLen, 2),
+                barMidV - 1, crossAll - barMidV - 1)) : 0;
+            if (thermo) {
+                var need = bulbR * 1.85;
+                if (invert) { padE = Math.max(padE, need); } else { padS = Math.max(padS, need); }
+            }
             var L = Math.max(4, alongTotal - padS - padE);
 
             /* -- (u,v) -> screen ------------------------------------------- *
@@ -351,7 +383,12 @@
                 a.height = Math.max(0, r.height).toFixed(2);
                 return PVX.svg.el('rect', a, svgRoot);
             };
-            var uFor = function (v) { return U.clamp((v - min) / span, 0, 1) * L; };
+            // With InvertScale the maximum is at u = 0 and the fill grows
+            // from the far end; fillU0 is where it starts.
+            var uFor = function (v) {
+                var f = U.clamp((v - min) / span, 0, 1);
+                return (invert ? 1 - f : f) * L;
+            };
 
             /* -- colours ---------------------------------------------------- */
             var activeBand = cfg.UseThresholds ? PVX.thresholds.evaluate(cfg.Thresholds, model.value) : null;
@@ -384,11 +421,12 @@
             }, clip);
 
             var style = cfg.BarStyle || 'solid';
+            if (style === 'thermometer') { style = 'solid'; }
             var fillPaint = fillColor;
             if (style === 'gradient' && model.good) {
                 // userSpaceOnUse across the *whole* track, not the fill: the ramp
                 // then stays put as the value moves instead of re-scaling itself.
-                var g0 = px(0, barMidV), g1 = px(L, barMidV);
+                var g0 = px(invert ? L : 0, barMidV), g1 = px(invert ? 0 : L, barMidV);
                 var grad = PVX.svg.el('linearGradient', {
                     id: gradId,
                     gradientUnits: 'userSpaceOnUse',
@@ -421,23 +459,39 @@
             if (cfg.ShowBands && cfg.UseThresholds) {
                 var bandOp = U.num(cfg.BandOpacity);
                 if (bandOp === null) { bandOp = 0.25; }
-                var bands = PVX.thresholds.bands(cfg.Thresholds, min, max);
+                var bands = bandList;
                 var bandG = PVX.svg.el('g', { 'clip-path': 'url(#' + clipId + ')' }, svgRoot);
                 for (var bi = 0; bi < bands.length; bi++) {
-                    var bu0 = uFor(bands[bi].from), bu1 = uFor(bands[bi].to);
+                    var bu0 = Math.min(uFor(bands[bi].from), uFor(bands[bi].to));
+                    var bu1 = Math.max(uFor(bands[bi].from), uFor(bands[bi].to));
                     if (bu1 - bu0 < 0.3) { continue; }
                     var br = rectAt(bu0, barV0, bu1 - bu0, barThick);
+                    var isActive = activeBand && model.value !== null && model.value >= bands[bi].from &&
+                        (model.value < bands[bi].to || bands[bi].to === max);
+                    var op = !cfg.HighlightActiveBand ? bandOp :
+                        isActive ? Math.min(1, Math.max(bandOp * 2.2, 0.6)) : bandOp * 0.4;
                     PVX.svg.el('rect', {
                         x: br.x.toFixed(2), y: br.y.toFixed(2),
                         width: br.width.toFixed(2), height: br.height.toFixed(2),
-                        fill: PVX.color.rgba(bands[bi].color, bandOp),
-                        'class': 'pvx-bar-band'
+                        fill: PVX.color.rgba(bands[bi].color, op),
+                        'class': 'pvx-bar-band' + (cfg.HighlightActiveBand && isActive ? ' pvx-bar-band-active' : '')
                     }, bandG);
                 }
             }
 
             /* -- fill -------------------------------------------------------- */
             var fillLen = frac === null ? 0 : frac * L;
+            var fillU0 = invert ? L - fillLen : 0;
+
+            if (thermo) {
+                // The bulb is always full: it is the reservoir, and an empty
+                // bulb would read as no data rather than a low value.
+                var bc = px(invert ? L + bulbR * 0.75 : -bulbR * 0.75, barMidV);
+                PVX.svg.el('circle', {
+                    cx: bc.x.toFixed(2), cy: bc.y.toFixed(2), r: bulbR.toFixed(2),
+                    fill: frac === null ? t.track : fillColor, 'class': 'pvx-bar-bulb'
+                }, svgRoot);
+            }
 
             if (segmented) {
                 var n = U.clamp(parseInt(cfg.SegmentCount, 10) || 20, 2, 200);
@@ -453,7 +507,7 @@
                 var litExact = frac === null ? 0 : frac * n;
                 for (var si = 0; si < n; si++) {
                     var u0 = si * (cell + gap);
-                    var lit = litExact - si;               // >=1 full, 0..1 partial
+                    var lit = litExact - (invert ? n - 1 - si : si);   // >=1 full, 0..1 partial
                     if (lit >= 1) {
                         addRect(u0, barV0, cell, barThick, {
                             fill: fillPaint, rx: cellR.toFixed(2), ry: cellR.toFixed(2),
@@ -475,7 +529,7 @@
                     }
                 }
             } else if (fillLen > 0.5) {
-                addRect(0, barV0, fillLen, barThick, {
+                addRect(fillU0, barV0, fillLen, barThick, {
                     fill: fillPaint,
                     rx: Math.min(trackR, fillLen / 2).toFixed(2),
                     ry: trackR.toFixed(2),
@@ -492,6 +546,15 @@
                     : tickV1 + labelGap + (isVert ? 0 : tickFont * 0.55);
                 var anchor = isVert ? (scaleAtStart ? 'end' : 'start') : 'middle';
 
+                for (var mk = 0; showScale && mk < minorVals.length; mk++) {
+                    var mu = uFor(minorVals[mk]);
+                    var mt2 = scaleAtStart ? barV0 - tickLen * 0.55 : barV1 + tickLen * 0.55;
+                    var b1 = px(mu, tickV0), b2 = px(mu, mt2);
+                    PVX.svg.el('line', {
+                        x1: b1.x.toFixed(2), y1: b1.y.toFixed(2), x2: b2.x.toFixed(2), y2: b2.y.toFixed(2),
+                        stroke: t.axis, 'stroke-width': 0.75, opacity: 0.7, 'class': 'pvx-grid-line pvx-bar-minor'
+                    }, svgRoot);
+                }
                 for (var k = 0; k < items.length; k++) {
                     if (!showScale) { break; }
                     var tu = uFor(items[k].v);
@@ -503,7 +566,9 @@
                     }, svgRoot);
                 }
 
-                var drawn = thinLabels(items, tickFont, isVert, L, uFor);
+                // thinLabels walks along the bar, so an inverted scale's
+                // items go in reversed.
+                var drawn = thinLabels(invert ? items.slice().reverse() : items, tickFont, isVert, L, uFor);
                 for (var m = 0; m < drawn.length; m++) {
                     var lp = px(uFor(drawn[m].v), labelV);
                     PVX.svg.text(svgRoot, lp.x.toFixed(2), lp.y.toFixed(2), drawn[m].text, {
@@ -561,6 +626,8 @@
                     var iu = isVert
                         ? fillLen - valueGap - valueFont * 0.6
                         : fillLen - valueGap;
+                    // Inverted, the fill's free end is at its start.
+                    if (invert) { iu = isVert ? fillU0 + valueGap + valueFont * 0.6 : fillU0 + valueGap; }
 
                     var ip = px(iu, barMidV);
 
@@ -572,7 +639,7 @@
                     if (segmented) {
                         PVX.svg.text(svgRoot, ip.x.toFixed(2), ip.y.toFixed(2), display, {
                             'class': 'pvx-svg-value pvx-num pvx-bar-value-halo',
-                            'text-anchor': isVert ? 'middle' : 'end',
+                            'text-anchor': isVert ? 'middle' : (invert ? 'start' : 'end'),
                             'font-size': valueFont.toFixed(1),
                             fill: 'none',
                             stroke: fillColor,
@@ -584,7 +651,7 @@
 
                     PVX.svg.text(svgRoot, ip.x.toFixed(2), ip.y.toFixed(2), display, {
                         'class': 'pvx-svg-value pvx-num',
-                        'text-anchor': isVert ? 'middle' : 'end',
+                        'text-anchor': isVert ? 'middle' : (invert ? 'start' : 'end'),
                         'font-size': valueFont.toFixed(1),
                         // Contrast against the fill, which may be any threshold colour.
                         fill: PVX.color.readable(fillColor),
@@ -593,7 +660,7 @@
                 } else {
                     // 'end', or an 'inside' request the fill is too short to honour:
                     // park the text just past whatever the bar actually drew.
-                    var eu = wantInside ? fillLen + valueGap : L + valueGap;
+                    var eu = wantInside && !invert ? fillLen + valueGap : L + valueGap;
                     if (isVert) {
                         // A vertical readout that will not fit across the bar is
                         // captioned above the bar, not above the fill — anchoring it

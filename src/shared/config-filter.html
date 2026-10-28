@@ -1,0 +1,17 @@
+        <!-- Injected by tools/build.js where a pane asks for it with a
+             pvx:filter marker: shared filters between symbols (PVX.filter). -->
+        <div class="pvx-cfg-row">
+            <label for="pvxflt-obey">Follow filters from other symbols</label>
+            <input id="pvxflt-obey" type="checkbox" ng-model="config.FilterObey" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.FilterObey || config.ClickAction === 'filter'">
+            <label for="pvxflt-chan">Filter channel</label>
+            <input id="pvxflt-chan" type="text" ng-model="config.FilterChannel" placeholder="main" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A symbol whose click is set to <em>Filter</em> picks an asset; every symbol following filters on
+            the same channel then shows only that asset and what is under it, without changing the display's
+            asset. A badge on each says what it is filtered by; click it, or the picked row again, to clear.
+            Leave the channel blank unless two groups of symbols on one display should filter apart. A link
+            can preselect one with <code>filter=</code> and asset paths, separated by semicolons.
+        </div>

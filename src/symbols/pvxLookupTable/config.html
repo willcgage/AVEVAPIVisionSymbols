@@ -1,0 +1,182 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Table</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-db">AF database path</label>
+            <input id="pvxlkt-db" type="text" ng-model="config.DatabasePath"
+                   placeholder="\\AFSERVER01\Production" />
+            <!-- pvx:afpicker key=DatabasePath kind=database -->
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-table">Table</label>
+            <input id="pvxlkt-table" type="text" ng-model="config.TableName" placeholder="Grade Specifications" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A table from the database's Library, under Tables, static or linked to an external
+            source; AF does the linking and this only reads. It is read through
+            <strong>PI Web API</strong>. Leave the database blank to use the database of the
+            attribute dropped on this symbol, or of the display's asset. If the table name is wrong,
+            the symbol lists the tables the database has.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-refresh">Refresh every (s)</label>
+            <input id="pvxlkt-refresh" type="number" ng-model="config.RefreshSeconds" min="10" max="86400" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Columns</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-cols">Columns, in order</label>
+            <textarea id="pvxlkt-cols" ng-model="config.Columns" rows="3"
+                      placeholder="Leave blank for every column"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            Separated by commas or lines. <code>Name | Header</code> shows a column under another
+            heading. A name the table does not have is named in the footer.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-tf">Dates as</label>
+            <select id="pvxlkt-tf" ng-model="config.TimeFormat">
+                <option value="short">10/28 14:05</option>
+                <option value="datetime">Oct 28 14:05:00</option>
+                <option value="date">Oct 28, 2026</option>
+                <option value="iso">ISO 8601</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-decimals">Decimals</label>
+            <select id="pvxlkt-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rows</div>
+
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-rf">Row conditions</label>
+            <textarea id="pvxlkt-rf" ng-model="config.RowFilter" rows="3"
+                      placeholder="Unit = {asset}"></textarea>
+        </div>
+        <div class="pvx-cfg-hint">
+            One per line, every one must hold: <code>Column op value</code> with
+            <code>= &lt;&gt; &lt; &lt;= &gt; &gt;=</code>, <code>contains</code>, <code>starts</code> or
+            <code>in A, B, C</code>. Numbers compare as numbers, text without case.
+            <code>{asset}</code> is the name of the display's asset, so one display shared by
+            several units shows each unit's rows.
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-timecol">Only rows dated in the display's time range, by column</label>
+            <input id="pvxlkt-timecol" type="text" ng-model="config.TimeColumn" placeholder="No date column" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-filterbox">Filter box</label>
+            <input id="pvxlkt-filterbox" type="checkbox" ng-model="config.ShowFilterBox" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-filter">Filter box starts with</label>
+            <input id="pvxlkt-filter" type="text" ng-model="config.Filter" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-sort">Sort by column</label>
+            <input id="pvxlkt-sort" type="text" ng-model="config.SortBy" placeholder="The table's own order" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-desc">Largest first</label>
+            <input id="pvxlkt-desc" type="checkbox" ng-model="config.SortDescending" />
+        </div>
+        <div class="pvx-cfg-hint">A click on a heading sorts by it for that viewer; the saved order stays.</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-group">Group by column</label>
+            <input id="pvxlkt-group" type="text" ng-model="config.GroupBy" placeholder="No groups" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-max">Most rows</label>
+            <input id="pvxlkt-max" type="number" ng-model="config.MaxRows" min="1" max="20000" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Colour</div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-colorcol">Colour the cells of column</label>
+            <input id="pvxlkt-colorcol" type="text" ng-model="config.ColorColumn" placeholder="No column" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-hint">A bar down the left of each cell in its band's colour. No bands, no colour.</div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Click and download</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-click">On row click</label>
+            <select id="pvxlkt-click" ng-model="config.ClickAction">
+                <option value="none">Do nothing</option>
+                <option value="asset">Show the row's asset</option>
+                <option value="navigate">Open a display</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction !== 'none'">
+            <label for="pvxlkt-assetcol">Asset column (element paths)</label>
+            <input id="pvxlkt-assetcol" type="text" ng-model="config.AssetColumn" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ClickAction === 'navigate'">
+            <label for="pvxlkt-navtarget">Target display</label>
+            <input id="pvxlkt-navtarget" type="text" ng-model="config.NavigateTarget" placeholder="e.g. 42/Grade-{Grade}" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.ClickAction === 'navigate'">
+            <code>{Column}</code> is the row's value in that column. The asset column, when set, is
+            passed as <code>asset=</code>.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-csvbtn">CSV button</label>
+            <input id="pvxlkt-csvbtn" type="checkbox" ng-model="config.ShowDownload" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-showheader">Show title</label>
+            <input id="pvxlkt-showheader" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxlkt-title">Title</label>
+            <input id="pvxlkt-title" type="text" ng-model="config.Title" placeholder="The table's name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-theme">Theme</label>
+            <select id="pvxlkt-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-transparent">Transparent background</label>
+            <input id="pvxlkt-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-bgcolor">Background colour</label>
+            <input id="pvxlkt-bgcolor" type="color" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxlkt-radius">Corner radius</label>
+            <input id="pvxlkt-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

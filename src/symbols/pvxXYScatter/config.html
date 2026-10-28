@@ -5,8 +5,21 @@
         <div class="pvx-cfg-hint">
             The <strong>first</strong> data source is the X axis, the <strong>second</strong> is the Y axis,
             and in bubble mode the <strong>third</strong> sets each point's size.
-            Any further data sources are ignored. Drag the attributes onto the symbol in that order,
-            or reorder them in the display's data source list.
+            Further data sources are ignored unless Y is every source after X, or one is the gate.
+            Drag the attributes onto the symbol in that order, or reorder them in the display's
+            data source list.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-ysrc">Y axis</label>
+            <select id="pvxxy-ysrc" ng-model="config.YSources">
+                <option value="second">The second source</option>
+                <option value="all">Every source after X</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.YSources === 'all'">
+            Each Y source draws in its own colour with its own fit, named in a legend. In bubble
+            mode the third source still sets the size, and the gate source is never plotted.
+            Colour by time or by threshold colours every series alike.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxxy-intervals">Resolution (points per tag)</label>
@@ -20,6 +33,33 @@
             Each Y sample is paired with the X value in force at that instant. If the newest X sample
             is older than this, the pair is dropped rather than plotted against stale data.
             Use <code>0</code> for no limit.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxxy-gate">Only while source</label>
+            <select id="pvxxy-gate" ng-model="config.GateSource">
+                <option value="0">No gate</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.GateSource && config.GateSource !== '0'">
+            <label for="pvxxy-gmin">is at least</label>
+            <input id="pvxxy-gmin" type="text" ng-model="config.GateMin" placeholder="no minimum" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.GateSource && config.GateSource !== '0'">
+            <label for="pvxxy-gmax">and at most</label>
+            <input id="pvxxy-gmax" type="text" ng-model="config.GateMax" placeholder="no maximum" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A gate keeps only the points taken while another source was in a range, such as
+            <em>speed at least 1000</em> for "while running". Its value is paired by time like X.
+            The points left out are counted under the plot, apart from those with no gate value.
         </div>
     </div>
 
@@ -128,6 +168,14 @@
             <input id="pvxxy-reg" type="checkbox" ng-model="config.ShowRegression" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxxy-fit">Fit</label>
+            <select id="pvxxy-fit" ng-model="config.FitType">
+                <option value="linear">Straight line</option>
+                <option value="poly2">Quadratic (x²)</option>
+                <option value="poly3">Cubic (x³)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxxy-regcolor">Line colour</label>
             <input id="pvxxy-regcolor" type="color" ng-model="config.RegressionColor" />
         </div>
@@ -146,28 +194,44 @@
         <div class="pvx-cfg-legend">Operating envelope</div>
 
         <div class="pvx-cfg-row">
-            <label for="pvxxy-env">Show envelope box</label>
+            <label for="pvxxy-env">Show envelope</label>
             <input id="pvxxy-env" type="checkbox" ng-model="config.ShowEnvelope" />
         </div>
         <div class="pvx-cfg-row">
+            <label for="pvxxy-envshape">Shape</label>
+            <select id="pvxxy-envshape" ng-model="config.EnvelopeShape">
+                <option value="box">A box (X and Y limits)</option>
+                <option value="polygon">A polygon (corners)</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.EnvelopeShape === 'polygon'">
+            <label for="pvxxy-envpoly">Corners, one x,y per line</label>
+            <textarea id="pvxxy-envpoly" rows="5" ng-model="config.EnvelopePolygon" placeholder="100,60&#10;140,70&#10;150,110&#10;105,95"></textarea>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.EnvelopeShape === 'polygon'">
+            In order around the shape; the last joins back to the first. A pump's or a
+            compressor's allowed region is rarely a box. A corner not written as x,y is named
+            under the plot.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeShape !== 'polygon'">
             <label for="pvxxy-envxmin">X minimum</label>
             <input id="pvxxy-envxmin" type="text" ng-model="config.EnvelopeXMin" placeholder="none" />
         </div>
-        <div class="pvx-cfg-row">
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeShape !== 'polygon'">
             <label for="pvxxy-envxmax">X maximum</label>
             <input id="pvxxy-envxmax" type="text" ng-model="config.EnvelopeXMax" placeholder="none" />
         </div>
-        <div class="pvx-cfg-row">
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeShape !== 'polygon'">
             <label for="pvxxy-envymin">Y minimum</label>
             <input id="pvxxy-envymin" type="text" ng-model="config.EnvelopeYMin" placeholder="none" />
         </div>
-        <div class="pvx-cfg-row">
+        <div class="pvx-cfg-row" ng-if="config.EnvelopeShape !== 'polygon'">
             <label for="pvxxy-envymax">Y maximum</label>
             <input id="pvxxy-envymax" type="text" ng-model="config.EnvelopeYMax" placeholder="none" />
         </div>
         <div class="pvx-cfg-hint">
-            Points outside the dashed box are drawn in the alarm colour. Blank bounds are unbounded
-            on that side.
+            Points outside the dashed envelope are drawn in the alarm colour and counted under the
+            plot. Blank box bounds are unbounded on that side.
         </div>
     </div>
 

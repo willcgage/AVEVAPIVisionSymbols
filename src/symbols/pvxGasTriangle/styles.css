@@ -1,0 +1,54 @@
+/* pvxGasTriangle */
+
+.pvx-gt .pvx-gt-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Zones share their edges; anti-aliased seams would read as boundaries of
+   their own. */
+.pvx-gt .pvx-gt-zone {
+    shape-rendering: geometricPrecision;
+}
+
+.pvx-gt .pvx-gt-zone-now {
+    stroke-width: 2;
+}
+
+.pvx-gt .pvx-gt-grid,
+.pvx-gt .pvx-gt-tick,
+.pvx-gt .pvx-gt-zone-label,
+.pvx-gt .pvx-gt-trail,
+.pvx-gt .pvx-gt-empty,
+.pvx-gt .pvx-gt-empty-bg {
+    pointer-events: none;
+}
+
+/* Footer: the zone named on the left, the shares and what was left out on
+   the right; the note yields first when the symbol is narrow. */
+.pvx-gt .pvx-gt-zone-text {
+    flex: 0 1 auto;
+    font-weight: 600;
+}
+
+.pvx-gt .pvx-gt-zone-chip {
+    display: inline-block;
+    width: 0.75em;
+    height: 0.75em;
+    margin-right: 0.4em;
+    border-radius: 2px;
+    vertical-align: -0.05em;
+}
+
+.pvx-gt .pvx-gt-note {
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.7;
+}
+
+.pvx-gt .pvx-footer {
+    color: inherit;
+}

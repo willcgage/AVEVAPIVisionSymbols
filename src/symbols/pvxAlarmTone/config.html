@@ -1,0 +1,155 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">What sounds</div>
+
+        <div class="pvx-cfg-hint">
+            A tone made in the browser when a data source goes into alarm, repeated until
+            it is silenced, acknowledged or clears. No sound files, and nothing to change
+            on the server. Browsers need one click on the symbol before a page may make
+            sound, so it says <em>Click to turn alarm sound on</em> each time the display
+            opens.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-sevfrom">Alarm condition</label>
+            <select id="pvxat-sevfrom" ng-model="config.SeverityFrom">
+                <option value="thresholds">Threshold bands</option>
+                <option value="quality">Bad data quality</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Threshold bands</div>
+            <!-- pvx:bands -->
+        </div>
+        <div class="pvx-cfg-stack">
+            <div class="pvx-cfg-label">Digital states</div>
+            <!-- pvx:states key=StateBands kind=bands -->
+        </div>
+        <div class="pvx-cfg-hint">
+            The same bands as the Annunciator and the Exception Banner: copy them across and
+            the tone sounds for exactly what those show.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-minband">Sound from band</label>
+            <input id="pvxat-minband" type="number" ng-model="config.MinSeverityBand" min="0" max="10" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Band index, counting from 0. With bands Normal, High, Critical, <code>1</code>
+            sounds for High and Critical, <code>2</code> for Critical only.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-deadband">Deadband</label>
+            <input id="pvxat-deadband" type="text" ng-model="config.Deadband" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How far below its limit a value must fall before the alarm counts as clear:
+            <code>2</code> in the source's units, or <code>2%</code> of the limit. Without
+            one, a value sitting on a limit starts a new alarm, and a new tone, again and again.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Tone</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxat-tone">Tone</label>
+            <select id="pvxat-tone" ng-model="config.Tone">
+                <option value="beep">Beep</option>
+                <option value="twoTone">Two tone</option>
+                <option value="pulse">Pulse</option>
+                <option value="chime">Chime</option>
+                <option value="siren">Siren</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-toptone">Highest band</label>
+            <select id="pvxat-toptone" ng-model="config.TopBandTone">
+                <option value="same">The same tone</option>
+                <option value="beep">Beep</option>
+                <option value="twoTone">Two tone</option>
+                <option value="pulse">Pulse</option>
+                <option value="chime">Chime</option>
+                <option value="siren">Siren</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A different tone while anything sounding is in the highest band, so Critical
+            can be told from High without looking.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-volume">Volume (0-100)</label>
+            <input id="pvxat-volume" type="number" ng-model="config.Volume" min="0" max="100" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-repeat">Repeat every (s)</label>
+            <input id="pvxat-repeat" type="number" ng-model="config.RepeatSeconds" min="0" max="3600" />
+        </div>
+        <div class="pvx-cfg-hint"><code>0</code> plays once for each new alarm.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-resound">Sound again when worse</label>
+            <input id="pvxat-resound" type="checkbox" ng-model="config.ResoundOnEscalation" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-standing">Sound standing alarms</label>
+            <input id="pvxat-standing" type="checkbox" ng-model="config.SoundStanding" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Alarms already in force when the display opens. Off, only alarms that start
+            afterwards sound. With shared acknowledgements on, standing alarms already
+            acknowledged stay quiet either way.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-list">Name what is sounding</label>
+            <input id="pvxat-list" type="checkbox" ng-model="config.ShowList" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowList">
+            <label for="pvxat-maxlist">Names shown</label>
+            <input id="pvxat-maxlist" type="number" ng-model="config.MaxListed" min="1" max="20" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Silencing</div>
+
+        <div class="pvx-cfg-hint">
+            Clicking the symbol while it sounds silences it on this screen only; it does
+            not acknowledge anything. With shared acknowledgements on, an acknowledgement
+            made on an Annunciator that uses the same AF attribute silences every screen.
+            This symbol only reads that attribute; it never writes to it.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-sharedack">Silence on shared acknowledgement</label>
+            <input id="pvxat-sharedack" type="checkbox" ng-model="config.SharedAck" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.SharedAck">
+            <label for="pvxat-ackattr">Acknowledgement attribute</label>
+            <input id="pvxat-ackattr" type="text" ng-model="config.AckAttributePath"
+                   placeholder="\\AFSERVER01\Production\Control Room|Annunciator Ack" />
+            <!-- pvx:afpicker key=AckAttributePath kind=attribute -->
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.SharedAck">
+            <label for="pvxat-ackpoll">Poll interval (s)</label>
+            <input id="pvxat-ackpoll" type="number" ng-model="config.AckPollSeconds" min="2" max="3600" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.SharedAck">
+            Needs PI Web API. Give this symbol the same data sources as the Annunciator, so
+            each alarm is known by the same name in both.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Title</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxat-showtitle">Show title</label>
+            <input id="pvxat-showtitle" type="checkbox" ng-model="config.ShowTitle" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ShowTitle">
+            <label for="pvxat-title">Title</label>
+            <input id="pvxat-title" type="text" ng-model="config.Title" />
+        </div>
+    </div>
+
+</div>

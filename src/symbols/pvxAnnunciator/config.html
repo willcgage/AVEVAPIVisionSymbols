@@ -58,6 +58,16 @@
             Band index, counting from 0. With the default bands, <code>1</code> means
             High and above latch, Normal does not.
         </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxann-deadband">Deadband</label>
+            <input id="pvxann-deadband" type="text" ng-model="config.Deadband" placeholder="none" />
+        </div>
+        <div class="pvx-cfg-hint">
+            How far below its limit a value must fall before the tile counts it as
+            back: <code>2</code> in the point's units, or <code>2%</code> of the limit.
+            It stops a value sitting on a limit ringing the tile again and again.
+            Blank means none.
+        </div>
     </div>
 
     <div class="pvx-cfg-group">

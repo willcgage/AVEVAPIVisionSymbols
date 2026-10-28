@@ -1,0 +1,124 @@
+/* pvxReplay: everything namespaced under .pvx-replay. var() values are
+   written by symbol.js at render time; the literals here are only the
+   fallbacks used before the first paint. */
+
+.pvx-replay {
+    --pvx-surface: #ffffff;
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    --pvx-border: #d6dbe1;
+    --pvx-replay-color: #3b82c4;
+    --pvx-replay-on-color: #ffffff;
+    --pvx-replay-tint: rgba(59, 130, 196, 0.14);
+    --pvx-replay-warn: #c8452f;
+    --pvx-replay-radius: 4px;
+    color: var(--pvx-text);
+}
+
+.pvx-replay .pvx-replay-surface {
+    background: var(--pvx-surface);
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-replay .pvx-replay-header { padding: 5px 8px 0 8px; }
+
+.pvx-replay .pvx-replay-header .pvx-title {
+    color: var(--pvx-muted);
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+}
+
+.pvx-replay .pvx-replay-bodywrap { padding: 0; }
+
+.pvx-replay .pvx-replay-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 5px 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    overflow: hidden;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.pvx-replay .pvx-replay-body:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--pvx-replay-tint);
+}
+
+.pvx-replay .pvx-replay-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.pvx-replay .pvx-replay-btn {
+    flex: 0 0 auto;
+    font: inherit;
+    font-size: 11px;
+    line-height: 1;
+    height: 26px;
+    min-width: 26px;
+    padding: 0 7px;
+    border: 1px solid var(--pvx-replay-color);
+    border-radius: var(--pvx-replay-radius);
+    background: transparent;
+    color: var(--pvx-replay-color);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.pvx-replay .pvx-replay-btn:hover:not([disabled]) { background: var(--pvx-replay-tint); }
+
+.pvx-replay .pvx-replay-btn:focus-visible {
+    outline: 2px solid var(--pvx-replay-color);
+    outline-offset: 1px;
+}
+
+.pvx-replay .pvx-replay-play {
+    min-width: 34px;
+    background: var(--pvx-replay-color);
+    color: var(--pvx-replay-on-color);
+}
+
+.pvx-replay .pvx-replay-play:hover:not([disabled]) { background: var(--pvx-replay-color); opacity: 0.88; }
+
+.pvx-replay .pvx-replay-btn[disabled],
+.pvx-replay .pvx-replay-slider[disabled] {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.pvx-replay .pvx-replay-slider {
+    flex: 1 1 auto;
+    min-width: 40px;
+    margin: 0 4px;
+    accent-color: var(--pvx-replay-color);
+}
+
+.pvx-replay .pvx-replay-foot {
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.pvx-replay .pvx-replay-readout { color: var(--pvx-muted); flex: 0 1 auto; min-width: 0; white-space: pre; }
+.pvx-replay .pvx-replay-msg { color: var(--pvx-replay-warn); flex: 1 1 auto; min-width: 0; }
+
+/* Narrow symbols (data-pvx-fit, set by symbol.js from the width). */
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] [data-pvx-act="first"],
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] [data-pvx-act="last"],
+.pvx-replay .pvx-replay-body[data-pvx-fit="narrow"] .pvx-replay-slider,
+.pvx-replay .pvx-replay-body[data-pvx-fit="tiny"] .pvx-replay-small,
+.pvx-replay .pvx-replay-body[data-pvx-fit="tiny"] .pvx-replay-slider {
+    display: none !important;
+}

@@ -1,0 +1,101 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">What to replay</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-from">Replay from</label>
+            <input id="pvxrp-from" type="text" ng-model="config.ReplayFrom" placeholder="*-1d" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-to">Replay to</label>
+            <input id="pvxrp-to" type="text" ng-model="config.ReplayTo" placeholder="*" />
+        </div>
+        <div class="pvx-cfg-hint">
+            PI time: <code>*-1d</code>, <code>y+6h</code>, <code>2026-10-27 03:00</code>. Relative
+            times are fixed when Play is pressed, so the replay does not drift while it runs.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-span">Window shown</label>
+            <input id="pvxrp-span" type="text" ng-model="config.WindowSpan" placeholder="1h" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-step">Each step moves</label>
+            <input id="pvxrp-step" type="text" ng-model="config.Step" placeholder="10m" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Lengths of time: <code>30m</code>, <code>1h</code>, <code>1h 30m</code>, <code>2d</code>.
+            At each step every symbol on the display shows the window ending at that moment,
+            so trends scroll and values read as they were then.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-secs">Seconds between steps</label>
+            <input id="pvxrp-secs" type="number" ng-model="config.StepSeconds" min="1" max="600" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Each step reloads the display's data from the archive. One second is the least; a
+            display with many symbols or long windows wants more, or steps arrive before the
+            last one has loaded.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-loop">Start again at the end</label>
+            <input id="pvxrp-loop" type="checkbox" ng-model="config.Loop" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Controls</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-slider">Position slider</label>
+            <input id="pvxrp-slider" type="checkbox" ng-model="config.ShowSlider" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-readout">Readout</label>
+            <input id="pvxrp-readout" type="checkbox" ng-model="config.ShowReadout" />
+        </div>
+        <div class="pvx-cfg-hint">
+            With the symbol focused, Space plays and pauses, the arrow keys step, and Home and
+            End jump. Changing the time any other way pauses the replay. Exit returns to the
+            range shown before it. Nothing about the replay is saved with the display.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-showtitle">Show title</label>
+            <input id="pvxrp-showtitle" type="checkbox" ng-model="config.ShowTitle" />
+        </div>
+        <div class="pvx-cfg-stack" ng-if="config.ShowTitle">
+            <label for="pvxrp-title">Title</label>
+            <input id="pvxrp-title" type="text" ng-model="config.Title" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-color">Button colour</label>
+            <input id="pvxrp-color" type="color" ng-model="config.ButtonColor" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-radius">Button corners</label>
+            <input id="pvxrp-radius" type="number" ng-model="config.ButtonRadius" min="0" max="20" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-theme">Theme</label>
+            <select id="pvxrp-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-transparent">Transparent background</label>
+            <input id="pvxrp-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxrp-radius2">Corner radius</label>
+            <input id="pvxrp-radius2" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

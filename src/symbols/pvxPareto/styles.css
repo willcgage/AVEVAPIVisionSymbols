@@ -104,3 +104,5 @@
 /* Bars that open a display. */
 .pvx-pareto .pvx-pareto-click { cursor: pointer; }
 .pvx-pareto .pvx-pareto-click:hover rect { filter: brightness(1.12); }
+/* The bar that is the shared filter (ClickAction 'filter'). */
+.pvx-pareto .pvx-pareto-picked rect { stroke: #1d2126; stroke-width: 2px; }

@@ -15,10 +15,11 @@
  * with this version: the old wrapper ignored the settings whenever PI Vision
  * happened to load this file before pvx-core.js.
  *
- * Only the five symbols that talk to PI Web API care about any of this — Event
+ * Most of this concerns only the symbols that talk to PI Web API — Event
  * Frames, AF browsing and manual data entry — plus pvxAnnunciator if SharedAck
- * is turned on. The other twenty-five symbols run entirely on PI Vision's own
- * data pipeline and need nothing here.
+ * is turned on. The rest run entirely on PI Vision's own data pipeline and
+ * need nothing here. The one exception is the optional site theme at the end,
+ * which every symbol follows.
  *
  * If baseUrl is left blank, those symbols look for PI Web API on this PI
  * Vision server itself, at https://<this server>/piwebapi, once per page. Where
@@ -110,7 +111,48 @@
         timeoutMs: 20000,
         cacheTtlMs: 30000,      // shared GET cache; a display has many symbols
                                 // asking overlapping questions on one refresh
-        maxBatchSize: 50        // sub-requests per /batch call
+        maxBatchSize: 50,       // sub-requests per /batch call
+
+        /* -- Site theme, optional ------------------------------------------- *
+         * A corporate look set once for every PVX symbol on this server,
+         * instead of in each symbol's format pane. Every key is optional, and
+         * whatever a symbol sets for itself (Theme, Background, Text colour)
+         * still wins. Colours are hex or rgb()/rgba(); anything else is
+         * ignored and named in the browser console as "[PVX] pvx-config.js
+         * theme: ... ignored."
+         *
+         *   theme: {
+         *       palette: ['#00539b', '#f7a800', '#5b8f22', '#a4343a', '#6d4c91'],
+         *       status:  { normal: '#2e7d32', warning: '#ef8a00', alarm: '#c62828' },
+         *       light:   { surface: '#ffffff', text: '#1b1f24', border: '#c9ced4' },
+         *       dark:    { surface: '#1e2228', text: '#eef1f4' },
+         *       font:    '"Arial", sans-serif',
+         *       container: { radius: 4, border: '1px solid #c9ced4', shadow: '0 1px 2px rgba(0,0,0,0.15)' }
+         *   },
+         *
+         * palette    series colours, in order (at least two)
+         * status     normal, info, warning, alarm, critical, stale, unknown
+         * light/dark surface, surfaceAlt, border, text, textMuted, grid, axis, track
+         * container  every symbol's card: corner radius in px, border, shadow
+         */
+        theme: null,
+
+        /* -- Map tiles for pvxGeoView, optional ----------------------------- *
+         * The Geo View draws its map from a tile server named here, and from
+         * nowhere else: without one it shows a latitude and longitude grid.
+         * Any server of Web Mercator tiles addressed {z}/{x}/{y} will do, such
+         * as a GIS server on the site's own network. Each viewer's browser asks
+         * it for the tiles, so it must be reachable from there, and its terms
+         * of use are the site's to meet.
+         *
+         *   map: {
+         *       tileUrl: 'https://gis.example.com/tiles/{z}/{x}/{y}.png',
+         *       attribution: 'Map data (c) Example GIS',
+         *       maxZoom: 18,
+         *       subdomains: ''          // 'abc' fills {s} in the address
+         *   },
+         */
+        map: null
 
     };
 

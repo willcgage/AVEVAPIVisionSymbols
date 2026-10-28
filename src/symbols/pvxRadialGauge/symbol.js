@@ -10,6 +10,8 @@
  *   - Optional target/setpoint marker
  *   - Value colour follows the active threshold band
  *   - Auto light/dark theming, fully responsive typography
+ *   - Options: dim the bands the value is not in, major ticks on the band
+ *     limits, minor ticks, and a scale that runs the other way
  *
  * This file is the reference implementation for the library: every other PVX
  * symbol follows the same structure (definition -> init -> PVX.bootstrap ->
@@ -51,6 +53,10 @@
                 ShowScaleLabels: true,
                 ShowTicks: true,
                 TickCount: 5,
+                MinorTicks: 0,             // per major interval
+                TicksAtBands: false,       // major ticks and labels on the band limits
+                HighlightActiveBand: false, // dim every band but the value's
+                InvertScale: false,        // maximum at the start angle
 
                 // Target marker
                 ShowTarget: false,
@@ -120,6 +126,8 @@
             if (!cfg.UseSymbolScale && PVX.util.isNum(model.indicator)) {
                 return PVX.util.clamp(model.indicator / 100, 0, 1);
             }
+            // The fraction is of the scale; InvertScale is applied where it
+            // becomes an angle, so the arc and needle agree.
             if (model.value === null) { return null; }
             var b = scaleBounds(cfg);
             return PVX.util.clamp((model.value - b[0]) / ((b[1] - b[0]) || 1), 0, 1);
@@ -171,9 +179,10 @@
             var rInner = r - thickness;
             var rMid = (rOuter + rInner) / 2;
 
+            var invert = !!cfg.InvertScale;
+            var angleOf = function (f) { return startA + (invert ? 1 - f : f) * sweep; };
             var angleFor = function (v) {
-                var f = PVX.util.clamp((v - bounds[0]) / ((bounds[1] - bounds[0]) || 1), 0, 1);
-                return startA + f * sweep;
+                return angleOf(PVX.util.clamp((v - bounds[0]) / ((bounds[1] - bounds[0]) || 1), 0, 1));
             };
 
             // --- track --------------------------------------------------------
@@ -185,16 +194,24 @@
 
             // --- threshold bands ----------------------------------------------
             var activeBand = cfg.UseThresholds ? PVX.thresholds.evaluate(cfg.Thresholds, model.value) : null;
+            var bands = cfg.UseThresholds ? PVX.thresholds.bands(cfg.Thresholds, bounds[0], bounds[1]) : [];
             if (cfg.ShowBands && cfg.UseThresholds) {
-                var bands = PVX.thresholds.bands(cfg.Thresholds, bounds[0], bounds[1]);
+                var bandOp = PVX.util.num(cfg.BandOpacity) || 0.28;
                 for (var i = 0; i < bands.length; i++) {
-                    var a0 = angleFor(bands[i].from);
-                    var a1 = angleFor(bands[i].to);
+                    var a0 = Math.min(angleFor(bands[i].from), angleFor(bands[i].to));
+                    var a1 = Math.max(angleFor(bands[i].from), angleFor(bands[i].to));
                     if (a1 - a0 < 0.2) { continue; }
+                    // Highlighting dims the rest rather than brightening the
+                    // one, so the value's band reads at a glance from across a
+                    // control room while the others still show where they are.
+                    var isActive = activeBand && model.value !== null &&
+                        model.value >= bands[i].from && (model.value < bands[i].to || bands[i].to === bounds[1]);
+                    var op = !cfg.HighlightActiveBand ? bandOp :
+                        isActive ? Math.min(1, Math.max(bandOp * 2.2, 0.6)) : bandOp * 0.4;
                     PVX.svg.el('path', {
                         d: PVX.svg.annulus(cx, cy, rInner, rOuter, a0, a1),
-                        fill: PVX.color.rgba(bands[i].color, PVX.util.num(cfg.BandOpacity) || 0.28),
-                        'class': 'pvx-gauge-band'
+                        fill: PVX.color.rgba(bands[i].color, op),
+                        'class': 'pvx-gauge-band' + (cfg.HighlightActiveBand && isActive ? ' pvx-gauge-band-active' : '')
                     }, svgRoot);
                 }
             }
@@ -213,10 +230,13 @@
             // --- progress arc ---------------------------------------------------
             var style = cfg.GaugeStyle || 'arc';
             if (frac !== null && (style === 'arc' || style === 'both')) {
-                var valA = startA + frac * sweep;
-                if (valA - startA > 0.2) {
+                // The arc grows from the minimum, which is the end angle
+                // when the scale is inverted.
+                var valA = angleOf(frac);
+                var from = invert ? endA : startA;
+                if (Math.abs(valA - from) > 0.2) {
                     PVX.svg.el('path', {
-                        d: PVX.svg.annulus(cx, cy, rInner, rOuter, startA, valA),
+                        d: PVX.svg.annulus(cx, cy, rInner, rOuter, Math.min(from, valA), Math.max(from, valA)),
                         fill: valueColor,
                         'class': 'pvx-gauge-value-arc pvx-animate'
                     }, svgRoot);
@@ -233,11 +253,26 @@
             rContent = Math.max(12, rContent);
 
             if (cfg.ShowTicks || cfg.ShowScaleLabels) {
-                var tickVals = PVX.scale.ticks(bounds[0], bounds[1],
-                    PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 12));
-                // Always anchor the ends of the dial.
-                if (tickVals[0] > bounds[0]) { tickVals.unshift(bounds[0]); }
-                if (tickVals[tickVals.length - 1] < bounds[1]) { tickVals.push(bounds[1]); }
+                var edges = [];
+                if (cfg.TicksAtBands) {
+                    for (var be = 0; be < bands.length; be++) { edges.push(bands[be].from); }
+                }
+                var gt = PVX.scale.gaugeTicks(bounds[0], bounds[1],
+                    PVX.util.clamp(parseInt(cfg.TickCount, 10) || 5, 2, 12),
+                    { bandEdges: edges, minorPer: cfg.MinorTicks });
+                var tickVals = gt.major.map(function (m) { return m.v; });
+
+                if (cfg.ShowTicks) {
+                    for (var mk = 0; mk < gt.minor.length; mk++) {
+                        var ma = angleFor(gt.minor[mk]);
+                        var m1 = PVX.svg.polar(cx, cy, rInner - 2, ma);
+                        var m2 = PVX.svg.polar(cx, cy, rInner - 2 - (tickLen - 2) * 0.5, ma);
+                        PVX.svg.el('line', {
+                            x1: m1.x.toFixed(2), y1: m1.y.toFixed(2), x2: m2.x.toFixed(2), y2: m2.y.toFixed(2),
+                            stroke: t.axis, 'stroke-width': 0.75, opacity: 0.7, 'class': 'pvx-grid-line pvx-gauge-minor'
+                        }, svgRoot);
+                    }
+                }
 
                 for (var k = 0; k < tickVals.length; k++) {
                     var tv = tickVals[k];
@@ -282,7 +317,7 @@
 
             // --- needle -----------------------------------------------------------
             if (frac !== null && (style === 'needle' || style === 'both')) {
-                var na = startA + frac * sweep;
+                var na = angleOf(frac);
                 var tip = PVX.svg.polar(cx, cy, rInner - Math.max(3, r * 0.06), na);
                 var baseW = Math.max(2, r * 0.035);
                 var bl = PVX.svg.polar(cx, cy, baseW, na - 90);

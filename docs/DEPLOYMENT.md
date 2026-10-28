@@ -11,13 +11,16 @@ installations only need the first two:
 |---|---|---|
 | **1 · Install** | Copy `ext` onto each PI Vision web server | Everyone |
 | **2 · Confirm** | Check the symbols appear and draw | Everyone |
-| **3 · Configure PI Web API** | Edit one file, per server | Only if you use the five PI Web API symbols |
+| **3 · Configure PI Web API** | Edit one file, per server | Only if you use the ten PI Web API symbols |
 
-Twenty-eight of the thirty-three symbols work the moment phase 1 finishes. Phase 3
-exists only for `pvxEventGantt`, `pvxEventAnalytics`, `pvxAssetTree`,
-`pvxManualEntry` and `pvxEntryTable` — and for `pvxAnnunciator` if you turn on
-shared acknowledgement. Skip it otherwise; nothing else in the library reads
-those settings.
+Forty of the fifty symbols work the moment phase 1 finishes. Phase 3
+exists only for `pvxGeoView` (unless its locations are typed in), `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
+`pvxAssetTable`, `pvxAssetRollup`, `pvxLookupTable`, `pvxManualEntry` and `pvxEntryTable`, and for nine others only
+if you turn on the option that needs it: event frames on `pvxComboChart`,
+limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu
+from AF on `pvxNavPanel` or `pvxDisplayMenu`, shared acknowledgement on `pvxAnnunciator` (which
+`pvxAlarmTone` can read to silence itself), History mode on `pvxAlarmBanner`, runs from event frames on `pvxPeriodOverlay`, the Quick trend button any symbol can show, and a time-series symbol's own time range. Skip it
+otherwise; nothing else in the library reads those settings.
 
 ---
 
@@ -30,7 +33,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (630 render checks)
+[ ] npm run verify passes on the build machine        (900 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -67,7 +70,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 35 symbols…
+    …one set of four per symbol, 50 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -115,6 +118,16 @@ Two files in `libraries\pvx` deserve attention:
 - **`pvx-config.js` is yours.** It ships blank and is the only file the deploy
   script refuses to overwrite. Everything else is generated from source and
   replaced on every deployment.
+
+**A site theme also lives in `pvx-config.js`** (from 1.15.0): a series palette,
+status colours, light and dark surface and text colours, a font, and the card's
+corner radius, border and shadow, set once for every PVX symbol on the server.
+The block is documented at the end of the shipped file. Because an upgrade never
+replaces your copy, a server that already has one will not show the new block:
+add a `theme: { ... }` key to its settings object by hand, after `maxBatchSize`.
+Whatever a symbol sets in its own format pane still wins. A colour that is not
+hex or `rgb()` is ignored, and the browser console says which, as
+`[PVX] pvx-config.js theme: ... ignored.` A clean theme logs nothing.
 
 `piwebapi-check.html` ships *inside* `ext` deliberately — it has to run from the
 PI Vision origin to reproduce what a symbol actually faces. Opened from a file
@@ -226,7 +239,7 @@ npm run verify
 
 `PVX_CHROMIUM` is honoured by `verify.js`, `probe.js`, `test-api.js`,
 `test-sources.js`, `test-afpick.js`, `test-states.js`, `test-tags.js`, `test-limits.js`,
-`test-overview.js` and `test-charts.js`. Note
+`test-overview.js`, `test-charts.js`, `test-overlay.js`, `test-alarms.js` and `test-entry.js`. Note
 that it removes the *browser download*, not the package — `require('playwright')`
 still needs the module present.
 
@@ -336,7 +349,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 630 render checks must pass
+npm run verify        # gate: 900 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 
@@ -419,14 +432,15 @@ value within one refresh. This proves the whole path — registration, template
 resolution, the shared runtime, the data pipeline — in about fifteen seconds,
 and it fails loudly rather than subtly if any part of it is wrong.
 
-That is the entire installation for twenty-eight of the thirty-three symbols.
+That is the entire installation for forty of the fifty symbols.
 
 ---
 
 ## Phase 3 — Configure PI Web API
 
-Only needed for the five symbols that reach things PI Vision cannot hand a
-display: Event Frames, the AF hierarchy, and writing values back.
+Only needed for the ten symbols that reach things PI Vision cannot hand a
+display (Event Frames, the AF hierarchy, AF tables, writing values back), and for the nine
+options listed at the top of this guide.
 
 Full background, including what AVEVA recommends and why, is in
 **[PI-WEB-API.md](PI-WEB-API.md)**. This is the procedure.
@@ -792,11 +806,23 @@ rotation needs its own copy — see *Configuration notes* above.
 
 ## Security notes
 
-- **Twenty-eight of the thirty-three symbols make no network calls of their own.** They
-  render only the data PI Vision hands them and have no server-side
-  prerequisites beyond the file copy.
-- **Five symbols call PI Web API**, and only after `pvx-config.js` gives them a
-  `baseUrl`. Requests carry the signed-in user's identity under the configured
+- **`pvxGeoView` draws map tiles only from the server named as `map.tileUrl`
+  in `pvx-config.js`.** Nothing in the library names one, so no display
+  fetches tiles from the internet unless the site points it there. The tiles
+  are plain image requests from each viewer's browser, so that server must be
+  reachable from wherever the display is opened.
+- **Thirty-one of the fifty symbols make no network calls of their own**
+  unless the Quick trend button, which any symbol can show, is turned on and
+  pressed, or a time-series symbol is given a time range of its own. They render only the data PI Vision hands them and have no
+  server-side prerequisites beyond the file copy.
+- **The save buttons make their files in the browser**: the History Table's
+  CSV button, and the optional save button any symbol can show (PNG, SVG,
+  CSV). Nothing is uploaded; a file holds only what the user could already
+  read on the display.
+- **Seventeen symbols can call PI Web API**: nine for their main job, eight only for
+  an option that is off by default (the list is under phase 3 above). They ask
+  PI Vision's own server for `/piwebapi` when `pvx-config.js` leaves `baseUrl`
+  blank, and stay quiet when `autoDiscover` is off and no `baseUrl` is set. Requests carry the signed-in user's identity under the configured
   strategy, so **PI and AF security remain the access control** — PVX adds no
   permission model of its own and cannot grant access a user does not already
   have.

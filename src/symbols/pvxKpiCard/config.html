@@ -11,13 +11,33 @@
             <label for="pvxkpi-stat">Statistic</label>
             <select id="pvxkpi-stat" ng-model="config.Statistic">
                 <option value="last">Latest value</option>
-                <option value="avg">Average</option>
+                <option value="avg">Average of samples</option>
+                <option value="twavg">Time-weighted average</option>
                 <option value="min">Minimum</option>
                 <option value="max">Maximum</option>
                 <option value="first">First value</option>
                 <option value="range">Range</option>
-                <option value="sum">Total</option>
+                <option value="sum">Sum of samples</option>
+                <option value="total">Total over time (a rate)</option>
+                <option value="stdev">Standard deviation</option>
+                <option value="count">Count of samples</option>
+                <option value="pctgood">Percent good</option>
             </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Statistic === 'total'">
+            <label for="pvxkpi-per">The rate is per</label>
+            <select id="pvxkpi-per" ng-model="config.TotalPer">
+                <option value="s">Second</option>
+                <option value="min">Minute</option>
+                <option value="h">Hour</option>
+                <option value="d">Day</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Over the display's time range. <em>Time-weighted</em> counts each value for as long as it held,
+            which plot values need: they crowd into the changes. <em>Total over time</em> integrates a rate,
+            so a flow in t/h over a shift gives tonnes. <em>Percent good</em> is the share of samples that
+            were good numbers, not a system state.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-align">Alignment</label>
@@ -52,6 +72,14 @@
             <label for="pvxkpi-time">Show timestamp</label>
             <input id="pvxkpi-time" type="checkbox" ng-model="config.ShowTime" />
         </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-timefmt">Timestamp as</label>
+            <select id="pvxkpi-timefmt" ng-model="config.TimeFormat" ng-disabled="!config.ShowTime">
+                <option value="short">Date and time (10/28 14:05)</option>
+                <option value="datetime">Month, day, seconds (Oct 28 14:05:09)</option>
+                <option value="relative">Age (5m ago)</option>
+            </select>
+        </div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -65,12 +93,34 @@
             <label for="pvxkpi-basis">Compare with</label>
             <select id="pvxkpi-basis" ng-model="config.DeltaBasis">
                 <option value="window">Earlier in the time range</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
             </select>
         </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-planfrom">The plan is</label>
+            <select id="pvxkpi-planfrom" ng-model="config.PlanFrom">
+                <option value="source">Data source 2</option>
+                <option value="af">The attribute's Target in AF</option>
+                <option value="fixed">A number typed here</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.PlanFrom === 'fixed'">
+            <label for="pvxkpi-target">Target</label>
+            <input id="pvxkpi-target" type="text" ng-model="config.TargetValue" placeholder="e.g. 1200" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-tol">Tolerance</label>
+            <input id="pvxkpi-tol" type="text" ng-model="config.TargetTolerance" placeholder="none, 5 or 2%" />
+        </div>
         <div class="pvx-cfg-hint">
-            <em>Plan</em> compares the headline with the second data source, reduced by the same
-            statistic. Drop the plan or target attribute onto the card after the KPI itself.
+            Compared with the plan, a headline within this much of it, either side, reads <em>On target</em>
+            in the good colour with no arrow. An amount is in the KPI's units; <code>2%</code> is of the plan.
+        </div>
+        <div class="pvx-cfg-hint">
+            <em>Plan</em> compares the headline with the plan, reduced by the same statistic. As data
+            source 2, drop the plan or target attribute onto the card after the KPI itself. From AF,
+            the KPI attribute's own Target limit trait is read through PI Web API once a minute, so a
+            target changed in AF reaches every card at once; it draws as a level on the sparkline.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-deltamode">Display as</label>
@@ -105,6 +155,29 @@
         <div class="pvx-cfg-row">
             <label for="pvxkpi-badcolor">Bad colour</label>
             <input id="pvxkpi-badcolor" type="color" ng-model="config.BadColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Progress</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-prog">Show progress</label>
+            <select id="pvxkpi-prog" ng-model="config.ProgressStyle">
+                <option value="none">None</option>
+                <option value="bar">Bar</option>
+                <option value="ring">Ring</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxkpi-progzero">Counted from</label>
+            <input id="pvxkpi-progzero" type="number" ng-model="config.ProgressZero" ng-disabled="config.ProgressStyle === 'none'" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The headline as a share of the plan (above), measured from this value: 0 for production against a
+            target, or a starting level. Green once the plan is reached in the good direction, or within the
+            tolerance; red short of it; the accent colour when neither direction is good. The figure is shown
+            too, since a full bar cannot tell 100% from 140%.
         </div>
     </div>
 
@@ -156,10 +229,14 @@
                 <option value="min">Minimum</option>
                 <option value="max">Maximum</option>
                 <option value="avg">Average</option>
+                <option value="twavg">Time-weighted average</option>
+                <option value="stdev">Standard deviation</option>
+                <option value="total">Total over time</option>
+                <option value="pctgood">Percent good</option>
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
             </select>
         </div>
         <div class="pvx-cfg-row">
@@ -169,10 +246,14 @@
                 <option value="min">Minimum</option>
                 <option value="max">Maximum</option>
                 <option value="avg">Average</option>
+                <option value="twavg">Time-weighted average</option>
+                <option value="stdev">Standard deviation</option>
+                <option value="total">Total over time</option>
+                <option value="pctgood">Percent good</option>
                 <option value="range">Range</option>
                 <option value="first">First</option>
                 <option value="count">Count</option>
-                <option value="plan">Plan (data source 2)</option>
+                <option value="plan">Plan</option>
             </select>
         </div>
     </div>

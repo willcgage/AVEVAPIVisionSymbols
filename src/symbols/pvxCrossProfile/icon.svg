@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Cross profile">
+    <!-- A position-by-time map with a streak, and a profile line under it -->
+    <rect x="64" y="64" width="384" height="224" rx="12" fill="none" stroke="#d6dbe1" stroke-width="16"/>
+    <rect x="300" y="72" width="48" height="112" fill="#c8452f" opacity="0.8"/>
+    <rect x="72" y="72" width="40" height="208" fill="#67a9cf" opacity="0.8"/>
+    <rect x="400" y="72" width="40" height="208" fill="#67a9cf" opacity="0.8"/>
+    <path d="M72 420 C140 380 200 372 260 376 C300 378 316 340 328 344 C344 350 372 384 440 420"
+          fill="none" stroke="#3b82c4" stroke-width="20" stroke-linecap="round"/>
+</svg>

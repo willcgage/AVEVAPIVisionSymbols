@@ -74,10 +74,19 @@
         <div class="pvx-cfg-hint">0 makes it a pie. Keeping a hole gives the total somewhere to live and stops the eye comparing wedges by area, which it does badly.</div>
 
         <div class="pvx-cfg-row">
+            <label for="pvxdon-shape">Shape</label>
+            <select id="pvxdon-shape" ng-model="config.Shape">
+                <option value="full">Full ring</option>
+                <option value="half">Half ring</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">A half ring runs over the top from 9 o'clock to 3 o'clock and takes half the height, so it sits in a row of gauges.</div>
+
+        <div class="pvx-cfg-row" ng-if="config.Shape !== 'half'">
             <label for="pvxdon-start">Start angle (&deg;)</label>
             <input id="pvxdon-start" type="number" ng-model="config.StartAngle" min="-360" max="360" />
         </div>
-        <div class="pvx-cfg-hint">0&deg; is 12 o'clock.</div>
+        <div class="pvx-cfg-hint" ng-if="config.Shape !== 'half'">0&deg; is 12 o'clock.</div>
 
         <div class="pvx-cfg-row">
             <label for="pvxdon-cw">Clockwise</label>

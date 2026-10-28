@@ -27,6 +27,7 @@
  *   --out          PNG path                   (default /tmp/pvx-<symbol>.png)
  *   --port         override the auto-derived port
  *   --json         print the inspection report as JSON
+ *   --clicks       "fx,fy;fx,fy": click at fractions of the box, in order
  * ==========================================================================*/
 'use strict';
 
@@ -222,6 +223,21 @@ server.on('listening', async () => {
         catch (e) { return { fatal: 'second update: ' + (e.stack || e.message) }; }
         await new Promise((r) => setTimeout(r, 220));
 
+        // Clicks, each a fraction of the box across and down, for a symbol
+        // that is used by pointing (the Combo Chart's rulers): a pointer
+        // press on whatever is drawn there, then the release on the page.
+        for (let ci = 0; ci < a.clicks.length; ci++) {
+            const b0 = box.getBoundingClientRect();
+            const cx = b0.left + a.clicks[ci][0] * b0.width, cy = b0.top + a.clicks[ci][1] * b0.height;
+            const target = document.elementFromPoint(cx, cy);
+            if (!target) { continue; }
+            const init = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, pointerId: 1, isPrimary: true, button: 0 };
+            target.dispatchEvent(new PointerEvent('pointerdown', init));
+            document.dispatchEvent(new PointerEvent('pointerup', init));
+            await new Promise((r) => setTimeout(r, 150));
+        }
+        if (a.clicks.length) { await new Promise((r) => setTimeout(r, 200)); }
+
         const br = box.getBoundingClientRect();
         let maxOverflow = 0, worst = '';
         const bad = [];
@@ -258,6 +274,13 @@ server.on('listening', async () => {
             // Every tooltip in full: the text above is cut short, and a test
             // checking a computed share reads it from the tooltip.
             tips: Array.prototype.map.call(box.querySelectorAll('title'), (n) => n.textContent),
+            // Every drawn SVG label in full, one per <text>: a fit equation or
+            // a stats card sits past where the cut-short text ends.
+            labels: Array.prototype.map.call(box.querySelectorAll('svg text'), (n) => n.textContent).slice(0, 400),
+            // Table cells in full, a row per <tr>: a test checking a computed
+            // cell reads it here rather than from the cut-short text.
+            rows: Array.prototype.slice.call(box.querySelectorAll('tr'), 0, 400).map((tr) =>
+                Array.prototype.map.call(tr.children, (td) => td.textContent.replace(/\s+/g, ' ').trim())),
             footer: Array.prototype.map.call(box.querySelectorAll('.pvx-footer'), (n) => n.textContent.replace(/\s+/g, ' ').trim()).join(' '),
             badAttrs: bad.slice(0, 5),
             maxOverflow: Math.round(maxOverflow),
@@ -270,6 +293,7 @@ server.on('listening', async () => {
         points: parseInt(opt('points', 140), 10),
         hours: parseFloat(opt('hours', 8)),
         mockProfile, overrides,
+        clicks: String(opt('clicks', '')).split(';').filter(Boolean).map((c) => c.split(',').map(Number)),
         payload: opt('payload', '') ? fs.readFileSync(opt('payload'), 'utf8') : ''
     }).catch((e) => ({ fatal: 'evaluate: ' + e.message }));
 

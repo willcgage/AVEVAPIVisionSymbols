@@ -125,6 +125,119 @@
     padding: 8px;
 }
 
+/* --- overlay: save button and stale badge (PVX.overlay) ------------------- */
+
+.pvx-overlay {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.pvx-overlay > * {
+    pointer-events: auto;
+}
+
+.pvx-overlay .pvx-overlay-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid rgba(128, 128, 128, 0.45);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #1d2126;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.pvx:hover .pvx-overlay .pvx-overlay-btn,
+.pvx-overlay .pvx-overlay-btn:focus {
+    opacity: 1;
+}
+
+.pvx-overlay .pvx-overlay-menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 110px;
+    padding: 3px 0;
+    border: 1px solid rgba(128, 128, 128, 0.45);
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.pvx-overlay .pvx-overlay-item {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: #1d2126;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pvx-overlay .pvx-overlay-item:hover,
+.pvx-overlay .pvx-overlay-item:focus {
+    background: #e8eef5;
+}
+
+.pvx-overlay .pvx-overlay-stale {
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #d99024;
+    color: #1d2126;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The symbol's own time range: always shown, so nobody reads it as the
+   display's. Quiet, unlike the stale badge. */
+.pvx-overlay .pvx-overlay-range {
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(59, 130, 196, 0.16);
+    color: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pvx-overlay .pvx-overlay-range-warn {
+    background: #d99024;
+    color: #1d2126;
+}
+
+/* A filter from another symbol: always shown while it applies, and the
+   way to clear it. */
+.pvx-overlay .pvx-overlay-filter {
+    padding: 1px 6px;
+    border: 1px solid rgba(59, 130, 196, 0.6);
+    border-radius: 3px;
+    background: rgba(59, 130, 196, 0.16);
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.pvx-overlay .pvx-overlay-note {
+    max-width: 220px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    background: #1d2126;
+    color: #ffffff;
+    white-space: normal;
+}
+
 /* --- interactive elements ------------------------------------------------- */
 
 .pvx-btn {
@@ -637,3 +750,350 @@
 .pvx-cfg-af-where, .pvx-cfg-af-type { opacity: 0.6; font-size: 10.5px; }
 .pvx-cfg-af-type { flex: 0 0 auto; }
 .pvx-cfg-af-msg { opacity: 0.85; }
+
+/* --- quick trend panel (PVX.trend) --------------------------------------- *
+ * On document.body, outside every symbol, so it is namespaced .pvx-qt and
+ * takes its colours from the symbol that opened it. */
+
+.pvx-qt {
+    --pvx-qt-surface: #ffffff;
+    --pvx-qt-text: #1d2126;
+    --pvx-qt-muted: #5c6570;
+    --pvx-qt-border: #d6dbe1;
+    position: fixed;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    min-width: 260px;
+    min-height: 180px;
+    box-sizing: border-box;
+    overflow: hidden;
+    resize: both;
+    background: var(--pvx-qt-surface);
+    color: var(--pvx-qt-text);
+    border: 1px solid var(--pvx-qt-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 11px;
+}
+
+.pvx-qt:focus {
+    outline: none;
+}
+
+.pvx-qt .pvx-qt-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px 4px 10px;
+    border-bottom: 1px solid var(--pvx-qt-border);
+    cursor: move;
+    user-select: none;
+}
+
+.pvx-qt .pvx-qt-title {
+    flex: 1 1 auto;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.pvx-qt .pvx-qt-range {
+    font: inherit;
+    color: var(--pvx-qt-text);
+    background: var(--pvx-qt-surface);
+    border: 1px solid var(--pvx-qt-border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    cursor: pointer;
+}
+
+.pvx-qt .pvx-qt-close,
+.pvx-qt .pvx-qt-remove {
+    border: none;
+    background: transparent;
+    color: var(--pvx-qt-muted);
+    font: inherit;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+}
+
+.pvx-qt .pvx-qt-remove {
+    font-size: 12px;
+    padding: 0 2px;
+}
+
+.pvx-qt .pvx-qt-close:hover,
+.pvx-qt .pvx-qt-remove:hover {
+    color: var(--pvx-qt-text);
+}
+
+.pvx-qt .pvx-qt-legend {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 4px 10px 0 10px;
+}
+
+.pvx-qt .pvx-qt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.pvx-qt .pvx-qt-swatch {
+    flex: 0 0 auto;
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.pvx-qt .pvx-qt-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pvx-qt .pvx-qt-plot {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.pvx-qt .pvx-qt-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+}
+
+.pvx-qt .pvx-qt-msg {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    overflow: auto;
+    padding: 16px 12px;
+    text-align: center;
+    color: var(--pvx-qt-muted);
+}
+
+.pvx-qt .pvx-qt-msg-head {
+    font-weight: 600;
+    color: var(--pvx-qt-text);
+    margin-bottom: 4px;
+}
+
+.pvx-qt .pvx-qt-warn .pvx-qt-msg-head { color: #b8781a; }
+.pvx-qt .pvx-qt-alarm .pvx-qt-msg-head { color: #c8452f; }
+
+.pvx-qt .pvx-qt-foot {
+    flex: 0 0 auto;
+    padding: 2px 10px 4px 10px;
+    color: var(--pvx-qt-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 14px;
+}
+
+.pvx-qt .pvx-qt-chip-none .pvx-qt-swatch,
+.pvx-qt .pvx-qt-chip-none .pvx-qt-name {
+    opacity: 0.45;
+}
+
+/* --- entry controls (PVX.entry): Manual Entry and the Shift Log ---------- *
+ * Real buttons and inputs, sized to be hit with a gloved finger on a panel
+ * PC. --pvx-ctl-accent is set by the symbol from its button colour. */
+
+.pvx .pvx-ctl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+.pvx .pvx-ctl > input:not([type="hidden"]),
+.pvx .pvx-ctl > select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.pvx .pvx-ctl-step,
+.pvx .pvx-ctl-opt {
+    font-family: inherit;
+    color: var(--pvx-text, #1d2126);
+    background: var(--pvx-surface-alt, #f4f6f8);
+    border: 1px solid var(--pvx-border, #d6dbe1);
+    cursor: pointer;
+}
+.pvx .pvx-ctl-step {
+    flex: 0 0 auto;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+}
+.pvx .pvx-ctl-range {
+    flex: 1 1 auto;
+    min-width: 60px;
+    accent-color: var(--pvx-ctl-accent, #3b82c4);
+}
+.pvx .pvx-ctl-readout {
+    flex: 0 0 auto;
+    font-size: 12px;
+    min-width: 3.5em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.pvx .pvx-ctl-sw {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 22px;
+    padding: 0;
+    border-radius: 11px;
+    border: 1px solid var(--pvx-border, #d6dbe1);
+    background: var(--pvx-surface-alt, #f4f6f8);
+    cursor: pointer;
+}
+.pvx .pvx-ctl-sw::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--pvx-muted, #5c6570);
+    transition: left 0.12s;
+}
+.pvx .pvx-ctl-sw[aria-checked="true"] {
+    background: var(--pvx-ctl-accent, #3b82c4);
+    border-color: transparent;
+}
+.pvx .pvx-ctl-sw[aria-checked="true"]::after { left: 21px; background: #ffffff; }
+.pvx .pvx-ctl-sw[aria-checked="mixed"]::after { left: 12px; opacity: 0.5; }
+.pvx .pvx-ctl-cap {
+    flex: 1 1 auto;
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pvx .pvx-ctl-seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.pvx .pvx-ctl-opt {
+    font-size: 12px;
+    min-height: 26px;
+    padding: 2px 9px;
+    margin: 0 -1px 0 0;
+    border-radius: 0;
+}
+.pvx .pvx-ctl-opt:first-child { border-radius: 4px 0 0 4px; }
+.pvx .pvx-ctl-opt:last-child { border-radius: 0 4px 4px 0; margin-right: 0; }
+/* What PI holds now: marked, so the row of buttons reads as the plant's state
+   until somebody picks a different one. */
+.pvx .pvx-ctl-opt[data-current="yes"] { font-weight: 700; }
+.pvx .pvx-ctl-opt[aria-pressed="true"] {
+    background: var(--pvx-ctl-accent, #3b82c4);
+    border-color: var(--pvx-ctl-accent, #3b82c4);
+    color: #ffffff;
+    position: relative;
+}
+/* Picked but not yet written: outlined in the warning colour, so a flipped
+   switch is not taken for the state of the plant. */
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-sw,
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-range,
+.pvx .pvx-ctl[data-pending="yes"] .pvx-ctl-seg {
+    outline: 2px solid var(--pvx-warn, #d99024);
+    outline-offset: 2px;
+}
+.pvx .pvx-ctl button:disabled,
+.pvx .pvx-ctl input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.pvx .pvx-ctl button:focus-visible {
+    outline: 2px solid var(--pvx-ctl-accent, #3b82c4);
+    outline-offset: 1px;
+}
+
+/* --- PVX.writer: a small write from a symbol that mostly reads ------------ */
+
+.pvx .pvx-writer {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    padding: 6px 8px;
+    border: 1px solid #d99024;
+    border-radius: 4px;
+    background: rgba(128, 128, 128, 0.08);
+    font-size: 12px;
+}
+
+.pvx .pvx-writer-title { font-weight: 600; margin-bottom: 4px; }
+
+.pvx .pvx-writer-lines {
+    max-height: 72px;
+    overflow-y: auto;
+    margin-bottom: 4px;
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.pvx .pvx-writer-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 3px;
+}
+
+.pvx .pvx-writer-label { flex: 0 0 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pvx .pvx-writer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 4px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 3px;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+}
+
+.pvx .pvx-writer-confirm { margin-bottom: 4px; }
+
+.pvx .pvx-writer-actions { display: flex; gap: 6px; }
+
+.pvx .pvx-writer-btn {
+    padding: 3px 10px;
+    border: 1px solid rgba(128, 128, 128, 0.5);
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.pvx .pvx-writer-go,
+.pvx .pvx-writer-yes { background: #3b82c4; border-color: #3b82c4; color: #ffffff; font-weight: 600; }
+
+.pvx .pvx-writer-msg { margin-top: 4px; }
+.pvx .pvx-writer-msg[data-tone="ok"] .pvx-writer-msg-text { color: #2f9e5f; font-weight: 600; }
+.pvx .pvx-writer-msg[data-tone="error"] .pvx-writer-msg-text { color: #c8452f; font-weight: 600; }
+.pvx .pvx-writer-msg[data-tone="warn"] .pvx-writer-msg-text { color: #d99024; font-weight: 600; }
+.pvx .pvx-writer-msg-detail { font-size: 11px; opacity: 0.85; }
