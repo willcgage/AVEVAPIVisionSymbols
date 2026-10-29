@@ -1,0 +1,78 @@
+/* pvxTargetForecast: "PVX Target & Forecast"
+ * Only the chrome is styled here; every chart color comes from the runtime
+ * theme tokens. The custom properties are fallbacks that symbol.js overwrites
+ * on the root every render. */
+
+.pvx-tfc {
+    --pvx-text: #1d2126;
+    --pvx-muted: #5c6570;
+    color: var(--pvx-text);
+}
+
+.pvx-tfc .pvx-surface {
+    border-color: transparent;
+    border-radius: inherit;
+}
+
+.pvx-tfc .pvx-header {
+    padding: 5px 8px 1px 8px;
+}
+
+.pvx-tfc .pvx-title {
+    color: var(--pvx-text);
+}
+
+.pvx-tfc .pvx-footer {
+    padding: 1px 8px 5px 8px;
+    color: var(--pvx-muted);
+    font-size: 9.5px;
+}
+
+.pvx-tfc .pvx-tfc-body {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+}
+
+.pvx-tfc .pvx-tfc-note {
+    flex: 1 1 auto;
+    text-align: right;
+    opacity: 0.8;
+}
+
+/* Bands and the shaded future are context: never let them take the hover
+   from the slices that carry the readings. */
+.pvx-tfc .pvx-tfc-future,
+.pvx-tfc .pvx-tfc-tol,
+.pvx-tfc .pvx-tfc-range,
+.pvx-tfc .pvx-tfc-actual,
+.pvx-tfc .pvx-tfc-target,
+.pvx-tfc .pvx-tfc-forecast,
+.pvx-tfc .pvx-tfc-now,
+.pvx-tfc .pvx-tfc-now-label,
+.pvx-tfc .pvx-tfc-dot,
+.pvx-tfc .pvx-tfc-key {
+    pointer-events: none;
+}
+
+/* The future is a region, not a series: snap its edge so it reads as one. */
+.pvx-tfc .pvx-tfc-future {
+    shape-rendering: crispEdges;
+}
+
+/* A target is a step, and a stepped line drawn anti-aliased looks blurred
+   at every corner. */
+.pvx-tfc .pvx-tfc-target {
+    shape-rendering: crispEdges;
+}
+
+.pvx-tfc .pvx-tfc-hit {
+    cursor: crosshair;
+}
+
+.pvx-tfc .pvx-tfc-hit:hover {
+    fill: var(--pvx-muted);
+    fill-opacity: 0.12;
+}

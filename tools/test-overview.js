@@ -613,6 +613,18 @@ function route(method, url, via, body) {
     // Recorded values for a symbol's own time range: daily over the last
     // 150 days, as many as maxCount allows, the newest 777 so it is told
     // apart from what the pipeline sent.
+    // Recorded values ahead of now, for a look-ahead: hourly from the
+    // start asked to the end, 2000 plus the hour, so a value read this way
+    // is told apart from anything the pipeline sent.
+    m = /^streams\/([^/]+)\/recorded$/.exec(rel);
+    if (m && byWebId[m[1]] && byWebId[m[1]].kind === 'attribute' && Date.parse(q.get('startTime')) > now - 60000) {
+        const a = Date.parse(q.get('startTime')), b = Date.parse(q.get('endTime'));
+        const items = [];
+        for (let h = 1; a + h * 3600000 <= b && items.length < max; h++) {
+            items.push({ Timestamp: new Date(a + h * 3600000).toISOString(), Value: 2000 + h, Good: true });
+        }
+        return { status: 200, body: { Items: items } };
+    }
     m = /^streams\/([^/]+)\/recorded$/.exec(rel);
     if (m && byWebId[m[1]] && byWebId[m[1]].kind === 'attribute') {
         const n = Math.min(150, max);
@@ -789,7 +801,7 @@ async function mount(a) {
     scope.config = def.getDefaultConfig();
     Object.keys(a.config || {}).forEach((k) => { scope.config[k] = a.config[k]; });
     scope.runtimeData = { isEditMode: false };
-    scope.symbol = { Name: a.typeName, DataSources: [a.source || 'af:\\\\AF\\Gathering\\Station 1|Name?x'] };
+    scope.symbol = { Name: a.typeName, DataSources: a.sources || [a.source || 'af:\\\\AF\\Gathering\\Station 1|Name?x'] };
     const tpl = await fetch('/dist/ext/sym-' + a.typeName + '-template.html').then((r) => r.text());
     const box = document.getElementById('box');
     box.innerHTML = '';
@@ -1761,6 +1773,68 @@ async function ownRange(open, settle) {
         /1,?081/.test(v.value) && v.badge === 'Yesterday (not in force)' && v.warn, v);
 }
 
+/* Target & Forecast reading ahead of the display's end through PI Web API,
+ * and its target from the actual's AF Target trait. */
+async function targetForecast(open, settle) {
+    const pg = eventList.pg;
+    const DP = K301 + '|Discharge Pressure', SP = K301 + '|Speed', VB = K301 + '|Vibration';
+    // Ending at this moment, not when the suite started: look-ahead stands
+    // down on a display that ends more than a few minutes before now.
+    const t0 = Date.now();
+    const at = (minAgo) => new Date(t0 - minAgo * 60000).toISOString();
+    const item = (label, path, pts) => ({ Label: label, Units: 'psig', Path: 'af:' + path, IsGood: true,
+        StartTime: at(120), EndTime: at(0), Value: pts.map((p) => ({ Time: at(p[0]), Value: p[1] })) });
+    const payload = { Data: [
+        item('Discharge Pressure', DP, [[120, 1070], [60, 1075], [0, 1081]]),
+        item('Speed', SP, [[120, 1060], [0, 1060]]),
+        item('Vibration', VB, [[60, 1074], [0, 1079]])
+    ] };
+    const sources = ['af:' + DP + '?x', 'af:' + SP + '?x', 'af:' + VB + '?x'];
+    const go = async (cfg, extra) => {
+        await open('pvxTargetForecast', Object.assign({ asset: '', config: Object.assign({ Decimals: 0 }, cfg), payload, sources }, extra || {}));
+        await settle();
+    };
+    const seen = () => pg.evaluate(() => ({
+        footer: ((document.querySelector('#box .pvx-footer') || {}).textContent || '').replace(/\s+/g, ' ').trim(),
+        tips: Array.prototype.map.call(document.querySelectorAll('#box title'), (n) => n.textContent)
+    }));
+    const recorded = () => requests.filter((r) => /\/recorded\?/.test(r));
+
+    await go({});
+    let v = await seen();
+    check('forecast: no look-ahead by default, nothing asked of PI Web API', !recorded().length && !/look-ahead/.test(v.footer), [v.footer, requests]);
+
+    await go({ LookAhead: '6h' });
+    v = await seen();
+    const reads = recorded();
+    check('forecast: look-ahead reads the forecast and the target source from the display\'s end, six hours on',
+        reads.length === 2 && reads.some((r) => /Vibration\/recorded\?startTime=/.test(r)) && reads.some((r) => /Speed\/recorded\?startTime=/.test(r)) &&
+        reads.every((r) => /startTime=\d{4}-\d\d-\d\dT[\d:.]+Z&endTime=\d{4}-\d\d-\d\dT[\d:.]+Z&maxCount=5000&selectedFields=Items.Timestamp;Items.Value;Items.Good$/.test(r)),
+        reads);
+    check('forecast: the values read are drawn past now, against the target read with them',
+        v.tips.some((t) => /Forecast: 2,?00\d psig/.test(t) && /Target: 2,?00\d psig/.test(t)), v.tips.filter((t) => /2,?00\d/.test(t)).slice(0, 2));
+    check('forecast: the forecast tile ends at the last value read', v.tips.some((t) => /^Forecast at its end: 2,?006 psig/.test(t)),
+        v.tips.filter((t) => /^Forecast at its end/.test(t)));
+    check('forecast: the footer says where the future came from', /look-ahead 6h from PI Web API/.test(v.footer), v.footer);
+    await pg.evaluate((p) => { window.__vis.onDataUpdate(p); }, payload);
+    await settle();
+    check('forecast: a pipeline update within the minute does not read again', recorded().length === 2, recorded());
+
+    await go({ LookAhead: '6h' }, { sources: [sources[0], sources[1], 'af:' + K301 + '|Nowhere?x'] });
+    v = await seen();
+    check('forecast: a source PI Web API does not know is named in the footer', /not read: Vibration: .*Nowhere/.test(v.footer), v.footer);
+
+    await go({ LookAhead: '6h' }, { configured: false });
+    v = await seen();
+    check('forecast: without PI Web API it says what to set, and draws the display\'s data', /look-ahead 6h needs PI Web API/.test(v.footer) &&
+        v.tips.some((t) => /^Forecast at its end: 1,?079 psig/.test(t)), v.footer);
+
+    await go({ TargetMode: 'af' });
+    v = await seen();
+    check('forecast: a target from the actual\'s AF Target trait', v.tips.some((t) => /^Gap: Actual minus Target = \+1 psig/.test(t)) &&
+        /target from AF/.test(v.footer), [v.tips.filter((t) => /^Gap/.test(t)), v.footer]);
+}
+
 async function page() {
     console.log('');
     console.log(C.bold + 'Overview symbols on a mock PI Web API (built files)' + C.reset);
@@ -1791,7 +1865,7 @@ async function page() {
         const onlyAt = process.argv.indexOf('--only');
         if (onlyAt !== -1) {
             const blocks = { analytics: () => eventAnalytics(open, texts, settle), afsearch: () => afSearch(open, settle, hash), filters: () => filters(open, settle),
-                writes: () => writes(open, settle) };
+                writes: () => writes(open, settle), forecast: () => targetForecast(open, settle) };
             const run = blocks[process.argv[onlyAt + 1]];
             if (!run) { throw new Error('--only takes one of: ' + Object.keys(blocks).join(', ')); }
             await run();
@@ -2025,6 +2099,7 @@ async function page() {
         await quickTrend(open, settle);
         await lookupTable(open, settle, hash);
         await ownRange(open, settle);
+        await targetForecast(open, settle);
 
         /* ---- Asset Navigator --------------------------------------------- *
          * Nothing configured: PI Web API beside PI Vision, the database the

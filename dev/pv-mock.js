@@ -351,6 +351,57 @@
             return { Data: sData };
         }
 
+        // Actual against a plan with a forecast past now, as a display whose
+        // end time is in the future (*+4h) receives it: the actual stops at
+        // now, the plan steps up twice and is set out to the end, and the
+        // forecast covers the second half of the window and the four hours
+        // ahead, with a P10/P90 range that widens with the horizon. Sources
+        // past the fifth are ordinary tags, which the symbol must count as
+        // given no role.
+        if (shape === 'TimeSeries' && opts.profile === 'forecast') {
+            var ahead = 4 * 3600000;
+            var fData = [];
+            var actual = [], plan = [], fcst = [], p10 = [], p90 = [];
+            for (var fa = 0; fa < points; fa++) {
+                var fat = now - span + (span * fa) / (points - 1);
+                var ramp = 100 + 18 * (fa / (points - 1));
+                actual.push({ Time: new Date(fat).toISOString(), Value: round(ramp + Math.sin(fa / 6) * 3 + (rand() - 0.5) * 2, 2) });
+            }
+            plan.push({ Time: new Date(now - span).toISOString(), Value: 105 });
+            plan.push({ Time: new Date(now - span * 0.4).toISOString(), Value: 115 });
+            plan.push({ Time: new Date(now + ahead * 0.5).toISOString(), Value: 125 });
+            var fSteps = Math.max(8, Math.round(points / 2));
+            for (var fb = 0; fb < fSteps; fb++) {
+                var fbt = now - span * 0.5 + ((span * 0.5 + ahead) * fb) / (fSteps - 1);
+                var h = Math.max(0, fbt - now) / ahead;
+                var fv = 109 + 18 * ((fbt - (now - span)) / (span + ahead)) * 1.05 + Math.sin(fb / 4) * 1.5;
+                fcst.push({ Time: new Date(fbt).toISOString(), Value: round(fv, 2) });
+                p10.push({ Time: new Date(fbt).toISOString(), Value: round(fv - 2 - 8 * h, 2) });
+                p90.push({ Time: new Date(fbt).toISOString(), Value: round(fv + 2 + 8 * h, 2) });
+            }
+            var fNames = [['Line 2 Output', actual], ['Line 2 Output Plan', plan], ['Line 2 Output Forecast', fcst],
+                ['Line 2 Output Forecast P10', p10], ['Line 2 Output Forecast P90', p90]];
+            for (var fc2 = 0; fc2 < count; fc2++) {
+                var fn = fNames[fc2];
+                var vals = fn ? fn[1] : [];
+                if (!fn) {
+                    for (var fx = 0; fx < points; fx++) {
+                        var fxt = now - span + (span * fx) / (points - 1);
+                        vals.push({ Time: new Date(fxt).toISOString(), Value: round(signal(tags[fc2], fxt, fc2, rand), 2) });
+                    }
+                }
+                fData.push({
+                    Label: fn ? fn[0] : tags[fc2].name, Units: fn ? 't/h' : tags[fc2].units,
+                    Path: '\\\\AF\\Line 2|' + (fn ? fn[0] : tags[fc2].name),
+                    IsGood: opts.badIndex === fc2 ? false : true,
+                    ErrorDescription: opts.badIndex === fc2 ? 'No Data' : '',
+                    StartTime: new Date(now - span).toISOString(), EndTime: new Date(now + ahead).toISOString(),
+                    Value: vals
+                });
+            }
+            return { Data: fData };
+        }
+
         // A cross profile of unrelated tags is noise. This is basis weight
         // across a paper machine: edges a little light, a heavy streak at
         // two thirds of the width that starts halfway through the window,

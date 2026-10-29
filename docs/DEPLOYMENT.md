@@ -13,10 +13,11 @@ installations only need the first two:
 | **2 · Confirm** | Check the symbols appear and draw | Everyone |
 | **3 · Configure PI Web API** | Edit one file, per server | Only if you use the ten PI Web API symbols |
 
-Forty of the fifty symbols work the moment phase 1 finishes. Phase 3
+Forty-one of the fifty-one symbols work the moment phase 1 finishes. Phase 3
 exists only for `pvxGeoView` (unless its locations are typed in), `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
-`pvxAssetTable`, `pvxAssetRollup`, `pvxLookupTable`, `pvxManualEntry` and `pvxEntryTable`, and for nine others only
+`pvxAssetTable`, `pvxAssetRollup`, `pvxLookupTable`, `pvxManualEntry` and `pvxEntryTable`, and for ten others only
 if you turn on the option that needs it: event frames on `pvxComboChart`,
+look-ahead and a target from AF on `pvxTargetForecast`,
 limits from AF on `pvxControlChart`, a target from AF on `pvxKpiCard`, a menu
 from AF on `pvxNavPanel` or `pvxDisplayMenu`, shared acknowledgement on `pvxAnnunciator` (which
 `pvxAlarmTone` can read to silence itself), History mode on `pvxAlarmBanner`, runs from event frames on `pvxPeriodOverlay`, the Quick trend button any symbol can show, and a time-series symbol's own time range. Skip it
@@ -33,7 +34,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (900 render checks)
+[ ] npm run verify passes on the build machine        (918 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -70,7 +71,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 50 symbols…
+    …one set of four per symbol, 51 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -349,7 +350,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 900 render checks must pass
+npm run verify        # gate: 918 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 
@@ -432,7 +433,7 @@ value within one refresh. This proves the whole path — registration, template
 resolution, the shared runtime, the data pipeline — in about fifteen seconds,
 and it fails loudly rather than subtly if any part of it is wrong.
 
-That is the entire installation for forty of the fifty symbols.
+That is the entire installation for forty-one of the fifty-one symbols.
 
 ---
 
@@ -811,7 +812,7 @@ rotation needs its own copy — see *Configuration notes* above.
   fetches tiles from the internet unless the site points it there. The tiles
   are plain image requests from each viewer's browser, so that server must be
   reachable from wherever the display is opened.
-- **Thirty-one of the fifty symbols make no network calls of their own**
+- **Thirty-one of the fifty-one symbols make no network calls of their own**
   unless the Quick trend button, which any symbol can show, is turned on and
   pressed, or a time-series symbol is given a time range of its own. They render only the data PI Vision hands them and have no
   server-side prerequisites beyond the file copy.

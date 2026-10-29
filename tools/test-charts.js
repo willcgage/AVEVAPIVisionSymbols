@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* ============================================================================
  * PVX charts test — Wind Rose, XY bubble, Variability by time, Control Chart, Gas
- * Triangle, against
+ * Triangle, Target & Forecast and more, against
  * data whose right answer is known.
  * ----------------------------------------------------------------------------
  *   node tools/test-charts.js
@@ -47,6 +47,13 @@
  *               back to one plot; two clicks place the rulers and the table
  *               gives the trace's value at both, the change, a time-weighted
  *               average halfway along a ramp, and its slope.
+ *   target &   actual and target now pair the step in force, not the next;
+ *   forecast   the gap and its share of target; the forecast's end against
+ *               the target then, and the crossing when a step jumps over
+ *               it; the forecast error over actual samples inside it; roles
+ *               picked out of order give the same answers; tolerance in
+ *               units and percent; sources with no role, half a range and
+ *               text values are said; look-ahead says what it needs.
  *   gas triangle the zone rules agree with the drawn outlines at every
  *               point of a fine grid, and with the zone boundaries IEC 60599
  *               tabulates; sources are matched to gases by name in any
@@ -891,10 +898,122 @@ function comboChart() {
     check('no page errors', errs.length === 0, errs);
 }
 
+/* One data source from [minutes from now, value] pairs, with the window PI
+ * Vision names on each item. Target & Forecast lays its axis out from that
+ * window and splits past from future at the browser's clock, so these
+ * payloads are built around the moment the test runs. */
+function aroundNow(n0, label, units, pts, startMin, endMin) {
+    return {
+        Label: label, Units: units, Path: '\\\\AF\\Line 2|' + label, IsGood: true,
+        StartTime: new Date(n0 + startMin * MIN).toISOString(), EndTime: new Date(n0 + endMin * MIN).toISOString(),
+        Value: pts.map((p) => ({ Time: new Date(n0 + p[0] * MIN).toISOString(), Value: p[1] }))
+    };
+}
+
+function targetForecast() {
+    console.log('');
+    console.log(C.bold + 'Target & Forecast' + C.reset);
+    const all = [];
+    // A minute ahead, so "now" in the browser falls between the last actual
+    // and the forecast's next sample however long the probe takes to start.
+    const n0 = Date.now() + 60000;
+    const clock = (ms) => new Date(ms).toISOString().slice(11, 19);
+    const tip = (res, prefix) => res.tips.filter((t) => t.indexOf(prefix) === 0).join(' | ');
+    const S = (label, pts) => aroundNow(n0, label, 't/h', pts, -120, 60);
+    // Actual ramps 100 to 120 up to now; the plan steps 100, 115, then 140
+    // half an hour ahead; the forecast runs 112, 118, 136 an hour apart.
+    const actual = S('Output', [[-120, 100], [-90, 105], [-60, 110], [-30, 115], [0, 120]]);
+    const plan = S('Plan', [[-120, 100], [-30, 115], [30, 140]]);
+    const fcst = S('Forecast', [[-60, 112], [0, 118], [60, 136]]);
+    const low = S('P10', [[-60, 110], [0, 115], [60, 128]]);
+    const high = S('P90', [[-60, 114], [0, 121], [60, 144]]);
+    const base = 'Decimals=1;ShowLabel=false';
+
+    const r = probe('pvxTargetForecast', [actual, plan, fcst], base);
+    all.push(r);
+    check('actual now is the latest actual', /^Actual: 120\.0 t\/h at /.test(tip(r, 'Actual: ')), tip(r, 'Actual: '));
+    check('target now is the step in force then, not the next one', /^Target: 115\.0 t\/h$/.test(tip(r, 'Target: ')), tip(r, 'Target: '));
+    check('the gap is actual minus target, with its share of target',
+        tip(r, 'Gap: ') === 'Gap: Actual minus Target = +5.0 t/h (+4.3% of target)', tip(r, 'Gap: '));
+    check('the forecast ends at its last value, against the target in force then',
+        /^Forecast at its end: 136\.0 t\/h at .*; −4\.0 t\/h against the target then/.test(tip(r, 'Forecast at its end')), tip(r, 'Forecast at its end'));
+    check('...and crosses the target when the target steps over it, not between samples',
+        new RegExp('crosses the target at \\w+ \\d+ ' + clock(n0 + 30 * MIN) + '$').test(tip(r, 'Forecast at its end')), tip(r, 'Forecast at its end'));
+    check('forecast error: mean absolute and bias over the actual samples inside the forecast',
+        tip(r, 'Forecast error') === 'Forecast error so far: mean absolute 1.3 t/h, bias 0.0 t/h (forecast minus actual) over 3 samples',
+        tip(r, 'Forecast error'));
+    const ahead = r.tips.filter((t) => /Forecast: 1[23]\d\.\d t\/h/.test(t) && /Target: 140\.0 t\/h/.test(t) && !/Actual:/.test(t));
+    check('readings after now give the forecast and the target ahead, and no actual', ahead.length > 0, r.tips.slice(0, 4));
+    check('...with the gap there marked as the forecast\'s', ahead.every((t) => /Gap: [+−]\d+\.\d t\/h \(forecast\)$/.test(t)), ahead.slice(0, 2));
+    check('nothing in the footer when every source has a role', r.footer === '', r.footer);
+
+    const tol = probe('pvxTargetForecast', [actual, plan, fcst], base + ';ToleranceMode=units;Tolerance=3');
+    all.push(tol);
+    check('a gap beyond the tolerance is out of it', /, out of tolerance$/.test(tip(tol, 'Gap: ')), tip(tol, 'Gap: '));
+    const tolPct = probe('pvxTargetForecast', [actual, plan, fcst], base + ';ToleranceMode=percent;Tolerance=5');
+    all.push(tolPct);
+    check('...and a percent tolerance is of the target (5% of 115 covers 5)', /, in tolerance$/.test(tip(tolPct, 'Gap: ')) &&
+        /± 5\.8 t\/h/.test(tip(tolPct, 'Target: ')), [tip(tolPct, 'Gap: '), tip(tolPct, 'Target: ')]);
+
+    // The same sources in another order, each role picked by number, and a
+    // range from two more: the answers must not move.
+    const picked = probe('pvxTargetForecast', [fcst, high, actual, low, plan],
+        base + ';ActualSource=3;TargetSource=5;ForecastSource=1;ForecastLowSource=4;ForecastHighSource=2');
+    all.push(picked);
+    check('roles picked by number give the same answers', tip(picked, 'Gap: ') === tip(r, 'Gap: ') &&
+        tip(picked, 'Forecast at its end') === tip(r, 'Forecast at its end'), [tip(picked, 'Gap: '), tip(picked, 'Forecast at its end')]);
+    check('...the forecast range reaches the readings', picked.tips.some((t) => /Forecast range: \d+\.\d to \d+\.\d t\/h/.test(t)), picked.tips.slice(0, 3));
+    check('...and the legend', picked.text.indexOf('Forecast range') !== -1, picked.text.slice(0, 200));
+
+    const extra = probe('pvxTargetForecast', [actual, plan, fcst, S('Ambient', [[-60, 20], [0, 21]])], base);
+    all.push(extra);
+    check('a source given no role is counted, not ignored', /1 data source given no role/.test(extra.footer), extra.footer);
+    const lone = probe('pvxTargetForecast', [actual, plan, fcst, low], base + ';ForecastLowSource=4');
+    all.push(lone);
+    check('a range with one edge is not drawn, and the footer says why', /needs both a low and a high source/.test(lone.footer) &&
+        !lone.tips.some((t) => /Forecast range/.test(t)), lone.footer);
+
+    const text = S('Output', [[-120, 100], [-90, 'Calc Failed'], [-60, 110], [-30, 115], [0, 120]]);
+    const bad = probe('pvxTargetForecast', [text, plan, fcst], base);
+    all.push(bad);
+    check('a non-numeric actual is counted', /1 non-numeric value left out/.test(bad.footer), bad.footer);
+
+    const fixed = probe('pvxTargetForecast', [actual, fcst], base + ';TargetMode=fixed;TargetValue=110');
+    all.push(fixed);
+    check('a fixed target: the second source is then the forecast',
+        tip(fixed, 'Gap: ') === 'Gap: Actual minus Target = +10.0 t/h (+9.1% of target)' && /^Forecast at its end: 136\.0/.test(tip(fixed, 'Forecast at its end')),
+        [tip(fixed, 'Gap: '), tip(fixed, 'Forecast at its end')]);
+    const unset = probe('pvxTargetForecast', [actual, fcst], base + ';TargetMode=fixed');
+    all.push(unset);
+    check('...and with no value typed, says so rather than inventing one', /no target value set/.test(unset.footer) &&
+        /no target/.test(tip(unset, 'Gap: ')), [unset.footer, tip(unset, 'Gap: ')]);
+
+    const named = probe('pvxTargetForecast', [actual, plan, fcst], base + ';TargetLabel=Plan;ForecastLabel=Outlook;GapMode=percent');
+    all.push(named);
+    check('typed words replace the role names in tiles and readings', /^Gap: Actual minus Plan = \+5\.0 t\/h/.test(tip(named, 'Gap: ')) &&
+        named.tips.some((t) => /Outlook: /.test(t)) && named.text.indexOf('Plan') !== -1, tip(named, 'Gap: '));
+    check('...and the gap can lead in percent', /\+4\.3%/.test(named.text), named.text.slice(0, 160));
+
+    const la = probe('pvxTargetForecast', [actual, plan, fcst], base + ';LookAhead=8h');
+    all.push(la);
+    check('look-ahead without PI Web API says what it needs', /look-ahead 8h needs PI Web API/.test(la.footer), la.footer);
+    const laBad = probe('pvxTargetForecast', [actual, plan, fcst], base + ';LookAhead=soon');
+    all.push(laBad);
+    check('...a look-ahead that is not a length is named', /look-ahead soon is not a length of time/.test(laBad.footer), laBad.footer);
+    const old = (label, pts) => aroundNow(n0 - 2 * 86400000, label, 't/h', pts, -120, 0);
+    const past = probe('pvxTargetForecast', [old('Output', [[-120, 100], [0, 120]]), old('Plan', [[-120, 110]]), old('Forecast', [[-60, 112], [0, 118]])],
+        base + ';LookAhead=8h');
+    all.push(past);
+    check('...and on a display that ends before now it stands down and says so', /look-ahead 8h is off: the display ends before now/.test(past.footer), past.footer);
+
+    const errs = [].concat.apply([], all.map((x) => x.errors));
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
     // `--only spectrum` runs one section, for the inner loop; CI runs all.
     const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
-        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart };
+        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart, targetForecast };
     const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
         Object.keys(sections).forEach((k) => {
