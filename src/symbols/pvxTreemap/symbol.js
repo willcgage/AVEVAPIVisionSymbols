@@ -48,9 +48,11 @@
         displayName: 'PVX Treemap',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
-        // A collection would repeat the whole treemap per asset, which defeats
-        // the purpose: the comparison across assets IS the treemap.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        // The breakdown is then of one asset's own attributes, not across assets.
+        // Rows from an AF search ignore the data sources, so every copy matches.
+        supportsCollections: true,
         configTitle: 'Format Treemap',
 
         getDefaultConfig: function () {

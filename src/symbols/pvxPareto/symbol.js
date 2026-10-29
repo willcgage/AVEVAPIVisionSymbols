@@ -95,9 +95,11 @@
         displayName: 'PVX Ranked Bar',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
-        // A collection would repeat the whole ranking per asset, which defeats
-        // the purpose: the ranking IS the comparison across assets.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        // The breakdown is then of one asset's own attributes, not across assets.
+        // Rows from an AF search ignore the data sources, so every copy matches.
+        supportsCollections: true,
         configTitle: 'Format Ranked Bar',
 
         getDefaultConfig: function () {

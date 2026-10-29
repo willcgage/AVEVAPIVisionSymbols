@@ -2407,6 +2407,58 @@
         };
     };
 
+    /**
+     * An AF attribute's label without its element: "K-302|Compression" ->
+     * "Compression", "K-302|Bearing|Temperature" -> "Bearing|Temperature".
+     *
+     * PI Vision names an AF attribute "Element|Attribute". In a collection,
+     * where every copy is one asset's, the element is the same on every
+     * label, so it repeats on every slice and axis tick and pushes out the
+     * part that differs. A PI point's label has no '|' (PI does not allow
+     * one in a point name) and comes back unchanged.
+     */
+    data.withoutAsset = function (label) {
+        if (typeof label !== 'string') { return label; }
+        var at = label.indexOf('|');
+        return at > 0 && at < label.length - 1 ? label.slice(at + 1) : label;
+    };
+
+    /**
+     * The same, over a whole update (DropAssetName). Returns copies: PI
+     * Vision's own objects are left as they were, so turning the option off
+     * restores the names on the next render without waiting for metadata.
+     */
+    data.dropAsset = function (d) {
+        var isList = function (v) { return Object.prototype.toString.call(v) === '[object Array]'; };
+        var one = function (item) {
+            if (!item || typeof item !== 'object') { return item; }
+            var copy = null;
+            var keys = ['Label', 'label'];
+            for (var i = 0; i < keys.length; i++) {
+                var v = item[keys[i]];
+                var s = data.withoutAsset(v);
+                if (s !== v) { copy = copy || shallow(item); copy[keys[i]] = s; }
+            }
+            return copy || item;
+        };
+        var list = function (items) {
+            var out = [];
+            for (var i = 0; i < items.length; i++) { out.push(one(items[i])); }
+            return out;
+        };
+        if (!d || typeof d !== 'object') { return d; }
+        if (isList(d)) { return list(d); }
+        var out = null;
+        var lists = ['Data', 'data', 'Rows', 'rows', 'Traces'];
+        for (var k = 0; k < lists.length; k++) {
+            if (isList(d[lists[k]])) {
+                out = out || shallow(d);
+                out[lists[k]] = list(d[lists[k]]);
+            }
+        }
+        return out || one(d);
+    };
+
     /** DataShape 'Value' / 'Gauge' -> {value, raw, time, label, units, path, good} */
     data.single = function (d) {
         if (!d) { return null; }
@@ -4107,6 +4159,10 @@
             StaleBadgeMinutes: 0,
             HideWhenNoData: false,
             QuickTrend: false,
+            // Every symbol, applied by bootstrap before the symbol reads an
+            // update (PVX.data.dropAsset); off, so saved displays keep the
+            // "Element|Attribute" names PI Vision sends.
+            DropAssetName: false,
             // Time-series symbols only, through PVX.ownrange; off, so a saved
             // display follows the display's time range as it always did.
             OwnTimeRange: false,
@@ -8673,8 +8729,15 @@
             else { ctx.afsource.take(d1, function (d2) { ctx.ownrange.take(d2, deliver); }); }
         };
 
+        var lastDelivered;
+        var droppingAsset = !!(ctx.config && ctx.config.DropAssetName);
+
         function deliver(d) {
             if (ctx.destroyed) { return; }
+            lastDelivered = d;
+            // Last, so it shortens whatever reached here: PI Vision's own
+            // rows, an AF search's, or values read for the symbol's own range.
+            if (ctx.config && ctx.config.DropAssetName) { d = data.dropAsset(d); }
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -8700,6 +8763,13 @@
                 ctx.ownrange.changed(deliver);
             }
             ctx.filter.sync();
+            // Names change in the pane at once, not at the next update with
+            // metadata, which PI Vision sends only now and then.
+            var dropNow = !!(ctx.config && ctx.config.DropAssetName);
+            if (dropNow !== droppingAsset) {
+                droppingAsset = dropNow;
+                if (lastDelivered !== undefined) { deliver(lastDelivered); }
+            }
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }

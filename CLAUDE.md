@@ -182,18 +182,28 @@ silently destroys a site's PI Web API settings on upgrade.
   an event frame) share one panel: edit, a confirmation that states the value
   and target in full, then PI Web API's answer. Only changed fields are sent.
   All off by default. Mock-proven only (`test-overview --only writes`).
-- Every symbol has four options from `config.base`, all off: `ExportMenu`
+- Every symbol has these options from `config.base`, all off: `ExportMenu`
   (save as PNG, SVG or CSV), `StaleBadgeMinutes`, `HideWhenNoData`,
   `QuickTrend` (`src/shared/config-common.html`, applied by `PVX.overlay`
   after each render). The quick trend is `PVX.trend`: one floating panel per
   page on `document.body`, plot values from PI Web API per source, a second
-  symbol's button adds to it. Time-series symbols also have `OwnTimeRange`
+  symbol's button adds to it. A fifth, `DropAssetName` (off), shortens
+  `Element|Attribute` labels to the attribute, for symbols in a PI Vision
+  collection; `PVX.bootstrap` applies it to a copy of each update
+  (`PVX.data.dropAsset`), so symbols need nothing for it.
+  Time-series symbols also have `OwnTimeRange`
   (`OwnStart`, `OwnEnd`, ...): `PVX.ownrange`, in the bootstrap, swaps the
   pipeline's values for PI Web API recorded values over that range before
   the symbol sees them, keeps the pipeline's labels, and sets each item's
   StartTime/EndTime to the range. Unset PI Web API falls back to the
   display's data, with the badge saying so. Mock-proven only (`test-overview`). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
   The PNG goes through an SVG foreignObject; proven in Chromium only.
+- 27 symbols set `supportsCollections: true`: the gauges, KPI Card, Geo
+  View and every chart, each copy rebound by PI Vision to its own asset's
+  attributes (rendered per asset in the harness; not yet tried in a live
+  collection). Symbols that ignore their data source, follow the display's
+  asset, write to a typed path, or are one-per-page panels stay `false`; say
+  why in a comment beside the flag.
 - One threshold grammar everywhere:
   `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical`. Panes edit it as
   rows (`<!-- pvx:bands -->` → `src/shared/config-bands.html`, state on

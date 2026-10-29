@@ -48,9 +48,10 @@
         displayName: 'PVX Contribution',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
-        // A collection would repeat the whole split per asset, which defeats the
-        // purpose: the split IS the comparison across the assets.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        // The breakdown is then of one asset's own attributes, not across assets.
+        supportsCollections: true,
         configTitle: 'Format Contribution',
 
         getDefaultConfig: function () {
