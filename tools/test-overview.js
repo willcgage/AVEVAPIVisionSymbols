@@ -1200,6 +1200,9 @@ async function afSearch(open, settle, hash) {
     check('afsearch: a statistic is a summary over the range, read from PI Web API',
         requests.some((r) => /^batch: GET streamsets\/We:.*\/summary\?nameFilter=Discharge Pressure.*summaryType=Average/.test(r)) &&
         bars.some((t) => /1,?052/.test(t)), [bars, requests.slice(0, 6)]);
+    // When it draws nothing, say what it showed instead: this is how the
+    // Ranked Bar parsing an AF search's Average as "Value" was found.
+    if (!bars.length) { console.log('    symbol showed: ' + JSON.stringify((await body()).slice(0, 400)) + ' | badge: ' + JSON.stringify(await badge())); }
 
     await go('pvxPareto', { SearchAttributes: 'Vibration' });
     b = await body();

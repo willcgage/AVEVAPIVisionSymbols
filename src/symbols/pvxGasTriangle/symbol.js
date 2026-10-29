@@ -81,7 +81,9 @@
         displayName: 'PVX Gas Triangle',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        supportsCollections: true,
         configTitle: 'Format Gas Triangle',
 
         getDefaultConfig: function () {

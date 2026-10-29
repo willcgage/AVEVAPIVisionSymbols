@@ -148,9 +148,9 @@
         // Positional config, renumbered when a data source is removed.
         sourceRemap: { Positions: 'numberList' },
         visObjectType: symbolVis,
-        // A collection would repeat the whole profile per asset; the profile IS
-        // the comparison across the positions of one asset.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        supportsCollections: true,
         configTitle: 'Format Spatial Profile',
 
         getDefaultConfig: function () {

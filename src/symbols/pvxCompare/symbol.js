@@ -55,10 +55,9 @@
         // Positional config, renumbered when a data source is removed.
         sourceRemap: { ConditionSource: 'index' },
         visObjectType: symbolVis,
-        // A collection repeats the symbol per asset; the comparison is between
-        // tags inside ONE symbol, so a collection of them would compare nothing
-        // to anything new.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        supportsCollections: true,
         configTitle: 'Format Condition Compare',
 
         getDefaultConfig: function () {
