@@ -352,7 +352,7 @@ Tank levels, motor load, % capacity — anything that reads as "how full is it".
 
 ## pvxBoxPlot
 
-**PVX Variability** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Variability** · data shape `TimeSeries` · multiple data sources · collections supported
 
 box per hour, shift, day or week of a single source.
 
@@ -409,7 +409,7 @@ box per hour, shift, day or week of a single source.
 
 ## pvxComboChart
 
-**PVX Combo Chart** · data shape `—` · multiple data sources · collections not supported
+**PVX Combo Chart** · data shape `—` · multiple data sources · collections supported
 
 PI Vision's native trend draws every trace the same way on one scale, so the moment a question spans two units — "did efficiency hold while we pushed production?" — the answer moves to Excel. This symbol keeps it on the display: production as bars, efficiency as a line on a right-hand axis, the operating limit as a shaded band, run/stop as a stepped strip, one frame, one time axis, one glance.
 
@@ -420,7 +420,7 @@ PI Vision's native trend draws every trace the same way on one scale, so the mom
 
 ## pvxCompare
 
-**PVX Condition Compare** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Condition Compare** · data shape `TimeSeries` · multiple data sources · collections supported
 
 The question this symbol answers is "what is DIFFERENT about the bad hours". Yield dropped, the compressor tripped, the kiln ran hot: an engineer's next move is to pull twenty related tags into Excel, split the rows by "was the condition true", and compare. This does that on the display.
 
@@ -456,7 +456,7 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 
 ## pvxControlChart
 
-**PVX Control Chart** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Control Chart** · data shape `TimeSeries` · multiple data sources · collections supported
 
 @mock spc
 
@@ -516,7 +516,7 @@ The question this symbol answers is "what is DIFFERENT about the bad hours". Yie
 
 ## pvxCrossProfile
 
-**PVX Cross Profile** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Cross Profile** · data shape `TimeSeries` · multiple data sources · collections supported
 
 @mock crossprofile
 
@@ -944,7 +944,7 @@ symbol selector, and gives a blank database path a database (see the definition)
 
 ## pvxGasTriangle
 
-**PVX Gas Triangle** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Gas Triangle** · data shape `TimeSeries` · multiple data sources · collections supported
 
 acetylene in a transformer's oil, in ppm)
 
@@ -1019,7 +1019,7 @@ Where each marker goes: - 'af' (default): the Latitude and Longitude attributes 
 
 ## pvxHeatmap
 
-**PVX Heatmap** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Heatmap** · data shape `TimeSeries` · multiple data sources · collections supported
 
 Two ways of folding time into a grid:
 
@@ -1068,7 +1068,7 @@ Two ways of folding time into a grid:
 
 ## pvxHistogram
 
-**PVX Distribution** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Distribution** · data shape `TimeSeries` · multiple data sources · collections supported
 
 A histogram on its own only restates what a trend already showed. What it can do that a trend cannot is answer the process question: is this tag CENTRED between its limits, and is the spread narrow enough to stay there? That needs spec limits, so LSL/USL and the capability panel are the point of this symbol — the bars are the supporting evidence.
 
@@ -1398,7 +1398,7 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 
 ## pvxOperatingMap
 
-**PVX Operating Map** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Operating Map** · data shape `TimeSeries` · multiple data sources · collections supported
 
 1st  X — usually actual inlet flow 2nd  Y — usually polytropic head (an AF analysis; this symbol plots it, it does not calculate it) 3rd  optional — a STRING attribute holding the curve spec (see below) @mock compressor
 
@@ -1514,7 +1514,7 @@ any others draw their current period on the same axis)
 
 ## pvxProfile
 
-**PVX Spatial Profile** · data shape `Table` · multiple data sources · collections not supported
+**PVX Spatial Profile** · data shape `Table` · multiple data sources · collections supported
 
 Every other chart in this library plots against TIME. This one plots against POSITION: kiln zone temperatures, distillation column tray temperatures, bearing positions along a shaft, cell voltages across an electrolyser stack, thickness across a web. The x axis is physical, the y axis is the measurement, and the SHAPE of the line is the diagnosis — a sagging middle, a hot end, a step at one tray.
 
@@ -1828,7 +1828,7 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 
 ## pvxSpectrum
 
-**PVX Spectrum** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Spectrum** · data shape `TimeSeries` · multiple data sources · collections supported
 
 @mock spectrum
 
@@ -1871,7 +1871,7 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 
 ## pvxStateDuration
 
-**PVX Time in State** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Time in State** · data shape `TimeSeries` · multiple data sources · collections supported
 
 @mock digital
 
@@ -2056,7 +2056,7 @@ The question this symbol answers is "how did we get from A to B" — a mass or e
 
 ## pvxWindRose
 
-**PVX Wind Rose** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Wind Rose** · data shape `TimeSeries` · multiple data sources · collections supported
 
 degrees, the SECOND is speed)
 
@@ -2090,7 +2090,7 @@ degrees, the SECOND is speed)
 
 ## pvxXYScatter
 
-**PVX XY Scatter** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX XY Scatter** · data shape `TimeSeries` · multiple data sources · collections supported
 
 Y, and in bubble mode the THIRD sets each point's size)
 

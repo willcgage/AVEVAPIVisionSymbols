@@ -61,9 +61,9 @@
         // Positional config, renumbered when a data source is removed.
         sourceRemap: { GroupSource: 'index', OverlaySource: 'indexAuto' },
         visObjectType: symbolVis,
-        // A collection would repeat the whole comparison once per asset, which
-        // destroys the only thing this symbol is for.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        supportsCollections: true,
         configTitle: 'Format Variability',
 
         getDefaultConfig: function () {

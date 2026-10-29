@@ -46,9 +46,9 @@
         displayName: 'PVX Time in State',
         datasourceBehavior: PV.Extensibility.Enums.DatasourceBehaviors.Multiple,
         visObjectType: symbolVis,
-        // A collection repeats one symbol per element; this symbol already shows
-        // many tags side by side, and comparing them is its entire purpose.
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one chart per unit, built once.
+        supportsCollections: true,
         configTitle: 'Format Time in State',
 
         getDefaultConfig: function () {
