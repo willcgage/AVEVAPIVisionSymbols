@@ -2,7 +2,8 @@
 /* ============================================================================
  * tools/test-overlay.js: the options every symbol has (PVX.overlay)
  * ----------------------------------------------------------------------------
- * Save button (PNG, SVG, CSV), stale badge, hide when there is no data. Each
+ * Save button (PNG, SVG, CSV), stale badge, hide when there is no data, and
+ * dropping the asset name from labels (DropAssetName, for collections). Each
  * is off by default, so the first checks are that a symbol with the defaults
  * gets no overlay at all. The rest mount real symbols in Chromium, click the
  * button, and read back the files the browser saves.
@@ -195,6 +196,43 @@ server.listen(0, async () => {
         check('before any data arrives it stays', await vis('nosrc') === 'visible');
         await p.evaluate((d) => window.mount('keep', 'pvxSparkline', {}, { Data: d }), empty);
         check('the option off: a symbol with no data still shows', await vis('keep') === 'visible');
+
+        console.log('');
+        console.log(C.bold + 'Drop the asset name' + C.reset);
+        const unit = await p.evaluate(() => {
+            const w = window.PVX.data.withoutAsset;
+            return [w('K-302|Compression'), w('K-302|Bearing|Temperature'), w('SINUSOID'), w('|odd'), w('odd|'), w(null),
+                window.PVMock.get('pvxSparkline').getDefaultConfig().DropAssetName];
+        });
+        check('"Element|Attribute" keeps the attribute, a child attribute keeps its parent',
+            unit[0] === 'Compression' && unit[1] === 'Bearing|Temperature', unit);
+        check('a PI point name, or a label it cannot split, is left as it is',
+            unit[2] === 'SINUSOID' && unit[3] === '|odd' && unit[4] === 'odd|' && unit[5] === null, unit);
+        check('off by default, so saved displays keep their names', unit[6] === false, unit[6]);
+        const assetTs = [ts('K-302|Flow', 't/h', [[now - 60 * MIN, 100], [now - MIN, 120]]), ts('SINUSOID', '', [[now - 60 * MIN, 1], [now - MIN, 2]])];
+        assetTs[0].Path = '\\\\AF\\Gathering\\K-302|Flow';
+        const shown = (id) => p.$eval('#' + id + ' .pvx', (e) => e.textContent);
+        await p.evaluate((d) => window.mount('drop', 'pvxSparkline', { DropAssetName: true }, { Data: d }), assetTs);
+        let t = await shown('drop');
+        // The tooltip still gives the full AF path, which is how to tell copies apart.
+        const named = t.split('\\\\AF\\Gathering\\K-302|Flow').join('');
+        check('on: the symbol shows "Flow", not "K-302|Flow"', /Flow/.test(named) && !/K-302\|/.test(named), named.slice(0, 160));
+        check('...while its tooltip keeps the full path', t.indexOf('\\\\AF\\Gathering\\K-302|Flow') !== -1);
+        check('...and the PI point beside it keeps its name', /SINUSOID/.test(t), t.slice(0, 160));
+        const sent = await p.evaluate((d) => d[0].Label, assetTs);
+        check('PI Vision\'s own update is not changed', sent === 'K-302|Flow', sent);
+        await p.evaluate(() => {
+            const m = window.mounted.drop;
+            const cfg = Object.assign({}, m.scope.config, { DropAssetName: false });
+            m.vis.onConfigChange(cfg, m.scope.config);
+        });
+        await p.waitForTimeout(150);
+        t = await shown('drop');
+        check('turned off in the pane: the full name is back without a new update', /K-302\|Flow/.test(t), t.slice(0, 160));
+        await p.evaluate(() => window.mount('dropv', 'pvxRadialGauge', { DropAssetName: true },
+            { Value: 62, Label: 'K-302|Speed', Units: 'rpm', Path: '\\\\AF\\K-302|Speed', IsGood: true, Time: new Date().toISOString() }));
+        t = await shown('dropv');
+        check('a Value symbol\'s one name is shortened too', /Speed/.test(t) && !/K-302\|/.test(t), t.slice(0, 160));
 
         console.log('');
         console.log(C.bold + 'Replay' + C.reset);

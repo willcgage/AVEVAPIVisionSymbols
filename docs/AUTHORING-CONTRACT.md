@@ -208,6 +208,13 @@ needs nothing for them. The rules a symbol must keep:
   table is the better export passes `csv: function (ctx) { return rows; }` in
   its bootstrap hooks (an array of arrays, a header row first), as
   pvxHistoryTable does.
+
+**Names** comes first in the same pane: `DropAssetName`, off, turns PI Vision's
+`Element|Attribute` labels into `Attribute` for a symbol placed in a
+collection, where every label carries the same asset. `PVX.bootstrap` applies
+it to a copy of each update before `onData`, so a symbol reads labels as it
+always does and needs nothing for it; read them from the update, never from
+`scope.symbol`. The full AF path stays on each item's `Path`.
 - The PNG copies the root into an SVG `foreignObject` with computed styles
   written in. Anything drawn on a `<canvas>` or loaded from another origin
   will be missing from it.

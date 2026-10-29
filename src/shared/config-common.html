@@ -2,6 +2,21 @@
          PVX.overlay applies these to the symbol; all are off by default. The quick
          trend is PVX.trend. -->
     <div class="pvx-cfg-group pvx-cfg-common">
+        <div class="pvx-cfg-legend">Names</div>
+        <div class="pvx-cfg-row">
+            <label for="pvx-cfg-dropasset">Drop the asset name</label>
+            <input id="pvx-cfg-dropasset" type="checkbox" ng-model="config.DropAssetName" />
+        </div>
+        <div class="pvx-cfg-hint">
+            PI Vision names an AF attribute <code>Element|Attribute</code>. On, the symbol shows
+            only the part after the element, so <code>K-302|Compression</code> reads
+            <code>Compression</code>: for a collection, where every copy is one asset's. PI point
+            names are unchanged. Per-attribute settings (Data Health ranges) then match the
+            shorter name.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group pvx-cfg-common">
         <div class="pvx-cfg-legend">Saving and data state</div>
         <div class="pvx-cfg-row">
             <label for="pvx-cfg-export">Save button (image, data)</label>
