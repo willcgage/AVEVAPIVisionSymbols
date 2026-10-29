@@ -198,7 +198,7 @@ silently destroys a site's PI Web API settings on upgrade.
   StartTime/EndTime to the range. Unset PI Web API falls back to the
   display's data, with the badge saying so. Mock-proven only (`test-overview`). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
   The PNG goes through an SVG foreignObject; proven in Chromium only.
-- 27 symbols set `supportsCollections: true`: the gauges, KPI Card, Geo
+- 28 symbols set `supportsCollections: true`: the gauges, KPI Card, Geo
   View and every chart, each copy rebound by PI Vision to its own asset's
   attributes (rendered per asset in the harness; not yet tried in a live
   collection). Symbols that ignore their data source, follow the display's
