@@ -687,7 +687,7 @@ Units
 
 ## pvxDonut
 
-**PVX Contribution** · data shape `Table` · multiple data sources · collections not supported
+**PVX Contribution** · data shape `Table` · multiple data sources · collections supported
 
 The question this symbol answers is "how is my total split between these sources" — one number per source, expressed as a share of their sum, with the sum itself in the hole.
 
@@ -1439,7 +1439,7 @@ symbol selector (see the definition). This symbol has no data sources at all; it
 
 ## pvxPareto
 
-**PVX Ranked Bar** · data shape `—` · multiple data sources · collections not supported
+**PVX Ranked Bar** · data shape `—` · multiple data sources · collections supported
 
 The question this symbol answers is "which five assets are driving 80% of my downtime / energy / scrap". That is a *ranking* question, so the symbol is built around one sorted list of (name, value) pairs plus an optional cumulative-percentage line on its own 0-100% axis.
 
@@ -1993,7 +1993,7 @@ Today |…` |  |
 
 ## pvxTreemap
 
-**PVX Treemap** · data shape `—` · multiple data sources · collections not supported
+**PVX Treemap** · data shape `—` · multiple data sources · collections supported
 
 The question this symbol answers is "which of my hundred tags is both BIG and IN TROUBLE". A ranked bar chart runs out of vertical room somewhere around thirty rows; a treemap keeps going because it spends area instead of height.
 
@@ -2004,7 +2004,7 @@ The question this symbol answers is "which of my hundred tags is both BIG and IN
 
 ## pvxWaterfall
 
-**PVX Waterfall** · data shape `Table` · multiple data sources · collections not supported
+**PVX Waterfall** · data shape `Table` · multiple data sources · collections supported
 
 The question this symbol answers is "how did we get from A to B" — a mass or energy balance, a yield-loss account, a production-vs-plan bridge. Each bar is a step, and every step is drawn floating at the running total left behind by the step before it, so the eye can follow one continuous path from the start bar to the total bar.
 
