@@ -31,7 +31,6 @@
    configuration, not about the data, so it stays quieter than the title. */
 .pvx-po .pvx-po-period {
     color: var(--pvx-muted);
-    flex: 0 0 auto;
 }
 
 /* Every mark in this symbol is a curve or a diagonal; none of it wants the

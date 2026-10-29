@@ -31,7 +31,6 @@
    it stays quieter than the title it sits beside. */
 .pvx-dev .pvx-dev-target {
     color: var(--pvx-muted);
-    flex: 0 0 auto;
 }
 
 /* Bars are axis-aligned rectangles: let the renderer snap them to the pixel

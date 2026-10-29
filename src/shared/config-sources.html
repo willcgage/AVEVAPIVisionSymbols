@@ -3,7 +3,7 @@
     <div class="pvx-cfg-group pvx-cfg-src" ng-if="runtimeData.pvxSources.items.length">
         <div class="pvx-cfg-legend">Data sources</div>
 
-        <div class="pvx-cfg-src-row" ng-repeat="s in runtimeData.pvxSources.items track by $index">
+        <div class="pvx-cfg-src-row" ng-repeat-start="s in runtimeData.pvxSources.items track by $index">
             <span class="pvx-cfg-src-n">{{$index + 1}}</span>
             <span class="pvx-cfg-src-name" title="{{s.path}}">{{s.name}}</span>
             <button type="button" class="pvx-cfg-src-btn"
@@ -16,6 +16,28 @@
             <button type="button" class="pvx-cfg-src-btn"
                     ng-if="runtimeData.pvxSources.pending === $index"
                     ng-click="runtimeData.pvxSources.cancel()">Keep</button>
+        </div>
+        <div class="pvx-cfg-src-alias" ng-repeat-end>
+            <input type="text" ng-if="runtimeData.pvxSources.pending !== $index" ng-model="s.alias" placeholder="Name shown: from PI Vision"
+                   aria-label="Name shown for data source {{$index + 1}}"
+                   ng-model-options="{ updateOn: 'change blur' }"
+                   ng-change="config.SourceNames = runtimeData.pvxSources.named(config.SourceNames, $index, s.alias)" />
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvx-src-namestyle">Shorten names</label>
+            <select id="pvx-src-namestyle" ng-model="config.SourceNameStyle">
+                <option value="full">No: as PI Vision sends them</option>
+                <option value="asset">Asset name only</option>
+                <option value="attribute">Attribute only, without the asset</option>
+                <option value="last">Last part only</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            A name typed under a data source replaces its label everywhere this symbol shows
+            it: title, legend, statistics, tooltips and saved CSV. A source left blank uses
+            PI Vision's label, shortened as chosen above. Names stay with their source when
+            one is removed. Data Health's ranges and overrides match the name shown.
         </div>
 
         <div class="pvx-cfg-hint pvx-cfg-src-msg" ng-if="runtimeData.pvxSources.message">{{runtimeData.pvxSources.message}}</div>

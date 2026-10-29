@@ -17,15 +17,15 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 918 render checks — the gate, and slow
+node tools/verify.js                 # 936 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
+node tools/test-sources.js           # data source removal + names, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes|forecast) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, Target & Forecast look-ahead, text zoom vs a mock AF
-node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart, Target & Forecast numbers vs known answers (--only <section>)
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart, Target & Forecast, Rate of Change numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout, options, paste/CSV, time-slot grid vs a mock PI Web API
@@ -37,7 +37,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 51 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 52 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -149,7 +149,10 @@ silently destroys a site's PI Web API settings on upgrade.
   injected by `build.js`) whose Remove splices `symbol.DataSources` and
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
   through `scope.runtimeData`; proven live on a server in 1.8.0 (list, Remove,
-  and the removal surviving save and reload).
+  and the removal surviving save and reload). Each row also takes a typed
+  name (`SourceNames`, by position) and the list a **Shorten names** style
+  (`SourceNameStyle`); `PVX.bootstrap` applies both with `sources.rename`
+  before `onData`, so every symbol's labels follow. Mock-proven only.
 - A field that takes an AF path gets a **Search** pane from a marker after its
   input, `<!-- pvx:afpicker key=DatabasePath kind=database -->` (optional
   `start=<key>`, `append=entryRow|navItem`), expanded by `build.js` from
@@ -198,7 +201,7 @@ silently destroys a site's PI Web API settings on upgrade.
   StartTime/EndTime to the range. Unset PI Web API falls back to the
   display's data, with the badge saying so. Mock-proven only (`test-overview`). `pvxDataHealth` has its own `StaleMinutes`; do not merge them.
   The PNG goes through an SVG foreignObject; proven in Chromium only.
-- 27 symbols set `supportsCollections: true`: the gauges, KPI Card, Geo
+- 29 symbols set `supportsCollections: true`: the gauges, KPI Card, Geo
   View and every chart, each copy rebound by PI Vision to its own asset's
   attributes (rendered per asset in the harness; not yet tried in a live
   collection). Symbols that ignore their data source, follow the display's
@@ -361,7 +364,8 @@ added afterwards from a gap analysis, on the owner's request: `pvxOperatingMap`
 and `pvxDataHealth` (`docs/ROADMAP.md`, *After the plan*), then `pvxAssetTable`
 from a review against Will's overview display build guide, then `pvxWindRose`
 (and a bubble mode on `pvxXYScatter`) from a check of fourteen chart types;
-spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. Do not "finish
+spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. `pvxRateOfChange`
+came later still, on Will's request: nothing plotted the rate itself. Do not "finish
 tier 3" — that is a resolved question, not an open task.
 
 **One later list: a feature comparison, now complete.** Will asked for all 37

@@ -1,6 +1,6 @@
 # Connecting PVX to PI Web API
 
-Most of the library needs none of this. Forty-one of the fifty-one symbols run
+Most of the library needs none of this. Forty-two of the fifty-two symbols run
 entirely on PI Vision's own data pipeline. Only the ten that reach things PI
 Vision cannot hand a display — Event Frames, the AF hierarchy, AF tables, writing values
 back, an asset's place in AF — need it: `pvxGeoView` (unless its locations are typed in), `pvxEventGantt`, `pvxEventAnalytics`, `pvxEventList`, `pvxAssetTree`,
