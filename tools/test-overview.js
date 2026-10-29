@@ -1194,14 +1194,15 @@ async function afSearch(open, settle, hash) {
     await go('pvxPareto', { SearchAttributes: 'Discharge Pressure', Statistic: 'Average' });
     // A summary goes search, then batch, then render: on a loaded CI runner
     // that has outlasted the fixed settle and read an empty chart. Wait for
-    // the bars themselves; a chart that never draws still fails below. Five
-    // seconds was not enough either: PR #36's CI run made every request and
-    // still had no bars when the wait ran out.
-    await pg.waitForSelector('#box .pvx-pareto-bar', { timeout: 15000 }).catch(() => {});
+    // the bars themselves; a chart that never draws still fails below.
+    await pg.waitForSelector('#box .pvx-pareto-bar', { timeout: 5000 }).catch(() => {});
     bars = await titles('#box .pvx-pareto-bar');
     check('afsearch: a statistic is a summary over the range, read from PI Web API',
         requests.some((r) => /^batch: GET streamsets\/We:.*\/summary\?nameFilter=Discharge Pressure.*summaryType=Average/.test(r)) &&
         bars.some((t) => /1,?052/.test(t)), [bars, requests.slice(0, 6)]);
+    // Since 336d45b this fails on the CI runner only, with every request
+    // made and no bars, and passes locally; say what the symbol showed.
+    if (!bars.length) { console.log('    symbol showed: ' + JSON.stringify((await body()).slice(0, 400)) + ' | badge: ' + JSON.stringify(await badge())); }
 
     await go('pvxPareto', { SearchAttributes: 'Vibration' });
     b = await body();
