@@ -3194,6 +3194,203 @@
     };
 
     /**
+     * Rate of change of a recorded series, per `perMs` (60000 = per minute).
+     *
+     * @param {Array} points time-ordered [{t, v, good}] as data.stateSeries
+     *                gives them: v null for a value that is not a number
+     * @param {Object} opts {
+     *     from, to: the time range in ms,
+     *     method: 'window' (change over a sliding window, the default),
+     *             'fit' (slope of a straight line fitted over the window),
+     *             'samples' (between consecutive recorded values, no smoothing),
+     *     windowMs: the smoothing window,
+     *     align: 'trailing' (the window ends at the point plotted, as a live
+     *            rate alarm sees it) or 'centered' (no lag, for analysis),
+     *     intervals: points across the range for the window methods,
+     *     perMs: the rate's time unit, in ms,
+     *     maxGapMs: a gap between recorded values longer than this breaks
+     *               the trace; 0 = never,
+     *     holdLast: hold the last good value to `to`, as PI Vision's own
+     *               trend draws it (default true),
+     *     now: the clock, for holdLast (default Date.now())
+     * }
+     * @returns {Object} {
+     *     runs: [[{t, r}]] the plotted rate, broken where it is unknown,
+     *     step: true for 'samples' (each run is drawn as steps),
+     *     segments: the stretches of good data the rate is taken over,
+     *     bad: values that were not a good number, gaps: breaks for maxGapMs,
+     *     net: {change, rate} first good value to last, or null
+     * }
+     *
+     * WHY INTERPOLATE. A compressed PI tag stores a value only when the line
+     * through its neighbours stops describing it, so recorded values come
+     * minutes apart on a steady process and seconds apart on a moving one.
+     * The difference between neighbours, divided by their spacing, is then
+     * exact for what PI says happened, but a sliding window over the samples
+     * themselves would weight busy periods by their sample count. Reading the
+     * value off PI's own straight lines at the window's two ends gives every
+     * window the same length of time, however the samples fall. Plot values
+     * (ModePlotValues) cannot be used at all: they are each pixel column's
+     * minimum and maximum, so neighbours zig-zag and the rate is noise.
+     *
+     * NOTHING ACROSS A BAD VALUE. "I/O Timeout" or "Shutdown" says the
+     * instrument was not reporting; a line drawn through it would invent the
+     * rate across the outage. A window that reaches into one gets no rate.
+     */
+    stats.rateOfChange = function (points, opts) {
+        var o = opts || {};
+        var perMs = o.perMs > 0 ? o.perMs : 60000;
+        var maxGap = o.maxGapMs > 0 ? o.maxGapMs : 0;
+        var now = util.isNum(o.now) ? o.now : Date.now();
+        var segs = [], cur = null, bad = 0, gaps = 0;
+        var src = points || [];
+        var i, j;
+        for (i = 0; i < src.length; i++) {
+            var p = src[i];
+            if (!p || !util.isNum(p.t)) { continue; }
+            if (!util.isNum(p.v) || p.good === false) { bad++; cur = null; continue; }
+            if (cur && cur.pts.length && p.t <= cur.pts[cur.pts.length - 1].t) {
+                // Two values at one timestamp: PI keeps the later one.
+                cur.pts[cur.pts.length - 1] = { t: p.t, v: p.v };
+                continue;
+            }
+            if (cur && maxGap && p.t - cur.pts[cur.pts.length - 1].t > maxGap) { gaps++; cur = null; }
+            if (!cur) { cur = { pts: [] }; segs.push(cur); }
+            cur.pts.push({ t: p.t, v: p.v });
+        }
+        var lastGood = src.length && src[src.length - 1] && util.isNum(src[src.length - 1].v) && src[src.length - 1].good !== false;
+        var from = util.isNum(o.from) ? o.from : (segs.length ? segs[0].pts[0].t : 0);
+        var to = util.isNum(o.to) ? o.to : (segs.length ? segs[segs.length - 1].pts[segs[segs.length - 1].pts.length - 1].t : 0);
+        for (i = 0; i < segs.length; i++) {
+            segs[i].t0 = segs[i].pts[0].t;
+            segs[i].t1 = segs[i].pts[segs[i].pts.length - 1].t;
+        }
+        // PI Vision draws a tag's last value flat to the end of the trend: it
+        // is the snapshot, still in force. Not past now, and not after a gap
+        // limit's worth of silence, which would credit a dead feed with zero.
+        if (o.holdLast !== false && lastGood && segs.length) {
+            var ls = segs[segs.length - 1];
+            var holdTo = Math.min(to, now);
+            if (maxGap) { holdTo = Math.min(holdTo, ls.t1 + maxGap); }
+            if (holdTo > ls.t1) { ls.pts.push({ t: holdTo, v: ls.pts[ls.pts.length - 1].v }); ls.t1 = holdTo; }
+        }
+
+        var segAt = function (t) {
+            for (var s = 0; s < segs.length; s++) { if (t >= segs[s].t0 && t <= segs[s].t1) { return segs[s]; } }
+            return null;
+        };
+        var valueIn = function (seg, t) {
+            var ps = seg.pts;
+            if (t <= ps[0].t) { return ps[0].v; }
+            if (t >= ps[ps.length - 1].t) { return ps[ps.length - 1].v; }
+            var lo = 0, hi = ps.length - 1;
+            while (hi - lo > 1) {
+                var mid = (lo + hi) >> 1;
+                if (ps[mid].t <= t) { lo = mid; } else { hi = mid; }
+            }
+            var a = ps[lo], b = ps[hi];
+            return b.t === a.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+        };
+
+        var runs = [], run = null;
+        var method = o.method === 'fit' || o.method === 'samples' ? o.method : 'window';
+        if (method === 'samples') {
+            for (i = 0; i < segs.length; i++) {
+                var sp = segs[i].pts;
+                run = [];
+                for (j = 1; j < sp.length; j++) {
+                    var a0 = Math.max(sp[j - 1].t, from), b0 = Math.min(sp[j].t, to);
+                    if (!(b0 > a0)) { continue; }
+                    var rr = (sp[j].v - sp[j - 1].v) / (sp[j].t - sp[j - 1].t) * perMs;
+                    run.push({ t: a0, r: rr }, { t: b0, r: rr });
+                }
+                if (run.length) { runs.push(run); }
+            }
+        } else {
+            var win = o.windowMs > 0 ? o.windowMs : 10 * 60000;
+            var n = util.clamp(parseInt(o.intervals, 10) || 240, 2, 5000);
+            var step = (to - from) / n;
+            var lead = o.align === 'centered' ? win / 2 : win;
+            var K = 16;
+            run = null;
+            for (i = 0; i <= n && step > 0; i++) {
+                var t = from + i * step;
+                var a = t - lead, b = a + win;
+                var seg = segAt(a);
+                var r = null;
+                if (seg && b <= seg.t1) {
+                    if (method === 'window') {
+                        r = (valueIn(seg, b) - valueIn(seg, a)) / win * perMs;
+                    } else {
+                        // Evenly spaced readings off PI's lines, so a burst of
+                        // recorded values does not pull the fit towards itself.
+                        var xy = [];
+                        for (j = 0; j <= K; j++) {
+                            var tj = a + win * j / K;
+                            xy.push({ x: (tj - a) / perMs, y: valueIn(seg, tj) });
+                        }
+                        var fit = stats.linreg(xy);
+                        r = fit ? fit.slope : 0;
+                    }
+                }
+                if (r === null) { run = null; continue; }
+                if (!run) { run = []; runs.push(run); }
+                run.push({ t: t, r: r });
+            }
+        }
+
+        var net = null;
+        if (segs.length) {
+            var f = segs[0].pts[0], l = segs[segs.length - 1].pts[segs[segs.length - 1].pts.length - 1];
+            if (l.t > f.t) { net = { change: l.v - f.v, rate: (l.v - f.v) / (l.t - f.t) * perMs, from: f.t, to: l.t }; }
+        }
+        return { runs: runs, step: method === 'samples', segments: segs, bad: bad, gaps: gaps, net: net, from: from, to: to };
+    };
+
+    /**
+     * Summary of a rateOfChange() result: steepest rise and fall, the latest
+     * rate, and the time spent past each limit (null = no limit), counted
+     * along the straight lines between plotted points so a crossing midway
+     * between two of them is credited from the crossing, not from a point.
+     * An excursion is a stretch past the limit; a break in the trace ends it.
+     */
+    stats.rateSummary = function (res, limits) {
+        var L = limits || {};
+        var out = { max: null, min: null, last: null, count: 0,
+            above: { ms: 0, count: 0 }, below: { ms: 0, count: 0 },
+            warnAbove: { ms: 0, count: 0 }, warnBelow: { ms: 0, count: 0 } };
+        var runs = (res && res.runs) || [];
+        var past = function (box, lim, sign, run) {
+            if (!util.isNum(lim)) { return; }
+            var inside = false;
+            for (var k = 0; k < run.length; k++) {
+                var e = sign * (run[k].r - lim);
+                if (e > 0 && !inside) { box.count++; }
+                inside = e > 0;
+                if (k === 0) { continue; }
+                var e0 = sign * (run[k - 1].r - lim), dt = run[k].t - run[k - 1].t;
+                if (e0 > 0 && e > 0) { box.ms += dt; }
+                else if (e0 > 0 || e > 0) { box.ms += dt * Math.max(e0, e) / (Math.abs(e0) + Math.abs(e)); }
+            }
+        };
+        for (var i = 0; i < runs.length; i++) {
+            var run = runs[i];
+            for (var j = 0; j < run.length; j++) {
+                var p = run[j];
+                out.count++;
+                if (!out.max || p.r > out.max.r) { out.max = p; }
+                if (!out.min || p.r < out.min.r) { out.min = p; }
+                out.last = p;
+            }
+            past(out.above, L.hi, 1, run);
+            past(out.below, L.lo, -1, run);
+            past(out.warnAbove, L.hiWarn, 1, run);
+            past(out.warnBelow, L.loWarn, -1, run);
+        }
+        return out;
+    };
+
+    /**
      * Group a stream into consecutive subgroups of `size`. A trailing partial
      * subgroup is returned in `dropped` so the caller can say so; averaging
      * it with fewer samples would give it the wrong limits.

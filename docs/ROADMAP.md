@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **50 symbols**.
+> [After the plan](#after-the-plan). The library is at **51 symbols**.
 
 ## On originality
 
@@ -536,6 +536,18 @@ Done so far, in order:
 | 37 | **pvxAssetTable**, **pvxEventList**, `PVX.writer` | Writes from symbols whose job is reading, through one shared panel (`PVX.writer`) with the Shift Log's rule: the value, the stream and the time are stated in full and confirmed, there is no undo, and PI Web API's own reason is shown when it refuses. The Asset Table's `EditMode` (off; `EditColumns` names the columns, blank is all) writes a clicked cell at the current time, checked as a number, a True/False choice or text by what the cell holds, to the stream found from the search or by `attributes?path=` for a data source, then reads it back. The Event List's `EventActions` (off) puts Ack (only where PI says the event can be and is not yet), Note (the event's annotations, and a box to add one) and, for the attributes in `EditAttributes`, Edit at the end of each row, and reads the list again after each; a new `ack` column says who acknowledged and when. A 403 now quotes PI Web API's own words. Proven against a mock PI Web API only (`test-overview --only writes`, 24 checks). |
 
 That completes the 37 items of the comparison.
+
+Afterwards the owner asked for a rate of change chart, which nothing in the
+library plotted: the Combo Chart's fitted trend gives one slope over a whole
+trace, not the rate as it moves. **pvxRateOfChange** charts the rate itself,
+per second, minute, hour or day, from recorded values: the change over a
+sliding window (trailing, as a live alarm sees it, or centered, without the
+lag), the slope of a line fitted over the window, or the rate between
+recorded values. The window's ends are read off PI's straight lines between
+the compressed samples, so every window is the same length of time. Rise and
+fall limits, with warnings before them, color the trace past them; the
+footer gives the steepest rise and fall, the latest and net rate, the time
+past each limit, and counts the bad values and gaps no rate is drawn across.
 
 ## What next
 

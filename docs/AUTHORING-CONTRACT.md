@@ -128,7 +128,7 @@ Symbols that draw only into SVG (no scope bindings) do not need it.
 | `PVX.scale` | `linear(d0,d1,r0,r1), niceDomain, tickStep, ticks` |
 | `PVX.svg` | `el, clear, text, polar, arc, annulus, roundRect, line, stepLine, area` |
 | `PVX.data` | `single, series, stateSeries, stateRuns, rows, statValue, trend, stats` |
-| `PVX.stats` | `linreg, sma, percentile, delta, sorted, mean, stddev, quartiles, histogram, normalPdf, normalCdf, capability` |
+| `PVX.stats` | `linreg, sma, percentile, delta, sorted, mean, stddev, quartiles, histogram, normalPdf, normalCdf, capability, intervalAverages, rateOfChange, rateSummary` |
 | `PVX.nav` | `url, go, parseHash, buildHash, setTimeRange, currentAsset` |
 | `PVX.layout` | `renderer, fitFont` |
 | `PVX.config` | `base, upgrade, numberOpts, TABLE_STATS, statKey, statLabel, statColumns, syncStatColumns` |

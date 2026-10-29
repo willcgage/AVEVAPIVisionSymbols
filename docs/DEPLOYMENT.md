@@ -33,7 +33,7 @@ For the person doing this on the day. Each line is expanded below.
 [ ] Artifact in hand: PvxSymbols-<ver>.msi, or pvx-symbols-<ver>.zip
 [ ] SHA256 checked against SHA256SUMS.txt from the release
 [ ] --- if building from source instead of using a release ---
-[ ] npm run verify passes on the build machine        (900 render checks)
+[ ] npm run verify passes on the build machine        (918 render checks)
 [ ] npm run package produces dist/pvx-symbols-<ver>.zip
 [ ] --- install, route A (MSI) ---
 [ ] PI Vision's drive and PIPC folder known  (PIHOME64 is used if you pass nothing)
@@ -70,7 +70,7 @@ Only the contents of `dist/ext`. Everything under `src/`, `dev/`, `tools/` and
     sym-pvxRadialGauge.css
     sym-pvxRadialGauge-template.html
     sym-pvxRadialGauge-config.html
-    …one set of four per symbol, 50 symbols…
+    …one set of four per symbol, 51 symbols…
 
     piwebapi-check.html              the connectivity diagnostic (phase 3)
 
@@ -349,7 +349,7 @@ scripts keep running.
 
 ```bash
 npm install           # first time only; the tooling is dev-only
-npm run verify        # gate: 900 render checks must pass
+npm run verify        # gate: 918 render checks must pass
 npm run package       # produces dist/pvx-symbols-<version>.zip
 ```
 

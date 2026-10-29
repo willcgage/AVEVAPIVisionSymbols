@@ -33,7 +33,8 @@ onto a PI Vision display with the Image symbol:
 [All 50 on one poster](docs/symbol-guide/pvx-symbols-all-50.png) (3840 px wide) is
 for a wall screen or print; at 1920 its text is too small to read. They were
 rendered from 1.15.1 on sample data and are not rebuilt by the build, so a
-symbol that changes its look after that will not match its picture.
+symbol that changes its look after that will not match its picture, and PVX
+Rate of Change, added after them, is not in them.
 
 ### Charts and analytics
 
@@ -45,6 +46,7 @@ symbol that changes its look after that will not match its picture.
 | ![](src/symbols/pvxControlChart/icon.svg) | **PVX Control Chart** | Shewhart I-MR, X̄-R or X̄-S chart with Nelson or Western Electric run rules, each flagged point naming the rule it broke. Limits from the window, a baseline, typed values or data sources; Cpk and Ppk against spec limits; a distribution strip beside the plot. |
 | ![](src/symbols/pvxBoxPlot/icon.svg) | **PVX Variability** | Quartiles, whiskers and outliers, one box per tag. Twenty identical assets side by side — the wide box is the one to go and look at. |
 | ![](src/symbols/pvxDeviation/icon.svg) | **PVX Deviation from Target** | Deviation from setpoint with the tolerance band shaded, excursions colored by direction, and time-in-band, excursion count and longest excursion computed from real sample intervals. |
+| ![](src/symbols/pvxRateOfChange/icon.svg) | **PVX Rate of Change** | How fast a value is rising or falling, in units per second, minute, hour or day: the change over a sliding window, the slope of a line fitted over it, or the rate between recorded values. Rise and fall limits turn the trace their color while broken; the footer gives the steepest rise and fall and how long each limit was passed. Never drawn across a bad value. |
 | ![](src/symbols/pvxWaterfall/icon.svg) | **PVX Waterfall** | Floating bars bridging a start value to an end value through signed steps, with connectors and running subtotals. Mass and energy balances, yield-loss accounting. |
 | ![](src/symbols/pvxPeriodOverlay/icon.svg) | **PVX Period Comparison** | Folds the window into N periods overlaid on a common relative-time axis, with a min/max envelope from the older ones. Today over yesterday over the golden batch. Hours, shifts, days, weeks or calendar months; values, or change and percent change from a baseline; further tags draw their current period alongside. Or runs from AF event frames (batches, campaigns; PI Web API), lined up at their start, their end or 0 to 100% of each run, measured against the average of the golden runs with a tolerance band. |
 | ![](src/symbols/pvxTreemap/icon.svg) | **PVX Treemap** | Squarified rectangles sized by one statistic and colored by another. Size shows who is big, color shows who is in trouble; the tile that is both is the one to look at. Tiles can come from an AF search, grouped by parent asset, with a drill into a group. |
@@ -282,7 +284,7 @@ some updates; `PVX.bootstrap` carries them across the rest, per data source.
 ### Verification
 
 `npm run verify` renders each symbol in real Chromium across 3 sizes × 3 data
-scenarios (live, empty, bad-quality) × light and dark — 900 checks — and fails
+scenarios (live, empty, bad-quality) × light and dark — 918 checks — and fails
 on thrown exceptions, console errors, `NaN`/`undefined` in SVG geometry, blank
 renders, unreadable text, content clipped out of reach, and a placeholder name
 ("Series 1", "Row 1") left showing after an update that carried no labels. That is the gate to
@@ -306,7 +308,7 @@ node tools/probe.js pvxSlideshow --hash "/Displays/101/Overview"
 It renders straight from `src/`, so there is no build round-trip, and it picks
 its own port — several can run at once.
 
-Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone`, `pvxSpectrum`, `pvxCrossProfile` and `pvxEventList` from a feature-level comparison with a commercial widget library.
+Where the plan landed: **[docs/ROADMAP.md](docs/ROADMAP.md)**, or **[docs/roadmap.html](docs/roadmap.html)** for a filterable view — 30 roadmap symbols shipped, 3 foundation pieces, and 4 candidates that were declined with the reason on each. `pvxCompare`, `pvxOperatingMap` and `pvxDataHealth` came afterwards, from a gap analysis and a comparison with Grafana and Honeycomb, `pvxAssetTable` from a review against an overview display build guide, `pvxWindRose` from a check of fourteen chart types against the library, and `pvxControlChart`, `pvxTimeRange`, `pvxEmbeddedPage`, `pvxGasTriangle`, `pvxMultiGauge`, `pvxHistoryTable`, `pvxReplay`, `pvxAlarmTone`, `pvxSpectrum`, `pvxCrossProfile` and `pvxEventList` from a feature-level comparison with a commercial widget library, and `pvxRateOfChange` on the owner's request.
 
 ---
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 50 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 51 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.15.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,7 +17,7 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 900 render checks — the gate, and slow
+node tools/verify.js                 # 918 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
@@ -25,7 +25,7 @@ node tools/test-states.js            # digital state map editor: rules + built p
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
 node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
-node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart, Rate of Change numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout, options, paste/CSV, time-slot grid vs a mock PI Web API
@@ -37,7 +37,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 50 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 51 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -351,7 +351,8 @@ added afterwards from a gap analysis, on the owner's request: `pvxOperatingMap`
 and `pvxDataHealth` (`docs/ROADMAP.md`, *After the plan*), then `pvxAssetTable`
 from a review against Will's overview display build guide, then `pvxWindRose`
 (and a bubble mode on `pvxXYScatter`) from a check of fourteen chart types;
-spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. Do not "finish
+spiral, funnel, pyramid and chord were declined in `docs/ROADMAP.md`. `pvxRateOfChange`
+came later still, on Will's request: nothing plotted the rate itself. Do not "finish
 tier 3" — that is a resolved question, not an open task.
 
 **One later list: a feature comparison, now complete.** Will asked for all 37

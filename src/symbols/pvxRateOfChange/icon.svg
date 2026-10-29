@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PVX Rate of Change">
+    <title>PVX Rate of Change</title>
+
+    <!-- A rate trace around a zero line, rising through a dashed limit where
+         it turns the alarm color: the icon has to read as "how fast, and too
+         fast here". Background is transparent by design. -->
+    <line x1="40" y1="300" x2="472" y2="300" stroke="#5c6570" stroke-width="10"/>
+    <line x1="40" y1="130" x2="472" y2="130" stroke="#c8452f" stroke-width="12" stroke-dasharray="30 18"/>
+    <polyline points="48,330 112,360 176,290 240,310 300,200 340,130"
+              fill="none" stroke="#3b82c4" stroke-width="20" stroke-linejoin="round" stroke-linecap="round"/>
+    <polyline points="340,130 376,80 420,108 440,130"
+              fill="none" stroke="#c8452f" stroke-width="20" stroke-linejoin="round" stroke-linecap="round"/>
+    <polyline points="440,130 472,230" fill="none" stroke="#3b82c4" stroke-width="20" stroke-linecap="round"/>
+</svg>

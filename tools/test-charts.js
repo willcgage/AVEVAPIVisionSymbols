@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* ============================================================================
  * PVX charts test — Wind Rose, XY bubble, Variability by time, Control Chart, Gas
- * Triangle, against
+ * Triangle, Rate of Change and others, against
  * data whose right answer is known.
  * ----------------------------------------------------------------------------
  *   node tools/test-charts.js
@@ -47,6 +47,13 @@
  *               back to one plot; two clicks place the rulers and the table
  *               gives the trace's value at both, the change, a time-weighted
  *               average halfway along a ramp, and its slope.
+ *   rate of chg  a ramp sampled unevenly reads its one slope by window, fit
+ *               and samples, per minute and per hour; a climb passes a
+ *               rise limit for its length between samples, and for less
+ *               through a window, which peaks at the climb's end (trailing)
+ *               or middle (centered); a fall limit is typed positive; no
+ *               rate across a bad value or a gap past the limit, and both
+ *               are counted; the last value holds to the end of the range.
  *   gas triangle the zone rules agree with the drawn outlines at every
  *               point of a fine grid, and with the zone boundaries IEC 60599
  *               tabulates; sources are matched to gases by name in any
@@ -891,10 +898,106 @@ function comboChart() {
     check('no page errors', errs.length === 0, errs);
 }
 
+function rateOfChange() {
+    console.log('');
+    console.log(C.bold + 'Rate of Change' + C.reset);
+    const all = [];
+    // Minutes after T0 in a tooltip's first line, "Oct 20 01:05:00".
+    const minuteOf = (tip) => {
+        const m = /^\w+ \d+ (\d\d):(\d\d):(\d\d)/.exec(tip);
+        return m ? Number(m[1]) * 60 + Number(m[2]) + Number(m[3]) / 60 : null;
+    };
+
+    // A ramp of 2 a minute, sampled unevenly the way a compressed tag is:
+    // seven minutes, then 53, then one. Every window method must read 2.
+    const ramp = [[0, 0], [7, 14], [60, 120], [61, 122], [120, 240]];
+    const win = probe('pvxRateOfChange', [series('Temp', 'degC', ramp)], 'Decimals=2');
+    all.push(win);
+    check('a ramp reads its slope whatever the sample spacing', /Steady \+2\.00 degC\/min/.test(win.footer) && !/fall/.test(win.footer), win.footer);
+    check('...the title carries the rate units', /Temp rate of change \(degC\/min\)/.test(win.text), win.text.slice(0, 80));
+    check('...the caption names the window', /change over 10 min/.test(win.text), win.text.slice(0, 80));
+    check('...the first window has no rate, and the footer says so', /no rate in the first 10 min/.test(win.footer) &&
+        Math.min.apply(null, win.tips.map(minuteOf).filter((m) => m !== null)) >= 9.5, win.footer);
+    const perHour = probe('pvxRateOfChange', [series('Temp', 'degC', ramp)], 'Decimals=1;RateUnit=h');
+    all.push(perHour);
+    check('per hour: 120 degC/h', /Steady \+120\.0 degC\/h/.test(perHour.footer), perHour.footer);
+    const fit = probe('pvxRateOfChange', [series('Temp', 'degC', ramp)], 'Decimals=2;Method=fit');
+    all.push(fit);
+    check('a fitted line over the window reads the same slope', /Steady \+2\.00 degC\/min/.test(fit.footer), fit.footer);
+    const raw = probe('pvxRateOfChange', [series('Temp', 'degC', ramp)], 'Decimals=2;Method=samples');
+    all.push(raw);
+    check('between samples: the same, and no lost first window', /Steady \+2\.00/.test(raw.footer) && !/no rate in the first/.test(raw.footer), raw.footer);
+
+    // Flat, a climb of 5 a minute for ten minutes, flat. Between samples it
+    // is 5 for exactly 10 min; over a 10-minute window it is a triangle that
+    // peaks at 5 when the window covers the whole climb, and stays above 4
+    // for 4 minutes of it.
+    const step = [[0, 0], [60, 0], [70, 50], [120, 50]];
+    const sharp = probe('pvxRateOfChange', [series('Level', 'in', step)], 'Decimals=1;Method=samples;RiseLimit=4');
+    all.push(sharp);
+    check('past a rise limit for as long as the climb lasts', /over the rise limit 10m/.test(sharp.footer) && !/times/.test(sharp.footer), sharp.footer);
+    const at65 = sharp.tips.filter((tp) => Math.abs(minuteOf(tp) - 65) < 0.5).join(' | ');
+    check('...and the tooltip says so', /Rate: \+5\.0 in\/min {2}over the rise limit/.test(at65), at65);
+    const smooth = probe('pvxRateOfChange', [series('Level', 'in', step)], 'Decimals=1;RiseLimit=4');
+    all.push(smooth);
+    check('a window smooths it: peak 5 at the end of the climb, 4 min past the limit', /Max rise \+5\.0 in\/min at 10\/20 01:10/.test(smooth.footer) &&
+        /over the rise limit 4m/.test(smooth.footer), smooth.footer);
+    const mid = probe('pvxRateOfChange', [series('Level', 'in', step)], 'Decimals=1;WindowAlign=centered');
+    all.push(mid);
+    check('centered: the peak sits mid-climb, without the lag', /Max rise \+5\.0 in\/min at 10\/20 01:05/.test(mid.footer) &&
+        /no rate in the first and last 5 min/.test(mid.footer), mid.footer);
+    const fall = probe('pvxRateOfChange', [series('Level', 'in', [[0, 50], [60, 50], [70, 0], [120, 0]])],
+        'Decimals=1;Method=samples;FallLimit=4;RiseLimit=4');
+    all.push(fall);
+    check('a fall limit is typed positive and caught below zero', /past the fall limit 10m/.test(fall.footer) && /Max fall -5\.0/.test(fall.footer) && !/rise \+/.test(fall.footer), fall.footer);
+    const ok = probe('pvxRateOfChange', [series('Level', 'in', step)], 'Decimals=1;Method=samples;RiseLimit=6;RiseWarn=4');
+    all.push(ok);
+    check('inside the limit, past the warning: said, not flagged', /Within the rate limits, past a warning for 10m/.test(ok.footer), ok.footer);
+    const none = probe('pvxRateOfChange', [series('Level', 'in', step)], 'Method=samples');
+    all.push(none);
+    check('no limits: the footer says none are set', /No rate limits set/.test(none.footer), none.footer);
+
+    // A bad value ends the trace: no window may reach across it.
+    const broken = probe('pvxRateOfChange', [series('Temp', 'degC', [[0, 0], [30, 60], [40, 'I/O Timeout'], [50, 100], [120, 240]])], 'Decimals=2');
+    all.push(broken);
+    const across = broken.tips.map(minuteOf).filter((m) => m !== null && m > 31 && m < 59);
+    check('no rate across a bad value', across.length === 0, across);
+    check('...the footer counts it', /1 bad or non-numeric value: no rate across it/.test(broken.footer), broken.footer);
+    check('...and either side of it still reads 2 a minute', /Steady \+2\.00/.test(broken.footer), broken.footer);
+
+    // A gap limit breaks a scanned tag's trace where its feed stopped.
+    const gap = probe('pvxRateOfChange', [series('Flow', 'gpm', [[0, 0], [10, 10], [50, 50], [60, 60], [70, 70]])],
+        'Method=samples;MaxGapMinutes=20');
+    all.push(gap);
+    check('a gap past the limit is counted', /1 gap over 20m/.test(gap.footer), gap.footer);
+    check('...and nothing is drawn across it', gap.tips.map(minuteOf).filter((m) => m !== null && m > 10.5 && m < 49.5).length === 0, gap.tips.map(minuteOf));
+
+    // The last value holds to the end of the range, as PI Vision draws it.
+    const held = series('Temp', 'degC', [[0, 0], [30, 30]]);
+    held.StartTime = new Date(T0).toISOString();
+    held.EndTime = new Date(T0 + 60 * MIN).toISOString();
+    const hold = probe('pvxRateOfChange', [held], 'Decimals=2');
+    all.push(hold);
+    check('the last value holds to the end: the latest rate is zero', /latest 0\.00 degC\/min/.test(hold.footer), hold.footer);
+    check('...and the net rate is the change over the range', /net \+0\.50 degC\/min/.test(hold.footer), hold.footer);
+
+    // Two sources: the steepest is named.
+    const two = probe('pvxRateOfChange', [series('A', 'degC', ramp), series('B', 'degC', [[0, 0], [120, 600]])], 'Decimals=1');
+    all.push(two);
+    check('several sources: the steepest rise is named', /Max rise \+5\.0 degC\/min \(B\)/.test(two.footer), two.footer);
+
+    const thin = probe('pvxRateOfChange', [series('Temp', 'degC', [[0, 1]])]);
+    all.push(thin);
+    check('one value: not enough data, said in the symbol', /Not enough data/.test(thin.text), thin.text);
+
+    const errs = [].concat.apply([], all.map((r) => r.errors));
+    check('no page errors', errs.length === 0, errs);
+}
+
 (() => {
     // `--only spectrum` runs one section, for the inner loop; CI runs all.
     const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
-        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart };
+        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart, rateOfChange };
     const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
         Object.keys(sections).forEach((k) => {
