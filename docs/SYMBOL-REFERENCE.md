@@ -1627,7 +1627,7 @@ Features - Configurable sweep angle (full circle through to a shallow arc) - Thr
 
 ## pvxRateOfChange
 
-**PVX Rate of Change** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Rate of Change** · data shape `TimeSeries` · multiple data sources · collections supported
 
 A trend shows where a value is. How fast it is getting there is what a heat-up, cool-down or pressurization procedure limits, and the slope of a trend line is hard to read by eye: the same climb looks steep on a narrow scale and flat on a wide one. This plots the rate itself, in the units per second, minute, hour or day that the procedure is written in, with rise and fall limits that turn the trace the alarm color while they are broken.
 
