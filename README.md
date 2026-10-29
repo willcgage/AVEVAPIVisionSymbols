@@ -30,11 +30,10 @@ onto a PI Vision display with the Image symbol:
 [trends and analysis](docs/symbol-guide/pvx-symbols-2-trends-analysis.png),
 [breakdowns, profiles and layouts](docs/symbol-guide/pvx-symbols-3-breakdowns-profiles-layouts.png) and
 [navigation, events and data entry](docs/symbol-guide/pvx-symbols-4-navigation-events-entry.png).
-[All 50 on one poster](docs/symbol-guide/pvx-symbols-all-50.png) (3840 px wide) is
+[All 52 on one poster](docs/symbol-guide/pvx-symbols-all-52.png) (3840 px wide) is
 for a wall screen or print; at 1920 its text is too small to read. They were
-rendered from 1.15.1 on sample data and are not rebuilt by the build, so a
-symbol that changes its look after that will not match its picture, and
-`pvxTargetForecast` and `pvxRateOfChange`, added later, are not in them.
+rendered from 1.16.0 on sample data and are not rebuilt by the build, so a
+symbol that changes its look after that will not match its picture.
 
 ### Charts and analytics
 
