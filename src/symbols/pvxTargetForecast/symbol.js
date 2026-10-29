@@ -63,7 +63,10 @@
             ForecastLowSource: 'indexAuto', ForecastHighSource: 'indexAuto'
         },
         visObjectType: symbolVis,
-        supportsCollections: false,
+        // A collection repeats the symbol once per asset and rebinds each copy to
+        // that asset's own attributes: one actual/target/forecast chart per unit.
+        // An AF Target trait and LookAhead both follow each copy's own paths.
+        supportsCollections: true,
         configTitle: 'Format Target & Forecast',
 
         getDefaultConfig: function () {

@@ -1957,7 +1957,7 @@ This is the overview panel operators put at the top of a display: every tag gets
 
 ## pvxTargetForecast
 
-**PVX Target & Forecast** · data shape `TimeSeries` · multiple data sources · collections not supported
+**PVX Target & Forecast** · data shape `TimeSeries` · multiple data sources · collections supported
 
 @mock forecast
 
