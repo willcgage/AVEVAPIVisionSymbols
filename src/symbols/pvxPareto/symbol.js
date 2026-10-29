@@ -197,11 +197,17 @@
                 // after a statistic change the in-flight payload may still be
                 // the previous aggregate; it is replaced within one refresh, so
                 // we prefer a one-frame stale number over dropping the row.
-                rows = PVX.data.rows(d, cfg.Columns || columnsFor(cfg)) || [];
+                // Rows from an AF search are different: PVX.afsource reads the
+                // current statistic and puts it in the one cell, whatever
+                // cfg.Columns still says. Parsed against a Columns that render
+                // had not yet synced, an Average read as "Value" and every bar
+                // came out empty; nothing re-sends those rows to repair it.
+                var fromSearch = PVX.afsource.wanted(cfg);
+                rows = PVX.data.rows(d, fromSearch ? columnsFor(cfg) : (cfg.Columns || columnsFor(cfg))) || [];
                 // From an AF search a ranking compares one quantity: the first
                 // attribute named. Any others are named in the footer.
                 unusedAttrs = [];
-                if (PVX.afsource.wanted(cfg)) {
+                if (fromSearch) {
                     var sp = PVX.afsource.split(rows, cfg, 1);
                     if (sp.attrs.length > 1) { rows = sp.byAttr[0]; unusedAttrs = sp.unused; }
                 }
