@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **50 symbols**.
+> [After the plan](#after-the-plan). The library is at **51 symbols**.
 
 ## On originality
 
@@ -536,6 +536,17 @@ Done so far, in order:
 | 37 | **pvxAssetTable**, **pvxEventList**, `PVX.writer` | Writes from symbols whose job is reading, through one shared panel (`PVX.writer`) with the Shift Log's rule: the value, the stream and the time are stated in full and confirmed, there is no undo, and PI Web API's own reason is shown when it refuses. The Asset Table's `EditMode` (off; `EditColumns` names the columns, blank is all) writes a clicked cell at the current time, checked as a number, a True/False choice or text by what the cell holds, to the stream found from the search or by `attributes?path=` for a data source, then reads it back. The Event List's `EventActions` (off) puts Ack (only where PI says the event can be and is not yet), Note (the event's annotations, and a box to add one) and, for the attributes in `EditAttributes`, Edit at the end of each row, and reads the list again after each; a new `ack` column says who acknowledged and when. A 403 now quotes PI Web API's own words. Proven against a mock PI Web API only (`test-overview --only writes`, 24 checks). |
 
 That completes the 37 items of the comparison.
+
+### Actual, target and forecast
+
+On 2026-10-29 the owner asked which chart best tracks actual against target
+against a forecast, and then for one built for it. The Combo Chart can draw the
+three traces, but it cannot say what matters about them, and nothing in the
+library drew past "now".
+
+| Symbol | What it adds |
+|---|---|
+| **pvxTargetForecast**, new | The actual solid, the target as steps (a plan or setpoint holds until changed) with an optional tolerance in units or percent, and the forecast dashed, fainter before now and full after, with an optional range from two more sources (P10 and P90). The time after now is shaded and the now line drawn. Tiles give the actual and target at the latest actual value, the gap (in units or percent, in or out of tolerance), the forecast's last value against the target then and the first time it crosses the target (a step that jumps over the forecast counts, at the step), and the forecast error so far: mean absolute difference and bias over the actual samples inside the forecast. Roles are picked by name or taken in order; sources with no role are counted. The target can be a source, a typed value or the actual's AF Target trait. PI Vision sends nothing after the display's end, so a forecast past now needs a display ending in the future (`*+8h`) or `LookAhead`, which reads the forecast, its range and a target source from the display's end through PI Web API, once a minute, and stands down on a display that ends before now. Mock-proven only. |
 
 ## What next
 

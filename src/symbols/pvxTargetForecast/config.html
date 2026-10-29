@@ -1,0 +1,304 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Roles</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-actual">Actual</label>
+            <select id="pvxtfc-actual" ng-model="config.ActualSource">
+                <option value="0">Automatic: the first data source</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.TargetMode !== 'fixed' && config.TargetMode !== 'af'">
+            <label for="pvxtfc-target">Target</label>
+            <select id="pvxtfc-target" ng-model="config.TargetSource">
+                <option value="0">Automatic: the next data source</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-forecast">Forecast</label>
+            <select id="pvxtfc-forecast" ng-model="config.ForecastSource">
+                <option value="0">Automatic: the next data source</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-low">Forecast range, low</label>
+            <select id="pvxtfc-low" ng-model="config.ForecastLowSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-high">Forecast range, high</label>
+            <select id="pvxtfc-high" ng-model="config.ForecastHighSource">
+                <option value="0">None</option>
+                <option ng-repeat="s in runtimeData.pvxSources.items track by $index"
+                        value="{{$index + 1}}">{{$index + 1}}. {{s.name}}</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Pick each role by name, or leave it automatic: the first data source is the actual,
+            then the target, then the forecast. The forecast range is drawn as a band between two
+            more sources, such as a P10 and a P90, and is never chosen automatically. Sources given
+            no role are counted in the footer. Removing a picked source sets its role back to
+            automatic.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Target</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-tmode">Target comes from</label>
+            <select id="pvxtfc-tmode" ng-model="config.TargetMode">
+                <option value="series">A data source</option>
+                <option value="fixed">A fixed value</option>
+                <option value="af">The actual's Target trait in AF</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.TargetMode === 'fixed'">
+            <label for="pvxtfc-tvalue">Target value</label>
+            <input id="pvxtfc-tvalue" type="number" ng-model="config.TargetValue" step="any" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.TargetMode === 'af'">
+            Read through PI Web API from the actual attribute's Target limit trait, once a minute,
+            so a change made in AF reaches every display. A PI point has no traits.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.TargetMode !== 'fixed' && config.TargetMode !== 'af'">
+            <label for="pvxtfc-step">Hold each target until the next</label>
+            <input id="pvxtfc-step" type="checkbox" ng-model="config.TargetStep" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.TargetMode !== 'fixed' && config.TargetMode !== 'af'">
+            A plan or setpoint is in force until it is changed, so the target is drawn as steps and
+            the latest one is held to the end of the time axis. Clear this for a target that
+            ramps between its values, such as a production curve.
+        </div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-tolmode">Tolerance</label>
+            <select id="pvxtfc-tolmode" ng-model="config.ToleranceMode">
+                <option value="none">None</option>
+                <option value="units">± engineering units</option>
+                <option value="percent">± percent of target</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ToleranceMode === 'units' || config.ToleranceMode === 'percent'">
+            <label for="pvxtfc-tol">Tolerance (±)</label>
+            <input id="pvxtfc-tol" type="number" ng-model="config.Tolerance" step="any" min="0" />
+        </div>
+        <div class="pvx-cfg-hint">
+            A band around the target. The gap tile then says whether the actual is in or out of
+            tolerance; with none it gives the gap alone.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Forecast</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-ahead">Look ahead</label>
+            <input id="pvxtfc-ahead" type="text" ng-model="config.LookAhead" placeholder="off, or 8h, 1d" />
+        </div>
+        <div class="pvx-cfg-hint">
+            PI Vision sends a symbol the display's time range and nothing after it, so on a display
+            ending at now the forecast stops at now. Either end the display in the future (an end
+            time such as *+8h), and PI Vision sends the future values itself, or set a length here:
+            the symbol then reads the forecast, its range and a target data source past the
+            display's end through PI Web API, at most once a minute, and extends the time axis to
+            cover it. It needs <code>ext/libraries/pvx/pvx-config.js</code> and does nothing on a
+            display that ends before now.
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.LookAhead">
+            <label for="pvxtfc-aheadmax">Values per source, at most</label>
+            <input id="pvxtfc-aheadmax" type="number" ng-model="config.LookAheadMaxValues" min="100" max="50000" step="100" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-past">Show the forecast before now</label>
+            <input id="pvxtfc-past" type="checkbox" ng-model="config.ShowPastForecast" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Drawn fainter, so a forecast that was wrong earlier stays visible beside what actually
+            happened. The forecast error tile compares the two either way.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-now">Shade the future and mark now</label>
+            <input id="pvxtfc-now" type="checkbox" ng-model="config.ShowNow" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Statistics</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-stats">Show the tiles</label>
+            <input id="pvxtfc-stats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-gapmode">Gap shown as</label>
+            <select id="pvxtfc-gapmode" ng-model="config.GapMode">
+                <option value="absolute">Engineering units</option>
+                <option value="percent">Percent of target</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Actual and target at the latest actual value, the gap between them, the forecast where
+            it ends with the time it first crosses the target, and the forecast error so far: the
+            mean absolute difference from the actual where both exist, and its bias. Tiles that do
+            not fit are left off, the gap last.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Text</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-title">Title</label>
+            <input id="pvxtfc-title" type="text" ng-model="config.Title" placeholder="the actual's name" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-alabel">Actual</label>
+            <input id="pvxtfc-alabel" type="text" ng-model="config.ActualLabel" placeholder="Actual" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-tlabel">Target</label>
+            <input id="pvxtfc-tlabel" type="text" ng-model="config.TargetLabel" placeholder="Target" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-flabel">Forecast</label>
+            <input id="pvxtfc-flabel" type="text" ng-model="config.ForecastLabel" placeholder="Forecast" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-rlabel">Forecast range</label>
+            <input id="pvxtfc-rlabel" type="text" ng-model="config.RangeLabel" placeholder="Forecast range" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The words used in the legend, the tiles and the readings, for example Plan, Budget or
+            Nomination in place of Target. Blank keeps the word shown.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-legend">Show legend</label>
+            <input id="pvxtfc-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Color</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-acolor">Actual</label>
+            <input id="pvxtfc-acolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ActualColor" />
+            <button type="button" ng-click="config.ActualColor = ''" ng-disabled="!config.ActualColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-tcolor">Target</label>
+            <input id="pvxtfc-tcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.TargetColor" />
+            <button type="button" ng-click="config.TargetColor = ''" ng-disabled="!config.TargetColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-fcolor">Forecast</label>
+            <input id="pvxtfc-fcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ForecastColor" />
+            <button type="button" ng-click="config.ForecastColor = ''" ng-disabled="!config.ForecastColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-tolcolor">Tolerance band</label>
+            <input id="pvxtfc-tolcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.ToleranceColor" />
+            <button type="button" ng-click="config.ToleranceColor = ''" ng-disabled="!config.ToleranceColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-hint">
+            Left on the theme, the actual is blue, the target follows the text color, the forecast
+            is orange and the tolerance band green. The forecast range takes the forecast's color.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Axes</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-scale">Value scale</label>
+            <select id="pvxtfc-scale" ng-model="config.ScaleMode">
+                <option value="auto">Auto</option>
+                <option value="fixed">Fixed</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ScaleMode === 'fixed'">
+            <label for="pvxtfc-smin">Minimum</label>
+            <input id="pvxtfc-smin" type="number" ng-model="config.ScaleMin" step="any" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ScaleMode === 'fixed'">
+            <label for="pvxtfc-smax">Maximum</label>
+            <input id="pvxtfc-smax" type="number" ng-model="config.ScaleMax" step="any" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-lw">Line width</label>
+            <input id="pvxtfc-lw" type="number" ng-model="config.LineWidth" min="0.5" max="8" step="0.1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-smooth">Smooth lines</label>
+            <input id="pvxtfc-smooth" type="checkbox" ng-model="config.SmoothLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-grid">Show grid</label>
+            <input id="pvxtfc-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-ticks">Value ticks</label>
+            <input id="pvxtfc-ticks" type="number" ng-model="config.TickCount" min="2" max="10" step="1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-points">Resolution (points)</label>
+            <input id="pvxtfc-points" type="number" ng-model="config.Intervals" min="50" max="2000" step="50" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-theme">Theme</label>
+            <select id="pvxtfc-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-showlabel">Show title</label>
+            <input id="pvxtfc-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-units">Show units in title</label>
+            <input id="pvxtfc-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-decimals">Decimals</label>
+            <select id="pvxtfc-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-transparent">Transparent background</label>
+            <input id="pvxtfc-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-bgcolor">Background color</label>
+            <input id="pvxtfc-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxtfc-radius">Corner radius</label>
+            <input id="pvxtfc-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+
+</div>

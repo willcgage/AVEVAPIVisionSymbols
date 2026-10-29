@@ -53,6 +53,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxSpectrum`](#pvxspectrum) | PVX Spectrum | TimeSeries | Multiple |
 | [`pvxStateDuration`](#pvxstateduration) | PVX Time in State | TimeSeries | Multiple |
 | [`pvxStatusGrid`](#pvxstatusgrid) | PVX Status Grid | Table | Multiple |
+| [`pvxTargetForecast`](#pvxtargetforecast) | PVX Target & Forecast | TimeSeries | Multiple |
 | [`pvxTimeRange`](#pvxtimerange) | PVX Time Range | Value | Single |
 | [`pvxTreemap`](#pvxtreemap) | PVX Treemap | — | Multiple |
 | [`pvxWaterfall`](#pvxwaterfall) | PVX Waterfall | Table | Multiple |
@@ -1951,6 +1952,63 @@ This is the overview panel operators put at the top of a display: every tag gets
 | `ShowBadQuality` | `true` |  |
 | `ClickAction` | `"none"` | none \| navigate |
 | `NavigateTarget` | `""` |  |
+
+---
+
+## pvxTargetForecast
+
+**PVX Target & Forecast** · data shape `TimeSeries` · multiple data sources · collections not supported
+
+@mock forecast
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModePlotValues"` |  |
+| `Intervals` | `300` |  |
+| `ActualSource` | `"0"` |  |
+| `TargetSource` | `"0"` |  |
+| `ForecastSource` | `"0"` |  |
+| `ForecastLowSource` | `"0"` | lower edge of the forecast range |
+| `ForecastHighSource` | `"0"` | upper edge of the forecast range |
+| `TargetMode` | `"series"` | series \| fixed \| af |
+| `TargetValue` | `""` | fixed: one value for the whole axis |
+| `TargetStep` | `true` | hold each target until the next one |
+| `ToleranceMode` | `"none"` | none \| units \| percent |
+| `Tolerance` | `""` | ± around the target, in units or % of target |
+| `LookAhead` | `""` | e.g. 8h: read the forecast past the display's end |
+| `LookAheadMaxValues` | `5000` | per source, per read |
+| `ShowPastForecast` | `true` | the forecast before now, drawn fainter |
+| `ShowNow` | `true` | the now line and the shaded future |
+| `ShowStats` | `true` | the tiles above the plot |
+| `GapMode` | `"absolute"` | absolute \| percent: how the gap tile leads |
+| `Title` | `""` |  |
+| `ActualLabel` | `""` | blank: Actual |
+| `TargetLabel` | `""` | blank: Target |
+| `ForecastLabel` | `""` | blank: Forecast |
+| `RangeLabel` | `""` | blank: Forecast range |
+| `ShowLegend` | `true` |  |
+| `ActualColor` | `""` |  |
+| `TargetColor` | `""` |  |
+| `ForecastColor` | `""` |  |
+| `ToleranceColor` | `""` |  |
+| `ScaleMode` | `"auto"` | auto \| fixed |
+| `ScaleMin` | `""` |  |
+| `ScaleMax` | `""` |  |
+| `LineWidth` | `1.8` |  |
+| `SmoothLine` | `false` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
 
 ---
 

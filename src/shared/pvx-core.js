@@ -4600,8 +4600,9 @@
     // same refresh tick. Without a short shared cache that is a dozen round
     // trips per tick to the same endpoints.
     var cache = {};
+    var webIds = {};
 
-    api.clearCache = function () { cache = {}; };
+    api.clearCache = function () { cache = {}; webIds = {}; };
 
     function cacheGet(key, ttl, nowMs) {
         var hit = cache[key];
@@ -4853,6 +4854,26 @@
     /** Resolve an attribute or PI point path to a data stream. */
     api.attributeByPath = function (afPath, opts) {
         return api.get('attributes?path=' + encodeURIComponent(afPath), opts);
+    };
+
+    /**
+     * The WebId of an attribute (`\\srv\db\El|Attr`) or PI point path, asked
+     * once per page: a stream's id does not change while a display is open,
+     * and a symbol that re-reads every minute should not resolve it again.
+     * A failed lookup is forgotten, so the next call asks again.
+     */
+    api.webIdByPath = function (p) {
+        var k = String(p || '').toLowerCase();
+        if (!k) { return Promise.reject({ message: 'no data source path' }); }
+        if (webIds[k]) { return webIds[k]; }
+        var job = api.get((p.indexOf('|') !== -1 ? 'attributes' : 'points') + '?path=' + encodeURIComponent(p) +
+            '&selectedFields=WebId').then(function (r) {
+            if (!r || !r.WebId) { throw { message: 'PI Web API does not know ' + p + '.' }; }
+            return r.WebId;
+        });
+        webIds[k] = job;
+        job.then(null, function () { if (webIds[k] === job) { delete webIds[k]; } });
+        return job;
     };
 
     /**

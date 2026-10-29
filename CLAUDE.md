@@ -1,6 +1,6 @@
 # CLAUDE.md — working notes for Claude Code
 
-PVX: 50 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
+PVX: 51 custom symbols for AVEVA PI Vision, a zero-dependency build toolchain,
 and an MSI installer generated from the build output. **v1.15.1**, released from
 the public repo at <https://github.com/willcgage/AVEVAPIVisionSymbols> with an
 MSI and a manual-copy zip attached (a release only exists once Will pushes its
@@ -17,15 +17,15 @@ short, sharp list of things that will waste your time if you do not know them.
 
 ```bash
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
-node tools/verify.js                 # 900 render checks — the gate, and slow
+node tools/verify.js                 # 918 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
 node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
 node tools/test-limits.js            # alarm symbols with no limits set raise nothing
-node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, text zoom vs a mock AF
-node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart numbers vs known answers (--only <section>)
+node tools/test-overview.js          # (--rules, --only analytics|afsearch|filters|writes|forecast) nav hierarchy, Asset Table, scoped Event Timeline, Event Analytics, AF search as rows, shared filters, writes from the Asset Table and Event List, Event List, runs from event frames, Asset Rollup, quick trend, Lookup Table, own time range, Target & Forecast look-ahead, text zoom vs a mock AF
+node tools/test-charts.js            # chart, gauge, KPI, History Table, Spectrum, Cross Profile, Combo Chart, Target & Forecast numbers vs known answers (--only <section>)
 node tools/test-overlay.js           # save button (PNG/SVG/CSV), stale badge, hide when no data (quick trend: test-overview)
 node tools/test-alarms.js            # alarm deadband, Banner History, Alarm Tone vs a mock PI Web API
 node tools/test-entry.js             # entry controls, momentary button, Shift Log form layout, options, paste/CSV, time-slot grid vs a mock PI Web API
@@ -37,7 +37,7 @@ node tools/check-text.js             # no raw control bytes anywhere in the repo
 node tools/probe.js <symbol> [...]   # render ONE symbol — the inner loop
 ```
 
-**Use the probe while iterating, not verify.** Verify renders 50 symbols 18
+**Use the probe while iterating, not verify.** Verify renders 51 symbols 18
 ways: measured at ~12 minutes on a Windows workstation, and the CI job wrapping
 it takes ~9 on Linux. Budget for that rather than the "couple of minutes" this
 file used to claim.
@@ -136,7 +136,7 @@ silently destroys a site's PI Web API settings on upgrade.
 - `PVX.register(PV, def)` — never `PV.symbolCatalog.register` directly.
 - `PVX.bootstrap()` wires the lifecycle into one coalesced render frame.
 - Symbols get data through PI Vision's pipeline. Ten reach PI Web API via
-  `PVX.api` for their main job and nine more for an option that is off by
+  `PVX.api` for their main job and ten more for an option that is off by
   default, configured once per site in `pvx-config.js`. A blank `baseUrl`
   means "ask `/piwebapi` on PI Vision's own origin, once per page"
   (`api.discover`; `autoDiscover: false` restores blank-means-off). A symbol's
@@ -366,6 +366,13 @@ options, with defaults that leave saved displays unchanged. `PVX.nav.parseTime`
 resolves PI time expressions for anything that steps or replays a range;
 `PVX.af.traits` / `PVX.af.text` / `PVX.af.watcher` read settings kept in AF
 (limit traits, a menu in a string attribute), at most once a minute per value.
+
+**One more on request: `pvxTargetForecast`** (Will, 2026-10-29), actual vs
+target vs forecast on one axis. PI Vision sends nothing after the display's
+end, so the forecast past now comes from a display ending in the future, or
+from its `LookAhead` option, which reads recorded values from the display's end
+through PI Web API (`PVX.api.webIdByPath`). Mock-proven only
+(`test-charts --only targetForecast`, `test-overview --only forecast`).
 
 **The release pipeline is proven.** Tagging works end to end: the gate re-runs
 the full verification on the tagged commit, the MSI is built with the official
