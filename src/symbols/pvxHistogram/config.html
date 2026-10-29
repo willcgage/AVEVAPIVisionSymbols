@@ -236,6 +236,10 @@
             <label for="pvxhist-showlabel">Show title</label>
             <input id="pvxhist-showlabel" type="checkbox" ng-model="config.ShowLabel" />
         </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowLabel !== false">
+            <label for="pvxhist-title">Title</label>
+            <input id="pvxhist-title" type="text" ng-model="config.Title" placeholder="Automatic: the attribute name" />
+        </div>
         <div class="pvx-cfg-row">
             <label for="pvxhist-units">Show units in title</label>
             <input id="pvxhist-units" type="checkbox" ng-model="config.ShowUnits" />

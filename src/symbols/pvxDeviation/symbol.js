@@ -110,7 +110,17 @@
                 MaxSeries: 6,
                 ShowLegend: true,
                 ShowCurrentValue: true,
-                ShowLabel: true
+                ShowLabel: true,
+
+                // Text. Blank means the wording the symbol builds itself, so
+                // a saved display reads exactly as it did.
+                Title: '',
+                ShowTargetCaption: true,
+                TargetCaption: '',
+                AxisTitle: '',
+                AboveLabel: '',
+                BelowLabel: '',
+                TargetLabel: ''
             });
         }
     };
@@ -664,8 +674,9 @@
             }
 
             var showTitle = rootH >= 96 && rootW >= 120;
-            scope.pvx.title = showTitle ? titleText(list, seriesTarget) : '';
-            scope.pvx.target = (showTitle && rootW >= 210) ? targetText(cfg, tol, unit, seriesTarget) : '';
+            scope.pvx.title = showTitle ? titleText(cfg, list, seriesTarget) : '';
+            scope.pvx.target = (showTitle && rootW >= 210 && cfg.ShowTargetCaption !== false)
+                ? targetText(cfg, tol, unit, seriesTarget) : '';
 
             // ---- empty states ----------------------------------------------
             if (!model.raw.length) {
@@ -769,7 +780,7 @@
                 }
             }
 
-            var axisTitle = showAxisTitle ? axisTitleText(mode, list, unit) : '';
+            var axisTitle = showAxisTitle ? axisTitleText(cfg, mode, list, unit) : '';
             var legendH = showLegend ? (tickFont + 7) : 0;
 
             var mL = 6 + (axisTitle ? titleFont + 3 : 0) + vLabelW + (showTicks ? 5 : 0);
@@ -1271,8 +1282,9 @@
             }
             if (mode === 'trend') {
                 items.push({
-                    label: seriesTarget ? ((model.sp && model.sp.label) || 'Setpoint')
-                                        : ('Target ' + PVX.fmt.tick(PVX.util.num(cfg.TargetValue) || 0)),
+                    label: own(cfg.TargetLabel) || (seriesTarget
+                        ? ((model.sp && model.sp.label) || 'Setpoint')
+                        : ('Target ' + PVX.fmt.tick(PVX.util.num(cfg.TargetValue) || 0))),
                     color: cfg.BandColor || PVX.color.status.normal,
                     dashed: true
                 });
@@ -1285,8 +1297,8 @@
              * space on the right and is never dropped in favour of one more tag
              * name — but it yields entirely when it would take half the row. */
             var key = [
-                { label: 'above tol', color: cfg.HighColor || PVX.color.status.alarm },
-                { label: 'below tol', color: cfg.LowColor || PVX.color.status.warning }
+                { label: own(cfg.AboveLabel) || 'above tol', color: cfg.HighColor || PVX.color.status.alarm },
+                { label: own(cfg.BelowLabel) || 'below tol', color: cfg.LowColor || PVX.color.status.warning }
             ];
 
             var y = Math.max(font * 0.8, plot.y - font * 0.9);
@@ -1302,8 +1314,13 @@
             var x = plot.x;
             var avail = right - keyW;
             var shown = 0;
+            /* Each name gets an equal share of the row, never less than 120px.
+             * A flat 120px cap cut two AF labels to the same "T-42 Butane
+             * Spli…" on a live server with most of the row still empty, so
+             * the legend could not tell its two traces apart. */
+            var share = Math.max(120, (avail - plot.x) / Math.max(1, items.length) - sw - 14);
             for (i = 0; i < items.length; i++) {
-                var text = fitText(items[i].label, Math.min(120, avail - x - sw - 16), font);
+                var text = fitText(items[i].label, Math.min(share, avail - x - sw - 16), font);
                 if (!text) { break; }
                 var w = sw + 4 + text.length * font * CHAR_W + 10;
                 if (x + w > avail && shown > 0) { break; }
@@ -1646,7 +1663,13 @@
          * bindings
          * ================================================================== */
 
-        function titleText(list, seriesTarget) {
+        /** A text option as typed, or '' when it was left blank. */
+        function own(v) {
+            return String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, '');
+        }
+
+        function titleText(cfg, list, seriesTarget) {
+            if (own(cfg.Title)) { return own(cfg.Title); }
             if (!list.length) { return 'Deviation from target'; }
             if (list.length === 1) {
                 return (list[0].label || 'Deviation') + ' — deviation';
@@ -1664,13 +1687,15 @@
             } else {
                 tolTxt = '-' + PVX.fmt.tick(-tol.lo) + unit + ' / +' + PVX.fmt.tick(tol.hi) + unit;
             }
+            if (own(cfg.TargetCaption)) { return own(cfg.TargetCaption); }
             var head = seriesTarget
                 ? 'SP: ' + ((model.sp && model.sp.label) || 'setpoint')
                 : 'Target ' + PVX.fmt.number(cfg.TargetValue, { decimals: cfg.Decimals });
             return head + '  ' + tolTxt;
         }
 
-        function axisTitleText(mode, list, unit) {
+        function axisTitleText(cfg, mode, list, unit) {
+            if (own(cfg.AxisTitle)) { return own(cfg.AxisTitle); }
             if (mode === 'trend') {
                 var u = list.length ? list[0].units : '';
                 return u ? ('Value (' + u + ')') : 'Value';

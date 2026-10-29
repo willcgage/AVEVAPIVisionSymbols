@@ -19,7 +19,7 @@ short, sharp list of things that will waste your time if you do not know them.
 node tools/build.js --clean          # src/ -> dist/ext, runs the validator
 node tools/verify.js                 # 900 render checks — the gate, and slow
 node tools/test-api.js               # PI Web API layer vs 6 broken mocks
-node tools/test-sources.js           # data source removal, band + trace editors: rules + built pane
+node tools/test-sources.js           # data source removal + names, band + trace editors: rules + built pane
 node tools/test-afpick.js            # AF search pane: rules + built panes vs a mock AF database
 node tools/test-states.js            # digital state map editor: rules + built panes vs mock digital sets
 node tools/test-tags.js              # Data Health range/override rows + Fill from PI vs a mock PI Web API
@@ -149,7 +149,10 @@ silently destroys a site's PI Web API settings on upgrade.
   injected by `build.js`) whose Remove splices `symbol.DataSources` and
   renumbers the keys a symbol lists in `sourceRemap`. It reaches the pane
   through `scope.runtimeData`; proven live on a server in 1.8.0 (list, Remove,
-  and the removal surviving save and reload).
+  and the removal surviving save and reload). Each row also takes a typed
+  name (`SourceNames`, by position) and the list a **Shorten names** style
+  (`SourceNameStyle`); `PVX.bootstrap` applies both with `sources.rename`
+  before `onData`, so every symbol's labels follow. Mock-proven only.
 - A field that takes an AF path gets a **Search** pane from a marker after its
   input, `<!-- pvx:afpicker key=DatabasePath kind=database -->` (optional
   `start=<key>`, `append=entryRow|navItem`), expanded by `build.js` from

@@ -632,6 +632,13 @@ A normal trend answers "what was the value". A control engineer is almost never 
 | `MaxSeries` | `6` |  |
 | `ShowLegend` | `true` |  |
 | `ShowCurrentValue` | `true` |  |
+| `Title` | `""` |  |
+| `ShowTargetCaption` | `true` |  |
+| `TargetCaption` | `""` |  |
+| `AxisTitle` | `""` |  |
+| `AboveLabel` | `""` |  |
+| `BelowLabel` | `""` |  |
+| `TargetLabel` | `""` |  |
 
 ---
 
@@ -1115,6 +1122,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `ShowGrid` | `true` |  |
 | `TickCount` | `5` |  |
 | `ShowAxisLabels` | `true` |  |
+| `Title` | `""` | blank => built from the data source names |
 
 ---
 
@@ -2144,6 +2152,7 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `EnvelopeShape` | `"box"` | box \| polygon |
 | `EnvelopePolygon` | `""` | "x,y; x,y; x,y ..." corners in order |
 | `ShowPointCount` | `true` |  |
+| `Title` | `""` | blank => built from the data source names |
 
 ---
 

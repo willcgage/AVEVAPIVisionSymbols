@@ -102,7 +102,8 @@
                 ShowGrid: true,
                 TickCount: 5,
                 ShowAxisLabels: true,
-                ShowLabel: true
+                ShowLabel: true,
+                Title: ''                   // blank => built from the data source names
             });
         }
     };
@@ -173,7 +174,7 @@
             if (sel && !sel.good) { scope.pvx.error = sel.errorDescription || 'Bad data quality'; }
             // Under ~84px the title band is a quarter of the symbol; the bars
             // say more than the name does at that size.
-            scope.pvx.title = (boxH0 < 84) ? '' : (sel
+            scope.pvx.title = (boxH0 < 84) ? '' : String(cfg.Title || '').replace(/^\s+|\s+$/g, '') || (sel
                 ? (sel.label + (sel.units && cfg.ShowUnits !== false ? ' (' + sel.units + ')' : ''))
                 : 'Distribution');
 

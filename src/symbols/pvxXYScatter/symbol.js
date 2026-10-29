@@ -107,7 +107,8 @@
                 EnvelopePolygon: '',        // "x,y; x,y; x,y ..." corners in order
 
                 ShowPointCount: true,
-                ShowLabel: true
+                ShowLabel: true,
+                Title: ''                   // blank => built from the data source names
             });
         }
     };
@@ -369,7 +370,8 @@
             var yName = ys ? (ys.label || 'Y') : '';
             var list = model.list;
             var multi = list.length > 1;
-            scope.pvx.title = (xs && ys) ? ((multi ? list.length + ' series' : yName) + ' vs ' + xName) : 'XY Scatter';
+            scope.pvx.title = String(cfg.Title || '').replace(/^\s+|\s+$/g, '') ||
+                ((xs && ys) ? ((multi ? list.length + ' series' : yName) + ' vs ' + xName) : 'XY Scatter');
             scope.pvx.error = '';
             if (xs && !xs.good) { scope.pvx.error = xs.errorDescription || 'Bad data on X'; }
             else if (ys && !ys.good) { scope.pvx.error = ys.errorDescription || 'Bad data on Y'; }

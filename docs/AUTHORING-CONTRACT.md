@@ -159,6 +159,19 @@ its own. The build injects the shared **Data sources** list
 first line does not match rather than ship that symbol without it. Do not
 build a data source list of your own.
 
+The same list carries a **name box under each source** and a **Shorten names**
+select (`config.SourceNames`, a list in source order, and
+`config.SourceNameStyle`: `full`, `asset`, `attribute` or `last`), both from
+`PVX.config.base`. `PVX.bootstrap` applies them to every update with
+`PVX.sources.rename`, after the metadata carry and before `onData`, so a
+symbol that reads labels through the bootstrap needs nothing for this. Never
+read a label from anywhere else, and never add a per-source name option of
+your own. `Path` is not renamed; rows from an AF search are not renamed.
+
+A header subtitle shrinks before the title and ends in an ellipsis
+(`.pvx-subtitle` in `base.css`). Do not give it `flex: 0 0 auto` again: a
+setpoint named by its full AF path then ran off the symbol's right edge.
+
 Threshold bands are edited with the shared band editor
 (`src/shared/config-bands.html`): one row per band with a limit, a color
 picker and a label, plus Add band and an *Edit as text* fallback. Put the

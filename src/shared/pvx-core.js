@@ -4113,7 +4113,13 @@
             OwnStart: '*-1d',
             OwnEnd: '*',
             OwnRefreshSeconds: 60,
-            OwnMaxValues: 10000
+            OwnMaxValues: 10000,
+            // Every symbol, applied by PVX.bootstrap through sources.rename:
+            // a name per data source, in source order, and how to shorten the
+            // ones left blank. Empty and 'full', so a saved display keeps the
+            // names PI Vision sends.
+            SourceNames: [],
+            SourceNameStyle: 'full'     // full | asset | attribute | last
         };
         if (extra) {
             for (var k in extra) {
@@ -5260,6 +5266,89 @@
         return name || String(path || '');
     };
 
+    /**
+     * A data source's label shortened the way SourceNameStyle asks. PI
+     * Vision labels an AF attribute "Asset|Attribute", and a child attribute
+     * "Asset|Parent|Child", so on a real site two traces on one chart can
+     * share forty characters before they differ ("T-42 Butane
+     * Splitter|Tray Temperatures|Tray 21 - Temperature" and its Target) and
+     * both truncate to the same "T-42 Butane Spli…".
+     *   full       as PI Vision sent it
+     *   asset      the asset name: the same attribute across several assets
+     *   attribute  everything after the asset
+     *   last       the last part only
+     * A label with no '|' (a PI point) is returned unchanged by every style.
+     */
+    sources.label = function (label, style) {
+        var s = String(label === null || label === undefined ? '' : label);
+        var bar = s.indexOf('|');
+        if (bar === -1 || !style || style === 'full') { return s; }
+        if (style === 'asset') { return s.slice(0, bar) || s; }
+        if (style === 'attribute') { return s.slice(bar + 1) || s; }
+        if (style === 'last') { return s.slice(s.lastIndexOf('|') + 1) || s; }
+        return s;
+    };
+
+    /** The name typed for the i-th (0-based) source, or '' for none. */
+    sources.typedName = function (cfg, i) {
+        var list = cfg && cfg.SourceNames;
+        var v = list ? list[i] : null;
+        v = String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, '');
+        return v;
+    };
+
+    /**
+     * Apply SourceNames and SourceNameStyle to a data update, before any
+     * symbol reads it, so every PVX symbol names its sources the same way:
+     * legend, header, tooltip, statistics card, CSV and quick trend alike.
+     * Runs after data.metaCarry, so it renames the carried label too, and
+     * returns copies: PI Vision's own objects are never changed. Items are
+     * matched to names by position, which is the order the Data sources
+     * list in the pane shows and the order sources.bind renumbers on Remove.
+     * Path is left alone, so nothing that reads PI Web API by path moves.
+     */
+    sources.rename = function (d, cfg) {
+        var style = cfg && cfg.SourceNameStyle;
+        var names = cfg && cfg.SourceNames;
+        var any = false;
+        if (names && typeof names === 'object') {
+            for (var n in names) {
+                if (Object.prototype.hasOwnProperty.call(names, n) && sources.typedName(cfg, n)) { any = true; break; }
+            }
+        }
+        if (!d || typeof d !== 'object' || (!any && (!style || style === 'full'))) { return d; }
+
+        var one = function (item, i) {
+            if (!item || typeof item !== 'object') { return item; }
+            var key = item.Label !== undefined ? 'Label' : (item.label !== undefined ? 'label' : null);
+            var typed = sources.typedName(cfg, i);
+            if (!key && !typed) { return item; }
+            var next = typed || sources.label(item[key], style);
+            if (key && next === item[key]) { return item; }
+            var copy = shallow(item);
+            copy[key || 'Label'] = next;
+            return copy;
+        };
+        var isList = function (v) { return Object.prototype.toString.call(v) === '[object Array]'; };
+        var all = function (items) {
+            var out = [];
+            for (var i = 0; i < items.length; i++) { out.push(one(items[i], i)); }
+            return out;
+        };
+
+        if (isList(d)) { return all(d); }
+        var out = null;
+        var keys = ['Data', 'data', 'Rows', 'rows', 'Traces'];
+        for (var k = 0; k < keys.length; k++) {
+            if (isList(d[keys[k]])) {
+                out = out || shallow(d);
+                out[keys[k]] = all(d[keys[k]]);
+            }
+        }
+        // Value and Gauge put the one source's fields on the payload itself.
+        return out || one(d, 0);
+    };
+
     function renumber(n, k) { return n > k ? n - 1 : n; }
 
     /** Remove the k-th (1-based) sep-separated piece, or null if there is none. */
@@ -5455,11 +5544,32 @@
             }
             if (same) { return; }
             var items = [];
+            var cfg = scope.config || (scope.symbol && scope.symbol.Configuration);
             for (var i = 0; i < ds.length; i++) {
-                items.push({ path: String(ds[i]), name: sources.name(ds[i]) });
+                items.push({ path: String(ds[i]), name: sources.name(ds[i]), alias: sources.typedName(cfg, i) });
             }
             state.items = items;
             state.pending = -1;
+        };
+
+        /*
+         * The pane writes the result itself — `config.SourceNames =
+         * runtimeData.pvxSources.named(...)` in its ng-change — because the
+         * pane's own `config` is the object PI Vision saves (see afpick). A
+         * new array every time, padded to the source count, so a blank in
+         * the middle keeps every later name on its own source.
+         */
+        state.named = function (current, i, value) {
+            var n = Math.max(state.items.length, i + 1);
+            var out = [];
+            for (var j = 0; j < n; j++) {
+                var v = current ? current[j] : '';
+                out.push(String(v === null || v === undefined ? '' : v));
+            }
+            out[i] = String(value === null || value === undefined ? '' : value);
+            // Trailing blanks carry nothing; a display with no names saves [].
+            while (out.length && !out[out.length - 1].replace(/\s+/g, '')) { out.pop(); }
+            return out;
         };
 
         // Two clicks, not one: the button sits in a narrow pane next to the
@@ -5479,6 +5589,19 @@
             var name = sources.name(ds[i]);
             var cfg = scope.config || (scope.symbol && scope.symbol.Configuration);
             var notes = sources.remap(cfg, info.sourceRemap, i + 1);
+            // Names are positional like any other per-source setting, but
+            // every symbol has them, so they are renumbered here rather than
+            // through each definition's sourceRemap. A removed source's name
+            // goes with it; it is never passed to the neighbour.
+            if (cfg && cfg.SourceNames && typeof cfg.SourceNames === 'object') {
+                var kept = [];
+                for (var nn = 0; nn < ds.length; nn++) {
+                    if (nn !== i) { kept.push(sources.typedName(cfg, nn)); }
+                }
+                while (kept.length && !kept[kept.length - 1]) { kept.pop(); }
+                if (sources.typedName(cfg, i)) { notes.push('Its name "' + sources.typedName(cfg, i) + '" went with it.'); }
+                cfg.SourceNames = kept;
+            }
             // In place: whatever in PI Vision already holds this array sees
             // the change, and a $watchCollection on it fires.
             ds.splice(i, 1);
@@ -8652,8 +8775,20 @@
             else { ctx.afsource.take(d1, function (d2) { ctx.ownrange.take(d2, deliver); }); }
         };
 
+        var lastNames = null;
+        function namesKey(c) {
+            return c ? JSON.stringify([c.SourceNames || [], c.SourceNameStyle || 'full', !!afsource.wanted(c)]) : '';
+        }
+
         function deliver(d) {
             if (ctx.destroyed) { return; }
+            // Kept unnamed, so a name typed in the pane can be applied at
+            // once instead of waiting for PI Vision's next update.
+            ctx.rawData = d;
+            lastNames = namesKey(ctx.config);
+            // Rows from an AF search are named by AF, not by position in the
+            // data source list, so the source names do not apply to them.
+            if (!afsource.wanted(ctx.config)) { d = sources.rename(d, ctx.config); }
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -8679,6 +8814,7 @@
                 ctx.ownrange.changed(deliver);
             }
             ctx.filter.sync();
+            if (ctx.rawData && namesKey(ctx.config) !== lastNames) { deliver(ctx.rawData); }
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }
