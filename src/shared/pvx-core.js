@@ -8777,18 +8777,19 @@
 
         var lastNames = null;
         function namesKey(c) {
-            return c ? JSON.stringify([c.SourceNames || [], c.SourceNameStyle || 'full', !!afsource.wanted(c)]) : '';
+            return c ? JSON.stringify([c.SourceNames || [], c.SourceNameStyle || 'full']) : '';
         }
 
         function deliver(d) {
             if (ctx.destroyed) { return; }
             // Kept unnamed, so a name typed in the pane can be applied at
             // once instead of waiting for PI Vision's next update.
-            ctx.rawData = d;
             lastNames = namesKey(ctx.config);
             // Rows from an AF search are named by AF, not by position in the
-            // data source list, so the source names do not apply to them.
-            if (!afsource.wanted(ctx.config)) { d = sources.rename(d, ctx.config); }
+            // data source list, so the source names do not apply to them,
+            // and they are not kept to be named again later.
+            if (afsource.wanted(ctx.config)) { ctx.rawData = null; }
+            else { ctx.rawData = d; d = sources.rename(d, ctx.config); }
             ctx.data = d;
             // Also catches a source added by drag and drop, on a release
             // where nothing re-runs the collection watch in sources.bind.
@@ -8814,7 +8815,10 @@
                 ctx.ownrange.changed(deliver);
             }
             ctx.filter.sync();
-            if (ctx.rawData && namesKey(ctx.config) !== lastNames) { deliver(ctx.rawData); }
+            // Never while rows come from an AF search: rawData may still be
+            // the display's own update, and delivering it would put those
+            // rows back on the symbol in place of the search's.
+            if (ctx.rawData && !afsource.wanted(ctx.config) && namesKey(ctx.config) !== lastNames) { deliver(ctx.rawData); }
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }
             }
