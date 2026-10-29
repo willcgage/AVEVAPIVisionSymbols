@@ -1,0 +1,212 @@
+<div class="c-config-content pvx-cfg">
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rate</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-unit">Rate per</label>
+            <select id="pvxroc-unit" ng-model="config.RateUnit">
+                <option value="s">Second</option>
+                <option value="min">Minute</option>
+                <option value="h">Hour</option>
+                <option value="d">Day</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-method">Calculated as</label>
+            <select id="pvxroc-method" ng-model="config.Method">
+                <option value="window">Change over a window</option>
+                <option value="fit">Slope of a line fitted over a window</option>
+                <option value="samples">Between recorded values, unsmoothed</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.Method !== 'samples'">
+            <label for="pvxroc-window">Window</label>
+            <input id="pvxroc-window" type="number" ng-model="config.WindowValue" min="1" step="1" />
+            <select aria-label="Window unit" ng-model="config.WindowUnit">
+                <option value="s">s</option>
+                <option value="min">min</option>
+                <option value="h">h</option>
+                <option value="d">days</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.Method !== 'samples'">
+            <label for="pvxroc-align">Window position</label>
+            <select id="pvxroc-align" ng-model="config.WindowAlign">
+                <option value="trailing">Ending at each time, as a live alarm sees it</option>
+                <option value="centered">Centered on each time, no lag</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-show="config.Method !== 'samples'">
+            <label for="pvxroc-intervals">Points across the time range</label>
+            <input id="pvxroc-intervals" type="number" ng-model="config.Intervals" min="20" max="5000" step="10" />
+        </div>
+        <div class="pvx-cfg-hint">
+            The window is the smoothing: a longer one steadies a noisy signal and shows a step
+            later. A window ending at each time lags by half its length, and has no rate for the
+            first window of the time range. The fitted line is steadier still on noise. PI stores
+            a value only when it changes, so the value at each end of the window is read off the
+            straight line between the recorded values around it, as PI interpolates.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-gap">Break the trace at a gap longer than (minutes, 0 = never)</label>
+            <input id="pvxroc-gap" type="number" ng-model="config.MaxGapMinutes" min="0" step="1" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave it at 0 for a compressed tag: a long gap there means the value held steady. Set
+            it for a tag that is scanned at a fixed rate, where a gap means the feed stopped. A
+            value that is not a good number always breaks the trace, and the footer counts them.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-max">Most data sources charted</label>
+            <input id="pvxroc-max" type="number" ng-model="config.MaxSeries" min="1" max="12" step="1" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Rate limits</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-rise">Rise limit</label>
+            <input id="pvxroc-rise" type="text" ng-model="config.RiseLimit" placeholder="None" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-fall">Fall limit</label>
+            <input id="pvxroc-fall" type="text" ng-model="config.FallLimit" placeholder="None" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-risewarn">Rise warning</label>
+            <input id="pvxroc-risewarn" type="text" ng-model="config.RiseWarn" placeholder="None" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-fallwarn">Fall warning</label>
+            <input id="pvxroc-fallwarn" type="text" ng-model="config.FallWarn" placeholder="None" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Rates in the unit chosen above, per second, minute, hour or day. Type a fall limit as
+            a positive number: 3 means falling faster than 3 per minute. Past a limit the trace
+            turns its color, and the footer says how long it stayed past it and how many times.
+            With no limits set nothing is flagged, and the footer says so.
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-alarmcolor">Limit color</label>
+            <input id="pvxroc-alarmcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AlarmColor" />
+            <button type="button" ng-click="config.AlarmColor = ''" ng-disabled="!config.AlarmColor" title="Use the status alarm color again">Default</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-warncolor">Warning color</label>
+            <input id="pvxroc-warncolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.WarnColor" />
+            <button type="button" ng-click="config.WarnColor = ''" ng-disabled="!config.WarnColor" title="Use the status warning color again">Default</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-shade">Shade the regions past the limits</label>
+            <input id="pvxroc-shade" type="checkbox" ng-model="config.ShadeLimits" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Chart</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-value">Show the measured value on a right-hand axis</label>
+            <input id="pvxroc-value" type="checkbox" ng-model="config.ShowValue" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-sym">Same scale above and below zero</label>
+            <input id="pvxroc-sym" type="checkbox" ng-model="config.SymmetricAxis" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-zero">Show the zero line</label>
+            <input id="pvxroc-zero" type="checkbox" ng-model="config.ShowZeroLine" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-legend">Show legend (several data sources)</label>
+            <input id="pvxroc-legend" type="checkbox" ng-model="config.ShowLegend" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-grid">Show grid</label>
+            <input id="pvxroc-grid" type="checkbox" ng-model="config.ShowGrid" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-ticks">Value ticks</label>
+            <input id="pvxroc-ticks" type="number" ng-model="config.TickCount" min="2" max="10" step="1" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-stats">Show steepest rise and fall</label>
+            <input id="pvxroc-stats" type="checkbox" ng-model="config.ShowStats" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-accent">Trace color (one data source)</label>
+            <input id="pvxroc-accent" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.AccentColor" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Text</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-title">Title</label>
+            <input id="pvxroc-title" type="text" ng-model="config.Title" placeholder="Automatic: the name and rate units" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-showmethod">Show how the rate is calculated</label>
+            <input id="pvxroc-showmethod" type="checkbox" ng-model="config.ShowMethodCaption" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowMethodCaption !== false">
+            <label for="pvxroc-method-caption">Caption</label>
+            <input id="pvxroc-method-caption" type="text" ng-model="config.MethodCaption" placeholder="Automatic: change over 10 min" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-axistitle">Rate axis title</label>
+            <input id="pvxroc-axistitle" type="text" ng-model="config.AxisTitle" placeholder="Automatic: Rate (units/min)" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowValue">
+            <label for="pvxroc-vaxistitle">Value axis title</label>
+            <input id="pvxroc-vaxistitle" type="text" ng-model="config.ValueAxisTitle" placeholder="Automatic: Value (units)" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave a box blank for the wording the symbol builds itself. The automatic title and
+            legend use the data source names, so a long AF path is often better fixed once by
+            typing a short name under the source in Data sources at the top of this pane.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Appearance</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-theme">Theme</label>
+            <select id="pvxroc-theme" ng-model="config.Theme">
+                <option value="auto">Match display</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-showlabel">Show title</label>
+            <input id="pvxroc-showlabel" type="checkbox" ng-model="config.ShowLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-units">Show units in title</label>
+            <input id="pvxroc-units" type="checkbox" ng-model="config.ShowUnits" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-decimals">Decimals</label>
+            <select id="pvxroc-decimals" ng-model="config.Decimals">
+                <option value="auto">Auto</option>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-transparent">Transparent background</label>
+            <input id="pvxroc-transparent" type="checkbox" ng-model="config.Transparent" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-bgcolor">Background color</label>
+            <input id="pvxroc-bgcolor" type="color" ng-model-options="{ updateOn: 'change' }" ng-model="config.BackgroundColor" ng-disabled="config.Transparent" />
+            <button type="button" ng-click="config.BackgroundColor = ''" ng-disabled="!config.BackgroundColor" title="Follow the theme again">Theme</button>
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxroc-radius">Corner radius</label>
+            <input id="pvxroc-radius" type="number" ng-model="config.CornerRadius" min="0" max="40" />
+        </div>
+    </div>
+</div>

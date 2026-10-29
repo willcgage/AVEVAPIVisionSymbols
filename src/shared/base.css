@@ -56,7 +56,13 @@
     font-size: 10px;
     font-weight: 400;
     white-space: nowrap;
-    flex: 0 0 auto;
+    /* It shrinks, and faster than the title beside it. With `0 0 auto` a long
+       caption (a setpoint named by its full AF path) could not shrink at all,
+       so it ran off the right edge and squeezed the title to an ellipsis. */
+    flex: 0 3 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pvx-body {
@@ -453,6 +459,18 @@
 }
 
 .pvx-cfg-src-msg { opacity: 0.85; }
+
+/* The name box sits under its row, indented past the number, so the list
+   still reads as one row per source. */
+.pvx-cfg-src-alias {
+    margin: 0 0 6px 22px;
+}
+
+.pvx-cfg-src-alias input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+}
 
 /* Threshold band editor, injected wherever a pane has <!-- pvx:bands -->. */
 .pvx-cfg-label {

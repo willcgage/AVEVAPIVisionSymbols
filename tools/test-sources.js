@@ -21,6 +21,11 @@
  * source's Label, Units and Path between PI Vision's metadata updates and
  * keeps them with the right source after a removal.
  *
+ * Names: PVX.sources.label, rename and the pane's name boxes. A name typed
+ * under a data source, or a shortening style, replaces that source's label
+ * before any symbol reads it, stays with its source on removal, and never
+ * touches Path or PI Vision's own objects.
+ *
  * Band editor: PVX.thresholds.bind in Node (rows <-> the stored grammar
  * string, which saved displays depend on), then the built pane in Chromium:
  * one row per band, and typing, picking, adding and removing rewrite
@@ -174,6 +179,46 @@ function metaRules() {
     check('Table rows keep their label by position', D.rows(rows({ Rows: [{ Value: 2 }] }))[0].label === 'R');
 }
 
+function nameRules() {
+    console.log('');
+    console.log(C.bold + 'Data source names' + C.reset);
+    const S = loadCore().sources;
+    const L = 'T-42 Butane Splitter|Tray Temperatures|Tray 21 - Temperature';
+    check('full keeps the label', S.label(L, 'full') === L);
+    check('asset: the part before the first bar', S.label(L, 'asset') === 'T-42 Butane Splitter', S.label(L, 'asset'));
+    check('attribute: everything after the asset',
+        S.label(L, 'attribute') === 'Tray Temperatures|Tray 21 - Temperature', S.label(L, 'attribute'));
+    check('last: the last part', S.label(L, 'last') === 'Tray 21 - Temperature', S.label(L, 'last'));
+    check('a PI point is unchanged by every style', S.label('SINUSOID', 'last') === 'SINUSOID' && S.label('SINUSOID', 'asset') === 'SINUSOID');
+
+    const raw = { Data: [{ Label: L, Path: 'p1', Value: [] }, { Label: L + '|Target', Path: 'p2', Value: [] }] };
+    check('nothing set: the update passes through untouched', S.rename(raw, { SourceNames: [], SourceNameStyle: 'full' }) === raw);
+    const named = S.rename(raw, { SourceNames: ['', ' Tray 21 SP '], SourceNameStyle: 'last' });
+    check('a typed name wins, trimmed; a blank one follows the style',
+        named.Data[0].Label === 'Tray 21 - Temperature' && named.Data[1].Label === 'Tray 21 SP', named.Data.map((x) => x.Label));
+    check('Path is never renamed', named.Data[1].Path === 'p2');
+    check('PI Vision\'s own objects are not modified', raw.Data[1].Label === L + '|Target');
+    const single = S.rename({ Value: 1, Label: 'Pump|Flow' }, { SourceNames: ['Flow in'] });
+    check('Value shape is renamed too', single.Label === 'Flow in', single);
+    const rowsOut = S.rename({ Rows: [{ Label: 'A|x' }, { Label: 'B|y' }] }, { SourceNames: { 1: 'Bee' }, SourceNameStyle: 'asset' });
+    check('Table rows by position; a name map saved as an object still reads',
+        rowsOut.Rows[0].Label === 'A' && rowsOut.Rows[1].Label === 'Bee', rowsOut.Rows);
+
+    const scope = {
+        config: { SourceNames: ['First', '', 'Third'] },
+        symbol: { DataSources: ['pi:\\\\s\\A?1', 'pi:\\\\s\\B?2', 'pi:\\\\s\\C?3'] }
+    };
+    const st = S.bind(scope, null, null);
+    check('the pane rows carry the typed names', st.items.map((x) => x.alias).join() === 'First,,Third', st.items);
+    check('named() pads to the source and writes a new list',
+        JSON.stringify(st.named(['First'], 2, 'Third')) === '["First","","Third"]', st.named(['First'], 2, 'Third'));
+    check('named() drops trailing blanks', JSON.stringify(st.named(['First', '', 'Third'], 2, '')) === '["First"]');
+    st.remove(0);
+    check('removing a source takes its name and moves the rest up',
+        JSON.stringify(scope.config.SourceNames) === '["","Third"]', scope.config.SourceNames);
+    check('...and says so', /"First" went with it/.test(st.message), st.message);
+}
+
 function bandRules() {
     console.log('');
     console.log(C.bold + 'PVX.thresholds.bind rules' + C.reset);
@@ -279,9 +324,11 @@ async function mount(a) {
     const el = angular.element(host).append($compile(tpl)(scope));
     const cfg = await fetch('/dist/ext/sym-' + a.typeName + '-config.html').then((r) => r.text());
     angular.element(document.getElementById('pane')).append($compile(cfg)(scope));
-    new def.visObjectType().init(scope, el, undefined);
+    const vis = new def.visObjectType();
+    vis.init(scope, el, undefined);
     scope.$digest();
     window.__scope = scope;
+    window.__vis = vis;
 }
 
 async function pane() {
@@ -328,6 +375,49 @@ async function pane() {
         check('positional config renumbered', after.spec === '1:bar, 2:area', after.spec);
         check('the pane says what changed', /Removed Pump 101\|Wrong\./.test(after.msg) && /TraceSpec/.test(after.msg), after.msg);
         check('rows follow the shorter list', await rows.count() === 2, await rows.count());
+
+        console.log('');
+        console.log(C.bold + 'Data source names (built pane)' + C.reset);
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxDeviation', { waitUntil: 'networkidle' });
+        const long = 'T-42 Butane Splitter|Tray Temperatures|Tray 2';
+        await page.evaluate(mount, {
+            typeName: 'pvxDeviation',
+            config: { TargetMode: 'series' },
+            sources: ['af:\\\\srv\\db\\T-42|a?1', 'af:\\\\srv\\db\\T-42|b?2', 'af:\\\\srv\\db\\T-42|c?3']
+        });
+        const boxes = page.locator('.pvx-cfg-src-alias input');
+        check('a name box under every source', await boxes.count() === 3, await boxes.count());
+        await boxes.nth(1).fill('Tray 30');
+        await boxes.nth(1).dispatchEvent('change');
+        check('typing a name writes config.SourceNames',
+            JSON.stringify(await page.evaluate(() => window.__scope.config.SourceNames)) === '["","Tray 30"]',
+            await page.evaluate(() => window.__scope.config.SourceNames));
+        await page.evaluate((lab) => {
+            const v = [];
+            for (let i = 0; i < 60; i++) { v.push({ Time: new Date(Date.UTC(2026, 9, 28, 15) + i * 6e4).toISOString(), Value: 150 + Math.sin(i / 5) }); }
+            const sp = v.map((p) => ({ Time: p.Time, Value: 150 }));
+            window.__vis.onDataUpdate({ Data: [
+                { Label: lab + '1 - Temperature', Value: v }, { Label: lab + '9 - Temperature', Value: v },
+                { Label: lab + '1 - Temperature|Target', Value: sp }] });
+            window.__vis.onConfigChange(window.__scope.config, window.__scope.config);
+        }, long);
+        await page.waitForTimeout(150);
+        const svgText = await page.evaluate(() => Array.prototype.map.call(document.querySelectorAll('#box svg text'), (n) => n.textContent).join(' | '));
+        check('the symbol shows the typed name', /Tray 30/.test(svgText), svgText.slice(0, 300));
+        check('...and PI Vision\'s label for the source left blank', /T-42 Butane Splitter/.test(svgText));
+        await page.selectOption('#pvx-src-namestyle', 'last');
+        await page.evaluate(() => window.__vis.onConfigChange(window.__scope.config, window.__scope.config));
+        await page.waitForTimeout(150);
+        const shortText = await page.evaluate(() => Array.prototype.map.call(document.querySelectorAll('#box svg text'), (n) => n.textContent).join(' | '));
+        check('Shorten names applies at once, without a new data update',
+            /Tray 21 - Temperature/.test(shortText) && !/T-42 Butane/.test(shortText), shortText.slice(0, 300));
+        const title = await page.evaluate(() => (document.querySelector('#box .pvx-title') || {}).textContent || '');
+        check('the header title follows the setpoint\'s shortened name', title === 'Deviation from Target', title);
+        await page.fill('#pvxdev-title', 'Tray temperatures');
+        await page.evaluate(() => window.__vis.onConfigChange(window.__scope.config, window.__scope.config));
+        await page.waitForTimeout(150);
+        check('a typed Title replaces the automatic one',
+            await page.evaluate(() => document.querySelector('#box .pvx-title').textContent) === 'Tray temperatures');
 
         await page.goto('http://127.0.0.1:' + PORT + '/page/pvxRadialGauge', { waitUntil: 'networkidle' });
         await page.evaluate(mount, { typeName: 'pvxRadialGauge', sources: ['pi:\\\\srv\\SINUSOID?c'] });
@@ -493,6 +583,7 @@ async function pane() {
     try {
         rules();
         metaRules();
+        nameRules();
         bandRules();
         await pane();
     } catch (e) {

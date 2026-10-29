@@ -3246,6 +3246,203 @@
     };
 
     /**
+     * Rate of change of a recorded series, per `perMs` (60000 = per minute).
+     *
+     * @param {Array} points time-ordered [{t, v, good}] as data.stateSeries
+     *                gives them: v null for a value that is not a number
+     * @param {Object} opts {
+     *     from, to: the time range in ms,
+     *     method: 'window' (change over a sliding window, the default),
+     *             'fit' (slope of a straight line fitted over the window),
+     *             'samples' (between consecutive recorded values, no smoothing),
+     *     windowMs: the smoothing window,
+     *     align: 'trailing' (the window ends at the point plotted, as a live
+     *            rate alarm sees it) or 'centered' (no lag, for analysis),
+     *     intervals: points across the range for the window methods,
+     *     perMs: the rate's time unit, in ms,
+     *     maxGapMs: a gap between recorded values longer than this breaks
+     *               the trace; 0 = never,
+     *     holdLast: hold the last good value to `to`, as PI Vision's own
+     *               trend draws it (default true),
+     *     now: the clock, for holdLast (default Date.now())
+     * }
+     * @returns {Object} {
+     *     runs: [[{t, r}]] the plotted rate, broken where it is unknown,
+     *     step: true for 'samples' (each run is drawn as steps),
+     *     segments: the stretches of good data the rate is taken over,
+     *     bad: values that were not a good number, gaps: breaks for maxGapMs,
+     *     net: {change, rate} first good value to last, or null
+     * }
+     *
+     * WHY INTERPOLATE. A compressed PI tag stores a value only when the line
+     * through its neighbours stops describing it, so recorded values come
+     * minutes apart on a steady process and seconds apart on a moving one.
+     * The difference between neighbours, divided by their spacing, is then
+     * exact for what PI says happened, but a sliding window over the samples
+     * themselves would weight busy periods by their sample count. Reading the
+     * value off PI's own straight lines at the window's two ends gives every
+     * window the same length of time, however the samples fall. Plot values
+     * (ModePlotValues) cannot be used at all: they are each pixel column's
+     * minimum and maximum, so neighbours zig-zag and the rate is noise.
+     *
+     * NOTHING ACROSS A BAD VALUE. "I/O Timeout" or "Shutdown" says the
+     * instrument was not reporting; a line drawn through it would invent the
+     * rate across the outage. A window that reaches into one gets no rate.
+     */
+    stats.rateOfChange = function (points, opts) {
+        var o = opts || {};
+        var perMs = o.perMs > 0 ? o.perMs : 60000;
+        var maxGap = o.maxGapMs > 0 ? o.maxGapMs : 0;
+        var now = util.isNum(o.now) ? o.now : Date.now();
+        var segs = [], cur = null, bad = 0, gaps = 0;
+        var src = points || [];
+        var i, j;
+        for (i = 0; i < src.length; i++) {
+            var p = src[i];
+            if (!p || !util.isNum(p.t)) { continue; }
+            if (!util.isNum(p.v) || p.good === false) { bad++; cur = null; continue; }
+            if (cur && cur.pts.length && p.t <= cur.pts[cur.pts.length - 1].t) {
+                // Two values at one timestamp: PI keeps the later one.
+                cur.pts[cur.pts.length - 1] = { t: p.t, v: p.v };
+                continue;
+            }
+            if (cur && maxGap && p.t - cur.pts[cur.pts.length - 1].t > maxGap) { gaps++; cur = null; }
+            if (!cur) { cur = { pts: [] }; segs.push(cur); }
+            cur.pts.push({ t: p.t, v: p.v });
+        }
+        var lastGood = src.length && src[src.length - 1] && util.isNum(src[src.length - 1].v) && src[src.length - 1].good !== false;
+        var from = util.isNum(o.from) ? o.from : (segs.length ? segs[0].pts[0].t : 0);
+        var to = util.isNum(o.to) ? o.to : (segs.length ? segs[segs.length - 1].pts[segs[segs.length - 1].pts.length - 1].t : 0);
+        for (i = 0; i < segs.length; i++) {
+            segs[i].t0 = segs[i].pts[0].t;
+            segs[i].t1 = segs[i].pts[segs[i].pts.length - 1].t;
+        }
+        // PI Vision draws a tag's last value flat to the end of the trend: it
+        // is the snapshot, still in force. Not past now, and not after a gap
+        // limit's worth of silence, which would credit a dead feed with zero.
+        if (o.holdLast !== false && lastGood && segs.length) {
+            var ls = segs[segs.length - 1];
+            var holdTo = Math.min(to, now);
+            if (maxGap) { holdTo = Math.min(holdTo, ls.t1 + maxGap); }
+            if (holdTo > ls.t1) { ls.pts.push({ t: holdTo, v: ls.pts[ls.pts.length - 1].v }); ls.t1 = holdTo; }
+        }
+
+        var segAt = function (t) {
+            for (var s = 0; s < segs.length; s++) { if (t >= segs[s].t0 && t <= segs[s].t1) { return segs[s]; } }
+            return null;
+        };
+        var valueIn = function (seg, t) {
+            var ps = seg.pts;
+            if (t <= ps[0].t) { return ps[0].v; }
+            if (t >= ps[ps.length - 1].t) { return ps[ps.length - 1].v; }
+            var lo = 0, hi = ps.length - 1;
+            while (hi - lo > 1) {
+                var mid = (lo + hi) >> 1;
+                if (ps[mid].t <= t) { lo = mid; } else { hi = mid; }
+            }
+            var a = ps[lo], b = ps[hi];
+            return b.t === a.t ? b.v : a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+        };
+
+        var runs = [], run = null;
+        var method = o.method === 'fit' || o.method === 'samples' ? o.method : 'window';
+        if (method === 'samples') {
+            for (i = 0; i < segs.length; i++) {
+                var sp = segs[i].pts;
+                run = [];
+                for (j = 1; j < sp.length; j++) {
+                    var a0 = Math.max(sp[j - 1].t, from), b0 = Math.min(sp[j].t, to);
+                    if (!(b0 > a0)) { continue; }
+                    var rr = (sp[j].v - sp[j - 1].v) / (sp[j].t - sp[j - 1].t) * perMs;
+                    run.push({ t: a0, r: rr }, { t: b0, r: rr });
+                }
+                if (run.length) { runs.push(run); }
+            }
+        } else {
+            var win = o.windowMs > 0 ? o.windowMs : 10 * 60000;
+            var n = util.clamp(parseInt(o.intervals, 10) || 240, 2, 5000);
+            var step = (to - from) / n;
+            var lead = o.align === 'centered' ? win / 2 : win;
+            var K = 16;
+            run = null;
+            for (i = 0; i <= n && step > 0; i++) {
+                var t = from + i * step;
+                var a = t - lead, b = a + win;
+                var seg = segAt(a);
+                var r = null;
+                if (seg && b <= seg.t1) {
+                    if (method === 'window') {
+                        r = (valueIn(seg, b) - valueIn(seg, a)) / win * perMs;
+                    } else {
+                        // Evenly spaced readings off PI's lines, so a burst of
+                        // recorded values does not pull the fit towards itself.
+                        var xy = [];
+                        for (j = 0; j <= K; j++) {
+                            var tj = a + win * j / K;
+                            xy.push({ x: (tj - a) / perMs, y: valueIn(seg, tj) });
+                        }
+                        var fit = stats.linreg(xy);
+                        r = fit ? fit.slope : 0;
+                    }
+                }
+                if (r === null) { run = null; continue; }
+                if (!run) { run = []; runs.push(run); }
+                run.push({ t: t, r: r });
+            }
+        }
+
+        var net = null;
+        if (segs.length) {
+            var f = segs[0].pts[0], l = segs[segs.length - 1].pts[segs[segs.length - 1].pts.length - 1];
+            if (l.t > f.t) { net = { change: l.v - f.v, rate: (l.v - f.v) / (l.t - f.t) * perMs, from: f.t, to: l.t }; }
+        }
+        return { runs: runs, step: method === 'samples', segments: segs, bad: bad, gaps: gaps, net: net, from: from, to: to };
+    };
+
+    /**
+     * Summary of a rateOfChange() result: steepest rise and fall, the latest
+     * rate, and the time spent past each limit (null = no limit), counted
+     * along the straight lines between plotted points so a crossing midway
+     * between two of them is credited from the crossing, not from a point.
+     * An excursion is a stretch past the limit; a break in the trace ends it.
+     */
+    stats.rateSummary = function (res, limits) {
+        var L = limits || {};
+        var out = { max: null, min: null, last: null, count: 0,
+            above: { ms: 0, count: 0 }, below: { ms: 0, count: 0 },
+            warnAbove: { ms: 0, count: 0 }, warnBelow: { ms: 0, count: 0 } };
+        var runs = (res && res.runs) || [];
+        var past = function (box, lim, sign, run) {
+            if (!util.isNum(lim)) { return; }
+            var inside = false;
+            for (var k = 0; k < run.length; k++) {
+                var e = sign * (run[k].r - lim);
+                if (e > 0 && !inside) { box.count++; }
+                inside = e > 0;
+                if (k === 0) { continue; }
+                var e0 = sign * (run[k - 1].r - lim), dt = run[k].t - run[k - 1].t;
+                if (e0 > 0 && e > 0) { box.ms += dt; }
+                else if (e0 > 0 || e > 0) { box.ms += dt * Math.max(e0, e) / (Math.abs(e0) + Math.abs(e)); }
+            }
+        };
+        for (var i = 0; i < runs.length; i++) {
+            var run = runs[i];
+            for (var j = 0; j < run.length; j++) {
+                var p = run[j];
+                out.count++;
+                if (!out.max || p.r > out.max.r) { out.max = p; }
+                if (!out.min || p.r < out.min.r) { out.min = p; }
+                out.last = p;
+            }
+            past(out.above, L.hi, 1, run);
+            past(out.below, L.lo, -1, run);
+            past(out.warnAbove, L.hiWarn, 1, run);
+            past(out.warnBelow, L.loWarn, -1, run);
+        }
+        return out;
+    };
+
+    /**
      * Group a stream into consecutive subgroups of `size`. A trailing partial
      * subgroup is returned in `dropped` so the caller can say so; averaging
      * it with fewer samples would give it the wrong limits.
@@ -4169,7 +4366,13 @@
             OwnStart: '*-1d',
             OwnEnd: '*',
             OwnRefreshSeconds: 60,
-            OwnMaxValues: 10000
+            OwnMaxValues: 10000,
+            // Every symbol, applied by PVX.bootstrap through sources.rename:
+            // a name per data source, in source order, and how to shorten the
+            // ones left blank. Empty and 'full', so a saved display keeps the
+            // names PI Vision sends.
+            SourceNames: [],
+            SourceNameStyle: 'full'     // full | asset | attribute | last
         };
         if (extra) {
             for (var k in extra) {
@@ -5337,6 +5540,89 @@
         return name || String(path || '');
     };
 
+    /**
+     * A data source's label shortened the way SourceNameStyle asks. PI
+     * Vision labels an AF attribute "Asset|Attribute", and a child attribute
+     * "Asset|Parent|Child", so on a real site two traces on one chart can
+     * share forty characters before they differ ("T-42 Butane
+     * Splitter|Tray Temperatures|Tray 21 - Temperature" and its Target) and
+     * both truncate to the same "T-42 Butane Spli…".
+     *   full       as PI Vision sent it
+     *   asset      the asset name: the same attribute across several assets
+     *   attribute  everything after the asset
+     *   last       the last part only
+     * A label with no '|' (a PI point) is returned unchanged by every style.
+     */
+    sources.label = function (label, style) {
+        var s = String(label === null || label === undefined ? '' : label);
+        var bar = s.indexOf('|');
+        if (bar === -1 || !style || style === 'full') { return s; }
+        if (style === 'asset') { return s.slice(0, bar) || s; }
+        if (style === 'attribute') { return s.slice(bar + 1) || s; }
+        if (style === 'last') { return s.slice(s.lastIndexOf('|') + 1) || s; }
+        return s;
+    };
+
+    /** The name typed for the i-th (0-based) source, or '' for none. */
+    sources.typedName = function (cfg, i) {
+        var list = cfg && cfg.SourceNames;
+        var v = list ? list[i] : null;
+        v = String(v === null || v === undefined ? '' : v).replace(/^\s+|\s+$/g, '');
+        return v;
+    };
+
+    /**
+     * Apply SourceNames and SourceNameStyle to a data update, before any
+     * symbol reads it, so every PVX symbol names its sources the same way:
+     * legend, header, tooltip, statistics card, CSV and quick trend alike.
+     * Runs after data.metaCarry, so it renames the carried label too, and
+     * returns copies: PI Vision's own objects are never changed. Items are
+     * matched to names by position, which is the order the Data sources
+     * list in the pane shows and the order sources.bind renumbers on Remove.
+     * Path is left alone, so nothing that reads PI Web API by path moves.
+     */
+    sources.rename = function (d, cfg) {
+        var style = cfg && cfg.SourceNameStyle;
+        var names = cfg && cfg.SourceNames;
+        var any = false;
+        if (names && typeof names === 'object') {
+            for (var n in names) {
+                if (Object.prototype.hasOwnProperty.call(names, n) && sources.typedName(cfg, n)) { any = true; break; }
+            }
+        }
+        if (!d || typeof d !== 'object' || (!any && (!style || style === 'full'))) { return d; }
+
+        var one = function (item, i) {
+            if (!item || typeof item !== 'object') { return item; }
+            var key = item.Label !== undefined ? 'Label' : (item.label !== undefined ? 'label' : null);
+            var typed = sources.typedName(cfg, i);
+            if (!key && !typed) { return item; }
+            var next = typed || sources.label(item[key], style);
+            if (key && next === item[key]) { return item; }
+            var copy = shallow(item);
+            copy[key || 'Label'] = next;
+            return copy;
+        };
+        var isList = function (v) { return Object.prototype.toString.call(v) === '[object Array]'; };
+        var all = function (items) {
+            var out = [];
+            for (var i = 0; i < items.length; i++) { out.push(one(items[i], i)); }
+            return out;
+        };
+
+        if (isList(d)) { return all(d); }
+        var out = null;
+        var keys = ['Data', 'data', 'Rows', 'rows', 'Traces'];
+        for (var k = 0; k < keys.length; k++) {
+            if (isList(d[keys[k]])) {
+                out = out || shallow(d);
+                out[keys[k]] = all(d[keys[k]]);
+            }
+        }
+        // Value and Gauge put the one source's fields on the payload itself.
+        return out || one(d, 0);
+    };
+
     function renumber(n, k) { return n > k ? n - 1 : n; }
 
     /** Remove the k-th (1-based) sep-separated piece, or null if there is none. */
@@ -5532,11 +5818,32 @@
             }
             if (same) { return; }
             var items = [];
+            var cfg = scope.config || (scope.symbol && scope.symbol.Configuration);
             for (var i = 0; i < ds.length; i++) {
-                items.push({ path: String(ds[i]), name: sources.name(ds[i]) });
+                items.push({ path: String(ds[i]), name: sources.name(ds[i]), alias: sources.typedName(cfg, i) });
             }
             state.items = items;
             state.pending = -1;
+        };
+
+        /*
+         * The pane writes the result itself — `config.SourceNames =
+         * runtimeData.pvxSources.named(...)` in its ng-change — because the
+         * pane's own `config` is the object PI Vision saves (see afpick). A
+         * new array every time, padded to the source count, so a blank in
+         * the middle keeps every later name on its own source.
+         */
+        state.named = function (current, i, value) {
+            var n = Math.max(state.items.length, i + 1);
+            var out = [];
+            for (var j = 0; j < n; j++) {
+                var v = current ? current[j] : '';
+                out.push(String(v === null || v === undefined ? '' : v));
+            }
+            out[i] = String(value === null || value === undefined ? '' : value);
+            // Trailing blanks carry nothing; a display with no names saves [].
+            while (out.length && !out[out.length - 1].replace(/\s+/g, '')) { out.pop(); }
+            return out;
         };
 
         // Two clicks, not one: the button sits in a narrow pane next to the
@@ -5556,6 +5863,19 @@
             var name = sources.name(ds[i]);
             var cfg = scope.config || (scope.symbol && scope.symbol.Configuration);
             var notes = sources.remap(cfg, info.sourceRemap, i + 1);
+            // Names are positional like any other per-source setting, but
+            // every symbol has them, so they are renumbered here rather than
+            // through each definition's sourceRemap. A removed source's name
+            // goes with it; it is never passed to the neighbour.
+            if (cfg && cfg.SourceNames && typeof cfg.SourceNames === 'object') {
+                var kept = [];
+                for (var nn = 0; nn < ds.length; nn++) {
+                    if (nn !== i) { kept.push(sources.typedName(cfg, nn)); }
+                }
+                while (kept.length && !kept[kept.length - 1]) { kept.pop(); }
+                if (sources.typedName(cfg, i)) { notes.push('Its name "' + sources.typedName(cfg, i) + '" went with it.'); }
+                cfg.SourceNames = kept;
+            }
             // In place: whatever in PI Vision already holds this array sees
             // the change, and a $watchCollection on it fires.
             ds.splice(i, 1);
@@ -8729,12 +9049,25 @@
             else { ctx.afsource.take(d1, function (d2) { ctx.ownrange.take(d2, deliver); }); }
         };
 
+        // The last update as it reached deliver, before any naming, so a
+        // name typed in the pane or Drop asset name applies at once instead
+        // of waiting for PI Vision's next update with metadata, which it
+        // sends only now and then.
         var lastDelivered;
-        var droppingAsset = !!(ctx.config && ctx.config.DropAssetName);
+        var lastFromSearch = false;
+        var lastNames = null;
+        function namesKey(c) {
+            return c ? JSON.stringify([c.SourceNames || [], c.SourceNameStyle || 'full', !!c.DropAssetName]) : '';
+        }
 
         function deliver(d) {
             if (ctx.destroyed) { return; }
             lastDelivered = d;
+            lastFromSearch = afsource.wanted(ctx.config);
+            lastNames = namesKey(ctx.config);
+            // Rows from an AF search are named by AF, not by position in the
+            // data source list, so the source names do not apply to them.
+            if (!lastFromSearch) { d = sources.rename(d, ctx.config); }
             // Last, so it shortens whatever reached here: PI Vision's own
             // rows, an AF search's, or values read for the symbol's own range.
             if (ctx.config && ctx.config.DropAssetName) { d = data.dropAsset(d); }
@@ -8763,12 +9096,13 @@
                 ctx.ownrange.changed(deliver);
             }
             ctx.filter.sync();
-            // Names change in the pane at once, not at the next update with
-            // metadata, which PI Vision sends only now and then.
-            var dropNow = !!(ctx.config && ctx.config.DropAssetName);
-            if (dropNow !== droppingAsset) {
-                droppingAsset = dropNow;
-                if (lastDelivered !== undefined) { deliver(lastDelivered); }
+            // Only when the kept update came from the same place the rows
+            // come from now: right after an AF search is switched on or off
+            // it is the other kind, and delivering it would put the wrong
+            // rows back on the symbol.
+            if (lastDelivered !== undefined && afsource.wanted(ctx.config) === lastFromSearch &&
+                    namesKey(ctx.config) !== lastNames) {
+                deliver(lastDelivered);
             }
             if (hooks.onConfigChange) {
                 try { hooks.onConfigChange(newConfig, oldConfig, ctx); } catch (e) { /* swallow */ }

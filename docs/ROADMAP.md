@@ -15,7 +15,7 @@ Candidate symbols beyond the shipped library, with the reasoning behind each.
 >
 > **Two symbols were added after the plan closed**, from a gap analysis rather
 > than from this document: `pvxOperatingMap` and `pvxDataHealth`. See
-> [After the plan](#after-the-plan). The library is at **51 symbols**.
+> [After the plan](#after-the-plan). The library is at **52 symbols**.
 
 ## On originality
 
@@ -547,6 +547,18 @@ library drew past "now".
 | Symbol | What it adds |
 |---|---|
 | **pvxTargetForecast**, new | The actual solid, the target as steps (a plan or setpoint holds until changed) with an optional tolerance in units or percent, and the forecast dashed, fainter before now and full after, with an optional range from two more sources (P10 and P90). The time after now is shaded and the now line drawn. Tiles give the actual and target at the latest actual value, the gap (in units or percent, in or out of tolerance), the forecast's last value against the target then and the first time it crosses the target (a step that jumps over the forecast counts, at the step), and the forecast error so far: mean absolute difference and bias over the actual samples inside the forecast. Roles are picked by name or taken in order; sources with no role are counted. The target can be a source, a typed value or the actual's AF Target trait. PI Vision sends nothing after the display's end, so a forecast past now needs a display ending in the future (`*+8h`) or `LookAhead`, which reads the forecast, its range and a target source from the display's end through PI Web API, once a minute, and stands down on a display that ends before now. Mock-proven only. |
+
+Afterwards the owner asked for a rate of change chart, which nothing in the
+library plotted: the Combo Chart's fitted trend gives one slope over a whole
+trace, not the rate as it moves. **pvxRateOfChange** charts the rate itself,
+per second, minute, hour or day, from recorded values: the change over a
+sliding window (trailing, as a live alarm sees it, or centered, without the
+lag), the slope of a line fitted over the window, or the rate between
+recorded values. The window's ends are read off PI's straight lines between
+the compressed samples, so every window is the same length of time. Rise and
+fall limits, with warnings before them, color the trace past them; the
+footer gives the steepest rise and fall, the latest and net rate, the time
+past each limit, and counts the bad values and gaps no rate is drawn across.
 
 ## What next
 

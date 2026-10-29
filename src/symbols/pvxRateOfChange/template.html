@@ -1,0 +1,24 @@
+<div class="pvx pvx-roc"
+     ng-style="{'background': pvx.background,
+                'border-radius': (config.CornerRadius || 0) + 'px'}">
+    <div class="pvx-surface">
+
+        <div class="pvx-header" ng-if="config.ShowLabel && pvx.title">
+            <div class="pvx-title pvx-truncate" title="{{pvx.title}}">{{pvx.title}}</div>
+            <div class="pvx-subtitle pvx-roc-method pvx-num" ng-if="pvx.method" title="{{pvx.method}}">{{pvx.method}}</div>
+        </div>
+
+        <div class="pvx-body">
+            <div class="pvx-roc-body"></div>
+        </div>
+
+        <div class="pvx-footer" ng-if="pvx.stats || pvx.note">
+            <span class="pvx-truncate pvx-num pvx-roc-stats" ng-if="pvx.stats" title="{{pvx.stats}}">{{pvx.stats}}</span>
+            <span class="pvx-truncate pvx-roc-note" ng-if="pvx.note" title="{{pvx.note}}"
+                  ng-class="{'pvx-roc-out': pvx.status === 'out'}">{{pvx.note}}</span>
+        </div>
+
+    </div>
+
+    <div class="pvx-error-badge" ng-if="pvx.error" title="{{pvx.error}}"></div>
+</div>

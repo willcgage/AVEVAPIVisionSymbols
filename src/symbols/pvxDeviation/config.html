@@ -233,6 +233,45 @@
     </div>
 
     <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Text</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-title">Title</label>
+            <input id="pvxdev-title" type="text" ng-model="config.Title" placeholder="Automatic" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-showcaption">Show target caption</label>
+            <input id="pvxdev-showcaption" type="checkbox" ng-model="config.ShowTargetCaption" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.ShowTargetCaption !== false">
+            <label for="pvxdev-caption">Target caption</label>
+            <input id="pvxdev-caption" type="text" ng-model="config.TargetCaption" placeholder="Automatic: target and tolerance" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-axistitle">Axis title</label>
+            <input id="pvxdev-axistitle" type="text" ng-model="config.AxisTitle" placeholder="Automatic: Deviation (%)" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-abovelabel">Legend: above tolerance</label>
+            <input id="pvxdev-abovelabel" type="text" ng-model="config.AboveLabel" placeholder="above tol" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxdev-belowlabel">Legend: below tolerance</label>
+            <input id="pvxdev-belowlabel" type="text" ng-model="config.BelowLabel" placeholder="below tol" />
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.Mode === 'trend'">
+            <label for="pvxdev-targetlabel">Legend: target line</label>
+            <input id="pvxdev-targetlabel" type="text" ng-model="config.TargetLabel" placeholder="Automatic: the setpoint's name" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Leave a box blank for the wording the symbol builds itself. The automatic title and
+            caption use the data source names, so a long AF path is often better fixed once by
+            typing a short name under the source in Data sources at the top of this pane: that
+            name is used in the title, legend and statistics alike.
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
         <div class="pvx-cfg-legend">Appearance</div>
 
         <div class="pvx-cfg-row">

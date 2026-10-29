@@ -81,6 +81,8 @@ String(opt('config', '')).split(';').forEach((pair) => {
     let v = pair.slice(eq + 1).trim();
     if (v === 'true') { v = true; } else if (v === 'false') { v = false; }
     else if (v !== '' && !isNaN(Number(v))) { v = Number(v); }
+    // A list setting (SourceNames) as JSON: SourceNames=["Tray 21","Tray 30"]
+    else if (v.charAt(0) === '[') { try { v = JSON.parse(v); } catch (e) { /* keep the text */ } }
     overrides[k] = v;
 });
 

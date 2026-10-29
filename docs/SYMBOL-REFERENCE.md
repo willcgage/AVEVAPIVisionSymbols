@@ -45,6 +45,7 @@ Every symbol inherits a shared set of options from `PVX.config.base()`:
 | [`pvxProfile`](#pvxprofile) | PVX Spatial Profile | Table | Multiple |
 | [`pvxRadar`](#pvxradar) | PVX Fingerprint | — | Multiple |
 | [`pvxRadialGauge`](#pvxradialgauge) | PVX Radial Gauge | Gauge | Single |
+| [`pvxRateOfChange`](#pvxrateofchange) | PVX Rate of Change | TimeSeries | Multiple |
 | [`pvxReplay`](#pvxreplay) | PVX Replay | Value | Single |
 | [`pvxSankey`](#pvxsankey) | PVX Flow | Table | Multiple |
 | [`pvxSitePlan`](#pvxsiteplan) | PVX Site Plan | Table | Multiple |
@@ -633,6 +634,13 @@ A normal trend answers "what was the value". A control engineer is almost never 
 | `MaxSeries` | `6` |  |
 | `ShowLegend` | `true` |  |
 | `ShowCurrentValue` | `true` |  |
+| `Title` | `""` |  |
+| `ShowTargetCaption` | `true` |  |
+| `TargetCaption` | `""` |  |
+| `AxisTitle` | `""` |  |
+| `AboveLabel` | `""` |  |
+| `BelowLabel` | `""` |  |
+| `TargetLabel` | `""` |  |
 
 ---
 
@@ -1116,6 +1124,7 @@ A histogram on its own only restates what a trend already showed. What it can do
 | `ShowGrid` | `true` |  |
 | `TickCount` | `5` |  |
 | `ShowAxisLabels` | `true` |  |
+| `Title` | `""` | blank => built from the data source names |
 
 ---
 
@@ -1622,6 +1631,56 @@ Features - Configurable sweep angle (full circle through to a shallow arc) - Thr
 | `ValueColorFromThreshold` | `true` |  |
 | `ValueColor` | `"#1d2126"` |  |
 | `ShowStateLabel` | `false` |  |
+
+---
+
+## pvxRateOfChange
+
+**PVX Rate of Change** · data shape `TimeSeries` · multiple data sources · collections supported
+
+A trend shows where a value is. How fast it is getting there is what a heat-up, cool-down or pressurization procedure limits, and the slope of a trend line is hard to read by eye: the same climb looks steep on a narrow scale and flat on a wide one. This plots the rate itself, in the units per second, minute, hour or day that the procedure is written in, with rise and fall limits that turn the trace the alarm color while they are broken.
+
+| Option | Default | Notes |
+|---|---|---|
+| `Theme` | `"auto"` | *(shared)* |
+| `Transparent` | `false` | *(shared)* |
+| `ShowLabel` | `true` | *(shared)* |
+| `ShowUnits` | `true` | *(shared)* |
+| `ShowTime` | `false` | *(shared)* |
+| `Decimals` | `"auto"` | *(shared)* |
+| `CompactNumbers` | `false` | *(shared)* |
+| `Thresholds` | `0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452…` | *(shared)* |
+| `UseThresholds` | `true` | *(shared)* |
+| `AccentColor` | `"#3b82c4"` | *(shared)* |
+| `CornerRadius` | `6` | *(shared)* |
+| `DataQueryMode` | `"ModeEvents"` |  |
+| `Method` | `"window"` | window \| fit \| samples |
+| `WindowValue` | `10` | smoothing window length, in WindowUnit |
+| `WindowUnit` | `"min"` | s \| min \| h \| d |
+| `WindowAlign` | `"trailing"` | trailing \| centered |
+| `RateUnit` | `"min"` | rate per s \| min \| h \| d |
+| `Intervals` | `240` | points across the time range (window and fit) |
+| `MaxGapMinutes` | `0` | break the trace at a longer gap between values; 0 = never |
+| `MaxSeries` | `6` |  |
+| `RiseLimit` | `""` | rising faster than this is past the limit |
+| `FallLimit` | `""` | falling faster than this (typed as a positive number) |
+| `RiseWarn` | `""` | warning before the rise limit |
+| `FallWarn` | `""` | warning before the fall limit |
+| `AlarmColor` | `""` | blank = the status alarm color |
+| `WarnColor` | `""` | blank = the status warning color |
+| `ShadeLimits` | `true` | shade the regions past the limits |
+| `ShowValue` | `false` | the measured value too, on a right-hand axis |
+| `SymmetricAxis` | `false` | the same scale above and below zero |
+| `ShowZeroLine` | `true` |  |
+| `ShowLegend` | `true` |  |
+| `ShowGrid` | `true` |  |
+| `TickCount` | `5` |  |
+| `ShowStats` | `true` | steepest rise, steepest fall and the latest rate in the footer |
+| `Title` | `""` |  |
+| `ShowMethodCaption` | `true` |  |
+| `MethodCaption` | `""` |  |
+| `AxisTitle` | `""` |  |
+| `ValueAxisTitle` | `""` |  |
 
 ---
 
@@ -2202,6 +2261,7 @@ Y, and in bubble mode the THIRD sets each point's size)
 | `EnvelopeShape` | `"box"` | box \| polygon |
 | `EnvelopePolygon` | `""` | "x,y; x,y; x,y ..." corners in order |
 | `ShowPointCount` | `true` |  |
+| `Title` | `""` | blank => built from the data source names |
 
 ---
 
