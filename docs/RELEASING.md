@@ -11,7 +11,7 @@ without passing the same gate that runs on every pull request.
 ```bash
 # 1. Version bump — package.json is the single source of truth.
 #    PVX.version in src/shared/pvx-core.js must match.
-npm version 1.16.0 --no-git-tag-version
+npm version 1.16.1 --no-git-tag-version
 
 # 2. Regenerate what is generated, and prove it still works.
 node tools/docgen.js
@@ -19,14 +19,14 @@ npm run verify                        # 936 render checks
 npm run test:api
 
 # 3. Commit, tag, push. The tag must be annotated (-a): --follow-tags pushes
-#    annotated tags only, so a lightweight `git tag v1.16.0` is created locally
+#    annotated tags only, so a lightweight `git tag v1.16.1` is created locally
 #    and silently never leaves the machine. No tag, no release, no error.
-git commit -am "Release 1.16.0"
-git tag -a v1.16.0 -m "PVX v1.16.0"
+git commit -am "Release 1.16.1"
+git tag -a v1.16.1 -m "PVX v1.16.1"
 git push origin main --follow-tags
 ```
 
-Expect `main -> main` and `[new tag] v1.16.0 -> v1.16.0` in the push output. If
+Expect `main -> main` and `[new tag] v1.16.1 -> v1.16.1` in the push output. If
 only the branch line appears, the tag was lightweight and nothing was released.
 
 The tag triggers `.github/workflows/release.yml`. The `gate` job re-runs the
