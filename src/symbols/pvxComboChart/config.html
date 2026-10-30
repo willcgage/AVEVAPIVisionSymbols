@@ -61,8 +61,9 @@
             <div class="pvx-cfg-hint">
                 <em>Range to the next source</em> shades between this source and the one after it,
                 for a minimum and maximum pair; the next source is not drawn on its own.
-                <em>State bands</em> shades the chart's background by a digital tag's state, in the
-                colors under State bands below. <em>Avg</em> adds a moving average, over a count
+                <em>State bands</em> shades by a digital tag's state, behind the traces or as a strip
+                under the chart, in the colors under State bands below. It uses no axis, so it does
+                not change the scale. <em>Avg</em> adds a moving average, over a count
                 of values (20) or a time (1h). <em>Fit</em> adds a straight-line fit.
             </div>
             <div class="pvx-cfg-hint pvx-cfg-band-warn" ng-if="runtimeData.pvxTraces.hasMissing()">
@@ -85,7 +86,7 @@
                 <br /><em>index</em> counts the data sources in the order they were added (1 = first).
                 <br /><em>type</em> is <code>line</code>, <code>area</code>, <code>bar</code>,
                 <code>step</code>, <code>scatter</code>, <code>range</code> (shades to the next
-                source), <code>states</code> (background bands by state) or <code>hidden</code>.
+                source), <code>states</code> (bands by state; see State bands below) or <code>hidden</code>.
                 <br /><em>axis</em> is <code>left</code> or <code>right</code>.
                 <br /><em>color</em> is a hex value such as <code>#8267b0</code>.
                 <br />A line or step can also be <code>dashed</code> or <code>dotted</code> and take a
@@ -191,6 +192,12 @@
             <label for="pvxcombo-leftmax">Maximum</label>
             <input id="pvxcombo-leftmax" type="text" ng-model="config.LeftMax" placeholder="auto" />
         </div>
+        <div class="pvx-cfg-hint">
+            Auto fits every trace on this axis and every limit band's value. A trace in other
+            units, or one sitting at zero while its equipment is stopped, stretches the scale and
+            flattens the rest: put it on the right axis, or hide it. A band written from 0 pulls
+            the axis down to 0; a high limit alone needs only its own row.
+        </div>
     </div>
 
     <div class="pvx-cfg-group">
@@ -247,8 +254,30 @@
         </div>
         <!-- pvx:states key=StateColors kind=colors -->
         <div class="pvx-cfg-row">
+            <label for="pvxcombo-stateplace">Placement</label>
+            <select id="pvxcombo-stateplace" ng-model="config.StatePlacement">
+                <option value="background">Behind the traces</option>
+                <option value="strip">Strip under the chart</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint">
+            Behind the traces splits the chart's full height into one lane per state trace.
+            Strip under the chart gives each its own thin strip between the chart and the time
+            labels, named on the left, and leaves the traces a clear background.
+        </div>
+        <div class="pvx-cfg-row">
             <label for="pvxcombo-stateop">Band opacity</label>
             <input id="pvxcombo-stateop" type="number" ng-model="config.StateOpacity" min="0" max="1" step="0.02" />
+        </div>
+        <div class="pvx-cfg-hint">Behind the traces only; a strip is drawn near-solid.</div>
+        <div class="pvx-cfg-row">
+            <label for="pvxcombo-statenum">Drop the state number</label>
+            <input id="pvxcombo-statenum" type="checkbox" ng-model="config.StateDropNumber" />
+        </div>
+        <div class="pvx-cfg-hint">
+            For a state set whose names carry their number: <code>1Running</code> shows as
+            <code>Running</code> on the chart, in the legend, tooltips and rulers. Colors listed
+            above match either name.
         </div>
     </div>
 

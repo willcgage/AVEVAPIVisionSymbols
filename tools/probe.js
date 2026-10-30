@@ -285,6 +285,12 @@ server.on('listening', async () => {
             // cell reads it here rather than from the cut-short text.
             rows: Array.prototype.slice.call(box.querySelectorAll('tr'), 0, 400).map((tr) =>
                 Array.prototype.map.call(tr.children, (td) => td.textContent.replace(/\s+/g, ' ').trim())),
+            // Where titled marks sit, in box pixels, one per <title> parent:
+            // a test checking placement (above or below the plot) reads it here.
+            marks: Array.prototype.slice.call(box.querySelectorAll('svg title'), 0, 400).map((n) => {
+                const r = n.parentNode.getBoundingClientRect();
+                return { tip: n.textContent, top: Math.round(r.top - br.top), bottom: Math.round(r.bottom - br.top) };
+            }),
             footer: Array.prototype.map.call(box.querySelectorAll('.pvx-footer'), (n) => n.textContent.replace(/\s+/g, ' ').trim()).join(' '),
             badAttrs: bad.slice(0, 5),
             maxOverflow: Math.round(maxOverflow),
