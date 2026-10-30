@@ -10,13 +10,17 @@
  *   rules    PVX.thresholds in plain Node: a deadband is read as units or a
  *            percentage, holds a band only on the way down, and excursions
  *            from recorded values start, end, escalate and stay open where
- *            they should; the Alarm Tone's episodes sound, silence, resound
+ *            they should; with an in-limits band, bands below it rank as
+ *            exceptions too and hold on the way up; AF limit traits become
+ *            five bands; the Alarm Tone's episodes sound, silence, resound
  *            on a worse band and end on clearing.
  *   symbols  the BUILT symbols in real Chromium: a value just under a limit
  *            keeps its band with a deadband and leaves it without; the
  *            Annunciator does not return a tile inside the deadband; History
  *            reads recorded values from a mock PI Web API and lists each
- *            excursion, newest first, saying what it could not read; the
+ *            excursion, newest first, saying what it could not read; a
+ *            value under a low limit is listed, from typed bands or from each
+ *            attribute's AF limit traits on the mock, with the limit quoted; the
  *            Alarm Tone, with Web Audio stubbed, arms on a click, sounds,
  *            silences, sounds again for a new alarm, and goes quiet when the
  *            shared acknowledgement record (read only) says so.
@@ -53,6 +57,8 @@ if (!fs.existsSync(CORE)) {
 }
 
 const BANDS = '0:#2f9e5f:Normal, 70:#d99024:High, 90:#c8452f:Critical';
+// Limits on both sides: in limits from 60 to 90.
+const LOW = '0:#d99024:Low, 60:#2f9e5f:Normal, 90:#c8452f:High';
 
 /* --------------------------------------------------------- mock PI Web API */
 
@@ -62,7 +68,10 @@ const NOW = Date.now();
 const at = (i, n) => new Date(NOW - (n - i) * 60000 - 600000).toISOString();
 const TEMP = [50, 75, 80, 72, 68, 95, 91, 60];
 const FLOW = [85, 86, 50, 92];
+const REC = [70, 58, 52, 65];
 const RECORDED = {
+    // Under its Lo limit of 60 for two values, then back.
+    'A:level': REC.map((v, i) => ({ Timestamp: at(i, REC.length), Value: v, Good: true })),
     'A:temp': TEMP.map((v, i) => ({ Timestamp: at(i, TEMP.length), Value: v, Good: true })),
     // In alarm from the first value, out, then in again to the end.
     'P:flow': FLOW.map((v, i) => ({ Timestamp: at(i, FLOW.length), Value: v, Good: true }))
@@ -73,8 +82,14 @@ const ACKS = {};
 const STREAMS = {
     'attributes:\\\\afsrv\\db\\control room|ack': 'A:ack',
     'attributes:\\\\afsrv\\db\\k-301|temperature': 'A:temp',
-    'points:\\\\pisrv\\flow': 'P:flow'
+    'points:\\\\pisrv\\flow': 'P:flow',
+    'attributes:\\\\afsrv\\db\\tank 1|level': 'A:level',
+    'attributes:\\\\afsrv\\db\\tank 1|pressure': 'A:press',
+    'attributes:\\\\afsrv\\db\\tank 1|nolimits': 'A:none'
 };
+// AF limit traits by attribute WebId: a level with a low limit only, a
+// pressure that must stay between 20 and 40, and an attribute with none.
+const TRAITS = { 'A:level': { Lo: 60 }, 'A:press': { Lo: 20, Hi: 40 }, 'A:none': {} };
 
 let requests = [];
 
@@ -86,6 +101,13 @@ function api(req, res, url) {
     const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
     const id = STREAMS[rel + ':' + (q.get('path') || '').toLowerCase()];
     if (id) { return send(200, { WebId: id }); }
+    const tr = /^attributes\/([^/]+)\/attributes$/.exec(rel);
+    if (tr && q.get('trait')) {
+        const v = (TRAITS[tr[1]] || {})[q.get('trait')];
+        return send(200, { Items: v === undefined ? [] : [{ WebId: 'T:' + tr[1] + ':' + q.get('trait') }] });
+    }
+    const tv = /^streams\/T:(.+):(\w+)\/value$/.exec(rel);
+    if (tv) { return send(200, { Timestamp: new Date().toISOString(), Value: TRAITS[tv[1]][tv[2]], Good: true }); }
     if (rel === 'streams/A:ack/value') { return send(200, { Timestamp: new Date().toISOString(), Value: JSON.stringify(ACKS), Good: true }); }
     const m = /^streams\/([^/]+)\/recorded$/.exec(rel);
     if (m && RECORDED[m[1]]) { return send(200, { Items: RECORDED[m[1]] }); }
@@ -139,6 +161,38 @@ function rules() {
     const dig = T.excursions([{ t: 0, v: null, raw: 'Normal' }, { t: 1, v: null, raw: 'ALARM' }, { t: 2, v: null, raw: 'Normal' }],
         bands, { minBand: 1, stateBands: sm });
     check('a digital state mapped to a band makes an excursion', dig.length === 1 && dig[0].sev === 2 && dig[0].end === 2, dig);
+
+    console.log('');
+    console.log(C.bold + 'Limits on both sides' + C.reset);
+    const two = T.parse(LOW);
+    check('rising only: a band is ranked by its index', T.rank(2, -1) === 2 && T.rank(0, -1) === 0);
+    check('with an in-limits band: ranked by distance, below or above', T.rank(0, 1) === 1 && T.rank(2, 1) === 1 && T.rank(1, 1) === 0);
+    check('under the in-limits band is the lowest band, even under its own limit',
+        T.bandOf(55, two, 1) === 0 && T.bandOf(-3, two, 1) === 0 && T.bandOf(70, two, 1) === 1 && T.bandOf(95, two, 1) === 2);
+    check('rising only, under the first limit is no band, as before', T.bandOf(-3, two, -1) === -1);
+    const lim0 = T.limitOf(two, 0, 1), lim2 = T.limitOf(two, 2, 1);
+    check('the limit crossed: a low band ends at the next limit, a high band starts at its own',
+        lim0.value === 60 && lim0.below && lim2.value === 90 && !lim2.below, [lim0, lim2]);
+    const db2 = T.parseDeadband('5');
+    check('rising out of a low band inside the deadband keeps it', T.hold(62, two, 1, 0, db2, 1) === 0);
+    check('...and past it leaves', T.hold(70, two, 1, 0, db2, 1) === 1);
+    check('falling into a low band is immediate', T.hold(58, two, 0, 1, db2, 1) === 0);
+    check('a high band still holds on the way down', T.hold(87, two, 1, 2, db2, 1) === 2 && T.hold(84, two, 1, 2, db2, 1) === 1);
+    const lowEx = T.excursions(pts(REC), two, { minBand: 1, normal: 1 });
+    check('a dip under the low limit is one excursion, its peak the lowest value',
+        lowEx.length === 1 && lowEx[0].sev === 0 && lowEx[0].low && lowEx[0].peak === 52 &&
+        lowEx[0].start === 60000 && lowEx[0].end === 180000, lowEx);
+    check('rising only, the dip is never what is flagged', T.excursions(pts(REC), two, { minBand: 1 }).every((x) => x.sev >= 1));
+
+    const af = T.fromLimits({ Lo: 10, Hi: 20 });
+    check('AF Lo and Hi become five bands, Normal in the middle',
+        af.length === 5 && af.map((b) => b.label).join() === 'LoLo,Lo,Normal,Hi,HiHi' &&
+        T.bandOf(5, af, 2) === 1 && T.bandOf(15, af, 2) === 2 && T.bandOf(25, af, 2) === 3, af);
+    const af2 = T.fromLimits({ LoLo: 5, Lo: 10 });
+    check('LoLo is reached under it, and with no high limits nothing above alarms',
+        T.bandOf(3, af2, 2) === 0 && T.bandOf(7, af2, 2) === 1 && T.bandOf(1e9, af2, 2) === 2);
+    check('an attribute with none of the four has no bands', T.fromLimits({ LoLo: null, Target: 5 }) === null);
+    check('limits out of order are refused', T.fromLimits({ Lo: 30, Hi: 20 }).bad === true);
 }
 
 function loadSymbol(name) {
@@ -266,6 +320,7 @@ async function symbols() {
             document.querySelectorAll('#box .pvx-alarm-row'), (n) => n.textContent.replace(/\s+/g, ' ').trim()));
         const footer = () => page.evaluate(() => (document.querySelector('#box .pvx-alarm-footer') || {}).textContent || '');
         const one = { labels: ['K-301|Temperature'], paths: ['af:\\\\AFSRV\\DB\\K-301|Temperature?1'] };
+        let r0;
 
         console.log('');
         console.log(C.bold + 'Exception Banner, live' + C.reset);
@@ -290,6 +345,52 @@ async function symbols() {
         await page.evaluate(() => { window.__scope.config.Deadband = 'lots'; window.__vis.onConfigChange(window.__scope.config); });
         await feed([84]);
         check('a deadband it cannot read is named in the footer', /Deadband "lots" not read/.test(await footer()), await footer());
+
+        console.log('');
+        console.log(C.bold + 'Exception Banner, limits on both sides' + C.reset);
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxAlarmBanner', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, Object.assign({ typeName: 'pvxAlarmBanner',
+            config: { Thresholds: LOW, NormalBand: 2, ShowLimit: true } }, one));
+        await feed([55]);
+        check('in-limits band 2: a value under 60 is listed as Low, with the limit', (await bandsShown())[0] === 'Low < 60',
+            await bandsShown());
+        await feed([70]);
+        check('...and back inside, nothing', (await rows()).length === 0, await rows());
+        await feed([95]);
+        check('...and over 90 it is High, quoting its own limit', (await bandsShown())[0] === 'High \u2265 90', await bandsShown());
+        await page.evaluate(() => { window.__scope.config.NormalBand = 0; window.__vis.onConfigChange(window.__scope.config); });
+        await feed([55]);
+        check('in-limits band 0 (the default): rising only, Low is not an exception', (await rows()).length === 0, await rows());
+        await page.evaluate(() => { window.__scope.config.NormalBand = 7; window.__vis.onConfigChange(window.__scope.config); });
+        await feed([55]);
+        check('an in-limits band past the last is named in the footer', /In-limits band 7 is past the last band/.test(await footer()),
+            await footer());
+
+        const afRows = {
+            labels: ['Tank 1|Level', 'Tank 1|Pressure', 'Tank 1|NoLimits', 'FLOW'],
+            paths: ['af:\\\\AFSRV\\DB\\Tank 1|Level?1', 'af:\\\\AFSRV\\DB\\Tank 1|Pressure?2',
+                'af:\\\\AFSRV\\DB\\Tank 1|NoLimits?3', 'pi:\\\\PISRV\\FLOW?4']
+        };
+        requests = [];
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxAlarmBanner', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, Object.assign({ typeName: 'pvxAlarmBanner',
+            config: { LimitsFrom: 'af', ShowLimit: true } }, afRows));
+        await feed([55, 15, 50, 5000]);
+        await page.waitForTimeout(300);
+        await feed([55, 15, 50, 5000]);
+        r0 = await rows();
+        check('AF limits: each row against its own traits, both under their Lo',
+            r0.length === 2 && r0.some((t) => /Level/.test(t) && /Lo < 60/.test(t)) &&
+            r0.some((t) => /Pressure/.test(t) && /Lo < 20/.test(t)), r0);
+        check('...and no "No limits set" warning, since the limits are per row', !/No limits set/.test((await page.textContent('#box')) || ''));
+        check('the attribute with no traits and the PI point are named in the footer',
+            /2 with no AF limits, so never flagged: Tank 1\|NoLimits, FLOW/.test(await footer()), await footer());
+        await feed([55, 45, 50, 5000]);
+        r0 = await rows();
+        check('Pressure over its Hi of 40 is Hi', r0.some((t) => /Pressure/.test(t) && /Hi \u2265 40/.test(t)), r0);
+        const asked = requests.filter((q) => /trait=/.test(q)).length;
+        await feed([55, 45, 50, 5000]);
+        check('traits are not asked again on every update', requests.filter((q) => /trait=/.test(q)).length === asked, requests);
 
         console.log('');
         console.log(C.bold + 'Exception Banner, History (mock PI Web API)' + C.reset);
@@ -325,6 +426,19 @@ async function symbols() {
         await history({});
         r = await rows();
         check('without the deadband, 68 ends the first Temperature excursion', r.filter((t) => /Temperature/.test(t)).length === 2, r);
+
+        requests = [];
+        await page.goto('http://127.0.0.1:' + PORT + '/page/pvxAlarmBanner', { waitUntil: 'networkidle' });
+        await page.evaluate(mount, Object.assign({ typeName: 'pvxAlarmBanner',
+            config: { LimitsFrom: 'af', Mode: 'history', ShowLimit: true, ShowDuration: true } },
+            { labels: ['Tank 1|Level'], paths: ['af:\\\\AFSRV\\DB\\Tank 1|Level?1'] }));
+        await feed([70]);
+        await page.waitForTimeout(300);
+        await feed([70]);
+        await page.waitForTimeout(300);
+        r = await rows();
+        check('History with AF limits: the dip under Lo is one excursion, showing its lowest value',
+            r.length === 1 && /Lo < 60/.test(r[0]) && /52\.0/.test(r[0]), r);
 
         requests = [];
         await page.goto('http://127.0.0.1:' + PORT + '/page/pvxAlarmBanner', { waitUntil: 'networkidle' });

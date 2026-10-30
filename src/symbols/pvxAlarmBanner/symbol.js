@@ -64,6 +64,14 @@
                 Thresholds: '',
                 // Digital state -> threshold band, e.g. 'ALARM:Critical'.
                 StateBands: '',
+                // Each row's limits: the bands above, or the attribute's own
+                // AF limit traits (LoLo, Lo, Hi, HiHi) read through PI Web
+                // API, so rows in different units each alarm on their own.
+                LimitsFrom: 'bands',          // bands | af
+                // The in-limits band, counted from 1 at the lowest. Bands
+                // below it are exceptions too, ranked by how far below.
+                // 0: only rising bands alarm, as before.
+                NormalBand: 0,
 
                 // An alarm clears only once the value is this far below its
                 // limit: '2' in engineering units, or '2%' of the limit.
@@ -89,6 +97,7 @@
                 ShowValue: true,
                 ShowUnits: true,
                 ShowBandLabel: true,
+                ShowLimit: false,             // the limit crossed: "< 60", "\u2265 90"
                 ShowDuration: true,
                 ShowTime: false,
 
@@ -163,6 +172,10 @@
         // History mode: past excursions from recorded values. Everything here
         // stays untouched, and nothing is asked of PI Web API, in any other mode.
         var hist = { key: '', at: 0, phase: 'idle', rows: [], notes: [], error: '', gen: 0, win: null };
+        // LimitsFrom 'af': source path -> {phase, at, bands, error}. Asked
+        // again at most once a minute per attribute, as PVX.af caches values.
+        var afLim = {};
+        var AF_TTL = 60000;
         var streamIds = {};      // source path -> Promise(WebId); failures are not kept
         var histTimer = null;
         var pass = 0;            // incremented per data update, used for pruning
@@ -183,11 +196,14 @@
         /* ================================================================== *
          * Severity model
          * ================================================================== *
-         * Severity is simply the index of the matching band in the parsed
-         * threshold spec — the spec is sorted ascending by lower bound, so a
-         * higher index is unambiguously worse without needing the author to
-         * label anything. -1 means "matched no band", i.e. below the lowest
-         * bound or non-numeric; those rows are never exceptions.
+         * A row's band is the index of the matching band in the parsed
+         * threshold spec, sorted ascending by lower bound; it picks the color
+         * and the label. Its rank is how bad that is: the index itself, so a
+         * higher band is unambiguously worse without anyone labelling
+         * anything, or, with an in-limits band set (NormalBand, or the AF
+         * limits' Normal), the distance from it, so a value under its low limit
+         * is an exception too. -1 means "matched no band" or non-numeric;
+         * those rows are never exceptions.
          */
 
         function bandsFor(cfg) {
@@ -196,23 +212,137 @@
             return cfg.UseThresholds === false ? [] : PVX.thresholds.parse(cfg.Thresholds);
         }
 
+        /** The five bands every row has under AF limits: labels and colors only. */
+        var AF_BANDS = PVX.thresholds.fromLimits({ LoLo: 0, Lo: 1, Hi: 2, HiHi: 3 });
+
+        /**
+         * How bands are read for this configuration: the shared list (labels,
+         * colors, counts), the in-limits band's index or -1, and whether it
+         * is AF limits. A NormalBand past the last band is named, not guessed.
+         */
+        function limitModel(cfg) {
+            if (cfg.LimitsFrom === 'af') { return { bands: AF_BANDS, normal: 2, af: true, badNormal: false }; }
+            var bands = bandsFor(cfg);
+            var n = parseInt(cfg.NormalBand, 10);
+            var bad = n > bands.length && bands.length > 0;
+            return { bands: bands, normal: n >= 1 && !bad ? n - 1 : -1, af: false, badNormal: bad };
+        }
+
+        function afKey(row) {
+            return PVX.states.sourcePath(row.path || '').toLowerCase();
+        }
+
+        /**
+         * One row's AF limits as bands, asking PI Web API when they are not
+         * known or a minute old. Returns the entry; its bands are null until
+         * they arrive, and stay null for an attribute with no limit traits.
+         */
+        function afLimits(row) {
+            var k = afKey(row);
+            var now = Date.now();
+            var e = afLim[k];
+            if (e && (e.phase === 'loading' || now - e.at < AF_TTL)) { e.pass = pass; return e; }
+            if (!k) { e = afLim[k] = { phase: 'none', at: now, bands: e ? e.bands : null, pass: pass }; return e; }
+            if (PVX.api.discovering()) {
+                if (!e) { e = afLim[k] = { phase: 'loading', at: 0, bands: null, pass: pass }; }
+                PVX.api.discover().then(function () { if (!ctx.destroyed && afLim[k]) { afLim[k].phase = 'stale'; ctx.render(); } });
+                return e;
+            }
+            if (!PVX.api.isConfigured()) {
+                e = afLim[k] = { phase: 'unconfigured', at: now, bands: null, pass: pass };
+                return e;
+            }
+            e = afLim[k] = { phase: 'loading', at: now, bands: e ? e.bands : null, pass: pass };
+            PVX.af.traits(row.path, ['LoLo', 'Lo', 'Hi', 'HiHi']).then(function (v) {
+                if (ctx.destroyed || afLim[k] !== e) { return; }
+                var b = PVX.thresholds.fromLimits(v);
+                e.bands = b && !b.bad ? b : null;
+                e.phase = !b ? 'none' : (b.bad ? 'order' : 'ok');
+                e.at = Date.now();
+                ctx.render();
+            }, function (err) {
+                if (ctx.destroyed || afLim[k] !== e) { return; }
+                e.phase = 'error';
+                e.error = (err && err.pvxError && err.pvxError.message) || 'PI Web API did not answer';
+                e.at = Date.now();
+                ctx.render();
+            });
+            return e;
+        }
+
+        /** Bands for one row: its AF limits, or the shared list. */
+        function rowBands(row, lm) {
+            return lm.af ? (afLimits(row).bands || []) : lm.bands;
+        }
+
+        /** Footer notes on AF limits: still reading, none set, not read. */
+        function afNotes(rows) {
+            var by = { loading: [], none: [], order: [], error: [], unconfigured: [] };
+            var firstErr = '';
+            for (var i = 0; i < rows.length; i++) {
+                var e = afLim[afKey(rows[i])];
+                if (!e || e.phase === 'ok') { continue; }
+                var ph = e.phase === 'stale' ? 'loading' : e.phase;
+                if (by[ph]) { by[ph].push(rows[i].label); }
+                if (ph === 'error' && !firstErr) { firstErr = e.error; }
+            }
+            var out = [];
+            if (by.unconfigured.length) { out.push('AF limits need PI Web API: ' + PVX.api.unsetHint()); }
+            if (by.loading.length) { out.push('Reading AF limits for ' + by.loading.length); }
+            if (by.none.length) { out.push(by.none.length + ' with no AF limits, so never flagged: ' + by.none.join(', ')); }
+            if (by.order.length) { out.push('AF limits out of order (a Lo above a Hi), so not used: ' + by.order.join(', ')); }
+            if (by.error.length) { out.push('AF limits not read for ' + by.error.join(', ') + ' (' + firstErr + ')'); }
+            return out;
+        }
+
+        function pruneAf() {
+            for (var k in afLim) {
+                if (Object.prototype.hasOwnProperty.call(afLim, k) && afLim[k].pass !== pass && afLim[k].phase !== 'loading') {
+                    delete afLim[k];
+                }
+            }
+        }
+
+        /** Band indices worst first, for the count pills: rank, then the higher band. */
+        function pillOrder(bands, normal) {
+            var idx = [];
+            for (var i = 0; i < bands.length; i++) { idx.push(i); }
+            idx.sort(function (a, b) {
+                return (PVX.thresholds.rank(b, normal) - PVX.thresholds.rank(a, normal)) || (b - a);
+            });
+            return idx;
+        }
+
+        /** The band label, with the limit crossed when ShowLimit is on. */
+        function bandText(cfg, labelBands, bands, sev, normal) {
+            var label = cfg.ShowBandLabel ? bandLabel(labelBands, sev) : '';
+            if (!cfg.ShowLimit) { return label; }
+            var lim = PVX.thresholds.limitOf(bands, sev, normal);
+            if (!lim) { return label; }
+            // A limit is quoted as it was set (60.5, not 60.50) unless a
+            // fixed number of decimals was asked for.
+            var opts = PVX.config.numberOpts(cfg);
+            if (opts.decimals === 'auto' || opts.decimals === undefined || opts.decimals === '') {
+                var m = /\.(\d+)$/.exec(String(parseFloat(lim.value.toPrecision(12))));
+                opts.decimals = m ? Math.min(6, m[1].length) : 0;
+            }
+            var txt = (lim.below ? '< ' : '\u2265 ') + PVX.fmt.number(lim.value, opts);
+            return label ? label + ' ' + txt : txt;
+        }
+
         /**
          * A digital state mapped in StateBands takes that band's index, so it
          * alarms, sorts and colors exactly as a number in the band would.
          * Checked before the numeric test: a state name never parses as a
          * number, and a mapped state should not depend on whether it does.
          */
-        function severityOf(row, bands, stateBands) {
+        function severityOf(row, bands, stateBands, normal) {
             if (stateBands) {
                 var hit0 = stateBands[PVX.states.text(row.raw).toLowerCase()];
                 if (hit0 !== undefined) { return hit0; }
             }
             if (row.value === null) { return -1; }
-            var hit = -1;
-            for (var i = 0; i < bands.length; i++) {
-                if (row.value >= bands[i].value) { hit = i; } else { break; }
-            }
-            return hit;
+            return PVX.thresholds.bandOf(row.value, bands, normal);
         }
 
         /* Stable identity for a row. Path is the right key (labels repeat across
@@ -280,7 +410,9 @@
          * ================================================================== */
 
         function buildModel(cfg) {
-            var bands = bandsFor(cfg);
+            var lm = limitModel(cfg);
+            var bands = lm.bands;
+            var normal = lm.normal;
             var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
             var now = Date.now();
             var byQuality = cfg.SeverityFrom === 'quality';
@@ -301,12 +433,13 @@
                 // A bad-quality row is its own tier, ranked above every band:
                 // "I cannot tell you the value" outranks any known deviation.
                 var isBad = byQuality && !r.good;
-                var sev = isBad ? bands.length : severityOf(r, bands, stateBands);
-                if (!isBad && db) {
+                var rb = rowBands(r, lm);
+                var sev = isBad ? bands.length : severityOf(r, rb, stateBands, normal);
+                if (!isBad && db && rb.length) {
                     // The band shown last time, so a value just under its
                     // limit stays in it until it is a deadband clear.
                     var last = durations[keyOf(r)];
-                    sev = PVX.thresholds.hold(r.value, bands, sev, last ? last.band : -1, db);
+                    sev = PVX.thresholds.hold(r.value, rb, sev, last ? last.band : -1, db, normal);
                 }
                 if (sev < 0) { continue; }
 
@@ -323,30 +456,37 @@
                     good: r.good,
                     bad: isBad,
                     sev: sev,
+                    // Bad quality outranks every band (see above).
+                    rank: isBad ? 1e6 : PVX.thresholds.rank(sev, normal),
                     since: e.since,
                     fresh: e.fresh,
                     color: isBad ? PVX.color.status.stale : bands[sev].color,
-                    band: isBad ? 'Bad quality' : bandLabel(bands, sev)
+                    band: isBad ? (cfg.ShowBandLabel ? 'Bad quality' : '') : bandText(cfg, bands, rb, sev, normal)
                 });
             }
 
             pruneDurations();
+            if (lm.af) { pruneAf(); }
 
             // Bad-quality rows bypass MinSeverityBand entirely — suppressing a
             // sensor you cannot read because its band index is low would hide
             // exactly the case the operator most needs to see.
             var exceptions = [];
             for (i = 0; i < all.length; i++) {
-                if (all[i].bad || all[i].sev >= minBand) { exceptions.push(all[i]); }
+                if (all[i].bad || all[i].rank >= minBand) { exceptions.push(all[i]); }
             }
 
             sortRows(exceptions, cfg.SortBy);
 
             return {
                 bands: bands,
+                normal: normal,
+                af: lm.af,
+                badNormal: lm.badNormal,
                 // Nothing to compare against, so the empty list means "not
                 // checked", not "all clear" — buildEmpty must say which.
-                noLimits: !byQuality && !bands.length,
+                // AF limits are per row, so the footer says which have none.
+                noLimits: !byQuality && !lm.af && !bands.length,
                 badDeadband: !!(db && db.bad),
                 all: all,
                 exceptions: exceptions,
@@ -374,7 +514,7 @@
                 // severity: worst first, then longest-standing, then name, so the
                 // order is fully deterministic and rows do not swap on every poll.
                 list.sort(function (a, b) {
-                    if (b.sev !== a.sev) { return b.sev - a.sev; }
+                    if (b.rank !== a.rank) { return b.rank - a.rank; }
                     if (a.since !== b.since) { return a.since - b.since; }
                     return String(a.label).localeCompare(String(b.label));
                 });
@@ -443,6 +583,8 @@
 
             var notes = [];
             if (model.badDeadband) { notes.push('Deadband "' + cfg.Deadband + '" not read, so none applied'); }
+            if (model.badNormal) { notes.push('In-limits band ' + cfg.NormalBand + ' is past the last band, so only rising bands alarm'); }
+            if (model.af) { notes = notes.concat(afNotes(rawRows)); }
             if (cfg.Mode === 'history') { notes = notes.concat(hist.notes); }
             scope.pvx.note = notes.join(' \u00b7 ');
 
@@ -480,7 +622,9 @@
                     bg: PVX.color.rgba(PVX.color.status.stale, t.dark ? 0.22 : 0.14)
                 });
             }
-            for (var i = model.counts.length - 1; i >= 0; i--) {
+            var order = pillOrder(model.bands, model.normal);
+            for (var o = 0; o < order.length; o++) {
+                var i = order[o];
                 if (!model.counts[i]) { continue; }
                 var col = model.bands[i].color;
                 out.push({
@@ -503,7 +647,7 @@
             return {
                 value: !!cfg.ShowValue,
                 units: !!cfg.ShowUnits && width >= 150,
-                band: !!cfg.ShowBandLabel && width >= 200,
+                band: (!!cfg.ShowBandLabel || !!cfg.ShowLimit) && width >= 200,
                 duration: !!cfg.ShowDuration && width >= 260,
                 time: !!cfg.ShowTime && width >= 300
             };
@@ -792,8 +936,17 @@
             var w = historyWindow();
             var paths = [];
             for (var i = 0; i < rawRows.length; i++) { paths.push(rawRows[i].path || ''); }
+            var lim = '';
+            if (cfg.LimitsFrom === 'af') {
+                // Read again when an attribute's limits arrive or change.
+                for (i = 0; i < rawRows.length; i++) {
+                    var e = afLim[afKey(rawRows[i])];
+                    lim += (e && e.bands ? e.bands.map(function (b) { return b.value; }).join(',') : '-') + ';';
+                }
+            }
             return [w.startExpr, w.endExpr, paths.join('\n'), cfg.Thresholds, cfg.StateBands, cfg.Deadband,
-                cfg.MinSeverityBand, cfg.SeverityFrom, cfg.HistoryMaxValues].join('|');
+                cfg.MinSeverityBand, cfg.SeverityFrom, cfg.HistoryMaxValues, cfg.LimitsFrom, cfg.NormalBand,
+                cfg.ShowLimit, cfg.ShowBandLabel, lim].join('|');
         }
 
         function ensureHistory(cfg) {
@@ -865,7 +1018,8 @@
             }
             var win = historyWindow();
             var max = Math.max(10, Math.min(150000, Math.floor(numOr(cfg.HistoryMaxValues, 10000))));
-            var bands = bandsFor(cfg);
+            var lm = limitModel(cfg);
+            var bands = lm.bands;
             var stateBands = PVX.states.bandMap(cfg.StateBands, bands);
             var db = PVX.thresholds.parseDeadband(cfg.Deadband);
             var minBand = Math.max(0, parseInt(cfg.MinSeverityBand, 10) || 0);
@@ -874,6 +1028,11 @@
 
             var jobs = rows.map(function (r) {
                 if (!r.path) { return Promise.resolve({ row: r, skip: 'nopath' }); }
+                // No AF limits (yet): nothing to read history against; the
+                // live footer already says which and why.
+                if (lm.af && !rowBands(r, lm).length && !cfg.StateBands) {
+                    return Promise.resolve({ row: r, skip: 'nolimits' });
+                }
                 return streamId(r.path).then(function (id) {
                     return PVX.api.get('streams/' + encodeURIComponent(id) + '/recorded?startTime=' +
                         encodeURIComponent(win.from !== null ? new Date(win.from).toISOString() : win.startExpr) +
@@ -888,9 +1047,10 @@
 
             Promise.all(jobs).then(function (results) {
                 if (ctx.destroyed || gen !== hist.gen) { return; }
-                var out = [], noPath = 0, failed = [], capped = [];
+                var out = [], noPath = 0, noLimits = 0, failed = [], capped = [];
                 for (var i = 0; i < results.length; i++) {
                     var res = results[i];
+                    if (res.skip === 'nolimits') { noLimits += 1; continue; }
                     if (res.skip) { noPath += 1; continue; }
                     if (res.error) { failed.push(res.row.label + ' (' + res.error + ')'); continue; }
                     if (res.items.length >= max) { capped.push(res.row.label); }
@@ -903,12 +1063,15 @@
                         var v = (raw !== null && typeof raw === 'object') ? null : PVX.util.num(raw);
                         pts.push({ t: d.getTime(), v: v, raw: raw, good: it.Good !== false });
                     }
-                    var ex = PVX.thresholds.excursions(pts, bands, { minBand: minBand, deadband: db, stateBands: stateBands });
+                    var rb = rowBands(res.row, lm);
+                    var ex = PVX.thresholds.excursions(pts, rb, { minBand: minBand, deadband: db, stateBands: stateBands,
+                        normal: lm.normal });
                     for (var k = 0; k < ex.length; k++) {
                         var x = ex[k];
                         out.push({
                             label: res.row.label, path: res.row.path, units: res.row.units,
-                            sev: x.sev, band: bandLabel(bands, x.sev), color: bands[x.sev].color,
+                            sev: x.sev, rank: PVX.thresholds.rank(x.sev, lm.normal), low: !!x.low,
+                            band: bandText(cfg, bands, rb, x.sev, lm.normal), color: bands[x.sev].color,
                             start: x.start, end: x.end, openStart: x.openStart,
                             active: x.end === null && win.live,
                             peak: x.peak, startValue: x.startValue,
@@ -917,17 +1080,18 @@
                     }
                 }
                 // Newest first: the one that just happened is the one asked about.
-                out.sort(function (a, b) { return b.start - a.start || b.sev - a.sev; });
+                out.sort(function (a, b) { return b.start - a.start || b.rank - a.rank; });
                 var notes = [];
                 if (failed.length) { notes.push(failed.length + ' not read: ' + failed.join('; ')); }
                 if (noPath) { notes.push(noPath + ' with no path to read history by'); }
+                if (noLimits) { notes.push(noLimits + ' with no AF limits, so no history'); }
                 if (capped.length) { notes.push('only the first ' + max + ' values of ' + capped.join(', ') + ' read'); }
                 hist.rows = out;
                 hist.notes = notes;
                 hist.win = win;
                 hist.phase = 'ok';
                 hist.error = '';
-                if (failed.length && failed.length === results.length - noPath) {
+                if (failed.length && failed.length === results.length - noPath - noLimits) {
                     hist.phase = 'error';
                     hist.error = failed[0];
                 }
@@ -941,7 +1105,9 @@
             for (i = 0; i < model.bands.length; i++) { counts.push(0); }
             for (i = 0; i < hist.rows.length; i++) { counts[hist.rows[i].sev] += 1; }
             var out = [];
-            for (i = counts.length - 1; i >= 0; i--) {
+            var order = pillOrder(model.bands, model.normal);
+            for (var o = 0; o < order.length; o++) {
+                i = order[o];
                 if (!counts[i]) { continue; }
                 var col = model.bands[i].color;
                 out.push({ key: 'h' + i, label: bandLabel(model.bands, i), count: counts[i], color: col,
@@ -1010,7 +1176,7 @@
                 if (cols.value && r.peak !== null) {
                     var val = div('pvx-alarm-value pvx-num');
                     val.textContent = PVX.fmt.number(r.peak, PVX.config.numberOpts(cfg));
-                    val.setAttribute('title', 'Highest value during the excursion');
+                    val.setAttribute('title', (r.low ? 'Lowest' : 'Highest') + ' value during the excursion');
                     val.style.color = r.color;
                     row.appendChild(val);
                     if (cols.units && r.units) {
@@ -1181,6 +1347,7 @@
             visible = [];
             rawRows = [];
             durations = {};
+            afLim = {};
         }
 
         return ctx;

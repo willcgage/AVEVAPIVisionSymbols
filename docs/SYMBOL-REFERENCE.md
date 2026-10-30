@@ -105,6 +105,8 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `Columns` | `["Value"]` |  |
 | `Title` | `"Exceptions"` |  |
 | `StateBands` | `""` |  |
+| `LimitsFrom` | `"bands"` | bands \| af |
+| `NormalBand` | `0` |  |
 | `Deadband` | `""` |  |
 | `Mode` | `"list"` | list \| ticker \| summary \| history |
 | `HistoryMaxValues` | `10000` | per data source |
@@ -117,6 +119,7 @@ A live exception list. Point it at a whole unit's worth of attributes and it sho
 | `SortBy` | `"severity"` | severity \| name \| valueDesc \| duration |
 | `ShowValue` | `true` |  |
 | `ShowBandLabel` | `true` |  |
+| `ShowLimit` | `false` | the limit crossed: "< 60", "\u2265 90" |
 | `ShowDuration` | `true` |  |
 | `ShowCounts` | `true` |  |
 | `ShowEmptyState` | `true` |  |
@@ -1723,7 +1726,8 @@ The second reference implementation in the library. Where pvxRadialGauge shows t
 | `SparkHeightPct` | `38` |  |
 | `SmoothLine` | `true` |  |
 | `ShowDelta` | `true` |  |
-| `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) |
+| `DeltaBasis` | `"window"` | window \| plan (plan = data source 2) \| average (of the time range) |
+| `DeltaCaption` | `""` |  |
 | `PlanFrom` | `"source"` | source (data source 2) \| af (the KPI's Target trait) \| fixed |
 | `TargetValue` | `""` | PlanFrom 'fixed' |
 | `TargetTolerance` | `""` | blank, an amount, or a percent ("2%") either side of the plan |
@@ -2729,6 +2733,13 @@ One row per tag: [name] [sparkline] [current value]. This is the "20 tags at a g
 | `ShowEndDot` | `true` |  |
 | `ColorMode` | `"palette"` | palette \| single \| threshold |
 | `LineColor` | `"#3b82c4"` |  |
+| `SecondValue` | `"none"` |  |
+| `SecondWidthPct` | `18` |  |
+| `ShowColumnHeaders` | `false` |  |
+| `NameHeader` | `""` |  |
+| `TrendHeader` | `""` |  |
+| `ValueHeader` | `""` |  |
+| `SecondHeader` | `""` |  |
 | `ShowHeader` | `false` |  |
 | `HeaderText` | `""` |  |
 

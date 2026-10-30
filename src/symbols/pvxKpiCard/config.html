@@ -93,8 +93,20 @@
             <label for="pvxkpi-basis">Compare with</label>
             <select id="pvxkpi-basis" ng-model="config.DeltaBasis">
                 <option value="window">Earlier in the time range</option>
+                <option value="average">The time range's average</option>
                 <option value="plan">Plan</option>
             </select>
+        </div>
+        <div class="pvx-cfg-stack">
+            <label for="pvxkpi-caption">Caption after the change</label>
+            <input id="pvxkpi-caption" type="text" ng-model="config.DeltaCaption" placeholder="e.g. vs 7-day avg" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Says what the change is measured against. Blank: <em>vs plan</em>, <em>vs average</em>, or
+            nothing for <em>Earlier in the time range</em>. <em>The time range's average</em> is
+            time-weighted, so for "vs 7-day avg" give the card a 7-day range of its own under
+            <em>Own time range</em>; for "vs last week", compare with <em>Earlier in the time range</em>
+            over the full range.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxkpi-planfrom">The plan is</label>

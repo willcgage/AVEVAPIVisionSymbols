@@ -560,6 +560,18 @@ fall limits, with warnings before them, color the trace past them; the
 footer gives the steepest rise and fall, the latest and net rate, the time
 past each limit, and counts the bad values and gaps no rate is drawn across.
 
+### Gaps found by drawing a display
+
+On 2026-10-30 the owner had a proposed display checked against what the
+symbols really do. Most of it could be built; three gaps changed what the
+display could say, and were closed. Each is an option, off by default.
+
+| Symbol | What it adds |
+|---|---|
+| **pvxAlarmBanner** | Band order was the severity, so nothing under a limit could be an exception: a level under its low limit, a flow that has stopped. `NormalBand` names the in-limits band; bands below it are exceptions too, ranked by how far from it they are, the lowest also taking everything under its own limit, with a deadband that holds on the way up. `LimitsFrom: af` checks each row against its own attribute's AF limit traits (LoLo, Lo, Hi, HiHi) through PI Web API, at most once a minute, so rows in different units share one banner; a row with none is named in the footer. `ShowLimit` quotes the limit crossed (`< 60`, `≥ 90`). History mode follows all three. Mock-proven only. |
+| **pvxSparkline** | `SecondValue`: a second value column, either a statistic of the row's own trend (minimum, maximum, average, change) or, with `source`, the next data source, so sources taken in pairs give one row per pump with its flow and its power. `ShowColumnHeaders`: headings, typed or worked out (the time range over the trend, the attribute name the rows share over a value). |
+| **pvxKpiCard** | `DeltaCaption`: the text after the change says what it is measured against ("vs 7-day avg", "vs last week") instead of nothing or "vs plan". `DeltaBasis: average` compares the headline with the time range's time-weighted average, which with `OwnTimeRange` can be a range of the card's own. |
+
 ## What next
 
 Nothing on this plan is outstanding. Thirty symbols; tiers 1 and 2 built, tier 3
