@@ -3360,7 +3360,12 @@
             }
         } else {
             var win = o.windowMs > 0 ? o.windowMs : 10 * 60000;
+            // At least four points per window: on a long range a fixed count
+            // spaces them further apart than the window is long, and the
+            // trace then skips over every short climb between two of them.
+            // The caller thins what it draws to its width, keeping peaks.
             var n = util.clamp(parseInt(o.intervals, 10) || 240, 2, 5000);
+            if (to > from) { n = Math.max(n, Math.min(20000, Math.ceil((to - from) / (win / 4)))); }
             var step = (to - from) / n;
             var lead = o.align === 'centered' ? win / 2 : win;
             var K = 16;

@@ -63,7 +63,7 @@
                 WindowUnit: 'min',          // s | min | h | d
                 WindowAlign: 'trailing',    // trailing | centered
                 RateUnit: 'min',            // rate per s | min | h | d
-                Intervals: 240,             // points across the time range (window and fit)
+                Intervals: 240,             // fewest points across the time range (window and fit); more on a long range, at least four per window
                 MaxGapMinutes: 0,           // break the trace at a longer gap between values; 0 = never
                 MaxSeries: 6,
 
@@ -188,8 +188,8 @@
             for (i = 0; i < list.length; i++) {
                 var s = list[i];
                 var pts = s.points || [];
-                var from = PVX.util.isNum(model.from) ? model.from : (pts.length ? pts[0].t : null);
-                var to = PVX.util.isNum(model.to) ? model.to : (pts.length ? pts[pts.length - 1].t : null);
+                var span = coverRange(model.from, model.to, pts);
+                var from = span.from, to = span.to;
                 var res = PVX.stats.rateOfChange(pts, {
                     from: from, to: to, method: method, windowMs: winMs,
                     align: centered ? 'centered' : 'trailing', intervals: cfg.Intervals,
@@ -347,7 +347,8 @@
                 var runs = rows[i].res.runs;
                 for (j = 0; j < runs.length; j++) {
                     var xy = [];
-                    for (k = 0; k < runs[j].length; k++) { xy.push({ x: sx(runs[j][k].t), y: yOf(runs[j][k].r) }); }
+                    var shown = thin(runs[j], tMin, tMax, Math.max(2, Math.round(plot.w)));
+                    for (k = 0; k < shown.length; k++) { xy.push({ x: sx(shown[k].t), y: yOf(shown[k].r) }); }
                     // A 'samples' run already holds each step's two ends.
                     var d = PVX.svg.line(xy, false);
                     if (xy.length === 1) { d = 'M' + (xy[0].x - 1).toFixed(2) + ' ' + xy[0].y.toFixed(2) + 'h2'; }
@@ -650,6 +651,43 @@
             var f = first ? Date.parse(first.StartTime) : NaN;
             var e = first ? Date.parse(first.EndTime) : NaN;
             return { from: isNaN(f) ? null : f, to: isNaN(e) || !(e > f) ? null : e };
+        }
+
+        /**
+         * The range to chart: the one PI Vision named, widened to cover every
+         * sample it sent. A range that misses the samples altogether (left
+         * over from an earlier time range, or a time string this browser
+         * reads differently) is ignored in favor of the samples' own extent,
+         * rather than charting the new values against the old axis.
+         */
+        function coverRange(from, to, pts) {
+            var first = pts.length ? pts[0].t : null, last = pts.length ? pts[pts.length - 1].t : null;
+            if (first === null) { return { from: from, to: to }; }
+            var f = PVX.util.isNum(from) && from < last ? from : first;
+            var e = PVX.util.isNum(to) && to > first ? to : last;
+            return { from: Math.min(f, first), to: Math.max(e, last) };
+        }
+
+        /**
+         * A run cut to about two points per pixel column, each column's lowest
+         * and highest in time order, so a peak one pixel wide is still drawn.
+         */
+        function thin(run, t0, t1, cols) {
+            if (run.length <= cols * 2 || !(t1 > t0)) { return run; }
+            var out = [], col = -1, lo = null, hi = null;
+            var flush = function () {
+                if (!lo) { return; }
+                if (lo === hi) { out.push(lo); } else if (lo.t < hi.t) { out.push(lo, hi); } else { out.push(hi, lo); }
+            };
+            for (var i = 0; i < run.length; i++) {
+                var c = Math.floor((run[i].t - t0) / (t1 - t0) * cols);
+                if (c !== col) { flush(); col = c; lo = run[i]; hi = run[i]; continue; }
+                if (run[i].r < lo.r) { lo = run[i]; }
+                if (run[i].r > hi.r) { hi = run[i]; }
+            }
+            flush();
+            if (out[out.length - 1] !== run[run.length - 1]) { out.push(run[run.length - 1]); }
+            return out;
         }
 
         /** A typed limit as a signed rate: a fall limit is typed positive and charted below zero. */

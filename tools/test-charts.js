@@ -60,7 +60,10 @@
  *               through a window, which peaks at the climb's end (trailing)
  *               or middle (centered); a fall limit is typed positive; no
  *               rate across a bad value or a gap past the limit, and both
- *               are counted; the last value holds to the end of the range.
+ *               are counted; the last value holds to the end of the range;
+ *               a new time range is charted in full, a range that misses
+ *               the values gives way to them, and a week-long range still
+ *               catches a ten-minute climb.
  *   gas triangle the zone rules agree with the drawn outlines at every
  *               point of a fine grid, and with the zone boundaries IEC 60599
  *               tabulates; sources are matched to gases by name in any
@@ -99,7 +102,7 @@ function series(label, units, pts) {
 }
 
 let seq = 0;
-function probe(typeName, data, config, clicks) {
+function probe(typeName, data, config, clicks, payload2) {
     const file = path.join(os.tmpdir(), 'pvx-charts-' + process.pid + '-' + (seq++) + '.json');
     fs.writeFileSync(file, JSON.stringify({ Data: data }));
     // data null: the probe's own mock, for shapes (Table) built from it.
@@ -107,6 +110,7 @@ function probe(typeName, data, config, clicks) {
         '--out', file.replace(/\.json$/, '.png')].concat(data === null ? ['--count', '3'] : ['--payload', file]);
     if (config) { args.push('--config', config); }
     if (clicks) { args.push('--clicks', clicks); }
+    if (payload2) { args.push('--payload2', payload2); }
     let out;
     try {
         // Boxes by time bucket in local time; pin it so the answers below
@@ -119,6 +123,13 @@ function probe(typeName, data, config, clicks) {
     const json = JSON.parse(out.slice(out.indexOf('{')));
     const r = json.report || {};
     return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', labels: r.labels || [], rows: r.rows || [], errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
+}
+
+/** probe() with a second update of its own: the display's time range changed. */
+function probe2(typeName, data, data2, config) {
+    const file2 = path.join(os.tmpdir(), 'pvx-charts-' + process.pid + '-' + (seq++) + '-2.json');
+    fs.writeFileSync(file2, JSON.stringify({ Data: data2 }));
+    return probe(typeName, data, config, null, file2);
 }
 
 /** The tooltip of the wedge for one direction word, e.g. 'from N ('. */
@@ -1104,6 +1115,33 @@ function rateOfChange() {
     const two = probe('pvxRateOfChange', [series('A', 'degC', ramp), series('B', 'degC', [[0, 0], [120, 600]])], 'Decimals=1');
     all.push(two);
     check('several sources: the steepest rise is named', /Max rise \+5\.0 degC\/min \(B\)/.test(two.footer), two.footer);
+
+    // The display's time range changes: the second update is a longer range
+    // with a climb near its end. The chart must follow it, not the first.
+    const ranged = (label, units, pts, fromMin, toMin) => Object.assign(series(label, units, pts), {
+        StartTime: new Date(T0 + fromMin * MIN).toISOString(), EndTime: new Date(T0 + toMin * MIN).toISOString()
+    });
+    const before = ranged('Level', 'in', [[0, 0], [120, 0]], 0, 120);
+    const after = ranged('Level', 'in', [[0, 0], [400, 0], [410, 50], [480, 50]], 0, 480);
+    const moved = probe2('pvxRateOfChange', [before], [after], 'Decimals=1;Method=samples');
+    all.push(moved);
+    const latest = Math.max.apply(null, moved.tips.map(minuteOf).filter((m) => m !== null));
+    check('a new time range is charted in full', latest > 470, latest);
+    check('...with the new values', /Max rise \+5\.0 in\/min at 10\/20 06:40/.test(moved.footer), moved.footer);
+    // A range that misses the values (left over, or misread) gives way to them.
+    const stale = ranged('Level', 'in', [[600, 0], [660, 0], [670, 50], [720, 50]], 0, 120);
+    const kept = probe2('pvxRateOfChange', [before], [stale], 'Decimals=1;Method=samples');
+    all.push(kept);
+    const keptMins = kept.tips.map(minuteOf).filter((m) => m !== null);
+    check('a range that misses every value is not used', Math.min.apply(null, keptMins) >= 599 && Math.max.apply(null, keptMins) > 700, [Math.min.apply(null, keptMins), Math.max.apply(null, keptMins)]);
+    check('...and the values are charted', /Max rise \+5\.0 in\/min at 10\/20 11:00/.test(kept.footer), kept.footer);
+
+    // Seven days at the default 240 points would put them 42 min apart and
+    // step over a 10-minute climb; the grid follows the window instead.
+    const week = [[0, 0], [5000, 0], [5010, 50], [10080, 50]];
+    const wk = probe('pvxRateOfChange', [ranged('Level', 'in', week, 0, 10080)], 'Decimals=1');
+    all.push(wk);
+    check('a long range still catches a short climb at its full rate', /Max rise \+5\.0 in\/min/.test(wk.footer), wk.footer);
 
     const thin = probe('pvxRateOfChange', [series('Temp', 'degC', [[0, 1]])]);
     all.push(thin);
