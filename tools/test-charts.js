@@ -33,11 +33,16 @@
  *   kpi card    time-weighted average, total over time, standard deviation
  *               and percent good match the hand calculation; a typed target
  *               within its tolerance reads On target; progress is the share
- *               of the target.
+ *               of the target; the change against the range's average and
+ *               a typed caption in place of "vs plan".
  *   period cmp  change from the median of the older periods and from the
  *               period before, absolute and percent, against hand figures;
  *               a calendar-month fold names its periods by month; a second
  *               source draws its own current period.
+ *   sparkline   sources in pairs put the second beside the first, and an
+ *               unpaired last source says so; a statistic of the row's own
+ *               trend; headings worked out from the range and the attribute
+ *               names, or typed; none of it by default.
  *   multi gauge a value that is not a number gets no pointer, a value off
  *               the scale is pinned and named, and sources past the limit
  *               are counted; the readout names each value.
@@ -435,7 +440,59 @@ function kpiCard() {
     check('progress is the share of the target', /\b50%/.test(prog.text), prog.text.slice(0, 60));
     const none = kpi('PlanFrom=fixed;ProgressStyle=ring');
     check('progress with no target says so', /No target value set/.test(none.text), none.text.slice(0, 80));
-    const errs = [].concat(tw.errors, tot.errors, sd.errors, pg.errors, on.errors, prog.errors, none.errors);
+    const avgD = kpi('DeltaBasis=average;DeltaMode=absolute;Decimals=1');
+    check('compared with the range\'s time-weighted average: 40 against 17.5', /\+22\.5 vs average/.test(avgD.text), avgD.text.slice(0, 60));
+    const cap = kpi('DeltaBasis=average;DeltaMode=absolute;Decimals=1;DeltaCaption=vs 7-day avg');
+    check('...with a typed caption in its place', /\+22\.5 vs 7-day avg/.test(cap.text) && !/vs average/.test(cap.text), cap.text.slice(0, 60));
+    const wk = kpi('DeltaBasis=window;DeltaLookback=1;DeltaMode=absolute;Decimals=1;DeltaCaption=vs last week');
+    check('earlier in the range, over the full range: from the first value, captioned', /\+30\.0 vs last week/.test(wk.text), wk.text.slice(0, 60));
+    const bare = kpi('DeltaMode=absolute;Decimals=1');
+    check('by default the change has no caption', !/ vs /.test(bare.text), bare.text.slice(0, 60));
+    const errs = [].concat(tw.errors, tot.errors, sd.errors, pg.errors, on.errors, prog.errors, none.errors,
+        avgD.errors, cap.errors, wk.errors, bare.errors);
+    check('no page errors', errs.length === 0, errs);
+}
+
+function multiSparkline() {
+    console.log('');
+    console.log(C.bold + 'Multi Sparkline, second value and headings' + C.reset);
+    const all = [];
+    const ranged = (label, units, pts) => Object.assign(series(label, units, pts), {
+        StartTime: new Date(T0).toISOString(), EndTime: new Date(T0 + 120 * MIN).toISOString()
+    });
+    // Sources in pairs: each pump's flow, then its power. The fifth
+    // has no partner.
+    const data = [
+        ranged('P1|Flow', 'm3/h', [[0, 10], [60, 11], [120, 12]]), ranged('P1|Power', 'kW', [[0, 0.4], [120, 0.5]]),
+        ranged('P2|Flow', 'm3/h', [[0, 30], [60, 28], [120, 25]]), ranged('P2|Power', 'kW', [[0, 0.8], [120, 0.9]]),
+        ranged('P3|Flow', 'm3/h', [[0, 3], [120, 3.5]])
+    ];
+    const pairs = probe('pvxSparkline', data, 'Decimals=1;SecondValue=source;ShowColumnHeaders=true');
+    all.push(pairs);
+    const rowTips = pairs.tips.filter((t) => /: .*\n/.test(t));
+    check('sources in pairs: three rows, the second of each pair beside the first',
+        rowTips.length === 3 && rowTips[0] === 'P1|Flow: 12.0 m3/h\nP1|Power: 0.5 kW' && rowTips[1] === 'P2|Flow: 25.0 m3/h\nP2|Power: 0.9 kW', rowTips);
+    check('...and a source with no partner says so', rowTips[2] === 'P3|Flow: 3.5 m3/h\nNo paired data source', rowTips[2]);
+    check('headings worked out: the time range over the trend, the shared attribute names over the values',
+        /Last 2 h/.test(pairs.text) && /Flow/.test(pairs.text.replace(/P\d\|Flow/g, '')) && /Power/.test(pairs.text.replace(/P\d\|Power/g, '')), pairs.text);
+    const typed = probe('pvxSparkline', data, 'SecondValue=source;ShowColumnHeaders=true;NameHeader=Pump;TrendHeader=Trend;ValueHeader=Rate;SecondHeader=Load');
+    all.push(typed);
+    check('typed headings are used as typed', ['Pump', 'Trend', 'Rate', 'Load'].every((h) => typed.text.indexOf(h) !== -1) &&
+        !/Last 2 h/.test(typed.text), typed.text);
+
+    const one = [ranged('Flow', 't/h', [[0, 1], [60, 9], [120, 4]])];
+    const mx = probe('pvxSparkline', one, 'Decimals=1;SecondValue=max');
+    const ch = probe('pvxSparkline', one, 'Decimals=1;SecondValue=change;ShowColumnHeaders=true');
+    all.push(mx, ch);
+    check('a statistic of the row\'s own trend: the maximum', mx.tips.some((t) => t === 'Flow: 4.0 t/h\nMax: 9.0 t/h'), mx.tips);
+    check('...the change over the range, signed, headed by its name', ch.tips.some((t) => t === 'Flow: 4.0 t/h\nChange: +3.0 t/h') &&
+        /Change/.test(ch.text), [ch.tips, ch.text]);
+    const plain = probe('pvxSparkline', data, 'Decimals=1');
+    all.push(plain);
+    check('by default: one row per source, no second column, no headings',
+        plain.tips.filter((t) => /^P\d\|\w+: /.test(t)).length === 5 && !plain.tips.some((t) => /: .*\n/.test(t)) && !/Last 2 h/.test(plain.text),
+        plain.tips);
+    const errs = [].concat.apply([], all.map((r) => r.errors));
     check('no page errors', errs.length === 0, errs);
 }
 
@@ -1154,7 +1211,7 @@ function rateOfChange() {
 (() => {
     // `--only spectrum` runs one section, for the inner loop; CI runs all.
     const sections = { windRose, bubble, histogramByTime, sankeyFixed, boxByTime, controlChart, gasTriangle,
-        kpiCard, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart, targetForecast, rateOfChange };
+        kpiCard, multiSparkline, multiGauge, periodChange, historyTable, xyUpgrades, spectrum, crossProfile, comboChart, targetForecast, rateOfChange };
     const only = process.argv[process.argv.indexOf('--only') + 1];
     try {
         Object.keys(sections).forEach((k) => {

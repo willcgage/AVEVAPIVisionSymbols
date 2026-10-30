@@ -24,13 +24,45 @@
         </div>
 
         <div class="pvx-cfg-row">
+            <label for="pvxab-limfrom">Limits from</label>
+            <select id="pvxab-limfrom" ng-model="config.LimitsFrom">
+                <option value="bands">Threshold bands (one set for every row)</option>
+                <option value="af">Each attribute's AF limits</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.LimitsFrom === 'af'">
+            Each row is checked against its own attribute's AF limit traits, <b>LoLo</b>,
+            <b>Lo</b>, <b>Hi</b> and <b>HiHi</b>, read through PI Web API at most once a
+            minute, so a level in % and a pressure in bar can share one banner. A value under Lo or
+            LoLo is an exception as well as one over Hi or HiHi. A row with none of the four
+            is never flagged, and the footer names it; a PI point has no traits.
+            The threshold bands below are not used for numbers; digital states still map
+            to the bands <em>LoLo</em>, <em>Lo</em>, <em>Normal</em>, <em>Hi</em> or <em>HiHi</em>.
+        </div>
+
+        <div class="pvx-cfg-row" ng-if="config.LimitsFrom !== 'af'">
+            <label for="pvxab-normal">In-limits band</label>
+            <input id="pvxab-normal" type="number" ng-model="config.NormalBand" min="0" max="9" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.LimitsFrom !== 'af'">
+            For limits on both sides. The band that is in limits, counted from <code>1</code>
+            at the lowest: bands below it are exceptions too, ranked by how far below, and
+            the lowest band also takes everything under its own limit. With
+            <code>0:#d99024:Low, 60:#2f9e5f:Normal, 90:#c8452f:High</code> and
+            <code>2</code> here, a value under 60 is listed as Low.
+            <code>0</code> (the default): only rising bands alarm.
+        </div>
+
+        <div class="pvx-cfg-row">
             <label for="pvxab-minband">Minimum band</label>
             <input id="pvxab-minband" type="number" ng-model="config.MinSeverityBand" min="0" max="9" />
         </div>
         <div class="pvx-cfg-hint">
             Band index into the threshold list, counting from 0 at the lowest limit.
             <code>0</code> lists everything including Normal; <code>1</code> hides the
-            first band, which is the usual "only show me deviations" setting.
+            first band, which is the usual "only show me deviations" setting. With an
+            in-limits band or AF limits it counts bands away from Normal instead:
+            <code>1</code> lists Lo and Hi and worse, <code>2</code> only LoLo and HiHi.
         </div>
 
         <div class="pvx-cfg-row">
@@ -125,6 +157,14 @@
         <div class="pvx-cfg-row">
             <label for="pvxab-showband">Show band label</label>
             <input id="pvxab-showband" type="checkbox" ng-model="config.ShowBandLabel" />
+        </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxab-showlimit">Show the limit crossed</label>
+            <input id="pvxab-showlimit" type="checkbox" ng-model="config.ShowLimit" />
+        </div>
+        <div class="pvx-cfg-hint">
+            Beside the band label: <code>&lt; 60</code> for a value under a low limit,
+            <code>&ge; 90</code> for one over a high limit.
         </div>
         <div class="pvx-cfg-row">
             <label for="pvxab-showdur">Show duration</label>
@@ -255,7 +295,11 @@
             <div class="pvx-cfg-label">Threshold bands</div>
             <!-- pvx:bands -->
         </div>
-        <div class="pvx-cfg-hint">Band order <em>is</em> the severity &mdash; the band with the highest limit is the worst.</div>
+        <div class="pvx-cfg-hint">
+            Band order <em>is</em> the severity &mdash; the band with the highest limit is the worst,
+            unless an in-limits band is set under <em>Exceptions</em>, which makes bands below it
+            exceptions too.
+        </div>
 
         <div class="pvx-cfg-stack">
             <div class="pvx-cfg-label">Digital states</div>
