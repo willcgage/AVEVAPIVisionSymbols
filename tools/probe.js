@@ -24,6 +24,7 @@
  *   --config       comma-separated Key=Value config overrides
  *   --payload      JSON file sent as the data update instead of the mock, for
  *                  a test that needs to know the exact answer
+ *   --payload2     JSON file sent as the second update instead (a time range change)
  *   --out          PNG path                   (default /tmp/pvx-<symbol>.png)
  *   --port         override the auto-derived port
  *   --json         print the inspection report as JSON
@@ -208,7 +209,8 @@ server.on('listening', async () => {
 
         const shape = scope.config.DataShape || 'None';
         const count = def.datasourceBehavior === 1 ? 1 : a.count;
-        const mk = (tick) => a.payload ? JSON.parse(a.payload) : a.empty || shape === 'None' ? null : window.PVMock.generate(shape, {
+        // --payload2: the second update, e.g. the display's time range changed.
+        const mk = (tick) => tick === 2 && a.payload2 ? JSON.parse(a.payload2) : a.payload ? JSON.parse(a.payload) : a.empty || shape === 'None' ? null : window.PVMock.generate(shape, {
             count: count, points: a.points, hours: a.hours, tick: tick, seed: 7,
             digital: a.mockProfile === 'digital',
             profile: a.mockProfile,
@@ -296,7 +298,8 @@ server.on('listening', async () => {
         hours: parseFloat(opt('hours', 8)),
         mockProfile, overrides,
         clicks: String(opt('clicks', '')).split(';').filter(Boolean).map((c) => c.split(',').map(Number)),
-        payload: opt('payload', '') ? fs.readFileSync(opt('payload'), 'utf8') : ''
+        payload: opt('payload', '') ? fs.readFileSync(opt('payload'), 'utf8') : '',
+        payload2: opt('payload2', '') ? fs.readFileSync(opt('payload2'), 'utf8') : ''
     }).catch((e) => ({ fatal: 'evaluate: ' + e.message }));
 
     await p.screenshot({ path: OUT, clip: { x: 0, y: 0, width: W, height: H } });

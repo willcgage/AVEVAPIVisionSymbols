@@ -1659,7 +1659,7 @@ A trend shows where a value is. How fast it is getting there is what a heat-up, 
 | `WindowUnit` | `"min"` | s \| min \| h \| d |
 | `WindowAlign` | `"trailing"` | trailing \| centered |
 | `RateUnit` | `"min"` | rate per s \| min \| h \| d |
-| `Intervals` | `240` | points across the time range (window and fit) |
+| `Intervals` | `240` | fewest points across the time range (window and fit); more on a long range, at least four per window |
 | `MaxGapMinutes` | `0` | break the trace at a longer gap between values; 0 = never |
 | `MaxSeries` | `6` |  |
 | `RiseLimit` | `""` | rising faster than this is past the limit |
