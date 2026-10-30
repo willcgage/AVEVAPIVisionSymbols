@@ -7,8 +7,8 @@
  * moment a question spans two units — "did efficiency hold while we pushed
  * production?" — the answer moves to Excel. This symbol keeps it on the
  * display: production as bars, efficiency as a line on a right-hand axis, the
- * operating limit as a shaded band, run/stop as a stepped strip, one frame,
- * one time axis, one glance.
+ * operating limit as a shaded band, run/stop as shaded state bands, one
+ * frame, one time axis, one glance.
  *
  * THE CENTRAL DESIGN PROBLEM is configuration. PI Vision hands a symbol an
  * ORDERED LIST of data sources and nothing else — no names we can rely on, no
@@ -33,8 +33,13 @@
  * deleted. So it reuses the threshold grammar against the LEFT axis instead.
  *
  * MORE TRACE KINDS, all opt-in through TraceSpec:
- *   states   a digital tag as shaded bands behind the traces, one lane per
- *            such tag, colored by StateColors. It uses no axis.
+ *   states   a digital tag as shaded bands, colored by StateColors. It uses
+ *            no axis. StatePlacement 'background' (the default) splits the
+ *            plot's full height into one lane per such tag, behind the
+ *            traces; 'strip' draws each as a thin strip under the plot,
+ *            above the time labels, so the traces keep a clear background.
+ *            StateDropNumber shows "1Running" as "Running", for state sets
+ *            whose names carry their number.
  *   range    this source and the NEXT one as the lower and upper edge of a
  *            filled band (a min/max envelope, a spec window). The next source
  *            is used up by it and not drawn on its own.
@@ -128,8 +133,8 @@
                 Title: '',
 
                 // Per-trace grammar. Blank => every source uses DefaultType.
-                TraceSpec: '',
-                DefaultType: 'line',
+                TraceSpec: '',              // "1:line:ma1h, 2:line:right, 3:states"; types line area bar step scatter range states hidden; then left|right, #hex, dashed|dotted, 2px, maN|ma1h, fit
+                DefaultType: 'line',        // line | area | bar | step | scatter
 
                 // Geometry
                 SmoothLines: false,
@@ -142,7 +147,7 @@
                 // Axes
                 ShowLeftAxis: true,
                 ShowRightAxis: true,
-                LeftMin: '',
+                LeftMin: '',                // blank => autoscale to the traces on the axis (and its limit bands)
                 LeftMax: '',
                 RightMin: '',
                 RightMax: '',
@@ -157,14 +162,16 @@
 
                 // Traces typed "states" in TraceSpec: colors per state,
                 // "Running:#2f9e5f, Stopped:#c8452f"; others take the palette.
-                StateColors: '',
+                StateColors: '',            // "Running:#2f9e5f, Stopped:#c8452f"; a state not listed takes the palette
                 StateOpacity: 0.18,
+                StatePlacement: 'background', // background (full plot height, one lane per state trace) | strip (thin strip under the plot)
+                StateDropNumber: false,     // "1Running" shows as "Running"
 
                 // Rulers A and B with a statistics table between them.
                 Rulers: false,
 
                 // Limit bands — threshold grammar, LEFT axis only.
-                LimitBands: '',
+                LimitBands: '',             // threshold grammar on the left axis, "90:#c8452f:High"
                 LimitBandOpacity: 0.14,
 
                 // Legend
@@ -312,6 +319,27 @@
         if (!r) { return null; }
         return { t0: t0, slope: r.slope, intercept: r.intercept, r2: r.r2,
             at: function (t) { return r.intercept + r.slope * (t - t0) / 3600000; } };
+    }
+
+    /* "1Running", "0 - Stopped": a state set that carries each state's number
+     * in its name. Only a number followed by a word of two letters or more
+     * is cut, so "1On" reads "On" while a state named "2" or "24V" survives. */
+    var STATE_NUMBER_RE = /^\d+\s*[-:.)]?\s*(?=[A-Za-z]{2})/;
+
+    /** A state trace's points, with StateDropNumber applied to copies. The
+     *  name as sent stays on `rawState`, so a StateColors entry written
+     *  either way still matches. */
+    function stateNames(points, cfg) {
+        if (!cfg || !cfg.StateDropNumber) { return points; }
+        var out = [];
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i], c = {};
+            for (var k in p) { if (Object.prototype.hasOwnProperty.call(p, k)) { c[k] = p[k]; } }
+            c.rawState = p.state;
+            c.state = String(p.state).replace(STATE_NUMBER_RE, '') || p.state;
+            out.push(c);
+        }
+        return out;
     }
 
     /** Value at a time: interpolated for a line, held for a step, bar or state. */
@@ -511,6 +539,7 @@
     symbolVis.logSnap = logSnap;
     symbolVis.logTicks = logTicks;
     symbolVis.valueAt = valueAt;
+    symbolVis.stateNames = stateNames;
 
     symbolVis.prototype.init = function (scope, elem) {
         var PVX = window.PVX;
@@ -826,7 +855,7 @@
                     width: (e && e.width) || null,
                     raw: type === 'states' ? [] : (list[s].points || []),
                     // The text values, for state bands and the rulers' table.
-                    states: stateList[s] ? stateList[s].points : [],
+                    states: stateList[s] ? stateNames(stateList[s].points, cfg) : [],
                     upper: type === 'range' ? list[s + 1] : null,
                     pts: [],          // decimated, for line/area/step/scatter
                     pts2: [],         // decimated upper edge of a range
@@ -959,6 +988,32 @@
             if (eMax !== null) { d[1] = eMax; }
             if (!(d[1] > d[0])) { d[1] = d[0] + 1; }     // never divide by zero
             return d;
+        }
+
+        /**
+         * Fold limit band values into an axis's values. The top band runs to
+         * the top of the axis, so when its limit is at or above every value
+         * the axis would end on the limit itself and the band would have no
+         * height: a high limit set just above the process drew nothing. The
+         * axis is given headroom past it, a sixteenth of the span.
+         */
+        function withBands(vals, bandList) {
+            if (!bandList.length) { return vals; }
+            var lo = null, hi = null, top = null, i;
+            for (i = 0; i < vals.length; i++) {
+                if (!PVX.util.isNum(vals[i])) { continue; }
+                if (lo === null || vals[i] < lo) { lo = vals[i]; }
+                if (hi === null || vals[i] > hi) { hi = vals[i]; }
+            }
+            for (i = 0; i < bandList.length; i++) {
+                vals.push(bandList[i].value);
+                if (top === null || bandList[i].value > top) { top = bandList[i].value; }
+            }
+            if (top !== null && (hi === null || top >= hi)) {
+                var base = lo === null ? Math.min(top, 0) : Math.min(lo, top);
+                vals.push(top + Math.max((top - base) / 16, Math.abs(top) * 0.01, 1e-9));
+            }
+            return vals;
         }
 
         /* ------------------------------------------------------------------ *
@@ -1218,7 +1273,7 @@
             // conclude the setting does nothing.
             var bandSpec = cfg.LimitBands || '';
             var bandList = PVX.thresholds.parse(bandSpec);
-            for (i = 0; i < bandList.length; i++) { leftVals.push(bandList[i].value); }
+            withBands(leftVals, bandList);
 
             var ld = domainFor(leftVals, cfg.LeftMin, cfg.LeftMax, barsLeft, tickCount, logL);
             var rd = domainFor(rightVals, cfg.RightMin, cfg.RightMax, barsRight, tickCount, logR);
@@ -1233,7 +1288,7 @@
                 for (i = 0; i < drawn.length; i++) {
                     tr = drawn[i];
                     var pv = collectDrawn([tr], tr.axis, false, null);
-                    if (tr.axis === 'left') { for (j = 0; j < bandList.length; j++) { pv.push(bandList[j].value); } }
+                    if (tr.axis === 'left') { withBands(pv, bandList); }
                     tr.pd = tr.axis === 'right'
                         ? domainFor(pv, cfg.RightMin, cfg.RightMax, tr.type === 'bar', panelTicks, logR)
                         : domainFor(pv, cfg.LeftMin, cfg.LeftMax, tr.type === 'bar', panelTicks, logL);
@@ -1251,6 +1306,19 @@
             var mT = 5 + (legend && legendPos !== 'bottom' ? legendH : 0);
             var mB = 5 + (showTimeTicks ? tickFont + 6 : 2) +
                      (legend && legendPos === 'bottom' ? legendH : 0);
+            // State strips sit between the plot and the time labels, so the
+            // traces keep a clear background and the axis scales only them.
+            var stripLanes = 0;
+            if (cfg.StatePlacement === 'strip') {
+                for (i = 0; i < traces.length; i++) { if (traces[i].type === 'states') { stripLanes += 1; } }
+            }
+            var STRIP_GAP = 3;
+            var stripH = PVX.util.clamp(Math.round(tickFont * 1.3), 8, 18);
+            if (stripLanes && stripLanes * (stripH + 1) + STRIP_GAP > H * 0.3) {
+                stripH = Math.max(4, Math.floor((H * 0.3 - STRIP_GAP) / stripLanes) - 1);
+            }
+            var stripBlock = stripLanes ? STRIP_GAP + stripLanes * (stripH + 1) : 0;
+            mB += stripBlock;
             var PANEL_GAP = 6;
             if (panelMode) {
                 var plotH0 = Math.max(10, H - Math.min(mT, H * 0.45) - Math.min(mB, H * 0.45));
@@ -1268,7 +1336,7 @@
             var mL = Math.min(m.l, W * 0.42);
             var mR = Math.min(m.r, W * 0.32);
             mT = Math.min(mT, H * 0.45);
-            mB = Math.min(mB, H * 0.45);
+            mB = Math.min(mB, H * 0.45 + stripBlock);
 
             var plot = {
                 x: mL, y: mT,
@@ -1307,7 +1375,11 @@
             }
 
             // ---- digital states, as lanes of shaded bands ----------------------
-            var stateSummary = drawStateLanes(svgRoot, traces, cfg, plot, sx, tMin, tMax, t, tickFont);
+            var stateSummary = stripLanes
+                ? drawStateLanes(svgRoot, traces, cfg, {
+                    x: plot.x, y: plot.y1 + STRIP_GAP, w: plot.w, h: stripLanes * (stripH + 1), gap: 1, strip: true
+                }, sx, tMin, tMax, t, tickFont)
+                : drawStateLanes(svgRoot, traces, cfg, plot, sx, tMin, tMax, t, tickFont);
 
             // ---- event frames (under the grid and the traces) ----------------
             var eventsDrawn = drawEvents(svgRoot, cfg, plot, sx, tMin, tMax, t, tickFont);
@@ -1461,7 +1533,7 @@
 
             if (showTimeTicks) {
                 for (i = 0; i < timeTicks.length; i++) {
-                    drawTimeLabel(svgRoot, sx(timeTicks[i]), plot.y1 + 4 + tickFont * 0.6,
+                    drawTimeLabel(svgRoot, sx(timeTicks[i]), plot.y1 + stripBlock + 4 + tickFont * 0.6,
                         PVX.fmt.time(timeTicks[i], 'short'), W, tickFont, t);
                 }
             }
@@ -1884,12 +1956,16 @@
          * ------------------------------------------------------------------ */
 
         /**
-         * One lane per "states" trace across the plot, each state a shaded
+         * One lane per "states" trace across `area`, each state a shaded
          * span from its timestamp to the next. Colors come from StateColors,
          * then the palette in order of first appearance, so the same state
-         * keeps its color across lanes. Returns a footer note, or ''.
+         * keeps its color across lanes. `area` is the plot (background lanes)
+         * or the strip block under it ({strip: true, gap}), where the shading
+         * is near-solid and each lane is named in the left margin, since a
+         * strip that thin has no room to say which tag it is. Returns a
+         * footer note, or ''.
          */
-        function drawStateLanes(parent, traces, cfg, plot, sx, tMin, tMax, t, font) {
+        function drawStateLanes(parent, traces, cfg, area, sx, tMin, tMax, t, font) {
             var lanes = [];
             for (var i = 0; i < traces.length; i++) { if (traces[i].type === 'states') { lanes.push(traces[i]); } }
             if (!lanes.length) { return ''; }
@@ -1913,28 +1989,46 @@
             for (var pi = 0; pi < basePal.length; pi++) { if (!near(basePal[(pi + 3) % basePal.length])) { pal.push(basePal[(pi + 3) % basePal.length]); } }
             if (!pal.length) { pal = basePal; }
             var seen = [];
-            var colorOf = function (st) {
+            var colorOf = function (st, raw) {
                 var k = st.toLowerCase();
                 if (fixed[k]) { return fixed[k]; }
+                if (raw && fixed[String(raw).toLowerCase()]) { return fixed[String(raw).toLowerCase()]; }
                 var n = seen.indexOf(k);
                 if (n === -1) { seen.push(k); n = seen.length - 1; }
                 return pal[n % pal.length];
             };
             var op = PVX.util.num(cfg.StateOpacity);
             op = op === null ? 0.18 : PVX.util.clamp(op, 0.02, 1);
-            var laneH = plot.h / lanes.length;
-            var g = PVX.svg.el('g', { 'class': 'pvx-combo-states' }, parent);
+            // A strip has nothing behind it to show through, so it is drawn
+            // near-solid: at the background's opacity it would read as gray.
+            if (area.strip) { op = Math.max(op, 0.75); }
+            var gap = area.gap || 0;
+            var laneH = (area.h - gap * (lanes.length - 1)) / lanes.length;
+            var g = PVX.svg.el('g', { 'class': 'pvx-combo-states' + (area.strip ? ' pvx-combo-strip' : '') }, parent);
             var empty = 0;
             for (var l = 0; l < lanes.length; l++) {
                 var pts = lanes[l].states;
-                var y0 = plot.y + l * laneH;
+                var y0 = area.y + l * (laneH + gap);
+                // A strip's name goes in the left margin when it fits whole
+                // there; a cut-short name in a narrow margin says nothing, so
+                // otherwise it goes inside the strip at the right end.
+                var nf = Math.min(font, laneH + 2) * 0.9;
+                var inMargin = area.strip && textW(lanes[l].label, nf) <= area.x - 8;
+                if (inMargin) {
+                    PVX.svg.text(g, (area.x - 4).toFixed(2), (y0 + laneH / 2).toFixed(2), lanes[l].label, {
+                        'class': 'pvx-svg-label pvx-combo-strip-name', 'text-anchor': 'end',
+                        'dominant-baseline': 'central', 'font-size': nf.toFixed(1), fill: t.textMuted,
+                        'pointer-events': 'none'
+                    });
+                }
+                var labelEnd = area.x;
                 if (!pts.length) { empty += 1; continue; }
                 lanes[l].stateColor = colorOf;
                 for (var j = 0; j < pts.length; j++) {
                     var a = Math.max(pts[j].t, tMin), b = j + 1 < pts.length ? pts[j + 1].t : tMax;
                     if (!(b > a)) { continue; }
                     var st = pts[j].state;
-                    var col = colorOf(st);
+                    var col = colorOf(st, pts[j].rawState);
                     var x0 = sx(a), x1 = Math.max(x0 + 0.5, sx(b));
                     var r = PVX.svg.el('rect', {
                         x: x0.toFixed(2), y: y0.toFixed(2), width: (x1 - x0).toFixed(2), height: laneH.toFixed(2),
@@ -1943,7 +2037,18 @@
                     PVX.svg.el('title', null, r).textContent = lanes[l].label + ': ' + st + '\n' +
                         PVX.fmt.time(pts[j].t, 'datetime') + ' \u00b7 ' + PVX.fmt.duration(b - pts[j].t);
                     // The state's name where its span is wide enough to hold it.
-                    if (x1 - x0 > font * 3 && laneH >= font + 4) {
+                    if (area.strip) {
+                        var sf = Math.min(font, laneH - 1) * 0.9;
+                        var sl = sf >= 6 && x1 - x0 > sf * 3 ? fitText(st, x1 - x0 - 6, sf) : '';
+                        if (sl) {
+                            PVX.svg.text(g, (x0 + 3).toFixed(2), (y0 + laneH / 2).toFixed(2), sl, {
+                                'class': 'pvx-svg-label pvx-combo-state-label', 'font-size': sf.toFixed(1),
+                                'dominant-baseline': 'central', fill: PVX.color.readable(col),
+                                'pointer-events': 'none'
+                            });
+                            labelEnd = x0 + 3 + textW(sl, sf);
+                        }
+                    } else if (x1 - x0 > font * 3 && laneH >= font + 4) {
                         var label = fitText(st, x1 - x0 - 6, font * 0.9);
                         if (label) {
                             PVX.svg.text(g, (x0 + 3).toFixed(2), (y0 + laneH - font * 0.55).toFixed(2), label, {
@@ -1951,6 +2056,18 @@
                                 fill: col, 'pointer-events': 'none'
                             });
                         }
+                    }
+                }
+                if (area.strip && !inMargin) {
+                    var room = area.x + area.w - 4 - (labelEnd + 10);
+                    var nm = nf >= 6 ? fitText(lanes[l].label, room, nf) : '';
+                    if (nm && nm.length > 3) {
+                        var lastCol = colorOf(pts[pts.length - 1].state, pts[pts.length - 1].rawState);
+                        PVX.svg.text(g, (area.x + area.w - 4).toFixed(2), (y0 + laneH / 2).toFixed(2), nm, {
+                            'class': 'pvx-svg-label pvx-combo-strip-name', 'text-anchor': 'end',
+                            'dominant-baseline': 'central', 'font-size': nf.toFixed(1),
+                            fill: PVX.color.readable(lastCol), 'font-style': 'italic', 'pointer-events': 'none'
+                        });
                     }
                 }
             }

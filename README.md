@@ -39,7 +39,7 @@ symbol that changes its look after that will not match its picture.
 
 | | Symbol | What it's for |
 |---|---|---|
-| ![](src/symbols/pvxComboChart/icon.svg) | **PVX Combo Chart** | Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands, and optionally the asset's AF event frames shaded behind the traces (PI Web API). Digital tags as state bands, min-to-max ranges, moving averages and trend lines, one panel per trace, log scales, and two rulers with statistics between them. Traces can come from an AF search, one per asset. The native trend draws every trace the same way; this does not. |
+| ![](src/symbols/pvxComboChart/icon.svg) | **PVX Combo Chart** | Bars, lines, areas, steps and scatter on one time axis with an independent right-hand scale and shaded limit bands, and optionally the asset's AF event frames shaded behind the traces (PI Web API). Digital tags as state bands, behind the traces or as a strip under the chart, min-to-max ranges, moving averages and trend lines, one panel per trace, log scales, and two rulers with statistics between them. Traces can come from an AF search, one per asset. The native trend draws every trace the same way; this does not. |
 | ![](src/symbols/pvxHistogram/icon.svg) | **PVX Distribution** | Frequency histogram with a fitted normal curve, spec limits, and **Cp / Cpk / expected ppm**. A capability study, not just a chart. |
 | ![](src/symbols/pvxSpectrum/icon.svg) | **PVX Spectrum** | Which cycles are in a tag and how big each is: a loop hunting every twenty minutes, a recycle rippling every seven. An FFT of recorded values resampled evenly, with the largest peaks marked by frequency and period, and bands that turn red when a peak in them passes a limit. |
 | ![](src/symbols/pvxControlChart/icon.svg) | **PVX Control Chart** | Shewhart I-MR, X̄-R or X̄-S chart with Nelson or Western Electric run rules, each flagged point naming the rule it broke. Limits from the window, a baseline, typed values or data sources; Cpk and Ppk against spec limits; a distribution strip beside the plot. |
@@ -107,7 +107,7 @@ symbol that changes its look after that will not match its picture.
 | ![](src/symbols/pvxReplay/icon.svg) | **PVX Replay** | Plays a stretch of history back through the whole display: a window of set length slides from start to end a step at a time, and every symbol follows it. Play, pause, step, a position slider and keyboard keys; pauses itself when the time is changed any other way, and Exit returns to the range shown before. Nothing is saved with the display. |
 | ![](src/symbols/pvxEmbeddedPage/icon.svg) | **PVX Embedded Page** | Another PI Vision display, a work instruction or a report in a frame, reloaded on a timer. A display follows this one's asset and time. A page from another site that refuses framing shows blank, and the symbol says so instead of leaving it a mystery, with Open in a new tab beside it. |
 
-Full option reference: **[docs/SYMBOL-REFERENCE.md](docs/SYMBOL-REFERENCE.md)** (generated from the code).
+Full option reference: **[docs/SYMBOL-REFERENCE.md](docs/SYMBOL-REFERENCE.md)** (generated from the code). It is the complete list: when an AI assistant drafts a display from these symbols, give it that file, and treat any option it proposes that is not listed there as one that does not exist.
 
 ---
 

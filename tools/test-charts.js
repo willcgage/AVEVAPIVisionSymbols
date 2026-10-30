@@ -122,7 +122,7 @@ function probe(typeName, data, config, clicks, payload2) {
     }
     const json = JSON.parse(out.slice(out.indexOf('{')));
     const r = json.report || {};
-    return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', labels: r.labels || [], rows: r.rows || [], errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
+    return { tips: r.tips || [], footer: r.footer || '', text: r.text || '', labels: r.labels || [], rows: r.rows || [], marks: r.marks || [], errors: (json.errors || []).concat(r.fatal ? [r.fatal] : []) };
 }
 
 /** probe() with a second update of its own: the display's time range changed. */
@@ -869,6 +869,39 @@ function comboChart() {
         stateTips.length === 3 && /^Pump: Running\n/.test(stateTips[0]) && /1h/.test(stateTips[0]) &&
         /^Pump: Stopped\n/.test(stateTips[1]) && /30m/.test(stateTips[1]), stateTips);
 
+    // Placement: a strip sits under the plot, not behind it, and leaves the
+    // flow trace the plot's full height.
+    const bg = fit;
+    const strip = probe('pvxComboChart', [flow, pump], 'TraceSpec=2:states;StatePlacement=strip;StateColors=Running:#2f9e5f, Stopped:#c8452f');
+    const spansOf = (r) => r.marks.filter((m) => /^Pump: /.test(m.tip));
+    const bgSpans = spansOf(bg), stSpans = spansOf(strip);
+    const plotBottom = Math.max.apply(null, bgSpans.map((m) => m.bottom));
+    check('state bands behind the traces fill the plot\'s height', bgSpans.length === 3 && bgSpans[0].bottom - bgSpans[0].top > 150, bgSpans);
+    check('...as a strip, one thin row of the same three spans', stSpans.length === 3 &&
+        stSpans.every((m) => m.bottom - m.top <= 20 && m.top === stSpans[0].top), stSpans);
+    check('...under the plot: below where every left-axis value is drawn', stSpans[0] && stSpans[0].top >= plotBottom - 30 &&
+        stSpans[0].top > bgSpans[0].top + 150, [stSpans[0], bgSpans[0]]);
+    check('...named on the left, and the time labels still drawn', strip.labels.indexOf('Pump') !== -1 &&
+        strip.labels.some((l) => /\d\d:\d\d/.test(l)), strip.labels);
+
+    // A state set that numbers its names: "1Running" shown as "Running",
+    // and a color written for either name still applies.
+    const numbered = series('Pump', '', [[0, '1Running'], [60, '0Stopped'], [90, '1Running']]);
+    const kept = probe('pvxComboChart', [flow, numbered], 'TraceSpec=2:states');
+    check('state names are shown as sent by default', kept.tips.some((t) => /^Pump: 1Running\n/.test(t)), kept.tips);
+    const dropped = probe('pvxComboChart', [flow, numbered], 'TraceSpec=2:states;StateDropNumber=true;StateColors=0Stopped:#c8452f, Running:#2f9e5f');
+    const dTips = dropped.tips.filter((t) => /^Pump: /.test(t));
+    check('...StateDropNumber shows "1Running" as "Running"', dTips.length === 3 && /^Pump: Running\n/.test(dTips[0]) &&
+        /^Pump: Stopped\n/.test(dTips[1]), dTips);
+    check('...a state named only by a number keeps it', vis.stateNames([{ state: '2' }, { state: '24V' }, { state: '3 - Tripped' }, { state: '1On' }], { StateDropNumber: true })
+        .map((p) => p.state).join() === '2,24V,Tripped,On');
+
+    // A high limit just above the process: the top band runs to the top of
+    // the axis, so the axis must reach past the limit or the band has no height.
+    const high = probe('pvxComboChart', [flow], 'LimitBands=125:#c8452f:High');
+    const ticks = high.labels.filter((l) => /^\d+$/.test(l)).map(Number);
+    check('a top limit band above every value still gets height on the axis', Math.max.apply(null, ticks) > 125, ticks);
+
     const range = probe('pvxComboChart', [flow, top], 'TraceSpec=1:range');
     check('a range shades to the next source and names both', range.tips.some((t) => /Flow – Flow max/.test(t)) ||
         range.text.indexOf('Flow – Flow max') !== -1, range.text);
@@ -912,7 +945,7 @@ function comboChart() {
     check('...the trend is the ramp\'s 60 an hour', /^\+60(\.0+)? klb\/h per hour$/.test(fr[9] || ''), fr);
     check('...a state source shows its state at each ruler', /Running|Stopped/.test(pr[1] || '') && /Running|Stopped/.test(pr[2] || ''), pr);
 
-    const errs = [].concat(fit.errors, range.errors, alone.errors, log.errors, panels.errors, short.errors, rul.errors);
+    const errs = [].concat(fit.errors, strip.errors, kept.errors, dropped.errors, high.errors, range.errors, alone.errors, log.errors, panels.errors, short.errors, rul.errors);
     check('no page errors', errs.length === 0, errs);
 }
 
