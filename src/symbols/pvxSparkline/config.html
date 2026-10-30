@@ -51,6 +51,27 @@
             <label for="pvxspk-valuew">Value width (%)</label>
             <input id="pvxspk-valuew" type="number" ng-model="config.ValueWidthPct" min="0" max="50" />
         </div>
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-second">Second value</label>
+            <select id="pvxspk-second" ng-model="config.SecondValue">
+                <option value="none">None</option>
+                <option value="source">The next data source (sources in pairs)</option>
+                <option value="min">Minimum over the time range</option>
+                <option value="max">Maximum over the time range</option>
+                <option value="avg">Average over the time range</option>
+                <option value="change">Change over the time range</option>
+            </select>
+        </div>
+        <div class="pvx-cfg-row" ng-if="config.SecondValue && config.SecondValue !== 'none'">
+            <label for="pvxspk-secondw">Second value width (%)</label>
+            <input id="pvxspk-secondw" type="number" ng-model="config.SecondWidthPct" min="0" max="40" />
+        </div>
+        <div class="pvx-cfg-hint" ng-if="config.SecondValue === 'source'">
+            Data sources are read two at a time: the first of each pair draws the row's
+            trend and value, the second gives the second column, such as a pump's
+            flow and its power. Add them in that order. A last source with no partner
+            shows <code>--</code>.
+        </div>
         <div class="pvx-cfg-hint">The sparkline takes the remaining width, and is never squeezed below a quarter of the symbol.</div>
         <div class="pvx-cfg-row">
             <label for="pvxspk-units">Show units</label>
@@ -69,6 +90,38 @@
         <div class="pvx-cfg-row">
             <label for="pvxspk-compact">Compact numbers (1.2k)</label>
             <input id="pvxspk-compact" type="checkbox" ng-model="config.CompactNumbers" />
+        </div>
+    </div>
+
+    <div class="pvx-cfg-group">
+        <div class="pvx-cfg-legend">Column headings</div>
+
+        <div class="pvx-cfg-row">
+            <label for="pvxspk-colheads">Show column headings</label>
+            <input id="pvxspk-colheads" type="checkbox" ng-model="config.ShowColumnHeaders" />
+        </div>
+        <div ng-if="config.ShowColumnHeaders">
+            <div class="pvx-cfg-stack">
+                <label for="pvxspk-hname">Name heading</label>
+                <input id="pvxspk-hname" type="text" ng-model="config.NameHeader" placeholder="none" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxspk-htrend">Trend heading</label>
+                <input id="pvxspk-htrend" type="text" ng-model="config.TrendHeader" placeholder="the time range, e.g. Last 8 h" />
+            </div>
+            <div class="pvx-cfg-stack">
+                <label for="pvxspk-hvalue">Value heading</label>
+                <input id="pvxspk-hvalue" type="text" ng-model="config.ValueHeader" placeholder="the attribute name, else Value" />
+            </div>
+            <div class="pvx-cfg-stack" ng-if="config.SecondValue && config.SecondValue !== 'none'">
+                <label for="pvxspk-hsecond">Second value heading</label>
+                <input id="pvxspk-hsecond" type="text" ng-model="config.SecondHeader" placeholder="the attribute or statistic" />
+            </div>
+            <div class="pvx-cfg-hint">
+                Blank headings are worked out: the time range over the trend, and over a
+                value column the attribute name its rows share (<code>Unit|Flow</code> gives
+                <code>Flow</code>), or the statistic.
+            </div>
         </div>
     </div>
 

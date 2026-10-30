@@ -690,6 +690,79 @@
     };
 
     /**
+     * Two-sided limits. Band order is severity for most symbols: the band with
+     * the highest limit is the worst, so nothing below a limit can alarm. An
+     * alarm list that must also flag a value BELOW a limit (a level under
+     * its low limit, a flow that has stopped) names its in-limits band instead, and
+     * every band is ranked by how far it sits from that one, below or above.
+     *
+     * @param normal the in-limits band's index, or -1 for "rising only"
+     */
+    thresholds.rank = function (sev, normal) {
+        if (sev < 0) { return -1; }
+        return normal >= 0 ? Math.abs(sev - normal) : sev;
+    };
+
+    /**
+     * The band a number falls in. With an in-limits band above the first, the
+     * lowest band also takes everything below its own limit: "under 60 is
+     * Low" should not need a second, made-up limit under it to catch 0.
+     */
+    thresholds.bandOf = function (value, bands, normal) {
+        if (value === null || value === undefined || isNaN(value)) { return -1; }
+        var hit = -1;
+        for (var i = 0; i < bands.length; i++) {
+            if (value >= bands[i].value) { hit = i; } else { break; }
+        }
+        return hit < 0 && normal > 0 && bands.length ? 0 : hit;
+    };
+
+    /**
+     * The limit a band was entered across, for "< 60" beside an alarm: a
+     * band above the in-limits one starts at its own limit, one below it ends
+     * at the next band's. Null when there is no finite limit to quote.
+     */
+    thresholds.limitOf = function (bands, sev, normal) {
+        if (sev < 0 || sev >= bands.length) { return null; }
+        var below = normal >= 0 && sev < normal;
+        var v = below ? (bands[sev + 1] ? bands[sev + 1].value : null) : bands[sev].value;
+        return v === null || !isFinite(v) ? null : { value: v, below: below };
+    };
+
+    /** AF limit trait names, worst low to worst high, as five bands' labels. */
+    thresholds.AF_LIMITS = ['LoLo', 'Lo', 'Normal', 'Hi', 'HiHi'];
+
+    /**
+     * Five bands from one attribute's AF limit traits ({LoLo, Lo, Hi, HiHi},
+     * null where it has none), in the same order whatever is set, so labels,
+     * colors and counts line up across attributes with different limits. The
+     * in-limits band is index 2. A missing trait gives its band no width: no
+     * Lo means the Normal band starts at LoLo, no Hi means Hi starts at HiHi.
+     * Returns null when the attribute has none of the four.
+     */
+    thresholds.fromLimits = function (lim) {
+        lim = lim || {};
+        var n = function (k) { var v = util.num(lim[k]); return v === null ? null : v; };
+        var lolo = n('LoLo'), lo = n('Lo'), hi = n('Hi'), hihi = n('HiHi');
+        if (lolo === null && lo === null && hi === null && hihi === null) { return null; }
+        var low = -Infinity;
+        var b1 = lolo !== null ? lolo : low;
+        var b2 = lo !== null ? lo : b1;
+        var b4 = hihi !== null ? hihi : Infinity;
+        var b3 = hi !== null ? hi : b4;
+        var s = color.status;
+        var starts = [low, b1, b2, b3, b4];
+        var colors = [s.alarm, s.warning, s.normal, s.warning, s.alarm];
+        var out = [];
+        for (var i = 0; i < 5; i++) {
+            out.push({ value: starts[i], color: colors[i], label: thresholds.AF_LIMITS[i] });
+        }
+        // Limits out of order (a Lo above a Hi) cannot be banded honestly.
+        for (i = 1; i < 5; i++) { if (out[i].value < out[i - 1].value) { return { bad: true }; } }
+        return out;
+    };
+
+    /**
      * Alarm deadband: '2' (engineering units) or '2%' (of each limit's own
      * size). Returns {amount, percent}, null for blank, or {bad:true} for
      * something it cannot read, so a symbol can say so instead of quietly
@@ -722,18 +795,30 @@
      * @param bands   parse() output, ascending
      * @param rawSev  the band the value is in, ignoring the deadband
      * @param prevSev the band reported last time (-1 for none)
+     * @param normal  the in-limits band's index (rank), or -1/undefined
      */
-    thresholds.hold = function (value, bands, rawSev, prevSev, db) {
-        if (!db || db.bad || value === null || value === undefined || !(prevSev > rawSev)) { return rawSev; }
-        for (var j = Math.min(prevSev, bands.length - 1); j > rawSev; j--) {
-            if (value >= bands[j].value - thresholds.deadbandAt(db, bands[j].value)) { return j; }
+    thresholds.hold = function (value, bands, rawSev, prevSev, db, normal) {
+        if (!db || db.bad || value === null || value === undefined || prevSev < 0 || prevSev === rawSev) { return rawSev; }
+        var k = normal >= 0 ? normal : -1;
+        var j;
+        if (prevSev > rawSev) {
+            for (j = Math.min(prevSev, bands.length - 1); j > Math.max(rawSev, k); j--) {
+                if (value >= bands[j].value - thresholds.deadbandAt(db, bands[j].value)) { return j; }
+            }
+            return rawSev;
+        }
+        // Below the in-limits band, the mirror image: rising out of a low
+        // band waits until the value is a deadband above the band's top.
+        for (j = prevSev; j < Math.min(rawSev, k); j++) {
+            var top = bands[j + 1].value;
+            if (value < top + thresholds.deadbandAt(db, top)) { return j; }
         }
         return rawSev;
     };
 
     /**
-     * Past alarms from recorded values: one entry per excursion at or above
-     * band `minBand`, with the worst band it reached.
+     * Past alarms from recorded values: one entry per excursion ranked
+     * `minBand` or worse (see rank), with the worst band it reached.
      *
      * An excursion starts at the first recorded value in alarm and ends at
      * the first one out of it. That is how PI's own analyses timestamp an
@@ -742,13 +827,15 @@
      * about the process, so it neither starts nor ends anything.
      *
      * @param points [{t (ms), v (number or null), raw, good}] in time order
-     * @param opts {minBand, deadband (parseDeadband), stateBands, from, to}
+     * @param opts {minBand (a rank), deadband (parseDeadband), stateBands,
+     *            normal (the in-limits band, for low-side limits), from, to}
      * @returns [{sev, firstSev, start, end (null while still in), openStart,
      *            peak, startValue, endValue}]
      */
     thresholds.excursions = function (points, bands, opts) {
         opts = opts || {};
         var minBand = Math.max(0, parseInt(opts.minBand, 10) || 0);
+        var normal = opts.normal >= 0 ? opts.normal : -1;
         var out = [], cur = null, prev = -1, seen = false;
         for (var i = 0; i < (points || []).length; i++) {
             var p = points[i];
@@ -758,21 +845,24 @@
             if (key && opts.stateBands[key] !== undefined) {
                 raw = opts.stateBands[key];
             } else if (p.v !== null && p.v !== undefined) {
-                for (var b = 0; b < bands.length; b++) { if (p.v >= bands[b].value) { raw = b; } else { break; } }
+                raw = thresholds.bandOf(p.v, bands, normal);
             }
-            var sev = thresholds.hold(p.v, bands, raw, prev, opts.deadband);
+            var sev = thresholds.hold(p.v, bands, raw, prev, opts.deadband, normal);
             prev = sev;
-            var inAlarm = sev >= minBand && sev >= 0;
+            var rank = thresholds.rank(sev, normal);
+            var inAlarm = sev >= 0 && rank >= minBand;
             if (inAlarm && !cur) {
                 cur = { sev: sev, firstSev: sev, start: p.t, end: null,
                     // Already in alarm at the first good value: it began
                     // before the window, at a time these values cannot show.
                     openStart: !seen,
+                    // Below the in-limits band the worst value is the lowest.
+                    low: normal >= 0 && sev < normal,
                     peak: p.v, startValue: p.raw !== undefined ? p.raw : p.v, endValue: null };
                 out.push(cur);
             } else if (inAlarm) {
-                if (sev > cur.sev) { cur.sev = sev; }
-                if (p.v !== null && (cur.peak === null || p.v > cur.peak)) { cur.peak = p.v; }
+                if (rank > thresholds.rank(cur.sev, normal)) { cur.sev = sev; }
+                if (p.v !== null && (cur.peak === null || (cur.low ? p.v < cur.peak : p.v > cur.peak))) { cur.peak = p.v; }
             } else if (cur) {
                 cur.end = p.t;
                 cur.endValue = p.raw !== undefined ? p.raw : p.v;

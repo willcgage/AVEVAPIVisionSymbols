@@ -67,7 +67,10 @@
                 SmoothLine: true,
 
                 ShowDelta: true,
-                DeltaBasis: 'window',       // window | plan (plan = data source 2)
+                DeltaBasis: 'window',       // window | plan (plan = data source 2) | average (of the time range)
+                // Typed after the change, "vs 7-day avg"; blank: "vs plan",
+                // "vs average", or nothing for 'window', as before.
+                DeltaCaption: '',
                 PlanFrom: 'source',         // source (data source 2) | af (the KPI's Target trait) | fixed
                 TargetValue: '',            // PlanFrom 'fixed'
                 TargetTolerance: '',        // blank, an amount, or a percent ("2%") either side of the plan
@@ -331,15 +334,21 @@
             }
             scope.pvx.note = notes.join(' · ');
 
+            // 'average': the headline against the time-weighted average of the
+            // whole range, so "vs 7-day avg" means that over a 7-day range.
+            var vsAvg = !vsPlan && cfg.DeltaBasis === 'average';
             var delta = !cfg.ShowDelta ? null
                 : vsPlan ? planDelta(headline, target)
+                : vsAvg ? planDelta(headline, statValue(stats, 'twavg', points))
                 : PVX.stats.delta(points, PVX.util.num(cfg.DeltaLookback) || 0.25);
+            var caption = String(cfg.DeltaCaption === undefined || cfg.DeltaCaption === null ? '' : cfg.DeltaCaption).trim();
+            var suffix = caption ? ' ' + caption : (vsPlan ? ' vs plan' : (vsAvg ? ' vs average' : ''));
             var tol = vsPlan ? tolerance(cfg, target) : null;
             var onTarget = !!(delta && tol !== null && Math.abs(delta.absolute) <= tol);
             scope.pvx.showDelta = !!delta;
             if (delta && onTarget) {
                 var tPct = delta.percent === null ? '' : ' (' + (delta.percent >= 0 ? '+' : '') + delta.percent.toFixed(1) + '%)';
-                scope.pvx.deltaText = 'On target' + (cfg.DeltaMode === 'absolute' ? '' : tPct);
+                scope.pvx.deltaText = 'On target' + (cfg.DeltaMode === 'absolute' ? '' : tPct) + (caption ? ' ' + caption : '');
                 scope.pvx.deltaArrow = '\u25cf';
                 scope.pvx.deltaColor = cfg.DeltaGoodDirection === 'none' ? t.textMuted : (cfg.GoodColor || '#2f9e5f');
             } else if (delta) {
@@ -347,8 +356,7 @@
                 var absText = (delta.absolute >= 0 ? '+' : '') + PVX.fmt.number(delta.absolute, PVX.config.numberOpts(cfg));
                 scope.pvx.deltaText =
                     (cfg.DeltaMode === 'absolute' ? absText :
-                     cfg.DeltaMode === 'both' ? (absText + '  (' + pctText + ')') : pctText) +
-                    (vsPlan ? ' vs plan' : '');
+                     cfg.DeltaMode === 'both' ? (absText + '  (' + pctText + ')') : pctText) + suffix;
 
                 scope.pvx.deltaArrow = delta.direction > 0 ? '▲' : (delta.direction < 0 ? '▼' : '▬');
 

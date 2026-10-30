@@ -7,6 +7,15 @@
  * a glance" view that PI Vision's stock trend cannot do — a stock trend with 20
  * traces is unreadable, and 20 stock trends do not fit on a screen.
  *
+ * Two options added later, both off by default:
+ *   SecondValue  a second value column: a statistic of the row's own trend,
+ *                or, with 'source', the data sources taken in pairs, so one
+ *                row reads [pump] [trend of its flow] [flow] [power].
+ *                Pairs go by position because a PI point has no asset to
+ *                pair by; an unpaired last source shows "--", not nothing.
+ *   ShowColumnHeaders  a heading over each column, typed or worked out: the
+ *                time range over the trend, the attribute names over values.
+ *
  * The entire symbol is drawn as ONE imperative SVG inside `.pvx-spark-body`.
  * A per-row Angular template (ng-repeat with bindings for name/value/color)
  * would put 30 rows x ~6 watchers into the digest loop of a display that also
@@ -67,6 +76,17 @@
                 LineColor: '#3b82c4',
                 UseThresholds: true,
 
+                // Second value column, off: none | source | min | max | avg | change
+                SecondValue: 'none',
+                SecondWidthPct: 18,
+
+                // Column headings. Blank: worked out (see headings()).
+                ShowColumnHeaders: false,
+                NameHeader: '',
+                TrendHeader: '',
+                ValueHeader: '',
+                SecondHeader: '',
+
                 // Chrome
                 ShowHeader: false,
                 HeaderText: ''
@@ -78,12 +98,16 @@
         var PVX = window.PVX;
 
         var series = [];
+        var span = null;         // the display's time range in ms, for the trend heading
 
         var ctx = PVX.bootstrap(this, scope, elem, {
             rootSelector: '.pvx-spark-body',
 
             onData: function (d) {
                 series = PVX.data.series(d) || [];
+                var first = d && (d.Data || d.data || [])[0];
+                var a = first && PVX.fmt.toDate(first.StartTime), b = first && PVX.fmt.toDate(first.EndTime);
+                span = a && b && b > a ? b - a : null;
             },
 
             render: render
@@ -188,6 +212,65 @@
             return list;
         }
 
+        var STAT_NAMES = { min: 'Min', max: 'Max', avg: 'Average', change: 'Change' };
+
+        /** The second column's value for one row, or null. */
+        function secondOf(cfg, row) {
+            var mode = cfg.SecondValue;
+            if (mode === 'source') { return row.partner ? row.partnerStats.last : null; }
+            var st = row.fullStats;
+            if (mode === 'min') { return st.min; }
+            if (mode === 'max') { return st.max; }
+            if (mode === 'avg') { return st.avg; }
+            if (mode === 'change') { return st.count > 1 ? st.last - st.first : null; }
+            return null;
+        }
+
+        /** "8 h", "7 d", "90 min": a time range as a heading reads it. */
+        function spanText(ms) {
+            var min = Math.round(ms / 60000);
+            if (min >= 1440 && min % 1440 === 0) { return (min / 1440) + ' d'; }
+            if (min >= 60 && min % 60 === 0) { return (min / 60) + ' h'; }
+            if (min >= 120) { return (Math.round(min / 6) / 10) + ' h'; }
+            return min + ' min';
+        }
+
+        /** The attribute part of "Element|Attribute", for a value heading. */
+        function attrOf(label) {
+            var s = String(label || '');
+            var i = s.lastIndexOf('|');
+            return i >= 0 ? s.slice(i + 1) : '';
+        }
+
+        /**
+         * Column headings: typed, else worked out. The trend is headed by the
+         * time range it covers; a value column by its attribute's name when
+         * every row shares it, which is what a list of one attribute per
+         * pump looks like; a statistic by its name.
+         */
+        function headings(cfg, rows) {
+            var common = function (pick) {
+                var name = null;
+                for (var i = 0; i < rows.length; i++) {
+                    var s = pick(rows[i]);
+                    if (!s) { continue; }
+                    var a = attrOf(s.label);
+                    if (!a || (name !== null && a !== name)) { return ''; }
+                    name = a;
+                }
+                return name || '';
+            };
+            var second = cfg.SecondValue === 'source'
+                ? common(function (r) { return r.partner; })
+                : (STAT_NAMES[cfg.SecondValue] || '');
+            return {
+                name: cfg.NameHeader || '',
+                trend: cfg.TrendHeader || (span ? 'Last ' + spanText(span) : ''),
+                value: cfg.ValueHeader || common(function (r) { return r.series; }) || 'Value',
+                second: cfg.SecondHeader || second
+            };
+        }
+
         /* ------------------------------------------------------------------ *
          * render
          * ------------------------------------------------------------------ */
@@ -228,32 +311,46 @@
             var contentW = Math.max(20, W - padX * 2);
             var gap = 6;
 
+            var hasSecond = !!STAT_NAMES[cfg.SecondValue] || cfg.SecondValue === 'source';
             var nameW = cfg.ShowNames ? contentW * (PVX.util.clamp(PVX.util.num(cfg.NameWidthPct) || 0, 0, 60) / 100) : 0;
             var valueW = cfg.ShowValues ? contentW * (PVX.util.clamp(PVX.util.num(cfg.ValueWidthPct) || 0, 0, 50) / 100) : 0;
-            var gaps = (nameW > 0 ? gap : 0) + (valueW > 0 ? gap : 0);
+            var secondW = hasSecond ? contentW * (PVX.util.clamp(PVX.util.num(cfg.SecondWidthPct) || 0, 0, 40) / 100) : 0;
+            var gaps = (nameW > 0 ? gap : 0) + (valueW > 0 ? gap : 0) + (secondW > 0 ? gap : 0);
 
             // The sparkline is the whole point of the symbol; if the label and
             // value columns would squeeze it below a quarter of the width, shrink
             // them proportionally rather than letting the trend disappear.
             var minSpark = contentW * 0.25;
-            if (contentW - gaps - nameW - valueW < minSpark && (nameW + valueW) > 0) {
+            if (contentW - gaps - nameW - valueW - secondW < minSpark && (nameW + valueW + secondW) > 0) {
                 var room = Math.max(0, contentW - gaps - minSpark);
-                var shrink = room / (nameW + valueW);
+                var shrink = room / (nameW + valueW + secondW);
                 nameW *= shrink;
                 valueW *= shrink;
+                secondW *= shrink;
             }
             var sparkX = padX + nameW + (nameW > 0 ? gap : 0);
-            var sparkW = Math.max(4, contentW - nameW - valueW - gaps);
+            var sparkW = Math.max(4, contentW - nameW - valueW - secondW - gaps);
 
-            var rowH = rowHeight(cfg, H, series.length);
-            var capacity = Math.max(1, Math.floor(H / rowH));
+            // Rows: one per source, or one per pair of sources.
+            var pairs = cfg.SecondValue === 'source';
+            var rowsIn = [];
+            for (var si = 0; si < series.length; si += (pairs ? 2 : 1)) {
+                rowsIn.push({ series: series[si], partner: pairs ? (series[si + 1] || null) : null });
+            }
+
+            // Headings take a row's height off the top, never below legibility.
+            var headH = cfg.ShowColumnHeaders ? PVX.util.clamp(H * 0.12, MIN_ROW_H, 22) : 0;
+            var bodyH = Math.max(MIN_ROW_H, H - headH);
+
+            var rowH = rowHeight(cfg, bodyH, rowsIn.length);
+            var capacity = Math.max(1, Math.floor(bodyH / rowH));
 
             var overflow = 0;
-            var drawCount = series.length;
-            if (series.length > capacity) {
+            var drawCount = rowsIn.length;
+            if (rowsIn.length > capacity) {
                 // Spend one row on the "+N more" notice so the count is honest.
                 drawCount = Math.max(0, capacity - 1);
-                overflow = series.length - drawCount;
+                overflow = rowsIn.length - drawCount;
             }
 
             // Bars need elbow room to read as discrete marks; lines can carry one
@@ -262,12 +359,20 @@
             var buckets = Math.max(2, Math.floor(sparkW / (isBars ? 4 : 2)));
 
             var prepared = [];
-            for (var i = 0; i < series.length; i++) {
-                var s = series[i];
+            for (var i = 0; i < rowsIn.length; i++) {
+                var s = rowsIn[i].series;
                 var pts = decimate(s.points || [], buckets, !isBars);
                 var st = PVX.data.stats(pts);
-                prepared.push({ series: s, pts: pts, stats: st, last: st.last });
+                var pr = { series: s, pts: pts, stats: st, last: st.last, partner: rowsIn[i].partner };
+                if (hasSecond) {
+                    // Statistics from every value, not the decimated trace.
+                    pr.fullStats = PVX.data.stats(s.points || []);
+                    pr.partnerStats = pr.partner ? PVX.data.stats(pr.partner.points || []) : null;
+                    pr.second = secondOf(cfg, pr);
+                }
+                prepared.push(pr);
             }
+            var heads = cfg.ShowColumnHeaders ? headings(cfg, prepared) : null;
             sortRows(prepared, cfg.SortBy);
             prepared = prepared.slice(0, drawCount);
 
@@ -304,10 +409,32 @@
             var numOpts = PVX.config.numberOpts(cfg);
             var zebraFill = t.dark ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.035)';
 
+            // ---- column headings ------------------------------------------------
+            if (heads) {
+                var hFont = PVX.util.clamp(headH * 0.5, 8, 11.5);
+                var hy = (headH / 2).toFixed(1);
+                var headText = function (x, txt, w, anchor) {
+                    if (!txt || w < 8) { return; }
+                    var n = PVX.svg.text(svgRoot, x.toFixed(1), hy, fitText(txt, w, hFont), {
+                        'class': 'pvx-spark-colhead', 'font-size': hFont.toFixed(1), fill: t.textMuted,
+                        'text-anchor': anchor || 'start'
+                    });
+                    PVX.svg.el('title', null, n).textContent = txt;
+                };
+                if (cfg.ShowNames && nameW > 2) { headText(padX, heads.name, nameW); }
+                headText(sparkX, heads.trend, sparkW);
+                if (cfg.ShowValues && valueW > 2) { headText(W - padX - (secondW > 0 ? secondW + gap : 0), heads.value, valueW, 'end'); }
+                if (secondW > 2) { headText(W - padX, heads.second, secondW, 'end'); }
+                PVX.svg.el('line', {
+                    x1: padX, y1: (headH - 0.5).toFixed(1), x2: (W - padX), y2: (headH - 0.5).toFixed(1),
+                    stroke: t.grid, 'stroke-width': 1, 'class': 'pvx-grid-line'
+                }, svgRoot);
+            }
+
             // ---- rows ------------------------------------------------------------
             for (var r = 0; r < prepared.length; r++) {
                 drawRow(svgRoot, prepared[r], r, {
-                    W: W, y: r * rowH, rowH: rowH, padX: padX,
+                    W: W, y: headH + r * rowH, rowH: rowH, padX: padX, gap: gap, secondW: secondW,
                     nameW: nameW, valueW: valueW, sparkX: sparkX, sparkW: sparkW,
                     badGutter: badGutter, nameFont: nameFont, valueFont: valueFont,
                     xScale: xScale, sharedLo: sharedLo, sharedHi: sharedHi,
@@ -318,7 +445,7 @@
 
             // ---- overflow notice --------------------------------------------------
             if (overflow > 0) {
-                var fy = drawCount * rowH + Math.min(rowH, H - drawCount * rowH) / 2;
+                var fy = headH + drawCount * rowH + Math.min(rowH, bodyH - drawCount * rowH) / 2;
                 PVX.svg.text(svgRoot, padX, fy.toFixed(1),
                     '+' + overflow + ' more', {
                         'class': 'pvx-spark-more',
@@ -382,9 +509,20 @@
                 x: 0, y: L.y.toFixed(1), width: L.W, height: L.rowH.toFixed(1),
                 'class': 'pvx-hit'
             }, g);
+            var secondText = '', secondUnits = '';
+            if (L.secondW > 0) {
+                var src2 = cfg.SecondValue === 'source';
+                secondText = row.second === null || row.second === undefined ? '--'
+                    : (cfg.SecondValue === 'change' && row.second > 0 ? '+' : '') + PVX.fmt.number(row.second, L.numOpts);
+                var u2 = src2 ? (row.partner && row.partner.units) : s.units;
+                secondUnits = (cfg.ShowUnits && u2 && row.second !== null) ? ' ' + u2 : '';
+            }
             var hitTitle = PVX.svg.el('title', null, hit);
             hitTitle.textContent = (s.label || '') + ': ' + valueText + unitText +
-                (s.good ? '' : ' (' + (s.errorDescription || 'bad quality') + ')');
+                (s.good ? '' : ' (' + (s.errorDescription || 'bad quality') + ')') +
+                (L.secondW > 0 ? '\n' + (cfg.SecondValue === 'source'
+                    ? (row.partner ? (row.partner.label || '') + ': ' + secondText + secondUnits : 'No paired data source')
+                    : STAT_NAMES[cfg.SecondValue] + ': ' + secondText + secondUnits) : '');
 
             var midY = L.y + L.rowH / 2;
 
@@ -417,13 +555,31 @@
             // ---- value column ----------------------------------------------------
             if (cfg.ShowValues && L.valueW > 2) {
                 var valColor = (cfg.ColorMode === 'threshold') ? color : t.text;
-                PVX.svg.text(g, (L.W - L.padX).toFixed(1), midY.toFixed(1),
+                PVX.svg.text(g, (L.W - L.padX - (L.secondW > 0 ? L.secondW + L.gap : 0)).toFixed(1), midY.toFixed(1),
                     fitValue(valueText, unitText, L.valueW, L.valueFont), {
                         'class': 'pvx-spark-value pvx-num',
                         'text-anchor': 'end',
                         'font-size': L.valueFont.toFixed(1),
                         fill: valColor
                     });
+            }
+
+            // ---- second value column ----------------------------------------------
+            if (L.secondW > 2) {
+                var p2bad = cfg.SecondValue === 'source' && row.partner && !row.partner.good;
+                var sv = PVX.svg.text(g, (L.W - L.padX).toFixed(1), midY.toFixed(1),
+                    fitValue(secondText, secondUnits, L.secondW, L.valueFont), {
+                        'class': 'pvx-spark-value2 pvx-num',
+                        'text-anchor': 'end',
+                        'font-size': L.valueFont.toFixed(1),
+                        fill: row.second === null ? t.textMuted : t.text,
+                        opacity: p2bad ? '0.55' : '1'
+                    });
+                if (cfg.SecondValue === 'source') {
+                    PVX.svg.el('title', null, sv).textContent = row.partner
+                        ? (row.partner.label || '') + (row.partner.good ? '' : ' (' + (row.partner.errorDescription || 'bad quality') + ')')
+                        : 'No paired data source: add one after ' + (s.label || 'this one');
+                }
             }
 
             // ---- separator --------------------------------------------------------
