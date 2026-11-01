@@ -21,11 +21,11 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
 
       # `npm ci` not `npm install` — installs exactly what package-lock.json
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload screenshots on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: render-failures
           path: dist/screenshots/
@@ -147,11 +147,11 @@ jobs:
     # GUID drifting (which would make the *next* upgrade delete the file it
     # had just installed).
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Two packages, not one. Ubuntu 24.04 ships the wixl compiler separately
       # from msitools, which now provides only msiinfo/msibuild — the tools
@@ -180,7 +180,7 @@ jobs:
         run: node tools/verify-msi.js
 
       - name: Upload WiX source
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: installer-source
           path: |
@@ -201,11 +201,11 @@ jobs:
     # Vision trees, including upgrades over the published 1.6.0 MSI and zip and
     # the 1.7.0 MSI.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Build payload and installer source
         run: |
@@ -254,7 +254,7 @@ jobs:
 
       - name: Upload msiexec logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: installer-logs
           path: ${{ runner.temp }}/pvx-installer-test/*.log
@@ -262,7 +262,7 @@ jobs:
           retention-days: 7
 
       - name: Upload the official-toolset MSI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: installer-official
           path: |
@@ -280,13 +280,13 @@ jobs:
     # so the strict table checks (Permanent + NeverOverwrite, the searches,
     # the move, the clean-up, the dialog) read the Windows job's MSI here.
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Install msitools
         run: sudo apt-get update && sudo apt-get install -y msitools
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: installer-official
           path: dist/installer
